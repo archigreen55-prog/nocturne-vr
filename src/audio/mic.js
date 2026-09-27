@@ -1,0 +1,134 @@
+// Microphone loudness (plan §6): getUserMedia with AGC / noise suppression / echo cancellation off,
+// AnalyserNode RMS 30 times a second -> dBFS, envelope (attack 50 ms, release 300 ms), classified
+// against a per-player calibration into quiet (whisper) / normal / shout.
+import { audioContext, unlockAudio } from './audio.js';
+import { loadSetting, saveSetting } from '../settings.js';
+
+const RATE = 30;               // analyses per second
+const ATTACK = 0.05, RELEASE = 0.3;
+const WHISPER_K = 0.5;         // whisper threshold = floor + K * (normal - floor)
+const SHOUT_OVER = 9;          // dB above "normal"
+const SHOUT_RISE = 6;          // dB rise within 100 ms needed to start a shout
+const SHOUT_HOLD = 0.8;        // s the shout label stays after the peak
+const DEFAULT_CAL = { floor: -62, normal: -32 };
+
+export const LEVELS = {
+  quiet: { label: 'ШЕПІТ', color: '#5fd38d' },
+  normal: { label: 'НОРМАЛЬНО', color: '#ffd166' },
+  shout: { label: 'КРИК!', color: '#ff4d4d' },
+};
+
+export class Mic {
+  constructor() {
+    this.state = 'off';        // off | pending | on | denied | none
+    this.error = '';
+    this.analyser = null;
+    this.buf = null;
+    this.db = -100;            // last raw RMS, dBFS
+    this.env = -100;           // smoothed envelope, dBFS
+    this.level = 'quiet';
+    this.hist = new Float32Array(8);  // envelope history at RATE, for the rise test
+    this.histI = 0;
+    this.shoutUntil = 0;
+    this.acc = 0;
+    this.t = 0;
+    this.collect = null;       // array while calibrating
+    const cal = loadSetting('mic', null);
+    this.calibrated = !!(cal && Number.isFinite(cal.floor) && Number.isFinite(cal.normal));
+    this.cal = this.calibrated ? cal : { ...DEFAULT_CAL };
+    this.hist.fill(-100);
+  }
+
+  get whisperDb() { return this.cal.floor + WHISPER_K * (this.cal.normal - this.cal.floor); }
+  get shoutDb() { return this.cal.normal + SHOUT_OVER; }
+
+  async enable() {
+    if (this.state === 'on' || this.state === 'pending') return this.state;
+    const ctx = unlockAudio();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !ctx) {
+      this.state = 'none'; this.error = 'браузер не дає доступу до мікрофона';
+      return this.state;
+    }
+    this.state = 'pending';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
+        video: false,
+      });
+      const src = audioContext().createMediaStreamSource(stream);
+      this.analyser = audioContext().createAnalyser();
+      this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = 0;
+      this.buf = new Float32Array(this.analyser.fftSize);
+      src.connect(this.analyser);   // analysis only: never routed to the speakers
+      this.stream = stream;
+      this.track = stream.getAudioTracks()[0];
+      this.state = 'on';
+    } catch (e) {
+      this.state = e && e.name === 'NotAllowedError' ? 'denied' : 'none';
+      this.error = e && e.name === 'NotAllowedError' ? 'дозвіл не надано' : String(e && (e.message || e.name) || e);
+    }
+    return this.state;
+  }
+
+  // '' when the signal is live, else what is wrong (shown on the wrist: helps the first headset test)
+  get problem() {
+    if (this.state !== 'on') return '';
+    const ctx = audioContext();
+    if (ctx.state !== 'running') return `аудіо: ${ctx.state}`;
+    if (this.track && this.track.readyState === 'ended') return 'потік мікрофона зупинено';
+    if (this.track && this.track.muted) return 'мікрофон приглушено системою';
+    return '';
+  }
+
+  // Call every frame with the frame time (s).
+  update(dt) {
+    if (this.state !== 'on') return;
+    this.acc += dt;
+    if (this.acc < 1 / RATE) return;
+    const step = Math.min(0.2, this.acc);
+    this.acc = 0;
+    this.t += step;
+    const a = this.analyser, b = this.buf;
+    a.getFloatTimeDomainData(b);
+    let s = 0;
+    for (let i = 0; i < b.length; i++) s += b[i] * b[i];
+    this.db = Math.max(-100, 10 * Math.log10(s / b.length + 1e-12));
+    const tau = this.db > this.env ? ATTACK : RELEASE;
+    this.env += (this.db - this.env) * (1 - Math.exp(-step / tau));
+    if (this.collect) this.collect.push(this.db);
+
+    // rise over ~100 ms: compare with the envelope 3 analyses ago
+    const past = this.hist[(this.histI + this.hist.length - 3) % this.hist.length];
+    this.hist[this.histI] = this.env;
+    this.histI = (this.histI + 1) % this.hist.length;
+    const shoutDb = this.shoutDb;
+    if (this.env > shoutDb && (this.env - past > SHOUT_RISE || this.t < this.shoutUntil)) {
+      this.shoutUntil = Math.max(this.shoutUntil, this.t + (this.t < this.shoutUntil ? 0.3 : SHOUT_HOLD));
+    }
+    if (this.t < this.shoutUntil) this.level = 'shout';
+    else this.level = this.env >= this.whisperDb ? 'normal' : 'quiet';
+  }
+
+  // Calibration: collect raw dB for `seconds`, then return a percentile of them.
+  measure(seconds, pct) {
+    this.collect = [];
+    return new Promise((resolve) => setTimeout(() => {
+      const v = this.collect.slice().sort((x, y) => x - y);
+      this.collect = null;
+      resolve(v.length ? v[Math.min(v.length - 1, Math.floor(v.length * pct))] : null);
+    }, seconds * 1000));
+  }
+
+  setCalibration(floor, normal) {
+    this.cal = { floor, normal };
+    this.calibrated = true;
+    saveSetting('mic', this.cal);
+  }
+
+  // 0..1 position of a dB value on the level bar (floor - 10 .. shout + 12)
+  barPos(db) {
+    const lo = this.cal.floor - 10, hi = this.shoutDb + 12;
+    return Math.min(1, Math.max(0, (db - lo) / (hi - lo)));
+  }
+}

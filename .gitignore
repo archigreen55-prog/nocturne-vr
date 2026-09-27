@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+*.log
+.vscode/
+# design docs and reports stay local: the repository is public
+docs/
