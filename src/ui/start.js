@@ -4,7 +4,7 @@ import { LEVELS } from '../audio/mic.js';
 
 const $ = (id) => document.getElementById(id);
 
-export function setupStartScreen({ mic, onPlay }) {
+export function setupStartScreen({ mic, onPlay, onMicOn }) {
   const micBtn = $('micbtn'), calBtn = $('calbtn'), state = $('micstate'), step = $('calstep');
   const startBtn = $('start');
   let calibrating = false, meterT = 0;
@@ -30,6 +30,7 @@ export function setupStartScreen({ mic, onPlay }) {
     showState();
     await mic.enable();
     showState();
+    if (mic.state === 'on' && onMicOn) onMicOn();
     if (mic.state === 'on' && !mic.calibrated) step.textContent = 'Тепер натисни «Калібрувати».';
   });
 

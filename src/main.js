@@ -1,14 +1,26 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { VERSION } from './version.js';
-import { buildLevel, roomAt, SPAWN } from './world/level.js';
+import { CFG } from './game/config.js';
+import { buildLevel, roomAt, SPAWN, BOARD } from './world/level.js';
 import { Player } from './xr/player.js';
 import { ComfortOverlay, VIGNETTE_LEVELS } from './comfort/vignette.js';
 import { KeyboardInput } from './input/keyboard.js';
 import { XRInput } from './input/xrInput.js';
 import { WristPanel } from './ui/wrist.js';
-import { Mic } from './audio/mic.js';
-import { unlockAudio, playCreak, playKnock } from './audio/audio.js';
+import { Board } from './ui/board.js';
+import { Pointer } from './ui/pointer.js';
+import { Mic, Breath } from './audio/mic.js';
+import { ScreamRecorder } from './audio/scream.js';
+import { unlockAudio, setListener, playCreak, playKnock, playCash, playHeartbeat, Siren } from './audio/audio.js';
+import { NoiseSystem } from './noise/noise.js';
+import { Loot } from './loot/items.js';
+import { Hands } from './loot/hands.js';
+import { Nav } from './enemies/nav.js';
+import { Alert } from './enemies/alert.js';
+import { Patrol } from './enemies/patrol.js';
+import { Lurker } from './enemies/lurker.js';
+import { Round } from './game/round.js';
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
 import { loadSetting, saveSetting } from './settings.js';
@@ -33,11 +45,13 @@ scene.background = new THREE.Color(NIGHT);
 scene.fog = new THREE.Fog(NIGHT, 6, 25);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 200);
 
-// Lights (plan §7): dim sky, moonlight, 3 point lights. No shadows.
-scene.add(new THREE.HemisphereLight(0x46587f, 0x17130f, 1.5));
+// Lights (plan §7): dim sky, moonlight, 3 point lights + the patrol's flashlight. No shadows.
+const hemi = new THREE.HemisphereLight(0x46587f, 0x17130f, 1.5);
+scene.add(hemi);
 const moonLight = new THREE.DirectionalLight(0x9fb4ff, 0.55);
 moonLight.position.set(-0.6, 0.8, 0.7);
 scene.add(moonLight);
+const points = [];
 for (const [x, y, z, color, intensity, dist] of [
   [0.6, 2.8, 5.6, 0xffc98a, 6, 12],     // yard lamp over the path
   [1.5, 0.6, -12.9, 0xff7a3a, 3.5, 8],  // fireplace embers
@@ -46,6 +60,7 @@ for (const [x, y, z, color, intensity, dist] of [
   const l = new THREE.PointLight(color, intensity, dist, 1.6);
   l.position.set(x, y, z);
   scene.add(l);
+  points.push(l);
 }
 
 addEventListener('resize', () => {
@@ -55,16 +70,68 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+// ---------- messages ----------
+let flashText = '', flashT = 0, flashColor = '#ffd166', wristTimer = 0;
+function flash(text, seconds = 2, color = '#ffd166') { flashText = text; flashT = seconds; flashColor = color; wristTimer = 0; }
+
 // ---------- world ----------
 const t0 = performance.now();
 const level = buildLevel();
 scene.add(level.group);
-const buildMs = performance.now() - t0;
-console.log(`Level built in ${buildMs.toFixed(0)} ms, ${level.triangles} triangles, ${level.world.edgeCount} collision edges, ${level.doors.length} doors`);
 
 const player = new Player(renderer, camera);
 scene.add(player.rig);
 player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
+const listener = () => player.head;
+
+const noise = new NoiseSystem();
+scene.add(noise.mesh);
+const loot = new Loot({
+  level, noise, listener,
+  onMessage: (t, c) => flash(t, 2, c),
+  onDeliver: (it) => { playCash(); flash(`${it.name} у фургоні: $${it.value}`, 2.5, '#5fd38d'); boardDirty = true; },
+});
+scene.add(loot.group);
+const nav = new Nav(level);
+const alert = new Alert({ hemi, moon: moonLight, points, glow: level.glowMaterial });
+const patrol = new Patrol({ level, nav, alert, listener });
+scene.add(patrol.group);
+const lurker = new Lurker({ level, onScare: () => { comfort.flashColor(0xffffff, 0.55); xrIn.pulse('both', 1, 250); } });
+scene.add(lurker.group);
+const board = new Board();
+scene.add(board.mesh);
+const mic = new Mic();
+const scream = new ScreamRecorder(mic);
+const breath = new Breath();
+const siren = new Siren();
+const round = new Round({
+  loot, alert, patrol, lurker, scream,
+  get hands() { return hands; },
+  onMessage: (t, c, s) => flash(t, s || 3, c),
+  onPhase: (phase) => {
+    boardDirty = true;
+    if (phase === 'result') {
+      siren.set(false);
+      patrol.reset(); lurker.reset(); alert.reset();
+      const R = round.result;
+      flash(`${R.title}! Табло біля фургона`, 5, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
+    }
+  },
+});
+console.log(`Level built in ${(performance.now() - t0).toFixed(0)} ms, ${level.triangles} triangles, ${level.world.edgeCount} collision edges, ${level.doors.length} doors`);
+
+// noise -> who hears it
+noise.on((e) => {
+  if (round.phase === 'result') return;
+  if (patrol.hear(e)) alert.add(CFG.alert.points[e.kind] || 20, e.x, e.z);
+  lurker.hear(e);
+});
+alert.onFull = (cause, x, z) => {
+  if (round.phase === 'result') return;
+  patrol.onAlarm(x, z);
+  round.startEscape(cause);
+  siren.set(true);
+};
 
 // controllers: small dark bodies; the wrist panel lives on the left one
 const wrist = new WristPanel(VERSION);
@@ -87,20 +154,18 @@ const grips = { left: null, right: null };
     player.rig.add(grip);
   }
 }
+const xrIn = new XRInput();
+const hands = new Hands({ loot, rig: player.rig, grips, pulse: (h, s, ms) => xrIn.pulse(h, s, ms), onMessage: (t, c) => flash(t, 2, c) });
+const pointer = new Pointer(renderer, player.rig, board);
+pointer.addTo(scene);
 
 const comfort = new ComfortOverlay();
 scene.add(comfort.mesh);
-const mic = new Mic();
 const keys = new KeyboardInput();
-const xrIn = new XRInput();
 let snapDeg = loadSetting('snap', 45) === 30 ? 30 : 45;
 
-// ---------- messages ----------
-let flashText = '', flashT = 0, flashColor = '#ffd166';
-function flash(text, seconds = 2, color = '#ffd166') { flashText = text; flashT = seconds; flashColor = color; wristTimer = 0; }
-
 // ---------- doors ----------
-const _hand = new THREE.Vector3();
+const _hand = new THREE.Vector3(), _handle = new THREE.Vector3();
 // Door nearest to (x, z) within maxDist of its doorway centre; if dirYaw is given, only in front.
 function nearestDoor(x, z, maxDist, dirYaw) {
   let best = null, bestD = maxDist;
@@ -113,18 +178,60 @@ function nearestDoor(x, z, maxDist, dirYaw) {
   }
   return best;
 }
-function useDoor(door, hand) {
+// Quick swing (creaks) or slow (quiet).
+function useDoor(door, hand, time = CFG.doors.fastTime) {
   if (!door) return;
-  const r = door.toggle(player.head.x, player.head.z);
-  if (r === 'locked') { playKnock(); flash('Замкнено'); if (hand) xrIn.pulse(hand, 0.6, 60); }
-  else { playCreak(r === 'open' ? 0.6 : 0.4); if (hand) xrIn.pulse(hand, 0.3, 30); }
+  if (hands.busy) { flash('Руки зайняті'); return; }
+  door.lastUser = 'player';
+  const r = door.toggle(player.head.x, player.head.z, time);
+  if (r === 'locked') { playKnock({ x: door.cx, y: 1, z: door.cz }); flash('Замкнено'); if (hand) xrIn.pulse(hand, 0.6, 60); }
+  else if (hand) xrIn.pulse(hand, 0.3, 30);
 }
-function useWithHand(hand) {
-  const grip = grips[hand];
-  let door = null;
-  if (grip) { grip.getWorldPosition(_hand); door = nearestDoor(_hand.x, _hand.z, 0.9); }
+// VR trigger: hand on the handle = drag the door (slow = quiet); elsewhere near a door = quick swing.
+const drags = { left: null, right: null };
+function triggerDown(hand) {
+  if (hands.busy) { flash('Руки зайняті'); return; }
+  const g = grips[hand];
+  if (!g) return;
+  g.getWorldPosition(_hand);
+  for (const door of level.doors) {
+    door.handle(_handle);
+    if (Math.hypot(_handle.x - _hand.x, _handle.z - _hand.z) < CFG.doors.handleReach && Math.abs(_hand.y - 1) < 0.6) {
+      if (!door.grab(_hand.x, _hand.z)) { useDoor(door, hand); return; }   // locked
+      door.lastUser = 'player';
+      drags[hand] = { door, t: 0, a0: door.angle };
+      xrIn.pulse(hand, 0.2, 20);
+      return;
+    }
+  }
+  let door = nearestDoor(_hand.x, _hand.z, 0.9);
   if (!door) door = nearestDoor(player.head.x, player.head.z, 1.5, player.yaw);
   useDoor(door, hand);
+}
+function updateDrags(dt) {
+  for (const hand of ['left', 'right']) {
+    const d = drags[hand];
+    if (!d) continue;
+    d.t += dt;
+    if (!xrIn.trigger[hand] || !grips[hand] || hands.busy) {
+      d.door.release();
+      drags[hand] = null;
+      // a tap on the handle (no pull) = quick swing
+      if (d.t < 0.3 && Math.abs(d.door.angle - d.a0) < 0.09) useDoor(d.door, hand);
+      continue;
+    }
+    grips[hand].getWorldPosition(_hand);
+    d.door.drag(_hand.x, _hand.z);
+  }
+}
+function updateDoors(dt) {
+  for (const d of level.doors) {
+    const loud = d.update(dt);
+    if (!loud) continue;
+    const occ = level.soundOccluded(player.head.x, player.head.z, d.cx, d.cz);
+    playCreak(loud, { x: d.cx, y: 1.2, z: d.cz }, occ);
+    if (d.lastUser !== 'patrol') noise.emit(d.cx, d.cz, CFG.doors.creakRadius * Math.min(1.3, loud), 'door');
+  }
 }
 
 // ---------- VR session ----------
@@ -139,7 +246,10 @@ renderer.xr.addEventListener('sessionstart', () => {
   comfort.blackout();   // black until the head pose is known, then fade in
   $('overlay').style.display = 'none';
   $('hint').style.display = 'none';
+  $('crosshair').style.display = 'none';
   if (document.pointerLockElement) document.exitPointerLock();
+  if (hands.desk) { hands.desk.drop(new THREE.Vector3()); hands.desk = null; }
+  if (round.phase === 'escape') siren.set(true);
   // the system recentre (holding the Meta button) resets the space: keep the head where it was
   const space = renderer.xr.getReferenceSpace();
   if (space && space.addEventListener) space.addEventListener('reset', () => player.recenterTo(player.head.x, player.head.z, player.yaw));
@@ -153,6 +263,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 renderer.xr.addEventListener('sessionend', () => {
   inVR = false;
+  for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } hands.release(h, true); }
   player.exitVR();
   camera.scale.set(1, 1, 1);
   camera.aspect = innerWidth / innerHeight;
@@ -160,6 +271,7 @@ renderer.xr.addEventListener('sessionend', () => {
   renderer.setSize(innerWidth, innerHeight);
   wrist.attachToCamera(camera);
   comfort.fade = 0;
+  siren.set(false);
   $('overlay').style.display = 'flex';
 });
 
@@ -185,7 +297,9 @@ function lockPointer() {
   try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* not available */ }
 }
 renderer.domElement.addEventListener('click', () => {
-  if (playingDesktop && !inVR && !document.pointerLockElement) lockPointer();
+  if (!playingDesktop || inVR) return;
+  if (!document.pointerLockElement) { lockPointer(); return; }
+  if (pointer.hover.desk) pressBoard(pointer.hover.desk);
 });
 addEventListener('mousemove', (e) => {
   if (document.pointerLockElement === renderer.domElement) player.look(e.movementX, e.movementY);
@@ -196,14 +310,47 @@ document.addEventListener('pointerlockchange', () => {
     playingDesktop = false;
     $('overlay').style.display = 'flex';
     $('hint').style.display = 'none';
+    $('crosshair').style.display = 'none';
+    siren.set(false);
   }
 });
+
+// ---------- round control ----------
+let boardDirty = true, boardT = 0, caughtT = -1, heartT = 0, voiceT = 0;
+function newRound() {
+  for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
+  loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); alert.reset();
+  round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
+  caughtT = -1;
+  player.virtualCrouch = false;
+  player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
+  comfort.fadeIn(0.5);
+  boardDirty = true;
+  flash('Новий раунд. Годинник піде, щойно рушиш', 4);
+}
+function pressBoard(id) {
+  if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
+  else if (id === 'play') { if (scream.play()) flash('Твій крик', 2, '#ffb347'); }
+  else if (id === 'again') newRound();
+  boardDirty = true;
+}
+function caught() {
+  caughtT = 0;
+  comfort.blackout();
+  xrIn.pulse('both', 1, 400);
+  flash('СПІЙМАЛИ', 3, '#ff5c5c');
+  for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
+}
+function goHome() {
+  player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
+  comfort.fadeIn(0.4);
+  flash('Біля фургона');
+}
 
 // ---------- stats ----------
 const perf = { fps: 0, frames: 0, since: performance.now(), calls: 0, tris: 0 };
 const debugEl = $('debug');
 wrist.showFps = params.has('fps');
-let wristTimer = 0;
 const gpu = new GpuTimer(renderer.getContext());
 const cpu = { sum: 0, n: 0, ms: null };
 const move = { x: 0, y: 0 };
@@ -213,20 +360,12 @@ function cycleVignette() {
   $('vignette').value = l.id;
   flash(`Віньєтка: ${l.label}`);
 }
-function goHome() {
-  player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
-  comfort.fadeIn(0.4);
-  flash('Біля фургона');
-}
 
-// ---------- loop ----------
-let last = performance.now(), heightMsg = false;
-function frame(now, xrFrame) {
-  const cpuStart = performance.now();
-  const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
-  last = now;
-
+// ---------- simulation (one frame of game logic) ----------
+let heightMsg = false;
+function simulate(dt, xrFrame, now) {
   mic.update(dt);
+  scream.update();
   if (player.updatePose(xrFrame) === 'recentred') {
     comfort.fadeIn(firstRecenter ? 0.5 : 0.25);
     if (firstRecenter) flash('Подивись на ліве зап\'ястя', 5);
@@ -234,33 +373,127 @@ function frame(now, xrFrame) {
     heightMsg = false;
     firstRecenter = false;
   }
+  const active = inVR || playingDesktop;
 
   // input
   if (keys.take('KeyF')) toggleStats();
-  if (keys.take('KeyR')) goHome();
-  if (keys.take('KeyC')) player.virtualCrouch = !player.virtualCrouch;
   if (keys.take('KeyV')) cycleVignette();
-  if (keys.take('KeyE') && !inVR) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw));
+  if (keys.take('KeyR')) goHome();
+  if (keys.take('KeyN')) newRound();
+  if (keys.take('KeyC')) player.virtualCrouch = !player.virtualCrouch;
   keys.readMove(move);
+  let breathDown = keys.any('ShiftLeft', 'ShiftRight');
   if (inVR) {
     const act = xrIn.read(renderer.xr.getSession(), dt);
     if (Math.hypot(xrIn.move.x, xrIn.move.y) > Math.hypot(move.x, move.y)) { move.x = xrIn.move.x; move.y = xrIn.move.y; }
+    breathDown = breathDown || xrIn.breath;
     if (act.turn) { player.snapTurn(act.turn * snapDeg * Math.PI / 180); comfort.fadeIn(0.08); comfort.pulse(); }
     if (act.fps) toggleStats();
     if (act.vignette) cycleVignette();
     if (act.crouch) { player.virtualCrouch = !player.virtualCrouch; flash(player.virtualCrouch ? 'Присів (B — встати)' : 'Встав'); }
     if (act.recenter) { player.recenterTo(player.head.x, player.head.z, player.yaw, true); heightMsg = true; }
     if (act.home) goHome();
-    if (act.useLeft) useWithHand('left');
-    if (act.useRight) useWithHand('right');
+    for (const [hand, used] of [['left', act.useLeft], ['right', act.useRight]]) {
+      if (!used || caughtT >= 0) continue;
+      if (pointer.hover[hand]) { pressBoard(pointer.hover[hand]); xrIn.pulse(hand, 0.3, 30); }
+      else triggerDown(hand);
+    }
     autoFrameRate(now);
   } else if (!playingDesktop) {
     move.x = move.y = 0;
   }
+  if (!active || caughtT >= 0) { move.x = move.y = 0; }
 
-  for (const d of level.doors) d.update(dt);
-  player.update(dt, move, level);
+  // caught: 1 s of black, then the result at the van
+  if (caughtT >= 0) {
+    caughtT += dt;
+    if (caughtT > 1 && round.phase !== 'result') {
+      round.finish('caught');
+      player.teleport(BOARD.x - 0.9, BOARD.z - 1.2, Math.atan2(-0.9, -1.2));   // in front of the board, facing it
+      comfort.fadeIn(0.8);
+      caughtT = -1;
+    }
+  }
+
+  // breath (A / Shift)
+  const b = breath.update(dt, active && breathDown);
+  if (b === 'start') { flash('Затамував подих', 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); }
+  else if (b === 'end') flash(`Видих. Знову можна через ${CFG.breath.cooldown} с`, 2, '#93a1b8');
+
+  // player + hands
+  player.update(dt, move, level, hands.carrying === 'medium' ? CFG.player.carryMediumK : 1);
+  if (inVR) hands.update(dt, xrIn.grip);
+  else if (playingDesktop) {
+    hands.aimDesk(player.head, player.yaw);
+    if (keys.take('KeyE')) hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
+    hands.updateDesk(player.head, player.yaw, player.lookPitch);
+    hands.updateHighlight();
+  }
+  if (!inVR) {
+    if (keys.take('KeyQ')) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), null, CFG.doors.slowTime);
+    if (keys.take('KeyT')) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), null, CFG.doors.fastTime);
+  }
+  updateDrags(dt);
+  updateDoors(dt);
   if (inVR) wrist.faceEye(player.head);
+  setListener(player.head.x, player.head.y, player.head.z, player.yaw);
+
+  if (active && round.phase !== 'result') {
+    // noise from the player: stick steps, voice, shout
+    if (player.stepNoise) noise.emit(player.head.x, player.head.z, player.stepNoise, 'step');
+    const micLive = mic.state === 'on' && !breath.holding && !scream.playing && caughtT < 0;
+    const shout = mic.takeShout();
+    if (micLive && shout) {
+      round.shouts++;
+      scream.onShout(round.t);
+      noise.emit(player.head.x, player.head.z, 40, 'shout');
+      alert.setFull('крик', player.head.x, player.head.z);
+      flash('КРИК! Тебе почув весь будинок', 3, '#ff4d4d');
+    }
+    if (micLive && mic.level === 'normal') {
+      voiceT -= dt;
+      if (voiceT <= 0) { voiceT = CFG.mic.normalEvery; noise.emit(player.head.x, player.head.z, CFG.mic.normalRadius, 'voice'); }
+    } else voiceT = 0;
+
+    // world
+    loot.update(dt, player);
+    if (caughtT < 0) {
+      if (patrol.update(dt, player) === 'caught') caught();
+      lurker.update(dt, player);
+    }
+    alert.update(dt);
+    round.update(dt, player);
+    // heartbeat while escaping (plan §5: 1 Hz)
+    if (round.phase === 'escape') {
+      heartT -= dt;
+      if (heartT <= 0) { heartT = 0.9; playHeartbeat(); xrIn.pulse('both', 0.35, 60); }
+    }
+  } else {
+    mic.takeShout();
+    if (round.phase === 'result') { loot.update(dt, player); alert.update(dt); }
+  }
+  noise.update(dt);
+
+  // board: pointer hover + redraw 4 times a second
+  if (pointer.update(inVR, camera)) boardDirty = true;
+  boardT -= dt;
+  if (boardDirty || boardT <= 0) {
+    boardT = 0.25; boardDirty = false;
+    board.draw({
+      phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: loot.tally(), result: round.result,
+      clip: scream.best, playing: !!scream.playing,
+    });
+  }
+}
+
+// ---------- loop ----------
+let last = performance.now();
+function frame(now, xrFrame) {
+  const cpuStart = performance.now();
+  const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+  last = now;
+
+  simulate(dt, xrFrame, now);
   comfort.update(dt, player.speed, inVR || params.has('vignette'));
 
   gpu.poll();
@@ -280,15 +513,18 @@ function frame(now, xrFrame) {
   if (wristTimer <= 0) {
     wristTimer = 0.1;   // 10 Hz
     const session = inVR && renderer.xr.getSession();
+    const held = hands.heldItems()[0];
     wrist.draw({
-      mic, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
+      mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
       room: roomAt(player.head.x, player.head.z),
+      holding: held ? `${held.name}${held.damaged ? ' (пошкодж.)' : ''}` : '',
+      clock: round.clock, phase: round.phase, alertLevel: alert.level,
       fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
       gpuMs: gpu.take(), cpuMs: cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms,
       msg: flashT > 0 ? flashText : '', msgColor: flashColor,
     });
     debugEl.style.display = wrist.showFps && !inVR ? 'block' : 'none';
-    if (wrist.showFps) debugEl.textContent = `${perf.fps.toFixed(0)} FPS\ncalls ${perf.calls}  tris ${perf.tris}\npos ${player.head.x.toFixed(1)}, ${player.head.z.toFixed(1)}  h ${player.head.y.toFixed(2)}`;
+    if (wrist.showFps) debugEl.textContent = `${perf.fps.toFixed(0)} FPS\ncalls ${perf.calls}  tris ${perf.tris}\npos ${player.head.x.toFixed(1)}, ${player.head.z.toFixed(1)}  h ${player.head.y.toFixed(2)}\npatrol ${patrol.state} ${patrol.x.toFixed(1)}, ${patrol.z.toFixed(1)}  alert ${alert.level} ${alert.suspicion.toFixed(0)}`;
   }
   start.tick(dt);
   keys.endFrame();
@@ -298,12 +534,15 @@ function frame(now, xrFrame) {
 // ---------- start screen ----------
 const start = setupStartScreen({
   mic,
+  onMicOn: () => scream.start(),
   onPlay() {
     unlockAudio();
     playingDesktop = true;
     $('overlay').style.display = 'none';
     $('hint').style.display = 'block';
+    $('crosshair').style.display = 'block';
     lockPointer();
+    if (round.phase === 'escape') siren.set(true);
   },
 });
 const vrButton = VRButton.createButton(renderer);
@@ -321,5 +560,10 @@ $('snap').addEventListener('change', () => { snapDeg = +$('snap').value; saveSet
 renderer.setAnimationLoop(frame);
 if (params.has('autostart')) start.play();
 
-// test / debugging hook
-window.__game = { THREE, renderer, scene, camera, player, level, mic, comfort, xrIn, wrist, perf, VERSION, flash, goHome, useDoor, nearestDoor, get inVR() { return inVR; } };
+// test / debugging hook: sim(seconds) runs the game logic with fixed 1/72 s steps (no rendering)
+window.__game = {
+  THREE, CFG, renderer, scene, camera, player, level, mic, comfort, xrIn, wrist, perf, VERSION, flash, goHome, useDoor, nearestDoor,
+  loot, hands, noise, nav, alert, patrol, lurker, board, round, scream, breath, pointer, newRound, pressBoard,
+  get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
+  sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
+};

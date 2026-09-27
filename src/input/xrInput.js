@@ -27,7 +27,9 @@ export class XRInput {
     this.turnArmed = true;
     this.move = { x: 0, y: 0 };
     this.actions = { turn: 0, fps: false, vignette: false, recenter: false, crouch: false, home: false, useLeft: false, useRight: false };
-    this.breath = false;   // A held (used from deploy 2)
+    this.breath = false;   // A held: hold your breath
+    this.grip = { left: false, right: false };
+    this.trigger = { left: false, right: false };
   }
 
   edge(key, down) {
@@ -58,8 +60,10 @@ export class XRInput {
     if (this.turnArmed && Math.abs(rx) > TURN_ON) { act.turn = rx > 0 ? -1 : 1; this.turnArmed = false; }  // right = negative yaw
     else if (Math.abs(rx) < TURN_OFF) this.turnArmed = true;
 
-    act.useLeft = this.edge('tl', pressed(L, 0));
-    act.useRight = this.edge('tr', pressed(R, 0));
+    this.trigger.left = pressed(L, 0); this.trigger.right = pressed(R, 0);
+    this.grip.left = pressed(L, 1); this.grip.right = pressed(R, 1);
+    act.useLeft = this.edge('tl', this.trigger.left);
+    act.useRight = this.edge('tr', this.trigger.right);
     act.crouch = this.edge('b', pressed(R, 5));
     this.breath = pressed(R, 4);
 

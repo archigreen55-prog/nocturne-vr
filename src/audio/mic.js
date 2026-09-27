@@ -3,12 +3,10 @@
 // against a per-player calibration into quiet (whisper) / normal / shout.
 import { audioContext, unlockAudio } from './audio.js';
 import { loadSetting, saveSetting } from '../settings.js';
+import { CFG } from '../game/config.js';
 
 const RATE = 30;               // analyses per second
 const ATTACK = 0.05, RELEASE = 0.3;
-const WHISPER_K = 0.5;         // whisper threshold = floor + K * (normal - floor)
-const SHOUT_OVER = 9;          // dB above "normal"
-const SHOUT_RISE = 6;          // dB rise within 100 ms needed to start a shout
 const SHOUT_HOLD = 0.8;        // s the shout label stays after the peak
 const DEFAULT_CAL = { floor: -62, normal: -32 };
 
@@ -33,14 +31,16 @@ export class Mic {
     this.acc = 0;
     this.t = 0;
     this.collect = null;       // array while calibrating
+    this.shoutOnset = false;   // true for one analysis when a new shout starts (see takeShout)
+    this.source = null;        // MediaStreamSource (the scream recorder taps it too)
     const cal = loadSetting('mic', null);
     this.calibrated = !!(cal && Number.isFinite(cal.floor) && Number.isFinite(cal.normal));
     this.cal = this.calibrated ? cal : { ...DEFAULT_CAL };
     this.hist.fill(-100);
   }
 
-  get whisperDb() { return this.cal.floor + WHISPER_K * (this.cal.normal - this.cal.floor); }
-  get shoutDb() { return this.cal.normal + SHOUT_OVER; }
+  get whisperDb() { return this.cal.floor + CFG.mic.whisperK * (this.cal.normal - this.cal.floor); }
+  get shoutDb() { return this.cal.normal + CFG.mic.shoutOver; }
 
   async enable() {
     if (this.state === 'on' || this.state === 'pending') return this.state;
@@ -61,6 +61,7 @@ export class Mic {
       this.analyser.smoothingTimeConstant = 0;
       this.buf = new Float32Array(this.analyser.fftSize);
       src.connect(this.analyser);   // analysis only: never routed to the speakers
+      this.source = src;
       this.stream = stream;
       this.track = stream.getAudioTracks()[0];
       this.state = 'on';
@@ -103,12 +104,16 @@ export class Mic {
     this.hist[this.histI] = this.env;
     this.histI = (this.histI + 1) % this.hist.length;
     const shoutDb = this.shoutDb;
-    if (this.env > shoutDb && (this.env - past > SHOUT_RISE || this.t < this.shoutUntil)) {
+    if (this.env > shoutDb && (this.env - past > CFG.mic.shoutRise || this.t < this.shoutUntil)) {
+      if (this.t >= this.shoutUntil) this.shoutOnset = true;
       this.shoutUntil = Math.max(this.shoutUntil, this.t + (this.t < this.shoutUntil ? 0.3 : SHOUT_HOLD));
     }
     if (this.t < this.shoutUntil) this.level = 'shout';
     else this.level = this.env >= this.whisperDb ? 'normal' : 'quiet';
   }
+
+  // true once when a new shout has started since the last call
+  takeShout() { const s = this.shoutOnset; this.shoutOnset = false; return s; }
 
   // Calibration: collect raw dB for `seconds`, then return a percentile of them.
   measure(seconds, pct) {
@@ -130,5 +135,34 @@ export class Mic {
   barPos(db) {
     const lo = this.cal.floor - 10, hi = this.shoutDb + 12;
     return Math.min(1, Math.max(0, (db - lo) / (hi - lo)));
+  }
+}
+
+// "Hold your breath" (A / Shift): the game ignores the microphone for up to CFG.breath.hold s,
+// then a cooldown of CFG.breath.cooldown s. Shown as a ring on the wrist.
+export class Breath {
+  constructor() { this.state = 'ready'; this.t = 0; }
+  get holding() { return this.state === 'holding'; }
+  // 0..1 for the ring: remaining hold, or cooldown progress
+  get ring() {
+    if (this.state === 'holding') return 1 - this.t / CFG.breath.hold;
+    if (this.state === 'cooldown') return this.t / CFG.breath.cooldown;
+    return 1;
+  }
+  reset() { this.state = 'ready'; this.t = 0; }
+  // Returns 'start' | 'end' | null.
+  update(dt, down) {
+    const pressed = down && !this.prevDown;   // a new press is needed to start again
+    this.prevDown = down;
+    if (this.state === 'ready') {
+      if (pressed) { this.state = 'holding'; this.t = 0; return 'start'; }
+    } else if (this.state === 'holding') {
+      this.t += dt;
+      if (!down || this.t >= CFG.breath.hold) { this.state = 'cooldown'; this.t = 0; return 'end'; }
+    } else {
+      this.t += dt;
+      if (this.t >= CFG.breath.cooldown) { this.state = 'ready'; this.t = 0; }
+    }
+    return null;
   }
 }

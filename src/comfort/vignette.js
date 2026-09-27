@@ -32,15 +32,19 @@ const fragmentShader = /* glsl */ `
 uniform float uRadius;   // angle (rad) from the view axis where the darkening starts
 uniform float uFeather;  // angle over which it goes to black
 uniform float uFade;     // 0..1 full-screen black
+uniform float uFlash;    // 0..1 full-screen colour flash (scares)
+uniform vec3 uFlashColor;
 varying vec2 vTan;
 void main() {
-  float v = smoothstep(uRadius, uRadius + uFeather, atan(length(vTan)));
-  gl_FragColor = vec4(0.0, 0.0, 0.0, max(v, uFade));
+  float v = max(smoothstep(uRadius, uRadius + uFeather, atan(length(vTan))), uFade);
+  float a = max(v, uFlash);
+  gl_FragColor = vec4(uFlashColor * uFlash * (1.0 - v) / max(a, 0.001), a);
 }`;
 
 export class ComfortOverlay {
   constructor() {
-    this.uniforms = { uRadius: { value: 1 }, uFeather: { value: 0.35 }, uFade: { value: 0 } };
+    this.uniforms = { uRadius: { value: 1 }, uFeather: { value: 0.35 }, uFade: { value: 0 }, uFlash: { value: 0 }, uFlashColor: { value: new THREE.Color(1, 1, 1) } };
+    this.flash = 0;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
       uniforms: this.uniforms, vertexShader, fragmentShader,
       transparent: true, depthTest: false, depthWrite: false,
@@ -66,6 +70,9 @@ export class ComfortOverlay {
   blackout() { this.fade = 1; this.fadeRate = 0; }                // hold black until fadeIn()
   fadeIn(seconds) { this.fade = 1; this.fadeRate = 1 / seconds; }
 
+  // Short full-screen colour flash (fades in ~0.2 s).
+  flashColor(hex, strength = 0.6) { this.uniforms.uFlashColor.value.setHex(hex); this.flash = strength; }
+
   // Snap-turn pulse (plan §4.2: 0.5)
   pulse() { this.impactT = 0.2; }
 
@@ -88,6 +95,8 @@ export class ComfortOverlay {
 
     this.uniforms.uRadius.value = 0.95 - 0.65 * this.intensity; // 54° .. 17°
     this.uniforms.uFade.value = this.fade;
-    this.mesh.visible = this.intensity > 0 || this.fade > 0;
+    this.flash = Math.max(0, this.flash - dt * 3);
+    this.uniforms.uFlash.value = this.flash;
+    this.mesh.visible = this.intensity > 0 || this.fade > 0 || this.flash > 0;
   }
 }

@@ -1,12 +1,20 @@
 # Nocturne VR
 
-A small WebXR prototype for Meta Quest 3: a dark house at night where you move quietly — and
-where the microphone hears you. Runs in the browser (three.js from a CDN, no build step).
+A small WebXR prototype for Meta Quest 3: a dark house at night, a watchman with a flashlight,
+something in the bedroom wardrobe, and a van waiting outside. Move quietly, carry the valuables out,
+and keep your voice down: the microphone is part of the game. Runs in the browser (three.js from a
+CDN, no build step).
 
 **Play:** https://archigreen55-prog.github.io/nocturne-vr/
 
-Status: deploy 1 — house with rooms and doors, walking, snap turn, comfort vignette, crouching,
-microphone level (whisper / normal / shout) on the left wrist, FPS counter. No gameplay yet.
+Status: deploy 2 — loot (one- and two-handed, fragile crystal), noise from steps / doors / drops /
+your voice, a patrol that hears and sees, a lurker that jumps out, alarm lights, a 7-minute round
+with an escape phase, a scoreboard at the van that can replay your loudest scream.
+
+## Privacy
+
+The microphone is analysed on the device only. To replay a scream, the game keeps the last 4 s of
+microphone audio in memory; nothing is written to disk or sent anywhere, and a new round drops it.
 
 ## Controls (Quest 3)
 
@@ -14,7 +22,11 @@ microphone level (whisper / normal / shout) on the left wrist, FPS counter. No g
 |---|---|
 | Left stick | Walk where you look (a light push keeps steps quiet) |
 | Right stick ← → | Snap turn 45° (30° in settings) |
-| Trigger near a door | Open / close |
+| Grip near an item | Pick up / let go; big items need both hands |
+| Trigger on a door handle | Drag the door by hand: slow = quiet, fast = creak |
+| Trigger near a door | Quick swing (creaks) |
+| Trigger at the board | Board buttons |
+| A (hold) | Hold your breath: the mic is ignored for up to 6 s, then 20 s cooldown |
 | B | Crouch / stand (for seated play) |
 | X | FPS counter on the wrist |
 | Left stick press | Vignette strength |
@@ -23,11 +35,17 @@ microphone level (whisper / normal / shout) on the left wrist, FPS counter. No g
 
 ## Controls (keyboard)
 
-Click to capture the mouse, WASD walk (Shift fast), E door, C crouch, F FPS, R back to the van,
-Esc menu.
+Click to capture the mouse (click the board to press its buttons), WASD walk (Space fast),
+E pick up / put down (at the van: into the van), Q / T door slow / fast, Shift hold breath,
+C crouch, F FPS, R back to the van, N new round, Esc menu.
 
 URL parameters: `?fps` (counter on), `?fbs=0.85` (XR framebuffer scale), `?fov=0.5` (foveation),
 `?hz=72` (frame rate), `?vignette` (vignette on the laptop too), `?autostart`.
+
+## Tuning
+
+All gameplay numbers (radii, thresholds, speeds, timer, item values and positions) are in
+[src/game/config.js](src/game/config.js).
 
 ## Deploy
 

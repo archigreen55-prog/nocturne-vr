@@ -4,9 +4,10 @@
 // height and turns with the mouse.
 import * as THREE from 'three';
 import { loadSetting, saveSetting } from '../settings.js';
+import { CFG } from '../game/config.js';
 
-const MAX_SPEED = 2.0;       // m/s at full stick (plan §4.2)
-const QUIET_SPEED = 1.0;     // up to this, steps are silent
+const MAX_SPEED = CFG.player.maxSpeed;       // m/s at full stick (plan §4.2)
+const QUIET_SPEED = CFG.player.quietSpeed;   // up to this, steps are silent
 const ACCEL_TAU = 0.08;      // s, velocity smoothing (~0.15 s to full speed)
 const RADIUS = 0.22;         // body circle around the head, m
 const CROUCH_DROP = 0.55;    // virtual crouch lowers the rig by this, m
@@ -37,6 +38,8 @@ export class Player {
     this.standingHeight = loadSetting('height', 1.65);
     this.pendingRecenter = null;
     this.turnedThisFrame = 0;
+    this.stepAcc = 0;
+    this.stepNoise = 0;       // radius of a step noise made this frame (0 = none); real steps are silent
   }
 
   get crouched() { return this.head.y < CROUCH_K * this.standingHeight; }
@@ -112,12 +115,12 @@ export class Player {
     this.turnedThisFrame = angle;
   }
 
-  // move: stick vector (x right, y forward), each -1..1, already shaped
-  update(dt, move, level) {
+  // move: stick vector (x right, y forward), each -1..1, already shaped; speedK: carrying penalty
+  update(dt, move, level, speedK = 1) {
     // velocity relative to where the head looks
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
-    const tx = (move.x * cos - move.y * sin) * MAX_SPEED;
-    const tz = (-move.x * sin - move.y * cos) * MAX_SPEED;
+    const tx = (move.x * cos - move.y * sin) * MAX_SPEED * speedK;
+    const tz = (-move.x * sin - move.y * cos) * MAX_SPEED * speedK;
     const k = 1 - Math.exp(-dt / ACCEL_TAU);
     this.vel.x += (tx - this.vel.x) * k;
     this.vel.y += (tz - this.vel.y) * k;
@@ -137,6 +140,16 @@ export class Player {
     this.rig.position.z += nz - hz;
     // actual speed after collisions (sliding along a wall is slower)
     if (dt > 0) this.speed = Math.min(this.speed, Math.hypot(nx - hx, nz - hz) / dt);
+    // stick steps above the quiet speed make noise, one per stride, louder the faster
+    this.stepNoise = 0;
+    if (this.speed > QUIET_SPEED) {
+      this.stepAcc += this.speed * dt;
+      if (this.stepAcc >= CFG.player.stepLength) {
+        this.stepAcc = 0;
+        const [r0, r1] = CFG.player.stepRadius, k = Math.min(1, (this.speed - QUIET_SPEED) / (MAX_SPEED - QUIET_SPEED));
+        this.stepNoise = r0 + (r1 - r0) * k;
+      }
+    } else this.stepAcc = 0;
     this.rig.updateMatrixWorld();
     this.head.copy(this.headLocal).applyMatrix4(this.rig.matrixWorld);
   }

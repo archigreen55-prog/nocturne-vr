@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CollisionWorld } from './collision.js';
+import { CFG } from '../game/config.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;
@@ -14,7 +15,7 @@ const EXT_T = 0.3;   // exterior wall thickness
 const INT_T = 0.14;  // interior wall thickness
 
 // Cold night palette: muted blues and greys at rest; the lights tint the rest.
-const C = {
+export const C = {
   wallExt: 0x5d6475, wallInt: 0x6f7686, wallpaperLib: 0x4f5d58, wallpaperBed: 0x6a5f70, trim: 0x2e2a2a,
   ceiling: 0x2a2e38, wood: 0x5a4636, woodDark: 0x3b2d25, woodLight: 0x7a6250, tileA: 0x7c8490, tileB: 0x535a66,
   planksA: 0x4d3b2f, planksB: 0x433328, rugRed: 0x6b2d33, rugBlue: 0x2f3f63, rugGreen: 0x34523f,
@@ -43,11 +44,14 @@ export function roomAt(x, z) {
 }
 
 export const SPAWN = { x: 2.2, z: 6.8, yaw: 0 };  // beside the van, facing the back door
+export const BOARD = { x: 1.75, z: 8.75, yaw: -2.75 };  // scoreboard stand next to the van, facing the path
+export const CARGO = { minX: 3.5, maxX: 5.3, minZ: 7.85, maxZ: 11.4, y: 0.4 };  // van cargo floor
+export const WARDROBE = { x: 9.25, z: -9.4, minZ: -10.2, maxZ: -8.6 };   // bedroom wardrobe front
 const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 16 };
 
 // ---------- geometry helpers ----------
 const tmpColor = new THREE.Color();
-function colored(geo, hex) {
+export function colored(geo, hex) {
   const g = geo;
   tmpColor.setHex(hex);
   const n = g.attributes.position.count;
@@ -57,7 +61,7 @@ function colored(geo, hex) {
   return g;
 }
 
-class Builder {
+export class Builder {
   constructor() { this.parts = []; }
   // axis-aligned box by its min/max corners
   box(x0, y0, z0, x1, y1, z1, color) {
@@ -90,7 +94,10 @@ class Builder {
 export function buildLevel() {
   const S = new Builder();   // static, lit
   const G = new Builder();   // glow, unlit
-  const world = new CollisionWorld(LOT);
+  const world = new CollisionWorld(LOT);   // everything the player bumps into
+  const walls = new CollisionWorld(LOT);   // walls and fence only: sound, line of sight, thrown loot
+  const both = (x0, z0, x1, z1) => { world.addBox(x0, z0, x1, z1); walls.addBox(x0, z0, x1, z1); };
+  const furniture = [];                    // { minX, minZ, maxX, maxZ, h, top } for cover and landing
   const doors = [];
   const doorSpecs = [];
 
@@ -100,28 +107,28 @@ export function buildLevel() {
     let x = x0;
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
-      if (a > x) { S.box(x, 0, z - t / 2, a, WALL_H, z + t / 2, color); world.addBox(x, z - t / 2, a, z + t / 2); }
+      if (a > x) { S.box(x, 0, z - t / 2, a, WALL_H, z + t / 2, color); both(x, z - t / 2, a, z + t / 2); }
       S.box(a, DOOR_H, z - t / 2, b, WALL_H, z + t / 2, color);             // lintel
       S.box(a - 0.05, 0, z - t / 2 - 0.02, a, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);  // jambs
       S.box(b, 0, z - t / 2 - 0.02, b + 0.05, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
       if (o.door) doorSpecs.push({ axis: 'x', hx: a + 0.02, hz: z, w: o.w - 0.04, locked: o.door === 'locked', front: o.front });
       x = b;
     }
-    if (x1 > x) { S.box(x, 0, z - t / 2, x1, WALL_H, z + t / 2, color); world.addBox(x, z - t / 2, x1, z + t / 2); }
+    if (x1 > x) { S.box(x, 0, z - t / 2, x1, WALL_H, z + t / 2, color); both(x, z - t / 2, x1, z + t / 2); }
   }
   // Wall along Z at x, from z0 to z1 (z0 < z1)
   function wallZ(x, z0, z1, t, color, openings = []) {
     let z = z0;
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
-      if (a > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, a, color); world.addBox(x - t / 2, z, x + t / 2, a); }
+      if (a > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, a, color); both(x - t / 2, z, x + t / 2, a); }
       S.box(x - t / 2, DOOR_H, a, x + t / 2, WALL_H, b, color);
       S.box(x - t / 2 - 0.02, 0, a - 0.05, x + t / 2 + 0.02, DOOR_H + 0.05, a, C.trim);
       S.box(x - t / 2 - 0.02, 0, b, x + t / 2 + 0.02, DOOR_H + 0.05, b + 0.05, C.trim);
       if (o.door) doorSpecs.push({ axis: 'z', hx: x, hz: a + 0.02, w: o.w - 0.04, locked: o.door === 'locked' });
       z = b;
     }
-    if (z1 > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, z1, color); world.addBox(x - t / 2, z, x + t / 2, z1); }
+    if (z1 > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, z1, color); both(x - t / 2, z, x + t / 2, z1); }
   }
 
   // exterior
@@ -206,17 +213,22 @@ export function buildLevel() {
   windowZ(-10, -2.5, -1); windowZ(-10, -10.5, -1); windowZ(10, -2.5, 1); windowZ(10, -12, 1);
 
   // ---------- furniture ----------
-  const solid = (x0, z0, x1, z1) => world.addBox(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1));
+  // h: height for cover (line of sight); top: surface loot lands on (null = none, falls through)
+  const solid = (x0, z0, x1, z1, h, top = h) => {
+    const b = { minX: Math.min(x0, x1), minZ: Math.min(z0, z1), maxX: Math.max(x0, x1), maxZ: Math.max(z0, z1), h, top };
+    world.addBox(b.minX, b.minZ, b.maxX, b.maxZ);
+    furniture.push(b);
+  };
   const table = (x0, z0, x1, z1, h, top, legs) => {
     S.box(x0, h - 0.05, z0, x1, h, z1, top);
     for (const [x, z] of [[x0 + 0.05, z0 + 0.05], [x1 - 0.1, z0 + 0.05], [x0 + 0.05, z1 - 0.1], [x1 - 0.1, z1 - 0.1]]) S.box(x, 0, z, x + 0.05, h - 0.05, z + 0.05, legs);
-    solid(x0, z0, x1, z1);
+    solid(x0, z0, x1, z1, h);
   };
   const chair = (x, z, ry, color = C.woodDark) => {
     S.boxAt(0.42, 0.45, 0.42, x, 0, z, color, ry);
     const b = new THREE.BoxGeometry(0.42, 0.5, 0.05); b.translate(0, 0.7, -0.19); b.rotateY(ry); b.translate(x, 0, z);
     S.add(b, color);
-    solid(x - 0.22, z - 0.22, x + 0.22, z + 0.22);
+    solid(x - 0.22, z - 0.22, x + 0.22, z + 0.22, 0.5, 0.45);
   };
   const painting = (x, z, face, w, h, color) => {  // face: 'n','s','e','w' = the direction it faces
     const y0 = 1.3, y1 = 1.3 + h, t = 0.03;
@@ -261,8 +273,8 @@ export function buildLevel() {
         books(Math.min(fx, fx + d * 0.28), Math.max(fx, fx + d * 0.28), z0 + 0.05, z1 - 0.05, y, false, seed + i * 31);
       }
     }
-    if (alongX) { const d = z0 < -10 ? 1 : -1; solid(x0, z0, x1, fz + d * 0.3); }
-    else { const d = x0 < -5 ? 1 : -1; solid(x0, z0, fx + d * 0.3, z1); }
+    if (alongX) { const d = z0 < -10 ? 1 : -1; solid(x0, z0, x1, fz + d * 0.3, 2.3, null); }
+    else { const d = x0 < -5 ? 1 : -1; solid(x0, z0, fx + d * 0.3, z1, 2.3, null); }
   };
   const rug = (x0, z0, x1, z1, color) => {
     S.box(x0, 0.014, z0, x1, 0.022, z1, color);
@@ -272,21 +284,21 @@ export function buildLevel() {
   const ceilingLamp = (x, z) => { S.cyl(0.01, 0.01, 0.5, x, WALL_H - 0.5, z, C.pole, 4); S.cyl(0.08, 0.25, 0.18, x, WALL_H - 0.68, z, C.metal, 10); };
 
   // kitchen
-  S.box(-9.85, 0, -4.8, -9.25, 0.86, -1.0, C.woodLight); S.box(-9.88, 0.86, -4.83, -9.2, 0.92, -0.97, C.counter); solid(-9.85, -4.8, -9.2, -1.0);
-  S.box(-9.2, 0, -4.86, -7.2, 0.86, -4.3, C.woodLight); S.box(-9.2, 0.86, -4.88, -7.2, 0.92, -4.25, C.counter); solid(-9.2, -4.88, -7.2, -4.25);
+  S.box(-9.85, 0, -4.8, -9.25, 0.86, -1.0, C.woodLight); S.box(-9.88, 0.86, -4.83, -9.2, 0.92, -0.97, C.counter); solid(-9.85, -4.8, -9.2, -1.0, 0.92);
+  S.box(-9.2, 0, -4.86, -7.2, 0.86, -4.3, C.woodLight); S.box(-9.2, 0.86, -4.88, -7.2, 0.92, -4.25, C.counter); solid(-9.2, -4.88, -7.2, -4.25, 0.92);
   S.box(-9.85, 0.92, -3.4, -9.3, 0.95, -2.8, C.soot);                               // hob
   S.box(-9.85, 1.5, -4.8, -9.5, 2.2, -1.0, C.woodLight);                           // upper cabinets
   for (let z = -4.8; z < -1.2; z += 0.6) S.box(-9.5, 1.55, z + 0.28, -9.48, 2.15, z + 0.3, C.trim);
-  S.box(-9.85, 0, -0.9, -9.15, 1.9, -0.3, C.fridge); S.box(-9.16, 1.0, -0.55, -9.13, 1.5, -0.5, C.metal); solid(-9.85, -0.9, -9.15, -0.3);
+  S.box(-9.85, 0, -0.9, -9.15, 1.9, -0.3, C.fridge); S.box(-9.16, 1.0, -0.55, -9.13, 1.5, -0.5, C.metal); solid(-9.85, -0.9, -9.15, -0.3, 1.9);
   table(-6.3, -3.0, -4.7, -2.1, 0.76, C.wood, C.woodDark);
   chair(-5.9, -3.5, 0); chair(-5.1, -3.5, 0); chair(-5.9, -1.6, Math.PI); chair(-5.1, -1.6, Math.PI);
   ceilingLamp(-6, -2.5);
   painting(-2.07, -1.2, 'w', 0.6, 0.45, 0x5a7a4a);
   // hall
   rug(-1.2, -4.3, 2.2, -1.2, C.rugRed);
-  S.box(2.4, 0, -3.0, 2.85, 0.45, -1.5, C.woodDark); S.box(2.8, 0.45, -3.0, 2.86, 0.9, -1.5, C.woodDark); solid(2.4, -3.0, 2.86, -1.5);
-  S.cyl(0.02, 0.02, 1.8, 2.5, 0, -0.55, C.woodDark, 6); S.cyl(0.18, 0.2, 0.03, 2.5, 0, -0.55, C.woodDark, 8); solid(2.35, -0.7, 2.65, -0.4);
-  S.box(-1.93, 0, -4.7, -1.5, 0.8, -3.6, C.wood); solid(-1.93, -4.7, -1.5, -3.6);   // console by the arch
+  S.box(2.4, 0, -3.0, 2.85, 0.45, -1.5, C.woodDark); S.box(2.8, 0.45, -3.0, 2.86, 0.9, -1.5, C.woodDark); solid(2.4, -3.0, 2.86, -1.5, 0.9, 0.45);
+  S.cyl(0.02, 0.02, 1.8, 2.5, 0, -0.55, C.woodDark, 6); S.cyl(0.18, 0.2, 0.03, 2.5, 0, -0.55, C.woodDark, 8); solid(2.35, -0.7, 2.65, -0.4, 1.8, null);
+  S.box(-1.93, 0, -4.7, -1.5, 0.8, -3.6, C.wood); solid(-1.93, -4.7, -1.5, -3.6, 0.8);   // console by the arch
   painting(0.5, -4.93, 's', 1.0, 0.7, 0x3a4a6a);
   ceilingLamp(0.5, -2.5);
   // pantry
@@ -294,7 +306,7 @@ export function buildLevel() {
     S.box(x0, 0, z0, x1, 0.04, z1, C.woodDark);
     for (let i = 1; i <= 4; i++) S.box(x0, i * 0.48, z0, x1, i * 0.48 + 0.03, z1, C.wood);
     for (const [x, z] of [[x0, z0], [x1 - 0.04, z0], [x0, z1 - 0.04], [x1 - 0.04, z1 - 0.04]]) S.box(x, 0, z, x + 0.04, 2.0, z + 0.04, C.woodDark);
-    solid(x0, z0, x1, z1);
+    solid(x0, z0, x1, z1, 2.0, null);
     let r = Math.floor(x0 * 100 + 7);
     const rnd = () => ((r = (r * 16807 + 11) % 2147483647) / 2147483647);
     for (let i = 0; i < 4; i++) {
@@ -308,14 +320,13 @@ export function buildLevel() {
     }
   }
   S.boxAt(0.7, 0.7, 0.7, 5.0, 0, -3.5, C.woodLight, 0.1); S.boxAt(0.6, 0.55, 0.6, 5.1, 0.7, -3.45, C.woodLight, -0.2); S.boxAt(0.7, 0.6, 0.7, 5.9, 0, -3.7, C.wood, 0.3);
-  solid(4.55, -4.2, 6.35, -3.05);
+  solid(4.55, -4.2, 6.35, -3.05, 1.25, 0.7);
   S.cyl(0.32, 0.3, 0.9, 7.6, 0, -3.1, C.woodDark, 10); S.cyl(0.33, 0.33, 0.04, 7.6, 0.2, -3.1, C.metal, 10); S.cyl(0.33, 0.33, 0.04, 7.6, 0.7, -3.1, C.metal, 10);
-  solid(7.28, -3.42, 7.92, -2.78);
+  solid(7.28, -3.42, 7.92, -2.78, 0.9);
   // corridor
   for (let x = -9.4; x < 9.5; x += 4.7) rug(x, -6.45, x + 3.8, -5.55, C.rugBlue);
-  S.box(3.0, 0, -6.93, 4.2, 0.8, -6.58, C.wood); solid(3.0, -6.93, 4.2, -6.58);
-  S.cyl(0.07, 0.09, 0.3, 3.6, 0.8, -6.75, 0x7a8aa0, 8);
-  S.box(-9.6, 0, -6.93, -8.6, 0.8, -6.58, C.wood); solid(-9.6, -6.93, -8.6, -6.58);
+  S.box(3.0, 0, -6.93, 4.2, 0.8, -6.58, C.wood); solid(3.0, -6.93, 4.2, -6.58, 0.8);
+  S.box(-9.6, 0, -6.93, -8.6, 0.8, -6.58, C.wood); solid(-9.6, -6.93, -8.6, -6.58, 0.8);
   painting(-3.0, -5.07, 'n', 0.8, 0.6, 0x6a4a3a); painting(4.5, -5.07, 'n', 0.6, 0.8, 0x4a5a3a); painting(-8.0, -5.07, 'n', 0.7, 0.5, 0x3a3a5a);
   painting(9.85, -6.0, 'w', 0.8, 0.6, 0x7a5a3a);
   ceilingLamp(-6, -6); ceilingLamp(0, -6); ceilingLamp(6, -6);
@@ -326,36 +337,41 @@ export function buildLevel() {
   S.box(-6.5, 0.76, -9.4, -6.2, 0.8, -9.2, 0xd8d0b0); S.cyl(0.05, 0.08, 0.35, -5.75, 0.76, -9.4, C.frameGold, 8);
   chair(-6.2, -8.4, Math.PI, C.fabricRed);
   S.boxAt(0.8, 0.45, 0.8, -8.2, 0, -11.3, C.fabricRed, 0.6); { const b = new THREE.BoxGeometry(0.8, 0.6, 0.18); b.translate(0, 0.75, -0.33); b.rotateY(0.6); b.translate(-8.2, 0, -11.3); S.add(b, C.fabricRed); }
-  solid(-8.7, -11.8, -7.7, -10.8);
-  S.cyl(0.02, 0.02, 1.5, -8.9, 0, -12.2, C.metal, 6); S.cyl(0.15, 0.22, 0.25, -8.9, 1.5, -12.2, 0xc8b890, 10); solid(-9.05, -12.35, -8.75, -12.05);
+  solid(-8.7, -11.8, -7.7, -10.8, 1.0, 0.45);
+  S.cyl(0.02, 0.02, 1.5, -8.9, 0, -12.2, C.metal, 6); S.cyl(0.15, 0.22, 0.25, -8.9, 1.5, -12.2, 0xc8b890, 10); solid(-9.05, -12.35, -8.75, -12.05, 1.75, null);
   rug(-8.6, -12.6, -5.2, -10.2, C.rugGreen);
   ceilingLamp(-7, -10.5);
   // side corridor
   rug(-3.6, -13.5, -2.4, -8.0, C.rugRed);
   S.box(-3.93, 1.0, -9.2, -3.9, 2.0, -8.4, 0x3a4658);                           // mirror
-  S.cyl(0.03, 0.03, 1.8, -2.4, 0, -13.5, C.woodDark, 6); solid(-2.55, -13.65, -2.25, -13.35);
+  S.cyl(0.03, 0.03, 1.8, -2.4, 0, -13.5, C.woodDark, 6); solid(-2.55, -13.65, -2.25, -13.35, 1.8, null);
   // living room
   S.box(0.4, 0, -13.85, 2.6, 1.2, -13.3, C.brick); S.box(0.25, 1.2, -13.9, 2.75, 1.3, -13.2, C.woodDark);
-  S.box(0.9, 0.1, -13.32, 2.1, 0.8, -13.28, C.soot); solid(0.4, -13.85, 2.6, -13.2);
+  S.box(0.9, 0.1, -13.32, 2.1, 0.8, -13.28, C.soot); solid(0.25, -13.9, 2.75, -13.2, 1.3);
   G.box(1.1, 0.1, -13.4, 1.9, 0.22, -13.3, GLOW.ember);
   painting(1.5, -13.85, 's', 1.2, 0.8, 0x6a5a3a);
   S.box(-0.1, 0, -10.4, 3.1, 0.45, -9.6, C.fabric); S.box(-0.1, 0.45, -9.8, 3.1, 0.95, -9.6, C.fabric);
-  S.box(-0.25, 0, -10.4, -0.1, 0.65, -9.6, C.fabric); S.box(3.1, 0, -10.4, 3.25, 0.65, -9.6, C.fabric); solid(-0.25, -10.4, 3.25, -9.6);
+  S.box(-0.25, 0, -10.4, -0.1, 0.65, -9.6, C.fabric); S.box(3.1, 0, -10.4, 3.25, 0.65, -9.6, C.fabric); solid(-0.25, -10.4, 3.25, -9.6, 0.95, 0.45);
   table(0.9, -12.1, 2.1, -11.4, 0.42, C.wood, C.woodDark);
-  chair(-1.0, -11.6, Math.PI / 2, C.fabricRed); chair(4.0, -11.6, -Math.PI / 2, C.fabricRed);
-  S.box(-1.85, 0, -13.85, -1.35, 2.0, -13.45, C.woodDark); S.cyl(0.14, 0.14, 0.02, -1.6, 1.6, -13.44, 0xd8d0b0, 12); solid(-1.85, -13.85, -1.35, -13.45);  // clock
-  S.box(4.3, 0, -8.0, 4.85, 0.7, -7.3, C.wood); solid(4.3, -8.0, 4.85, -7.3);                                                                                  // side table
+  chair(-1.0, -11.6, Math.PI / 2, C.fabricRed); chair(3.7, -12.2, -Math.PI / 2, C.fabricRed);
+  S.box(-1.85, 0, -13.85, -1.35, 2.0, -13.45, C.woodDark); S.cyl(0.14, 0.14, 0.02, -1.6, 1.6, -13.44, 0xd8d0b0, 12); solid(-1.85, -13.85, -1.35, -13.45, 2.0, null);  // clock
+  S.box(4.3, 0, -8.0, 4.85, 0.7, -7.3, C.wood); solid(4.3, -8.0, 4.85, -7.3, 0.7);                                                                                  // side table
   rug(-0.6, -12.9, 3.6, -10.6, C.rugBlue);
   painting(4.93, -9.5, 'w', 0.7, 0.9, 0x3a5a6a);
   ceilingLamp(1.5, -10.5);
   // bedroom
   S.box(6.8, 0, -13.85, 8.8, 0.5, -11.6, C.woodDark); S.box(6.85, 0.5, -13.8, 8.75, 0.62, -11.65, C.bed);
   S.box(6.9, 0.62, -13.75, 8.7, 0.68, -12.1, 0x5a6a8a); S.box(6.95, 0.62, -13.8, 7.75, 0.75, -13.4, 0xe0dcd0); S.box(7.85, 0.62, -13.8, 8.65, 0.75, -13.4, 0xe0dcd0);
-  S.box(6.8, 0, -13.9, 8.8, 1.15, -13.82, C.woodDark); solid(6.8, -13.9, 8.8, -11.6);
-  for (const x of [6.25, 9.35]) { S.box(x - 0.25, 0, -13.85, x + 0.25, 0.55, -13.35, C.wood); solid(x - 0.25, -13.85, x + 0.25, -13.35); }
-  S.box(9.25, 0, -10.2, 9.85, 2.1, -8.6, C.woodDark); S.box(9.23, 0.1, -9.41, 9.25, 2.0, -9.39, C.trim);
-  S.box(9.21, 1.0, -9.55, 9.23, 1.15, -9.5, C.knob); S.box(9.21, 1.0, -9.3, 9.23, 1.15, -9.25, C.knob); solid(9.25, -10.2, 9.85, -8.6);
-  S.box(5.15, 0, -9.6, 5.6, 0.9, -8.2, C.wood); S.box(5.1, 0.9, -9.65, 5.65, 0.94, -8.15, C.woodDark); solid(5.15, -9.65, 5.65, -8.15);
+  S.box(6.8, 0, -13.9, 8.8, 1.15, -13.82, C.woodDark); solid(6.8, -13.9, 8.8, -11.6, 0.68);
+  for (const x of [6.25, 9.35]) { S.box(x - 0.25, 0, -13.85, x + 0.25, 0.55, -13.35, C.wood); solid(x - 0.25, -13.85, x + 0.25, -13.35, 0.55); }
+  // wardrobe: open-front shell (the lurker sits inside; its doors are in enemies/lurker.js)
+  S.box(9.8, 0, -10.2, 9.85, 2.1, -8.6, C.woodDark); S.box(9.25, 0, -10.2, 9.8, 0.08, -8.6, C.woodDark);
+  S.box(9.25, 2.05, -10.2, 9.85, 2.1, -8.6, C.woodDark);
+  S.box(9.25, 0, -10.2, 9.8, 2.05, -10.15, C.woodDark); S.box(9.25, 0, -8.65, 9.8, 2.05, -8.6, C.woodDark);
+  S.box(9.3, 1.85, -10.15, 9.78, 1.87, -8.65, C.soot);
+  G.box(9.79, 0.08, -10.14, 9.8, 2.04, -8.66, 0x06070a);      // unlit dark back inside
+  solid(9.22, -10.2, 9.85, -8.6, 2.1, null);
+  S.box(5.15, 0, -9.6, 5.6, 0.9, -8.2, C.wood); S.box(5.1, 0.9, -9.65, 5.65, 0.94, -8.15, C.woodDark); solid(5.15, -9.65, 5.65, -8.15, 0.94);
   rug(6.5, -11.4, 9.0, -9.0, C.rugGreen);
   painting(5.07, -12.4, 'e', 0.6, 0.6, 0x6a3a4a);
   ceilingLamp(7.8, -10.5);
@@ -374,7 +390,7 @@ export function buildLevel() {
       if (alongX) S.box(x0, y, z0 - 0.03, x1, y + 0.1, z0 + 0.03, C.fence);
       else S.box(x0 - 0.03, y, z0, x0 + 0.03, y + 0.1, z1, C.fence);
     }
-    world.addBox(Math.min(x0, x1) - 0.05, Math.min(z0, z1) - 0.05, Math.max(x0, x1) + 0.05, Math.max(z0, z1) + 0.05);
+    both(Math.min(x0, x1) - 0.05, Math.min(z0, z1) - 0.05, Math.max(x0, x1) + 0.05, Math.max(z0, z1) + 0.05);
   };
   fence(LOT.minX, LOT.maxZ, LOT.maxX, LOT.maxZ); fence(LOT.minX, LOT.minZ, LOT.maxX, LOT.minZ);
   fence(LOT.minX, LOT.minZ, LOT.minX, LOT.maxZ); fence(LOT.maxX, LOT.minZ, LOT.maxX, LOT.maxZ);
@@ -383,14 +399,14 @@ export function buildLevel() {
     S.cyl(0.12 * s, 0.18 * s, 1.6 * s, x, 0, z, C.bark, 6);
     S.cyl(0, 1.3 * s, 2.2 * s, x, 1.2 * s, z, C.leaves, 7);
     S.cyl(0, 1.0 * s, 1.8 * s, x, 2.4 * s, z, C.leaves2, 7);
-    solid(x - 0.2 * s, z - 0.2 * s, x + 0.2 * s, z + 0.2 * s);
+    solid(x - 0.2 * s, z - 0.2 * s, x + 0.2 * s, z + 0.2 * s, 3.5, null);
   }
   // bushes along the house
-  for (const x of [-8, -4.5, 4, 8]) { S.cyl(0.5, 0.6, 0.8, x, 0, 0.8, C.leaves2, 7); solid(x - 0.5, 0.3, x + 0.5, 1.3); }
+  for (const x of [-8, -4.5, 4, 8]) { S.cyl(0.5, 0.6, 0.8, x, 0, 0.8, C.leaves2, 7); solid(x - 0.5, 0.3, x + 0.5, 1.3, 0.8, null); }
   // yard lamp
   S.cyl(0.05, 0.07, 2.9, 0.6, 0, 5.6, C.pole, 6); S.boxAt(0.3, 0.25, 0.3, 0.6, 2.9, 5.6, C.pole);
   G.box(0.47, 2.92, 5.47, 0.73, 3.12, 5.73, GLOW.lamp);
-  solid(0.5, 5.5, 0.7, 5.7);
+  solid(0.5, 5.5, 0.7, 5.7, 3, null);
   // van: body along Z, rear doors open towards the house
   {
     const x0 = 3.4, x1 = 5.4, z0 = 7.8, z1 = 12.8;
@@ -416,12 +432,22 @@ export function buildLevel() {
     }
     S.box(x0 + 0.3, 0.2, z0 - 0.35, x1 - 0.3, 0.3, z0, C.metal);                     // step / drop-off lip
     world.addBox(x0, z0, x1, z1);
+    furniture.push({ minX: x0, minZ: z0, maxX: x1, maxZ: z1, h: 2.2, top: null });
   }
+  // scoreboard stand (the board itself is ui/board.js)
+  {
+    const bx = BOARD.x, bz = BOARD.z;
+    S.cyl(0.03, 0.03, 1.1, bx, 0, bz, C.pole, 6);
+    S.cyl(0.25, 0.25, 0.03, bx, 0, bz, C.pole, 10);
+    solid(bx - 0.25, bz - 0.25, bx + 0.25, bz + 0.25, 1.9, null);
+  }
+
   // moon, far away, unaffected by fog
   const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 12), new THREE.MeshBasicMaterial({ color: GLOW.moon, fog: false }));
   moon.position.set(-45, 38, 55);
 
   world.finalize();
+  walls.finalize();
 
   // ---------- meshes ----------
   const lit = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -438,15 +464,77 @@ export function buildLevel() {
   const group = new THREE.Group();
   group.add(staticMesh, glowMesh, moon);
   for (const d of doors) group.add(d.mesh);
+
+  const surfaces = furniture.filter((b) => b.top != null);
+  surfaces.push({ minX: CARGO.minX, minZ: CARGO.minZ, maxX: CARGO.maxX, maxZ: CARGO.maxZ, top: CARGO.y });
+
   return {
-    group, world, doors, moon,
+    group, world, walls, doors, furniture, moon, glowMaterial: glowMesh.material,
     triangles: staticMesh.geometry.index.count / 3 + glowMesh.geometry.index.count / 3,
-    // Push a circle out of the static world and all door leaves. Returns [x, z].
+
+    // Push a circle out of the static world and all door leaves (the player). Returns [x, z].
     resolve(x, z, r) {
       [x, z] = world.resolveCircle(x, z, r);
       for (const d of doors) [x, z] = d.resolveCircle(x, z, r);
       return [x, z];
     },
+    // Walls, fence and door leaves only (flying loot). onContact(nx, nz, depth) per push.
+    resolveWalls(x, z, r, onContact) {
+      [x, z] = walls.resolveCircle(x, z, r, onContact);
+      for (const d of doors) {
+        const [nx, nz] = d.resolveCircle(x, z, r);
+        if (nx !== x || nz !== z) { if (onContact) { const l = Math.hypot(nx - x, nz - z); onContact((nx - x) / l, (nz - z) / l, l); } x = nx; z = nz; }
+      }
+      return [x, z];
+    },
+
+    // Highest surface under (x, z) at or below maxY (floor = 0). margin shrinks the rectangles.
+    surfaceAt(x, z, maxY, margin = 0) {
+      let best = 0;
+      for (const b of surfaces) {
+        if (b.top > maxY + 1e-3 || b.top <= best) continue;
+        if (x >= b.minX + margin && x <= b.maxX - margin && z >= b.minZ + margin && z <= b.maxZ - margin) best = b.top;
+      }
+      return best;
+    },
+
+    // Sound between two points goes through a wall or a closed door.
+    soundOccluded(ax, az, bx, bz) {
+      if (walls.segmentBlocked(ax, az, bx, bz)) return true;
+      for (const d of doors) if (d.blocksSegment(ax, az, bx, bz)) return true;
+      return false;
+    },
+
+    // Line of sight between eye a and target b: walls, closed doors, and furniture taller than the
+    // line where it crosses it (crouching behind a sofa hides you, standing does not).
+    losBlocked(ax, ay, az, bx, by, bz) {
+      if (walls.segmentBlocked(ax, az, bx, bz)) return true;
+      for (const d of doors) if (d.blocksSegment(ax, az, bx, bz)) return true;
+      const dx = bx - ax, dz = bz - az, lowest = Math.min(ay, by);
+      for (const b of furniture) {
+        if (b.h < lowest - 1.2) continue;   // far below the whole line
+        // slab test: where the segment is inside the box footprint
+        let t0 = 0, t1 = 1;
+        if (Math.abs(dx) < 1e-9) { if (ax < b.minX || ax > b.maxX) continue; }
+        else {
+          let u0 = (b.minX - ax) / dx, u1 = (b.maxX - ax) / dx;
+          if (u0 > u1) [u0, u1] = [u1, u0];
+          t0 = Math.max(t0, u0); t1 = Math.min(t1, u1);
+        }
+        if (Math.abs(dz) < 1e-9) { if (az < b.minZ || az > b.maxZ) continue; }
+        else {
+          let v0 = (b.minZ - az) / dz, v1 = (b.maxZ - az) / dz;
+          if (v0 > v1) [v0, v1] = [v1, v0];
+          t0 = Math.max(t0, v0); t1 = Math.min(t1, v1);
+        }
+        if (t0 > t1) continue;
+        const y0 = ay + (by - ay) * t0, y1 = ay + (by - ay) * t1;
+        if (b.h > Math.min(y0, y1)) return true;
+      }
+      return false;
+    },
+
+    reset() { for (const d of doors) d.reset(); },
   };
 }
 
@@ -463,10 +551,10 @@ function toIndexed(g) {
 
 // ---------- doors ----------
 const OPEN_ANGLE = 95 * Math.PI / 180;
-const OPEN_TIME = 0.7;   // s for a full swing
+const DRAG_RATE = 5;     // rad/s: a door dragged by hand follows at most this fast
 const LEAF_T = 0.05;
 
-class Door {
+export class Door {
   constructor(spec, material) {
     this.locked = spec.locked;
     this.w = spec.w;
@@ -474,6 +562,12 @@ class Door {
     this.base = spec.axis === 'x' ? 0 : -Math.PI / 2;  // leaf direction when closed: +X or +Z
     this.angle = 0;          // current swing, rad (sign = side)
     this.target = 0;
+    this.rate = OPEN_ANGLE / CFG.doors.fastTime;
+    this.omega = 0;          // swing speed, rad/s (smoothed)
+    this.dragging = false;
+    this.dragOffset = 0;
+    this.dragTarget = 0;
+    this.creakCool = 0;
     const B = new Builder();
     const col = spec.front ? C.doorFront : C.door;
     B.box(0, 0.01, -LEAF_T / 2, this.w, DOOR_H - 0.02, LEAF_T / 2, col);
@@ -486,17 +580,28 @@ class Door {
     // centre of the doorway, for picking the door to use
     this.cx = this.hx + (spec.axis === 'x' ? this.w / 2 : 0);
     this.cz = this.hz + (spec.axis === 'z' ? this.w / 2 : 0);
+    // closed leaf as a segment (for sight and sound)
+    this.cx1 = this.hx + Math.cos(this.base) * this.w;
+    this.cz1 = this.hz - Math.sin(this.base) * this.w;
     this.tip = [0, 0];
     this.updateTip();
   }
 
-  get open() { return this.target !== 0; }
-  get moving() { return this.angle !== this.target; }
+  get open() { return Math.abs(this.target) > 0.05 || Math.abs(this.angle) > 0.05; }
 
-  // Open away from the one who uses it, or close. Returns 'open' | 'close' | 'locked'.
-  toggle(fromX, fromZ) {
+  reset() {
+    this.angle = this.target = 0; this.omega = 0; this.dragging = false;
+    this.mesh.rotation.y = this.base;
+    this.updateTip();
+  }
+
+  // Swing open away from the one who uses it, or close, taking `time` s for a full swing.
+  // Returns 'open' | 'close' | 'locked'.
+  toggle(fromX, fromZ, time = CFG.doors.fastTime) {
     if (this.locked) return 'locked';
-    if (this.target !== 0) { this.target = 0; return 'close'; }
+    this.dragging = false;
+    this.rate = OPEN_ANGLE / time;
+    if (this.open) { this.target = 0; return 'close'; }
     // swinging by +90° points the leaf along (cos(b+90°), -sin(b+90°))
     const nx = Math.cos(this.base + Math.PI / 2), nz = -Math.sin(this.base + Math.PI / 2);
     const side = (fromX - this.hx) * nx + (fromZ - this.hz) * nz;
@@ -504,19 +609,63 @@ class Door {
     return 'open';
   }
 
+  // Handle position (both sides share it in XZ), at 1 m height.
+  handle(out) {
+    const a = this.base + this.angle, d = this.w - 0.1;
+    return out.set(this.hx + Math.cos(a) * d, 1.0, this.hz - Math.sin(a) * d);
+  }
+
+  handAngle(x, z) {
+    let a = Math.atan2(-(z - this.hz), x - this.hx) - this.base;
+    return Math.atan2(Math.sin(a), Math.cos(a));
+  }
+  // Drag by hand: the leaf follows the hand around the hinge; speed decides the creak.
+  grab(x, z) {
+    if (this.locked) return false;
+    this.dragging = true;
+    this.dragOffset = this.angle - this.handAngle(x, z);
+    this.dragTarget = this.angle;
+    return true;
+  }
+  drag(x, z) {
+    if (!this.dragging || Math.hypot(x - this.hx, z - this.hz) < 0.15) return;
+    let t = this.handAngle(x, z) + this.dragOffset;
+    t = Math.atan2(Math.sin(t), Math.cos(t));
+    this.dragTarget = Math.max(-OPEN_ANGLE, Math.min(OPEN_ANGLE, t));
+  }
+  release() { this.dragging = false; this.target = this.angle; }
+
+  // Returns the creak loudness this frame (0 = silent).
   update(dt) {
-    if (this.angle === this.target) return;
-    const step = (OPEN_ANGLE / OPEN_TIME) * dt;
-    const d = this.target - this.angle;
-    this.angle = Math.abs(d) <= step ? this.target : this.angle + Math.sign(d) * step;
-    this.mesh.rotation.y = this.base + this.angle;
-    this.updateTip();
+    const prev = this.angle;
+    const goal = this.dragging ? this.dragTarget : this.target;
+    if (this.angle !== goal) {
+      const step = (this.dragging ? DRAG_RATE : this.rate) * dt;
+      const d = goal - this.angle;
+      this.angle = Math.abs(d) <= step ? goal : this.angle + Math.sign(d) * step;
+      this.mesh.rotation.y = this.base + this.angle;
+      this.updateTip();
+    }
+    const w = dt > 0 ? Math.abs(this.angle - prev) / dt : 0;
+    this.omega = Math.max(w, this.omega * Math.exp(-dt / 0.08));
+    this.creakCool -= dt;
+    if (this.omega > CFG.doors.creakSpeed && this.creakCool <= 0) {
+      this.creakCool = 0.8;
+      return Math.min(1.5, this.omega / CFG.doors.creakSpeed);
+    }
+    return 0;
   }
 
   updateTip() {
     const a = this.base + this.angle;
     this.tip[0] = this.hx + Math.cos(a) * this.w;
     this.tip[1] = this.hz - Math.sin(a) * this.w;
+  }
+
+  // A (nearly) closed leaf blocks the segment a-b.
+  blocksSegment(ax, az, bx, bz) {
+    if (Math.abs(this.angle) > 0.35) return false;
+    return segmentsCross(ax, az, bx, bz, this.hx, this.hz, this.cx1, this.cz1);
   }
 
   // circle vs the leaf (segment hinge-tip, thickened by half the leaf)
@@ -531,4 +680,13 @@ class Door {
     const d = Math.sqrt(d2);
     return [x + dx / d * (rr - d), z + dz / d * (rr - d)];
   }
+}
+
+function segmentsCross(ax, az, bx, bz, cx, cz, dx, dz) {
+  const rx = bx - ax, rz = bz - az, sx = dx - cx, sz = dz - cz;
+  const den = rx * sz - rz * sx;
+  if (Math.abs(den) < 1e-12) return false;
+  const t = ((cx - ax) * sz - (cz - az) * sx) / den;
+  const u = ((cx - ax) * rz - (cz - az) * rx) / den;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
 }
