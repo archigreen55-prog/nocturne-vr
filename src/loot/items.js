@@ -77,6 +77,9 @@ export function inCargo(x, z) {
   return x > CARGO.minX && x < CARGO.maxX && z > CARGO.minZ && z < CARGO.maxZ;
 }
 
+// Places in the van for delivered loot (2 columns, front to back).
+const SLOTS = [[3.95, 8.3], [4.85, 8.3], [3.95, 9.0], [4.85, 9.0], [3.95, 9.7], [4.85, 9.7], [3.95, 10.4], [4.85, 10.4], [4.4, 11.0]];
+
 class Item {
   constructor(def) {
     this.def = def;
@@ -112,7 +115,7 @@ class Item {
     this.mesh.position.set(x, y, z);
     this.mesh.quaternion.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.def.yaw || 0);
     this.mesh.visible = true;
-    this.state = 'rest';     // rest | held | fall | broken
+    this.state = 'rest';     // rest | held | fall | fly (into the van) | broken
     this.damaged = false;
     this.broken = false;
     this.bounced = false;
@@ -120,6 +123,8 @@ class Item {
     this.vel.set(0, 0, 0);
     this.holders.length = 0;
     this.delivered = false;
+    this.order = 0;          // delivery order, for the list on the board
+    this.fly = null;
     this.mat.color.setHex(0xffffff);
     this.highlight(false);
     if (this.shards) this.shards.visible = false;
@@ -127,6 +132,8 @@ class Item {
 
   get value() { return this.broken ? 0 : Math.round(this.def.value * (this.damaged ? CFG.loot.damagedK : 1)); }
   get held() { return this.holders.length > 0; }
+  // can a hand pick it up? (not broken, not flying, not already in the van)
+  get takeable() { return this.state !== 'broken' && this.state !== 'fly' && !this.delivered; }
 
   centre(out) { return out.copy(this.mesh.position).addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.mesh.quaternion), this.h / 2); }
 
@@ -158,38 +165,63 @@ export class Loot {
     this.v = new THREE.Vector3();
     this.q = new THREE.Quaternion();
     this.e = new THREE.Euler(0, 0, 0, 'YXZ');
+    this.orderN = 0;
   }
 
   get crystal() { return this.items.find((i) => i.crystal); }
-  reset() { for (const it of this.items) it.reset(); }
+  reset() { for (const it of this.items) it.reset(); this.orderN = 0; }
 
-  // Summary for the board.
+  // Summary for the board and the wrist; list = delivered items in delivery order.
   tally() {
-    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.length };
+    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.length, list: [] };
     for (const it of this.items) {
       if (it.broken) s.broken++;
       if (!it.delivered) continue;
       s.inVan++; s.sum += it.value;
       if (it.damaged) s.damaged++; else s.intact++;
+      s.list.push({ name: it.name, value: it.value, damaged: it.damaged, order: it.order });
     }
+    s.list.sort((a, b) => a.order - b.order);
     return s;
   }
 
-  // Put an item straight into the cargo (auto-deposit at the end of the round, desktop drop-off).
+  nextSlot() {
+    const used = this.items.filter((i) => i.delivered || i.state === 'fly').length;
+    return SLOTS[Math.min(used, SLOTS.length - 1)];
+  }
+
+  // Drop-off ring: the item flies from where it is into its place in the van (CFG.dropZone.flyTime).
+  deliver(it) {
+    if (!it.takeable) return false;
+    const [x, z] = this.nextSlot();
+    this.e.setFromQuaternion(it.mesh.quaternion);
+    it.holders.length = 0;
+    it.state = 'fly';
+    it.fly = {
+      t: 0, from: it.mesh.position.clone(), q0: it.mesh.quaternion.clone(),
+      to: new THREE.Vector3(x, CARGO.y, z), q1: new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y),
+    };
+    return true;
+  }
+
+  // Put an item straight into the van (items still in hand when you escape or drive off).
   stow(it) {
-    const slot = this.items.filter((i) => i.delivered).length;
-    const x = CARGO.minX + 0.35 + (slot % 3) * 0.55, z = CARGO.minZ + 0.45 + Math.floor(slot / 3) * 0.75;
+    if (it.delivered || it.broken) return;
+    const [x, z] = this.nextSlot();
     it.holders.length = 0;
     it.mesh.position.set(x, CARGO.y, z);
     this.e.setFromQuaternion(it.mesh.quaternion); it.mesh.quaternion.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y);
-    it.state = 'rest'; it.landed = true; it.vel.set(0, 0, 0);
-    this.markDelivered(it);
+    it.state = 'rest'; it.landed = true; it.vel.set(0, 0, 0); it.fly = null;
+    this.markDelivered(it, true);
   }
 
-  markDelivered(it) {
-    const was = it.delivered;
-    it.delivered = it.state === 'rest' && !it.broken && inCargo(it.mesh.position.x, it.mesh.position.z) && it.mesh.position.y > 0.2;
-    if (it.delivered && !was && this.env.onDeliver) this.env.onDeliver(it);
+  // An item resting on the cargo floor (flown in, stowed, or thrown in) counts, once and for good.
+  markDelivered(it, force = false) {
+    if (it.delivered || it.broken || it.state !== 'rest') return;
+    if (!force && !(inCargo(it.mesh.position.x, it.mesh.position.z) && it.mesh.position.y > 0.2)) return;
+    it.delivered = true;
+    it.order = ++this.orderN;
+    if (this.env.onDeliver) this.env.onDeliver(it);
   }
 
   // Knock the crystal vase over (bumped, or grabbed too fast).
@@ -209,9 +241,24 @@ export class Loot {
       }
     }
     for (const it of this.items) {
+      if (it.state === 'fly') { this.flyStep(it, dt); continue; }
       if (it.state !== 'fall') { if (it.state === 'rest') this.markDelivered(it); continue; }
       const steps = Math.max(1, Math.ceil(dt * 120));
       for (let i = 0; i < steps && it.state === 'fall'; i++) this.fallStep(it, dt / steps);
+    }
+  }
+
+  flyStep(it, dt) {
+    const f = it.fly;
+    f.t = Math.min(1, f.t + dt / CFG.dropZone.flyTime);
+    const k = f.t * f.t * (3 - 2 * f.t);                       // ease in-out
+    it.mesh.position.lerpVectors(f.from, f.to, k);
+    it.mesh.position.y += Math.sin(Math.PI * f.t) * 0.35;      // a little arc over the sill
+    it.mesh.quaternion.slerpQuaternions(f.q0, f.q1, k);
+    if (f.t >= 1) {
+      it.mesh.position.copy(f.to); it.mesh.quaternion.copy(f.q1);
+      it.state = 'rest'; it.fly = null; it.landed = true; it.vel.set(0, 0, 0);
+      this.markDelivered(it, true);
     }
   }
 

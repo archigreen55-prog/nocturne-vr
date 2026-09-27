@@ -7,9 +7,10 @@ CDN, no build step).
 
 **Play:** https://archigreen55-prog.github.io/nocturne-vr/
 
-Status: deploy 2 — loot (one- and two-handed, fragile crystal), noise from steps / doors / drops /
-your voice, a patrol that hears and sees, a lurker that jumps out, alarm lights, a 7-minute round
-with an escape phase, a scoreboard at the van that can replay your loudest scream.
+Status: deploy 3 — loot (one- and two-handed, fragile crystal) delivered through a glowing drop-off
+ring behind the van, noise from steps / doors / drops / your voice, a patrol that hears and sees
+(its flashlight stays in the rooms it can light), a lurker that jumps out, alarm lights, a 7-minute
+round with an escape phase, a result board that replays your loudest scream.
 
 ## Privacy
 
@@ -23,10 +24,11 @@ microphone audio in memory; nothing is written to disk or sent anywhere, and a n
 | Left stick | Walk where you look (a light push keeps steps quiet) |
 | Right stick ← → | Snap turn 45° (30° in settings) |
 | Grip near an item | Pick up / let go; big items need both hands |
+| Drop-off ring behind the van | Walk in with loot in your hands: it flies into the van |
 | Trigger on a door handle | Drag the door by hand: slow = quiet, fast = creak |
 | Trigger near a door | Quick swing (creaks) |
 | Trigger at the board | Board buttons |
-| A (hold) | Hold your breath: the mic is ignored for up to 6 s, then 20 s cooldown |
+| A (hold) | Hold your breath: the mic is ignored for up to 6 s; the rest after it is proportional (up to 20 s) |
 | B | Crouch / stand (for seated play) |
 | X | FPS counter on the wrist |
 | Left stick press | Vignette strength |
@@ -36,11 +38,13 @@ microphone audio in memory; nothing is written to disk or sent anywhere, and a n
 ## Controls (keyboard)
 
 Click to capture the mouse (click the board to press its buttons), WASD walk (Space fast),
-E pick up / put down (at the van: into the van), Q / T door slow / fast, Shift hold breath,
+E pick up / put down (walk into the ring behind the van to deliver), Q / T door slow / fast, Shift hold breath,
 C crouch, F FPS, R back to the van, N new round, Esc menu.
 
 URL parameters: `?fps` (counter on), `?fbs=0.85` (XR framebuffer scale), `?fov=0.5` (foveation),
-`?hz=72` (frame rate), `?vignette` (vignette on the laptop too), `?autostart`.
+`?hz=72` (frame rate), `?vignette` (vignette on the laptop too), `?autostart`,
+`?rec=script|recorder` (force a scream recorder fallback), `?flash=nomask|shadow|off` (flashlight
+variants for measuring).
 
 ## Tuning
 

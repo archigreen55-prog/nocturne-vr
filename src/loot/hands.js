@@ -6,7 +6,6 @@
 // On a laptop, E picks the item in front up / puts it down (two-handed items too).
 import * as THREE from 'three';
 import { CFG } from '../game/config.js';
-import { CARGO } from '../world/level.js';
 import { playTick } from '../audio/audio.js';
 
 const HANDS = ['left', 'right'];
@@ -53,7 +52,7 @@ export class Hands {
   nearest(pos, except) {
     let best = null, bestD = Infinity;
     for (const it of this.env.loot.items) {
-      if (it.state === 'broken' || it === except) continue;
+      if (!it.takeable || it === except) continue;
       it.centre(_c);
       const d = pos.distanceTo(_c) - Math.max(it.r, it.h / 2) - CFG.loot.grabReach;
       if (d < 0 && d < bestD) { best = it; bestD = d; }
@@ -147,13 +146,16 @@ export class Hands {
   dropItem(it, vel) {
     _v.copy(vel);
     if (_v.length() > 6) _v.setLength(6);
-    // let go right in front of the open van: it slides into the cargo instead of the grass
-    const p = it.mesh.position;
-    if (p.x > CARGO.minX - 0.25 && p.x < CARGO.maxX + 0.25 && p.z > CARGO.minZ - 0.9 && p.z < CARGO.minZ + 0.2 && p.y > 0.25) {
-      p.z = CARGO.minZ + 0.35; p.x = Math.max(CARGO.minX + 0.2, Math.min(CARGO.maxX - 0.2, p.x));
-      _v.set(0, 0, 0);
-    }
     it.drop(_v);
+  }
+
+  // Take an item out of the hands without dropping it (the drop-off ring takes it); the grip can
+  // stay pressed, the hand simply holds nothing.
+  detach(it) {
+    for (const n of HANDS) if (this.h[n].item === it) { this.h[n].item = null; this.h[n].aloneT = 0; }
+    if (this.two && this.two.item === it) this.two = null;
+    if (this.desk === it) this.desk = null;
+    it.holders.length = 0;
   }
 
   carry(dt) {
@@ -212,7 +214,7 @@ export class Hands {
     let best = null, bestD = 1.8;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     for (const it of this.env.loot.items) {
-      if (it.state === 'broken' || it.held || it.state === 'fall') continue;
+      if (!it.takeable || it.held || it.state === 'fall') continue;
       it.centre(_c);
       const dx = _c.x - head.x, dz = _c.z - head.z, d = Math.hypot(dx, dz);
       if (d > bestD || (d > 0.4 && (dx * fx + dz * fz) / d < 0.75)) continue;
@@ -221,13 +223,13 @@ export class Hands {
     this.deskAim = this.desk ? null : best;
     return best;
   }
-  // E: pick up the aimed item, or put the carried one down in front (into the van when at it).
+  // E: pick up the aimed item, or put the carried one down in front (into the van when near it).
   toggleDesk(head, yaw, atVan) {
     if (this.desk) {
       const it = this.desk;
       this.desk = null;
       it.holders.length = 0;
-      if (atVan) this.env.loot.stow(it);
+      if (atVan) this.env.loot.deliver(it);   // near the van: it flies in
       else it.drop(_v.set(0, 0, 0));
       return;
     }

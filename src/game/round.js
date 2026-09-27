@@ -91,7 +91,7 @@ export class Round {
       title: RESULT_TITLES[kind],
       time: this.t,
       sum: lost ? 0 : tally.sum,
-      inVan: tally.inVan, intact: tally.intact, damaged: tally.damaged, broken: tally.broken, total: tally.total,
+      inVan: tally.inVan, intact: tally.intact, damaged: tally.damaged, broken: tally.broken, total: tally.total, list: tally.list,
       shouts: this.shouts,
       scares: this.env.lurker.scares,
       seen: this.env.patrol.seenCount,

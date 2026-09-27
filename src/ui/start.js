@@ -30,7 +30,15 @@ export function setupStartScreen({ mic, onPlay, onMicOn }) {
     showState();
     await mic.enable();
     showState();
-    if (mic.state === 'on' && onMicOn) onMicOn();
+    if (mic.state === 'on' && onMicOn) {
+      const rec = $('recstate');
+      rec.textContent = 'Перевіряю запис для повтору крику…';
+      const mode = await onMicOn();
+      rec.textContent = mode === 'none'
+        ? 'Запис для повтору крику не працює в цьому браузері (гра працює, але табло не програє крик).'
+        : `Запис для повтору крику працює (${{ worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder' }[mode] || mode}).`;
+      rec.style.color = mode === 'none' ? '#ff9f43' : '#5fd38d';
+    }
     if (mic.state === 'on' && !mic.calibrated) step.textContent = 'Тепер натисни «Калібрувати».';
   });
 

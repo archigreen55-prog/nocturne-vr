@@ -4,7 +4,7 @@
 // line and the build version.
 import * as THREE from 'three';
 import { LEVELS } from '../audio/mic.js';
-import { fmtTime } from './board.js';
+import { fmtTime, money } from './board.js';
 
 const W = 512, H = 512;
 const SIZE = 0.12;   // m
@@ -49,37 +49,47 @@ export class WristPanel {
   }
 
   draw(s) {
-    const g = this.g;
+    const g = this.g, b = s.breath, holding = b.state === 'holding';
     g.clearRect(0, 0, W, H);
-    g.fillStyle = s.alertLevel === 2 ? 'rgba(40, 8, 10, 0.92)' : 'rgba(12, 16, 24, 0.9)';
+    g.fillStyle = holding ? 'rgba(8, 22, 44, 0.94)' : s.alertLevel === 2 ? 'rgba(40, 8, 10, 0.92)' : 'rgba(12, 16, 24, 0.9)';
     roundRect(g, 4, 4, W - 8, H - 8, 28); g.fill();
-    g.strokeStyle = ['#3d4a63', '#b07a2a', '#ff3b3b'][s.alertLevel || 0]; g.lineWidth = 5; g.stroke();
+    g.strokeStyle = holding ? '#4fb3ff' : ['#3d4a63', '#b07a2a', '#ff3b3b'][s.alertLevel || 0];
+    g.lineWidth = holding ? 10 : 5; g.stroke();
     g.textBaseline = 'alphabetic';
 
-    // --- breath ring (A): blue = holding (time left), grey = cooldown, white = ready ---
-    const b = s.breath, cx = 66, cy = 70, r = 40;
+    // --- breath ring (A / Shift): blue = holding (time left), grey = recovering, white = ready ---
+    const cx = 66, cy = 70, r = 40;
     g.lineWidth = 10;
     g.strokeStyle = '#26314a'; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
-    g.strokeStyle = b.state === 'holding' ? '#4fb3ff' : b.state === 'cooldown' ? '#6a7385' : '#c9d3e3';
+    g.strokeStyle = holding ? '#4fb3ff' : b.state === 'cooldown' ? '#6a7385' : '#c9d3e3';
     g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * b.ring); g.stroke();
-    g.fillStyle = b.state === 'holding' ? '#4fb3ff' : '#c9d3e3'; g.font = 'bold 30px system-ui, sans-serif'; g.textAlign = 'center';
-    g.fillText('A', cx, cy + 11);
+    g.fillStyle = holding ? '#4fb3ff' : '#c9d3e3'; g.textAlign = 'center';
+    if (b.state === 'ready') { g.font = 'bold 30px system-ui, sans-serif'; g.fillText('A', cx, cy + 11); }
+    else { g.font = 'bold 26px system-ui, sans-serif'; g.fillText(b.left.toFixed(b.left < 10 ? 1 : 0), cx, cy + 9); }
 
     // --- microphone ---
     const mic = s.mic;
     g.textAlign = 'center';
-    if (mic.state === 'on') {
+    if (holding) {
+      // holding the breath: the game does not hear the mic at all
+      g.fillStyle = '#4fb3ff'; g.font = 'bold 50px system-ui, sans-serif'; g.fillText('ЗАТАМУВАВ', 300, 80);
+      g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#9fd4ff';
+      g.fillText(`мікрофон не чути ще ${b.left.toFixed(1)} с`, 300, 120);
+      if (mic.state === 'on') {
+        const x0 = 30, bw = W - 60, y = 142;
+        g.fillStyle = '#16324f'; g.fillRect(x0, y, bw, 24);
+        g.fillStyle = '#2e6aa0'; g.fillRect(x0, y + 5, bw * mic.barPos(mic.env), 14);
+      }
+    } else if (mic.state === 'on') {
       const lv = LEVELS[mic.level];
-      if (b.state === 'holding') { g.fillStyle = '#4fb3ff'; g.font = 'bold 50px system-ui, sans-serif'; g.fillText('ЗАТАМУВАВ', 300, 86); }
-      else { g.fillStyle = lv.color; g.font = 'bold 56px system-ui, sans-serif'; g.fillText(lv.label, 300, 88); }
+      g.fillStyle = lv.color; g.font = 'bold 56px system-ui, sans-serif'; g.fillText(lv.label, 300, 88);
       // bar: zones, thresholds, level
-      const x0 = 30, x1 = W - 30, y = 128, h = 38, bw = x1 - x0;
+      const x0 = 30, x1 = W - 30, y = 120, h = 36, bw = x1 - x0;
       const pw = mic.barPos(mic.whisperDb), ps = mic.barPos(mic.shoutDb);
       g.fillStyle = '#1f3b2b'; g.fillRect(x0, y, bw * pw, h);
       g.fillStyle = '#3f3a1c'; g.fillRect(x0 + bw * pw, y, bw * (ps - pw), h);
       g.fillStyle = '#4a1c1c'; g.fillRect(x0 + bw * ps, y, bw * (1 - ps), h);
-      const pe = mic.barPos(mic.env);
-      g.fillStyle = b.state === 'holding' ? '#4fb3ff' : lv.color; g.fillRect(x0, y + 7, bw * pe, h - 14);
+      g.fillStyle = lv.color; g.fillRect(x0, y + 7, bw * mic.barPos(mic.env), h - 14);
       g.fillStyle = '#ffffff';
       g.fillRect(x0 + bw * pw - 2, y - 5, 4, h + 10);
       g.fillRect(x0 + bw * ps - 2, y - 5, 4, h + 10);
@@ -87,7 +97,7 @@ export class WristPanel {
       g.font = problem ? 'bold 22px system-ui, sans-serif' : '22px system-ui, sans-serif';
       g.fillStyle = problem ? '#ff5c5c' : '#6f8396';
       g.textAlign = problem ? 'center' : 'left';
-      g.fillText(problem || `${mic.env.toFixed(0)} дБ`, problem ? W / 2 : x0, y + h + 26);
+      g.fillText(problem || `${mic.env.toFixed(0)} дБ${s.speaking ? ' · тебе чути' : ''}`, problem ? W / 2 : x0, y + h + 26);
     } else {
       g.fillStyle = '#8a93a3'; g.font = 'bold 44px system-ui, sans-serif';
       g.fillText('МІК ВИМКНЕНО', 300, 88);
@@ -96,48 +106,55 @@ export class WristPanel {
     }
 
     // --- clock and alarm ---
-    g.textAlign = 'left'; g.font = 'bold 60px system-ui, sans-serif';
+    g.textAlign = 'left'; g.font = 'bold 56px system-ui, sans-serif';
     g.fillStyle = s.phase === 'escape' ? '#ff4d4d' : s.clock < 60 ? '#ffb347' : '#e6ecf5';
-    g.fillText(s.phase === 'result' ? '—:—' : fmtTime(s.clock), 30, 262);
-    g.textAlign = 'right'; g.font = 'bold 32px system-ui, sans-serif';
+    g.fillText(s.phase === 'result' ? '—:—' : fmtTime(s.clock), 30, 244);
+    g.textAlign = 'right'; g.font = 'bold 30px system-ui, sans-serif';
     g.fillStyle = ['#5fd38d', '#ffb347', '#ff4d4d'][s.alertLevel || 0];
-    g.fillText(s.phase === 'escape' ? 'ДО ФУРГОНА!' : ['спокій', 'перевірка', 'ТРИВОГА'][s.alertLevel || 0], W - 30, 256);
+    g.fillText(s.phase === 'escape' ? 'ДО ФУРГОНА!' : ['спокій', 'перевірка', 'ТРИВОГА'][s.alertLevel || 0], W - 30, 238);
 
-    // --- body: steps, crouch; hands ---
-    g.textAlign = 'left'; g.font = 'bold 28px system-ui, sans-serif';
+    // --- body: steps, crouch; hands; the van ---
+    g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
     g.fillStyle = s.stepsAudible ? '#ffb347' : '#5fd38d';
-    g.fillText(s.stepsAudible ? 'Кроки: чутно' : 'Кроки: тихо', 30, 306);
+    g.fillText(s.stepsAudible ? 'Кроки: чутно' : 'Кроки: тихо', 30, 284);
     g.textAlign = 'right';
     g.fillStyle = s.crouched ? '#7fc8ff' : '#56627a';
-    g.fillText(s.crouched ? (s.virtualCrouch ? 'Присів (B)' : 'Присів') : 'Стоїш', W - 30, 306);
-    g.textAlign = 'left'; g.font = '26px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
-    g.fillText(s.holding ? `У руках: ${s.holding}` : s.room, 30, 344);
-    if (s.holding) { g.textAlign = 'right'; g.fillStyle = '#6f8396'; g.fillText(s.room, W - 30, 344); }
+    g.fillText(s.crouched ? (s.virtualCrouch ? 'Присів (B)' : 'Присів') : 'Стоїш', W - 30, 284);
+    g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
+    g.fillText(s.holding ? `У руках: ${s.holding}` : s.room, 30, 320);
+    if (s.holding) { g.textAlign = 'right'; g.fillStyle = '#6f8396'; g.fillText(s.room, W - 30, 320); }
+    g.textAlign = 'left'; g.font = 'bold 28px system-ui, sans-serif'; g.fillStyle = '#5fd38d';
+    g.fillText(`У фургоні: ${money(s.vanSum || 0)} · ${s.vanCount || 0} предм.`, 30, 360);
 
     // --- FPS block ---
     if (this.showFps) {
       const target = s.hz || 72;
       g.textAlign = 'left';
       g.fillStyle = s.fps >= target - 2 ? '#6fe06f' : s.fps >= target * 0.8 ? '#ffd166' : '#ff5c5c';
-      g.font = 'bold 36px system-ui, sans-serif';
-      g.fillText(`${Math.round(s.fps)} FPS`, 30, 392);
-      g.font = '20px system-ui, sans-serif'; g.fillStyle = '#9fb3c8';
+      g.font = 'bold 30px system-ui, sans-serif';
+      g.fillText(`${Math.round(s.fps)} FPS`, 30, 400);
+      g.font = '18px system-ui, sans-serif'; g.fillStyle = '#9fb3c8';
       const ms = (v) => (v == null ? 'н/д' : v.toFixed(1));
       g.textAlign = 'right';
-      g.fillText(`${s.hz ? s.hz + ' Гц · ' : ''}CPU ${ms(s.cpuMs)} · GPU ${ms(s.gpuMs)} мс`, W - 30, 378);
-      g.fillText(`${s.calls} calls · ${(s.tris / 1000).toFixed(0)}k tris`, W - 30, 402);
+      g.fillText(`${s.hz ? s.hz + ' Гц · ' : ''}CPU ${ms(s.cpuMs)} · GPU ${ms(s.gpuMs)} мс`, W - 30, 388);
+      g.fillText(`${s.calls} calls · ${(s.tris / 1000).toFixed(0)}k tris`, W - 30, 410);
     }
 
-    // --- message ---
-    if (s.msg) {
-      g.textAlign = 'center'; g.fillStyle = s.msgColor || '#ffd166';
+    // --- door hint while dragging a door, else the message line ---
+    let msg = s.msg, color = s.msgColor;
+    if (s.door) {
+      msg = s.door.creak > 0 ? `Двері: СКРИПИТЬ${s.door.creak > 0.5 ? '!' : ''}` : 'Двері: тихо';
+      color = s.door.creak > 0 ? (s.door.creak > 0.5 ? '#ff5c5c' : '#ffb347') : '#5fd38d';
+    }
+    if (msg) {
+      g.textAlign = 'center'; g.fillStyle = color || '#ffd166';
       let size = 34;
-      do { g.font = `bold ${size}px system-ui, sans-serif`; size -= 2; } while (g.measureText(s.msg).width > W - 50 && size > 16);
-      g.fillText(s.msg, W / 2, 452);
+      do { g.font = `bold ${size}px system-ui, sans-serif`; size -= 2; } while (g.measureText(msg).width > W - 50 && size > 16);
+      g.fillText(msg, W / 2, 454);
     }
 
-    g.textAlign = 'right'; g.font = '20px system-ui, sans-serif'; g.fillStyle = '#6f8396';
-    g.fillText(`v${this.version}`, W - 30, H - 22);
+    g.textAlign = 'right'; g.font = '18px system-ui, sans-serif'; g.fillStyle = '#6f8396';
+    g.fillText(`v${this.version}`, W - 30, H - 20);
     this.texture.needsUpdate = true;
   }
 }

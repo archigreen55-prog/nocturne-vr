@@ -2,17 +2,17 @@ import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { VERSION } from './version.js';
 import { CFG } from './game/config.js';
-import { buildLevel, roomAt, SPAWN, BOARD } from './world/level.js';
+import { buildLevel, roomAt, SPAWN } from './world/level.js';
 import { Player } from './xr/player.js';
 import { ComfortOverlay, VIGNETTE_LEVELS } from './comfort/vignette.js';
 import { KeyboardInput } from './input/keyboard.js';
 import { XRInput } from './input/xrInput.js';
 import { WristPanel } from './ui/wrist.js';
-import { Board } from './ui/board.js';
+import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, setListener, playCreak, playKnock, playCash, playHeartbeat, Siren } from './audio/audio.js';
+import { unlockAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren } from './audio/audio.js';
 import { NoiseSystem } from './noise/noise.js';
 import { Loot } from './loot/items.js';
 import { Hands } from './loot/hands.js';
@@ -21,6 +21,8 @@ import { Alert } from './enemies/alert.js';
 import { Patrol } from './enemies/patrol.js';
 import { Lurker } from './enemies/lurker.js';
 import { Round } from './game/round.js';
+import { DropZone } from './game/dropzone.js';
+import { maskScene, maskBeam, updateFlashMask, flashUniforms } from './enemies/flashMask.js';
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
 import { loadSetting, saveSetting } from './settings.js';
@@ -89,9 +91,19 @@ scene.add(noise.mesh);
 const loot = new Loot({
   level, noise, listener,
   onMessage: (t, c) => flash(t, 2, c),
-  onDeliver: (it) => { playCash(); flash(`${it.name} у фургоні: $${it.value}`, 2.5, '#5fd38d'); boardDirty = true; },
+  onDeliver: (it) => {
+    playCash();
+    const delay = Math.max(0, lastPop + 0.35 - simT);   // several items: the labels rise one after another
+    lastPop = simT + delay;
+    zone.pop('+' + money(it.value), delay);
+    flash(`${it.name}${it.damaged ? ' (пошкодж.)' : ''} у фургоні: ${money(it.value)}`, 2.5, it.damaged ? '#ffb347' : '#5fd38d');
+    boardDirty = true;
+  },
 });
 scene.add(loot.group);
+const zone = new DropZone();
+scene.add(zone.group);
+let simT = 0, lastPop = -1;
 const nav = new Nav(level);
 const alert = new Alert({ hemi, moon: moonLight, points, glow: level.glowMaterial });
 const patrol = new Patrol({ level, nav, alert, listener });
@@ -102,6 +114,7 @@ const board = new Board();
 scene.add(board.mesh);
 const mic = new Mic();
 const scream = new ScreamRecorder(mic);
+scream.onEnded = () => { boardDirty = true; };
 const breath = new Breath();
 const siren = new Siren();
 const round = new Round({
@@ -114,7 +127,12 @@ const round = new Round({
       siren.set(false);
       patrol.reset(); lurker.reset(); alert.reset();
       const R = round.result;
-      flash(`${R.title}! Табло біля фургона`, 5, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
+      if (R.kind === 'caught' || R.kind === 'late') {   // back at the van, facing it
+        player.teleport(SPAWN.x, SPAWN.z, Math.atan2(-(CFG.dropZone.x - SPAWN.x), -(CFG.dropZone.z - SPAWN.z)));
+        comfort.fadeIn(0.8);
+      }
+      resultT = 0; autoPlayed = false;
+      flash(R.title, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
     }
   },
 });
@@ -224,13 +242,27 @@ function updateDrags(dt) {
     d.door.drag(_hand.x, _hand.z);
   }
 }
+// Hinge creaks: a continuous voice per moving door (loudness follows the swing speed) and, for the
+// patrol, a noise per creak (radius from its loudest moment; the patrol's own doors only warn you,
+// they do not alarm it).
+const creakVoices = new Map();
+const _doorPos = { x: 0, y: 1.2, z: 0 };
 function updateDoors(dt) {
   for (const d of level.doors) {
     const loud = d.update(dt);
-    if (!loud) continue;
-    const occ = level.soundOccluded(player.head.x, player.head.z, d.cx, d.cz);
-    playCreak(loud, { x: d.cx, y: 1.2, z: d.cz }, occ);
-    if (d.lastUser !== 'patrol') noise.emit(d.cx, d.cz, CFG.doors.creakRadius * Math.min(1.3, loud), 'door');
+    let v = creakVoices.get(d);
+    if (loud > 0 && !v) { v = new CreakVoice(); creakVoices.set(d, v); }
+    if (v) {
+      _doorPos.x = d.cx; _doorPos.z = d.cz;
+      if (!v.set(loud, _doorPos, level.soundOccluded(player.head.x, player.head.z, d.cx, d.cz), dt)) { v.stop(); creakVoices.delete(d); }
+    }
+    // one noise per creak burst (when it stops), or every 0.5 s while it goes on; radius from its peak
+    d.creakPeak = Math.max(d.creakPeak || 0, loud);
+    if (d.creakPeak > 0) d.creakAge = (d.creakAge || 0) + dt;
+    if (d.creakPeak > 0 && (loud === 0 || d.creakAge >= 0.5)) {
+      if (d.lastUser !== 'patrol') noise.emit(d.cx, d.cz, CFG.doors.creakRadius * Math.pow(d.creakPeak, 0.7), 'door');
+      d.creakPeak = 0; d.creakAge = 0;
+    }
   }
 }
 
@@ -316,12 +348,14 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 // ---------- round control ----------
-let boardDirty = true, boardT = 0, caughtT = -1, heartT = 0, voiceT = 0;
+let boardDirty = true, boardT = 0, caughtT = -1, heartT = 0, voiceT = 0, speakT = 0, quietT = 0;
+let resultT = -1, autoPlayed = false;
 function newRound() {
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
   loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
-  caughtT = -1;
+  caughtT = -1; resultT = -1;
+  board.placeAtStand();
   player.virtualCrouch = false;
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
@@ -330,7 +364,7 @@ function newRound() {
 }
 function pressBoard(id) {
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
-  else if (id === 'play') { if (scream.play()) flash('Твій крик', 2, '#ffb347'); }
+  else if (id === 'play') scream.play();
   else if (id === 'again') newRound();
   boardDirty = true;
 }
@@ -364,6 +398,7 @@ function cycleVignette() {
 // ---------- simulation (one frame of game logic) ----------
 let heightMsg = false;
 function simulate(dt, xrFrame, now) {
+  simT += dt;
   mic.update(dt);
   scream.update();
   if (player.updatePose(xrFrame) === 'recentred') {
@@ -408,17 +443,16 @@ function simulate(dt, xrFrame, now) {
   if (caughtT >= 0) {
     caughtT += dt;
     if (caughtT > 1 && round.phase !== 'result') {
-      round.finish('caught');
-      player.teleport(BOARD.x - 0.9, BOARD.z - 1.2, Math.atan2(-0.9, -1.2));   // in front of the board, facing it
-      comfort.fadeIn(0.8);
+      round.finish('caught');   // onPhase: back to the van, board in front
       caughtT = -1;
     }
   }
 
   // breath (A / Shift)
   const b = breath.update(dt, active && breathDown);
-  if (b === 'start') { flash('Затамував подих', 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); }
-  else if (b === 'end') flash(`Видих. Знову можна через ${CFG.breath.cooldown} с`, 2, '#93a1b8');
+  if (b === 'start') { flash('Затамував подих: мікрофон не чути', 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); wristTimer = 0; }
+  else if (b === 'end') { flash(`Видих. Відпочинок ${breath.cool.toFixed(0)} с`, 2, '#93a1b8'); wristTimer = 0; }
+  else if (b === 'busy') flash(`Ще не віддихався: ${breath.left.toFixed(0)} с`, 1.5, '#93a1b8');
 
   // player + hands
   player.update(dt, move, level, hands.carrying === 'medium' ? CFG.player.carryMediumK : 1);
@@ -433,8 +467,18 @@ function simulate(dt, xrFrame, now) {
     if (keys.take('KeyQ')) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), null, CFG.doors.slowTime);
     if (keys.take('KeyT')) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), null, CFG.doors.fastTime);
   }
+  // drop-off ring: head inside with loot in hand = the loot flies into the van
+  const carried = hands.heldItems().filter((it) => !it.twoHanded || hands.desk === it || (hands.two && hands.two.item === it));
+  const inRing = zone.contains(player.head.x, player.head.z);
+  if (active && inRing && carried.length && round.phase !== 'result' && caughtT < 0) {
+    for (const it of carried) { hands.detach(it); loot.deliver(it); }
+    xrIn.pulse('both', 0.3, 40);
+  }
+  zone.update(dt, carried.length > 0, player.head);
+
   updateDrags(dt);
   updateDoors(dt);
+  updateFlashMask(patrol.x, patrol.z, level.doors);
   if (inVR) wrist.faceEye(player.head);
   setListener(player.head.x, player.head.y, player.head.z, player.yaw);
 
@@ -450,7 +494,10 @@ function simulate(dt, xrFrame, now) {
       alert.setFull('крик', player.head.x, player.head.z);
       flash('КРИК! Тебе почув весь будинок', 3, '#ff4d4d');
     }
-    if (micLive && mic.level === 'normal') {
+    // talking: heard only after CFG.mic.normalAfter s of continuous speech (short pauses allowed)
+    if (micLive && mic.level !== 'quiet') { speakT += dt; quietT = 0; }
+    else { quietT += dt; if (quietT > 0.35) speakT = 0; }
+    if (micLive && speakT >= CFG.mic.normalAfter) {
       voiceT -= dt;
       if (voiceT <= 0) { voiceT = CFG.mic.normalEvery; noise.emit(player.head.x, player.head.z, CFG.mic.normalRadius, 'voice'); }
     } else voiceT = 0;
@@ -470,7 +517,16 @@ function simulate(dt, xrFrame, now) {
     }
   } else {
     mic.takeShout();
+    speakT = 0;
     if (round.phase === 'result') { loot.update(dt, player); alert.update(dt); }
+  }
+  if (round.phase === 'result' && resultT >= 0) {
+    resultT += dt;
+    if (!board.floating && resultT > 0.2) { board.placeInFront(player.head, player.yaw); boardDirty = true; }
+    if (!autoPlayed && resultT > 1.2 && !scream.pending && !scream.busy) {
+      autoPlayed = true;
+      if (scream.best && scream.play()) boardDirty = true;
+    }
   }
   noise.update(dt);
 
@@ -481,7 +537,7 @@ function simulate(dt, xrFrame, now) {
     boardT = 0.25; boardDirty = false;
     board.draw({
       phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: loot.tally(), result: round.result,
-      clip: scream.best, playing: !!scream.playing,
+      clip: scream.best, playing: !!scream.playing, recMode: scream.modeName,
     });
   }
 }
@@ -514,13 +570,17 @@ function frame(now, xrFrame) {
     wristTimer = 0.1;   // 10 Hz
     const session = inVR && renderer.xr.getSession();
     const held = hands.heldItems()[0];
+    const T = loot.tally();
+    const dragging = drags.left || drags.right;
     wrist.draw({
+      vanSum: T.sum, vanCount: T.inVan, speaking: speakT >= CFG.mic.normalAfter && !breath.holding,
+      door: dragging ? { creak: dragging.door.creak } : null,
       mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
       room: roomAt(player.head.x, player.head.z),
       holding: held ? `${held.name}${held.damaged ? ' (пошкодж.)' : ''}` : '',
       clock: round.clock, phase: round.phase, alertLevel: alert.level,
       fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
-      gpuMs: gpu.take(), cpuMs: cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms,
+      gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),
       msg: flashT > 0 ? flashText : '', msgColor: flashColor,
     });
     debugEl.style.display = wrist.showFps && !inVR ? 'block' : 'none';
@@ -557,13 +617,31 @@ vsel.addEventListener('change', () => comfort.setLevel(VIGNETTE_LEVELS.find((l) 
 $('snap').value = String(snapDeg);
 $('snap').addEventListener('change', () => { snapDeg = +$('snap').value; saveSetting('snap', snapDeg); });
 
+// Flashlight through walls: room mask by default. ?flash=nomask / shadow / off are for measuring the
+// cost of the alternatives (shadow = one 256² shadow map for the flashlight only).
+const flashMode = params.get('flash') || 'mask';
+if (flashMode === 'mask') {
+  const masked = maskScene(scene);
+  maskBeam(patrol.beam.material);
+  console.log(`flashlight room mask on ${masked} lit materials`);
+} else if (flashMode === 'shadow') {
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  patrol.spot.castShadow = true;
+  patrol.spot.shadow.mapSize.set(256, 256);
+  patrol.spot.shadow.camera.near = 0.2;
+  patrol.spot.shadow.camera.far = 14;
+  scene.traverse((o) => { if (o.isMesh && o.material && o.material.isMeshLambertMaterial) { o.castShadow = true; o.receiveShadow = true; } });
+} else if (flashMode === 'off') patrol.spot.visible = false;
+
 renderer.setAnimationLoop(frame);
 if (params.has('autostart')) start.play();
 
 // test / debugging hook: sim(seconds) runs the game logic with fixed 1/72 s steps (no rendering)
 window.__game = {
   THREE, CFG, renderer, scene, camera, player, level, mic, comfort, xrIn, wrist, perf, VERSION, flash, goHome, useDoor, nearestDoor,
-  loot, hands, noise, nav, alert, patrol, lurker, board, round, scream, breath, pointer, newRound, pressBoard,
+  loot, hands, noise, nav, alert, patrol, lurker, board, round, scream, breath, pointer, newRound, pressBoard, zone, flashUniforms,
+  get speakT() { return speakT; }, get drags() { return drags; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

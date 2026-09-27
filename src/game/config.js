@@ -8,8 +8,11 @@ export const CFG = {
     warnAt: 6 * 60,        // lights start flickering ("the neighbours noticed")
     escapeTime: 60,        // after full alarm or the timer: this long to reach the van
     startDist: 1.5,        // the timer starts when you walk this far from the van
-    vanZone: { x: 2.6, z: 7.3, r: 1.7 },  // standing here = "at the van" (escape ends, auto-deposit)
+    vanZone: { x: 4.4, z: 6.75, r: 2.0 },  // this close to the drop-off ring = "at the van" (the escape ends here)
   },
+
+  // Drop-off ring behind the open van: head inside + loot in hands = it flies into the van.
+  dropZone: { x: 4.4, z: 6.75, r: 0.6, flyTime: 0.3 },
 
   player: {
     maxSpeed: 2.0,         // stick fully forward
@@ -23,17 +26,22 @@ export const CFG = {
     whisperK: 0.5,         // whisper threshold = silence + K x (voice - silence), from calibration
     shoutOver: 9,          // dB above the calibrated voice
     shoutRise: 6,          // dB rise within 0.1 s needed to start a shout
-    normalRadius: 5,       // talking normally: noise every normalEvery s while it lasts
-    normalEvery: 0.5,
+    normalRadius: 3,       // talking normally: a noise of this radius...
+    normalAfter: 0.7,      // ...only after this much continuous speech (pauses under 0.35 s do not break it)
+    normalEvery: 1,        // ...and then once per this many seconds while it lasts
   },
 
-  breath: { hold: 6, cooldown: 20 },   // A: the mic is ignored for up to `hold` s
+  // A / Shift: the mic is ignored for up to `hold` s. Cooldown = cooldown x (time held / hold), at least
+  // cooldownMin; a tap shorter than `tap` costs nothing (an accidental press is not punished).
+  breath: { hold: 6, cooldown: 20, cooldownMin: 2, tap: 0.25 },
 
   doors: {
-    fastTime: 0.7,         // trigger tap: quick swing (creaks)
+    fastTime: 0.35,        // trigger tap / keyboard T: quick shove (creaks)
     slowTime: 2.2,         // keyboard Q: slow swing (quiet)
-    creakSpeed: 1.2,       // rad/s (~70°/s): faster swings creak
-    creakRadius: 7,
+    creakFrom: 150,        // deg/s: the hinge starts creaking (quietly) above this swing speed...
+    creakFull: 300,        // ...and creaks at full loudness from this speed
+    speedSmooth: 0.2,      // s, smoothing of the swing speed (hand jitter does not creak)
+    creakRadius: 9,        // noise radius of a full-loudness creak
     handleReach: 0.3,      // hand this close to the handle + trigger = drag the door by hand
   },
 
@@ -70,9 +78,9 @@ export const CFG = {
     walk: 1.1, investigate: 1.4, hunt: 1.9, chase: 2.1,   // speeds
     catchDist: 0.8,
     fov: 80 * Math.PI / 180,   // vision cone (full angle)
-    sight: 8,                  // sees a standing player this far in the dark
+    sight: 5,                  // sees a standing player this far in the dark
     crouchK: 0.6,              // ... crouched: sight x this
-    beamK: 1.4,                // ... inside the flashlight beam: sight x this
+    beamK: 1.6,                // ... inside the flashlight beam: sight x this (5 x 1.6 = 8 m)
     beamHalf: 0.35,            // flashlight half-angle, rad (~20°)
     alarmK: 1.25,              // sight x this during full alarm
     feelDist: 1.0,             // notices you this close even without seeing
@@ -101,4 +109,7 @@ export const CFG = {
   },
 
   scream: { buffer: 4, before: 2, after: 1 },   // mic ring buffer (memory only) and the saved clip
+
+  // Floor ripples that show a noise: one thin ring, visual only (the hearing radius is not changed).
+  ripple: { life: 0.7, radiusK: 0.4, maxRadius: 3 },
 };

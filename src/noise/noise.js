@@ -1,11 +1,11 @@
 // Noise events (both layers: the microphone and the game) + ripples on the floor that show them.
-// emit() hands every event to the listeners (patrol, lurker) and draws a ring that grows to the
-// noise radius, so a noise is readable without sound (also readable with the sound off).
+// emit() hands every event to the listeners (patrol, lurker) and draws one thin ring, so a noise is
+// readable with the sound off. The ring is only a hint: CFG.ripple.radiusK of the hearing radius,
+// at most CFG.ripple.maxRadius; the hearing radius itself is what the enemies use.
 import * as THREE from 'three';
+import { CFG } from '../game/config.js';
 
 const MAX = 24;
-const LIFE = 0.9;          // s a ripple lives
-const VISUAL_MAX = 9;      // m, rings are capped (a shout "fills the zone")
 const COLORS = {
   step: 0x6f9fd8, voice: 0xffd166, door: 0xc9a27a, drop: 0xff9f43, glass: 0xffffff, shout: 0xff4040,
 };
@@ -14,7 +14,7 @@ export class NoiseSystem {
   constructor() {
     this.listeners = [];
     this.ripples = [];
-    const geo = new THREE.RingGeometry(0.93, 1, 48);
+    const geo = new THREE.RingGeometry(0.965, 1, 48);
     geo.rotateX(-Math.PI / 2);
     this.mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({
       color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
@@ -40,7 +40,8 @@ export class NoiseSystem {
     for (const fn of this.listeners) fn(e);
     if (ripple) {
       if (this.ripples.length >= MAX) this.ripples.shift();
-      this.ripples.push({ x, y: y + 0.01, z, r: Math.min(VISUAL_MAX, radius), t: 0, color: COLORS[kind] || 0xffffff, rings: kind === 'shout' ? 3 : 1 });
+      const r = Math.min(CFG.ripple.maxRadius, radius * CFG.ripple.radiusK);
+      this.ripples.push({ x, y: y + 0.01, z, r, t: 0, color: COLORS[kind] || 0xffffff });
     }
     return e;
   }
@@ -48,23 +49,22 @@ export class NoiseSystem {
   clear() { this.ripples.length = 0; this.mesh.count = 0; }
 
   update(dt) {
+    const life = CFG.ripple.life;
     let n = 0;
     for (let i = this.ripples.length - 1; i >= 0; i--) {
       const r = this.ripples[i];
       r.t += dt;
-      if (r.t >= LIFE * r.rings) { this.ripples.splice(i, 1); continue; }
+      if (r.t >= life) this.ripples.splice(i, 1);
     }
     for (const r of this.ripples) {
-      for (let k = 0; k < r.rings && n < MAX; k++) {
-        const t = (r.t - k * 0.25) / LIFE;
-        if (t <= 0 || t >= 1) continue;
-        const s = r.r * (0.15 + 0.85 * Math.sqrt(t));
-        this.m.makeScale(s, 1, s).setPosition(r.x, r.y, r.z);
-        this.mesh.setMatrixAt(n, this.m);
-        this.c.setHex(r.color).multiplyScalar((1 - t) * 0.9);
-        this.mesh.setColorAt(n, this.c);
-        n++;
-      }
+      if (n >= MAX) break;
+      const t = r.t / life;
+      const s = r.r * (0.2 + 0.8 * Math.sqrt(t));
+      this.m.makeScale(s, 1, s).setPosition(r.x, r.y, r.z);
+      this.mesh.setMatrixAt(n, this.m);
+      this.c.setHex(r.color).multiplyScalar((1 - t) * 0.8);
+      this.mesh.setColorAt(n, this.c);
+      n++;
     }
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;

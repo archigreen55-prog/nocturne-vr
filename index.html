@@ -48,33 +48,35 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.2.0",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.2.0",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.2.0",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.2.0",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.2.0",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.2.0",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.2.0",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.2.0",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.2.0",
-    "./src/game/config.js": "./src/game/config.js?v=0.2.0",
-    "./src/game/round.js": "./src/game/round.js?v=0.2.0",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.2.0",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.2.0",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.2.0",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.2.0",
-    "./src/main.js": "./src/main.js?v=0.2.0",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.2.0",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.2.0",
-    "./src/settings.js": "./src/settings.js?v=0.2.0",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.2.0",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.2.0",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.2.0",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.2.0",
-    "./src/version.js": "./src/version.js?v=0.2.0",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.2.0",
-    "./src/world/level.js": "./src/world/level.js?v=0.2.0",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.2.0"
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.3.0",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.3.0",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.3.0",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.3.0",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.3.0",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.3.0",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.3.0",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.3.0",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.3.0",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.3.0",
+    "./src/game/config.js": "./src/game/config.js?v=0.3.0",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.3.0",
+    "./src/game/round.js": "./src/game/round.js?v=0.3.0",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.3.0",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.3.0",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.3.0",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.3.0",
+    "./src/main.js": "./src/main.js?v=0.3.0",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.3.0",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.3.0",
+    "./src/settings.js": "./src/settings.js?v=0.3.0",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.3.0",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.3.0",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.3.0",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.3.0",
+    "./src/version.js": "./src/version.js?v=0.3.0",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.3.0",
+    "./src/world/level.js": "./src/world/level.js?v=0.3.0",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.3.0"
   }
 }
 </script>
@@ -83,7 +85,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.2.0';
+    const PAGE_VERSION = '0.3.0';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -98,7 +100,7 @@
 <div id="overlay"><div class="card">
   <h1>Nocturne</h1>
   <p class="muted">Прототип для Meta Quest 3. Нічний будинок, у якому треба рухатись тихо — і говорити теж.<br>
-  Забери цінне й донеси у фургон за 7 хвилин. Сторож із ліхтариком чує кроки, двері, падіння — і твій голос. У шафі спальні хтось сидить.</p>
+  Забери цінне за 7 хвилин: зайди з лутом у бурштинове кільце за фургоном — і він сам полетить у кузов. Сторож із ліхтариком чує кроки, двері, падіння — і твій голос. У шафі спальні хтось сидить.</p>
 
   <h2>1. Мікрофон</h2>
   <div id="micbox">
@@ -107,6 +109,7 @@
       <button id="calbtn" disabled>Калібрувати</button>
       <span id="micstate" class="muted"></span>
     </div>
+    <div id="recstate" class="muted"></div>
     <div id="calstep"></div>
     <div class="row">
       <div id="meter"><div class="zone" id="zq"></div><div class="zone" id="zn"></div><div class="zone" id="zs"></div><div class="fill" id="fill"></div><div class="tick" id="tw"></div><div class="tick" id="ts"></div></div>
@@ -130,10 +133,11 @@
     <tr><td>Лівий стік</td><td>ходьба туди, куди дивишся; не до упору — кроки тихі</td></tr>
     <tr><td>Правий стік ← →</td><td>поворот ривком</td></tr>
     <tr><td>Grip біля предмета</td><td>взяти / відпустити; великі — двома руками</td></tr>
-    <tr><td>Тригер на ручці дверей</td><td>тягни двері рукою: повільно — тихо, різко — скрип</td></tr>
+    <tr><td>Кільце за фургоном</td><td>зайди туди з лутом у руках — він сам полетить у кузов</td></tr>
+    <tr><td>Тригер на ручці дверей</td><td>тягни двері рукою: повільно — тихо, різко — скрип (підказка на зап'ясті)</td></tr>
     <tr><td>Тригер біля дверей</td><td>швидко відчинити / зачинити (скрипить)</td></tr>
-    <tr><td>Тригер на табло</td><td>кнопки табло біля фургона</td></tr>
-    <tr><td>A (утримати)</td><td>затамувати подих: мікрофон не чути до 6 с, потім 20 с відпочинку</td></tr>
+    <tr><td>Тригер на табло</td><td>кнопки табло</td></tr>
+    <tr><td>A (утримати)</td><td>затамувати подих: мікрофон не чути до 6 с; відпочинок — пропорційно (до 20 с)</td></tr>
     <tr><td>B</td><td>присісти / встати (для гри сидячи)</td></tr>
     <tr><td>X</td><td>FPS на зап'ястку</td></tr>
     <tr><td>Натиск лівого стіка</td><td>сила віньєтки</td></tr>
@@ -145,7 +149,7 @@
   <table>
     <tr><td>Клік по сцені</td><td>захопити мишу; клік на табло — кнопка; Esc — меню</td></tr>
     <tr><td>W A S D</td><td>ходьба (тихо), з пробілом — швидко</td></tr>
-    <tr><td>E</td><td>взяти / покласти предмет (біля фургона — у фургон)</td></tr>
+    <tr><td>E</td><td>взяти / покласти предмет; з лутом у кільце за фургоном — летить у кузов</td></tr>
     <tr><td>Q / T</td><td>двері тихо (повільно) / різко</td></tr>
     <tr><td>Shift (утримати)</td><td>затамувати подих</td></tr>
     <tr><td>C</td><td>присісти / встати</td></tr>
@@ -158,6 +162,6 @@
 <div id="debug"></div>
 <div id="hint">WASD · E взяти/покласти · Q/T двері · Shift подих · C присід · клік на табло · Esc — меню</div>
 <div id="crosshair"></div>
-<script type="module" src="src/main.js?v=0.2.0"></script>
+<script type="module" src="src/main.js?v=0.3.0"></script>
 </body>
 </html>

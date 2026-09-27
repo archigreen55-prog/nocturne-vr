@@ -118,28 +118,45 @@ function tone(dst, t, type, f0, f1, dur, gain, attack = 0.005) {
   o.start(t); o.stop(t + dur + 0.05);
 }
 
-// Door creak: a slowly wobbling low saw through a band-pass. loud: 0..1.5
-export function playCreak(loud, pos, occluded) {
-  oneShot(pos, occluded, 1, 1, (dst, t) => {
-    const o = ctx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(95, t);
-    o.frequency.linearRampToValueAtTime(140, t + 0.25);
-    o.frequency.linearRampToValueAtTime(80, t + 0.6);
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 23;
+// Door hinge creak, continuous: a wobbling low saw through a band-pass whose loudness and pitch
+// follow the swing speed (set() every frame; silent at 0). One per moving door, positional.
+export class CreakVoice {
+  constructor() {
+    this.v = new Voice3D(1);
+    this.ok = this.v.ok && !!ctx;
+    if (!this.ok) return;
+    this.o = ctx.createOscillator();
+    this.o.type = 'sawtooth';
+    this.o.frequency.value = 90;
+    this.lfo = ctx.createOscillator();
+    this.lfo.frequency.value = 17;
     const lg = ctx.createGain();
-    lg.gain.value = 18;
-    lfo.connect(lg).connect(o.frequency);
+    lg.gain.value = 22;
+    this.lfo.connect(lg).connect(this.o.frequency);
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 3;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.05 + 0.12 * Math.min(1.5, loud), t + 0.05);
-    g.gain.setTargetAtTime(0, t + 0.45, 0.08);
-    o.connect(bp).connect(g).connect(dst);
-    o.start(t); lfo.start(t); o.stop(t + 0.9); lfo.stop(t + 0.9);
-  });
+    this.g = ctx.createGain();
+    this.g.gain.value = 0;
+    this.o.connect(bp).connect(this.g).connect(this.v.input);
+    this.o.start(); this.lfo.start();
+    this.idle = 0;
+  }
+  // loud 0..1; returns false once it has been silent long enough to be dropped
+  set(loud, pos, occluded, dt) {
+    if (!this.ok || !ready()) return true;
+    const t = ctx.currentTime;
+    this.v.setPos(pos.x, pos.y, pos.z);
+    this.v.setOccluded(occluded);
+    this.g.gain.setTargetAtTime(loud > 0 ? 0.03 + 0.22 * loud : 0, t, 0.03);
+    this.o.frequency.setTargetAtTime(80 + 80 * loud, t, 0.05);
+    this.idle = loud > 0 ? 0 : this.idle + dt;
+    return this.idle < 1.5;
+  }
+  stop() {
+    if (!this.ok) return;
+    try { this.o.stop(); this.lfo.stop(); } catch { /* already stopped */ }
+    this.v.dispose();
+  }
 }
 
 // Soft thud for a locked door.

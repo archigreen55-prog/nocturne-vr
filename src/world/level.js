@@ -47,6 +47,24 @@ export const SPAWN = { x: 2.2, z: 6.8, yaw: 0 };  // beside the van, facing the 
 export const BOARD = { x: 1.75, z: 8.75, yaw: -2.75 };  // scoreboard stand next to the van, facing the path
 export const CARGO = { minX: 3.5, maxX: 5.3, minZ: 7.85, maxZ: 11.4, y: 0.4 };  // van cargo floor
 export const WARDROBE = { x: 9.25, z: -9.4, minZ: -10.2, maxZ: -8.6 };   // bedroom wardrobe front
+export const HOUSE = { minX: -10.14, maxX: 10.14, minZ: -14.14, maxZ: 0.14 };   // outer faces of the walls lie outside
+
+// Openings between rooms: [roomA, roomB, door centre x, z] (null = an arch, always open).
+// The flashlight only lights the patrol's room and rooms it can see into through these.
+export const ROOM_LINKS = [
+  ['Двір', 'Хол', 0, 0],
+  ['Кухня', 'Хол', -2, -2.5],
+  ['Кухня', 'Коридор', -6, -5],
+  ['Хол', 'Коридор', null],
+  ['Комора', 'Коридор', 6.5, -5],
+  ['Коридор', 'Бібліотека', -7, -7],
+  ['Коридор', 'Передпокій', null],
+  ['Коридор', 'Вітальня', null],
+  ['Коридор', 'Спальня', 7.5, -7],
+  ['Бібліотека', 'Передпокій', null],
+  ['Передпокій', 'Вітальня', null],
+  ['Вітальня', 'Спальня', 5, -11],
+];
 const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 16 };
 
 // ---------- geometry helpers ----------
@@ -410,7 +428,11 @@ export function buildLevel() {
   // van: body along Z, rear doors open towards the house
   {
     const x0 = 3.4, x1 = 5.4, z0 = 7.8, z1 = 12.8;
-    S.box(x0, 0.35, z0, x1, 2.2, z1 - 1.3, C.van);                                 // cargo box
+    // cargo: an open-backed shell (sides, roof, front wall), so you can see the loot inside
+    S.box(x0, 0.35, z0, x0 + 0.05, 2.2, z1 - 1.3, C.van); S.box(x1 - 0.05, 0.35, z0, x1, 2.2, z1 - 1.3, C.van);
+    S.box(x0, 2.15, z0, x1, 2.2, z1 - 1.3, C.van); S.box(x0, 0.35, z1 - 1.36, x1, 2.2, z1 - 1.3, C.van);
+    S.box(x0 + 0.05, 0.4, z0 + 0.02, x0 + 0.06, 2.15, z1 - 1.36, 0x2e3036); S.box(x1 - 0.06, 0.4, z0 + 0.02, x1 - 0.05, 2.15, z1 - 1.36, 0x2e3036);
+    S.box(x0, 0.28, z0 - 0.04, x1, 0.36, z0 + 0.02, C.metal);                           // rear sill
     S.box(x0 + 0.05, 0.35, z1 - 1.3, x1 - 0.05, 1.6, z1, C.van);                    // cab
     S.box(x0 + 0.1, 1.6, z1 - 1.3, x1 - 0.1, 1.95, z1 - 0.5, C.van);
     G.box(x0 + 0.15, 1.2, z1 + 0.001, x1 - 0.15, 1.55, z1 + 0.01, 0x0e1420);
@@ -418,8 +440,8 @@ export function buildLevel() {
     S.box(x0 - 0.01, 1.0, z0 + 0.3, x0, 1.25, z1 - 1.4, C.vanStripe); S.box(x1, 1.0, z0 + 0.3, x1 + 0.01, 1.25, z1 - 1.4, C.vanStripe);
     S.box(x0 + 0.1, 0.36, z0 + 0.02, x1 - 0.1, 0.4, z1 - 1.4, C.woodDark);          // cargo floor (inside)
     S.box(x0 + 0.1, 2.1, z0 + 0.05, x1 - 0.1, 2.12, z1 - 1.35, 0x3a3c40);
-    // hollow: dark interior seen through the open rear
-    G.box(x0 + 0.08, 0.4, z0 + 0.3, x1 - 0.08, 2.1, z0 + 0.32, 0x07090d);
+    G.box(x0 + 0.06, 0.4, z1 - 1.37, x1 - 0.06, 2.15, z1 - 1.36, 0x0b0d12);          // dark front wall inside
+    G.box(x0 + 0.6, 2.13, z0 + 0.8, x1 - 0.6, 2.14, z0 + 1.1, 0x8a6a40);               // dim cargo lamp
     for (const [x, z] of [[x0 + 0.05, z0 + 0.9], [x1 - 0.05, z0 + 0.9], [x0 + 0.05, z1 - 0.8], [x1 - 0.05, z1 - 0.8]]) {
       const g = new THREE.CylinderGeometry(0.36, 0.36, 0.26, 12); g.rotateZ(Math.PI / 2); g.translate(x, 0.36, z); S.add(g, C.tyre);
     }
@@ -551,7 +573,9 @@ function toIndexed(g) {
 
 // ---------- doors ----------
 const OPEN_ANGLE = 95 * Math.PI / 180;
-const DRAG_RATE = 5;     // rad/s: a door dragged by hand follows at most this fast
+const DRAG_RATE = 8;     // rad/s: a door dragged by hand follows at most this fast
+const DRAG_TAU = 0.06;   // s: ...and eases after the hand (hand tremor does not reach the hinge)
+const DEG = Math.PI / 180;
 const LEAF_T = 0.05;
 
 export class Door {
@@ -563,11 +587,11 @@ export class Door {
     this.angle = 0;          // current swing, rad (sign = side)
     this.target = 0;
     this.rate = OPEN_ANGLE / CFG.doors.fastTime;
-    this.omega = 0;          // swing speed, rad/s (smoothed)
+    this.omega = 0;          // swing speed, rad/s, smoothed over CFG.doors.speedSmooth
+    this.creak = 0;          // 0 (silent) .. 1 (full creak), from the smoothed speed
     this.dragging = false;
     this.dragOffset = 0;
     this.dragTarget = 0;
-    this.creakCool = 0;
     const B = new Builder();
     const col = spec.front ? C.doorFront : C.door;
     B.box(0, 0.01, -LEAF_T / 2, this.w, DOOR_H - 0.02, LEAF_T / 2, col);
@@ -590,7 +614,7 @@ export class Door {
   get open() { return Math.abs(this.target) > 0.05 || Math.abs(this.angle) > 0.05; }
 
   reset() {
-    this.angle = this.target = 0; this.omega = 0; this.dragging = false;
+    this.angle = this.target = 0; this.omega = 0; this.creak = 0; this.dragging = false;
     this.mesh.rotation.y = this.base;
     this.updateTip();
   }
@@ -635,25 +659,26 @@ export class Door {
   }
   release() { this.dragging = false; this.target = this.angle; }
 
-  // Returns the creak loudness this frame (0 = silent).
+  // Moves the leaf; returns the creak loudness 0..1 (continuous: silent below CFG.doors.creakFrom
+  // deg/s of smoothed swing speed, full at creakFull).
   update(dt) {
     const prev = this.angle;
-    const goal = this.dragging ? this.dragTarget : this.target;
-    if (this.angle !== goal) {
-      const step = (this.dragging ? DRAG_RATE : this.rate) * dt;
-      const d = goal - this.angle;
-      this.angle = Math.abs(d) <= step ? goal : this.angle + Math.sign(d) * step;
-      this.mesh.rotation.y = this.base + this.angle;
-      this.updateTip();
+    if (this.dragging) {
+      // ease after the hand, but never faster than DRAG_RATE
+      const want = (this.dragTarget - this.angle) * (1 - Math.exp(-dt / DRAG_TAU));
+      const max = DRAG_RATE * dt;
+      this.angle += Math.max(-max, Math.min(max, want));
+    } else if (this.angle !== this.target) {
+      const step = this.rate * dt;
+      const d = this.target - this.angle;
+      this.angle = Math.abs(d) <= step ? this.target : this.angle + Math.sign(d) * step;
     }
+    if (this.angle !== prev) { this.mesh.rotation.y = this.base + this.angle; this.updateTip(); }
     const w = dt > 0 ? Math.abs(this.angle - prev) / dt : 0;
-    this.omega = Math.max(w, this.omega * Math.exp(-dt / 0.08));
-    this.creakCool -= dt;
-    if (this.omega > CFG.doors.creakSpeed && this.creakCool <= 0) {
-      this.creakCool = 0.8;
-      return Math.min(1.5, this.omega / CFG.doors.creakSpeed);
-    }
-    return 0;
+    this.omega += (w - this.omega) * (1 - Math.exp(-dt / CFG.doors.speedSmooth));
+    const { creakFrom, creakFull } = CFG.doors;
+    this.creak = Math.max(0, Math.min(1, (this.omega / DEG - creakFrom) / (creakFull - creakFrom)));
+    return this.creak;
   }
 
   updateTip() {

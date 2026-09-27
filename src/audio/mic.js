@@ -138,30 +138,45 @@ export class Mic {
   }
 }
 
-// "Hold your breath" (A / Shift): the game ignores the microphone for up to CFG.breath.hold s,
-// then a cooldown of CFG.breath.cooldown s. Shown as a ring on the wrist.
+// "Hold your breath" (A / Shift): the game ignores the microphone for up to CFG.breath.hold s.
+// The cooldown after it is proportional to how long you held (a full hold = CFG.breath.cooldown s,
+// at least cooldownMin); a tap shorter than CFG.breath.tap is cancelled and costs nothing.
+// Shown as a ring on the wrist.
 export class Breath {
-  constructor() { this.state = 'ready'; this.t = 0; }
+  constructor() { this.state = 'ready'; this.t = 0; this.cool = CFG.breath.cooldown; this.prevDown = false; }
   get holding() { return this.state === 'holding'; }
+  // seconds left: of the hold while holding, of the cooldown while resting
+  get left() {
+    if (this.state === 'holding') return Math.max(0, CFG.breath.hold - this.t);
+    if (this.state === 'cooldown') return Math.max(0, this.cool - this.t);
+    return 0;
+  }
   // 0..1 for the ring: remaining hold, or cooldown progress
   get ring() {
     if (this.state === 'holding') return 1 - this.t / CFG.breath.hold;
-    if (this.state === 'cooldown') return this.t / CFG.breath.cooldown;
+    if (this.state === 'cooldown') return this.t / this.cool;
     return 1;
   }
   reset() { this.state = 'ready'; this.t = 0; }
-  // Returns 'start' | 'end' | null.
+  // Returns 'start' | 'end' | 'cancel' | 'busy' (pressed during the cooldown) | null.
   update(dt, down) {
+    const B = CFG.breath;
     const pressed = down && !this.prevDown;   // a new press is needed to start again
     this.prevDown = down;
     if (this.state === 'ready') {
       if (pressed) { this.state = 'holding'; this.t = 0; return 'start'; }
     } else if (this.state === 'holding') {
       this.t += dt;
-      if (!down || this.t >= CFG.breath.hold) { this.state = 'cooldown'; this.t = 0; return 'end'; }
+      if (!down || this.t >= B.hold) {
+        if (!down && this.t < B.tap) { this.state = 'ready'; this.t = 0; return 'cancel'; }
+        this.cool = Math.max(B.cooldownMin, B.cooldown * Math.min(1, this.t / B.hold));
+        this.state = 'cooldown'; this.t = 0;
+        return 'end';
+      }
     } else {
       this.t += dt;
-      if (this.t >= CFG.breath.cooldown) { this.state = 'ready'; this.t = 0; }
+      if (this.t >= this.cool) { this.state = 'ready'; this.t = 0; }
+      else if (pressed) return 'busy';
     }
     return null;
   }
