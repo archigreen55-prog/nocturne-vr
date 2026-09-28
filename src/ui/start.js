@@ -1,6 +1,7 @@
 // Start screen (2D, before Enter VR): microphone permission, calibration and a live level meter.
 // Asking here matters: inside an immersive session the permission dialog may not be reachable.
 import { LEVELS } from '../audio/mic.js';
+import { CFG } from '../game/config.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -24,7 +25,12 @@ export function setupStartScreen({ mic, onPlay, onMicOn }) {
     const pw = mic.barPos(mic.whisperDb), ps = mic.barPos(mic.shoutDb);
     z('zq', 0, pw, '#1f3b2b'); z('zn', pw, ps, '#3f3a1c'); z('zs', ps, 1, '#4a1c1c');
     $('tw').style.left = pw * 100 + '%'; $('ts').style.left = ps * 100 + '%';
+    $('shoutrow').style.display = s === 'on' ? 'flex' : 'none';
+    const adj = mic.cal.adj || 0;
+    $('shoutdb').textContent = `${mic.shoutDb.toFixed(0)} дБ${adj ? ` (${adj > 0 ? '+' : ''}${adj})` : ''}`;
   }
+  $('shoutup').addEventListener('click', () => { mic.adjustShout(2); showState(); });
+  $('shoutdn').addEventListener('click', () => { mic.adjustShout(-2); showState(); });
 
   micBtn.addEventListener('click', async () => {
     showState();
@@ -57,13 +63,19 @@ export function setupStartScreen({ mic, onPlay, onMicOn }) {
     const floor = await countdown('1/2 Тиша: мовчи й не рухайся…', 3, 0.5);
     step.textContent = 'Тепер говоритимеш звичайним голосом, як у розмові…';
     await new Promise((r) => setTimeout(r, 1500));
-    const normal = await countdown('2/2 Кажи звичайним голосом: «Раз, два, три, ми заходимо в будинок»…', 3.5, 0.85);
+    const normal = await countdown('2/3 Кажи звичайним голосом, як будеш говорити в грі: «Раз, два, три, ми заходимо в будинок»…', 3.5, CFG.mic.voicePct);
+    step.textContent = 'Останнє: зараз крикни (або промовч — тоді поріг крику буде стандартним)…';
+    await new Promise((r) => setTimeout(r, 1500));
+    const peak = await countdown('3/3 КРИКНИ коротко й голосно (або мовчи)…', 2.5, 0.98);
     calibrating = false;
     if (floor == null || normal == null) step.textContent = 'Не вдалося отримати звук з мікрофона. Спробуй ще раз.';
     else if (normal - floor < 8) step.textContent = `Голос майже не гучніший за тишу (${floor.toFixed(0)} і ${normal.toFixed(0)} дБ). Перевір мікрофон і повтори.`;
     else {
-      mic.setCalibration(floor, normal);
-      step.textContent = 'Готово. Перевір: шепни, скажи звичайно, крикни — шкала нижче.';
+      // shout threshold halfway between your voice and your shout (at least 6 dB above the voice)
+      const shouted = peak != null && peak > normal + 6;
+      mic.setCalibration(floor, normal, shouted ? normal + Math.max(6, 0.5 * (peak - normal)) : null);
+      step.textContent = (shouted ? 'Готово, поріг крику — між твоїм голосом і криком. ' : 'Готово (крик пропущено: стандартний поріг). ')
+        + 'Перевір: шепни, скажи звичайно, крикни — шкала нижче.';
     }
     showState();
   });

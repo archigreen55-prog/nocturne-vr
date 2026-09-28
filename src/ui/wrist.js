@@ -30,6 +30,8 @@ export class WristPanel {
   // is the bottom of the handle, next to the wrist; +X is towards the thumb side of the left hand.
   attachToGrip(grip) {
     grip.add(this.mesh);
+    this.mesh.material.depthTest = true;
+    this.mesh.renderOrder = 10;
     this.mesh.position.set(0.02, 0, 0.13);
     this.mesh.scale.setScalar(1);
     this.onGrip = true;
@@ -43,6 +45,8 @@ export class WristPanel {
   attachToCamera(camera) {
     this.onGrip = false;
     camera.add(this.mesh);
+    this.mesh.material.depthTest = false;   // laptop HUD: never hidden by furniture right in front of you
+    this.mesh.renderOrder = 60;
     this.mesh.position.set(-0.24, -0.13, -0.45);
     this.mesh.rotation.set(0, 0, 0);
     this.mesh.scale.setScalar(1.1);
@@ -117,9 +121,15 @@ export class WristPanel {
     g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
     g.fillStyle = s.stepsAudible ? '#ffb347' : '#5fd38d';
     g.fillText(s.stepsAudible ? 'Кроки: чутно' : 'Кроки: тихо', 30, 284);
-    g.textAlign = 'right';
-    g.fillStyle = s.crouched ? '#7fc8ff' : '#56627a';
-    g.fillText(s.crouched ? (s.virtualCrouch ? 'Присів (B)' : 'Присів') : 'Стоїш', W - 30, 284);
+    // visibility: eye open (seen from afar) / half (crouched) / closed (hidden behind cover)
+    const st = s.stealth;
+    if (st) {
+      const color = st.eye === 'closed' ? '#5fd38d' : st.eye === 'half' ? '#ffd166' : st.lit ? '#ff5c5c' : '#ffb347';
+      const text = st.eye === 'closed' ? 'Сховався' : `${s.virtualCrouch ? 'Присів (B)' : s.crouched ? 'Присів' : 'Стоїш'} · ${st.range.toFixed(1)} м`;
+      g.textAlign = 'right'; g.fillStyle = color; g.font = 'bold 24px system-ui, sans-serif';
+      g.fillText(text, W - 30, 284);
+      drawEye(g, W - 30 - g.measureText(text).width - 32, 276, st.eye, color);
+    }
     g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
     g.fillText(s.holding ? `У руках: ${s.holding}` : s.room, 30, 320);
     if (s.holding) { g.textAlign = 'right'; g.fillStyle = '#6f8396'; g.fillText(s.room, W - 30, 320); }
@@ -157,6 +167,26 @@ export class WristPanel {
     g.fillText(`v${this.version}`, W - 30, H - 20);
     this.texture.needsUpdate = true;
   }
+}
+
+// Almond eye: 'open' (with pupil), 'half' (upper lid down), 'closed' (a lid line).
+function drawEye(g, cx, cy, state, color) {
+  const w = 22, h = 15;
+  g.save();
+  g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 3.5; g.lineCap = 'round';
+  if (state === 'closed') {
+    g.beginPath(); g.moveTo(cx - w, cy); g.quadraticCurveTo(cx, cy + h, cx + w, cy); g.stroke();
+    for (const k of [-0.5, 0, 0.5]) { g.beginPath(); g.moveTo(cx + k * w, cy + h * 0.45 * (1 - k * k)); g.lineTo(cx + k * w * 1.2, cy + h * 0.9); g.stroke(); }
+    g.restore();
+    return;
+  }
+  g.beginPath(); g.moveTo(cx - w, cy); g.quadraticCurveTo(cx, cy - h * 1.3, cx + w, cy); g.quadraticCurveTo(cx, cy + h * 1.3, cx - w, cy); g.closePath(); g.stroke();
+  g.save(); g.clip();
+  g.beginPath(); g.arc(cx, cy, 7, 0, Math.PI * 2); g.fill();
+  if (state === 'half') { g.fillStyle = 'rgba(12, 16, 24, 1)'; g.fillRect(cx - w, cy - h * 1.3, w * 2, h * 1.3); }
+  g.restore();
+  if (state === 'half') { g.beginPath(); g.moveTo(cx - w, cy); g.lineTo(cx + w, cy); g.stroke(); }
+  g.restore();
 }
 
 function roundRect(g, x, y, w, h, r) {

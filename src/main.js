@@ -22,6 +22,7 @@ import { Patrol } from './enemies/patrol.js';
 import { Lurker } from './enemies/lurker.js';
 import { Round } from './game/round.js';
 import { DropZone } from './game/dropzone.js';
+import { stealthState } from './game/stealth.js';
 import { maskScene, maskBeam, updateFlashMask, flashUniforms } from './enemies/flashMask.js';
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
@@ -349,7 +350,7 @@ document.addEventListener('pointerlockchange', () => {
 
 // ---------- round control ----------
 let boardDirty = true, boardT = 0, caughtT = -1, heartT = 0, voiceT = 0, speakT = 0, quietT = 0;
-let resultT = -1, autoPlayed = false;
+let resultT = -1, autoPlayed = false, wasHidden = false;
 function newRound() {
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
   loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); alert.reset();
@@ -572,7 +573,11 @@ function frame(now, xrFrame) {
     const held = hands.heldItems()[0];
     const T = loot.tally();
     const dragging = drags.left || drags.right;
+    const st = stealthState(player, level, patrol);
+    if (st.hidden && !wasHidden && inVR) xrIn.pulse('left', 0.15, 20);   // a small tick: you are hidden
+    wasHidden = st.hidden;
     wrist.draw({
+      stealth: st,
       vanSum: T.sum, vanCount: T.inVan, speaking: speakT >= CFG.mic.normalAfter && !breath.holding,
       door: dragging ? { creak: dragging.door.creak } : null,
       mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
@@ -641,7 +646,7 @@ if (params.has('autostart')) start.play();
 window.__game = {
   THREE, CFG, renderer, scene, camera, player, level, mic, comfort, xrIn, wrist, perf, VERSION, flash, goHome, useDoor, nearestDoor,
   loot, hands, noise, nav, alert, patrol, lurker, board, round, scream, breath, pointer, newRound, pressBoard, zone, flashUniforms,
-  get speakT() { return speakT; }, get drags() { return drags; },
+  get speakT() { return speakT; }, get drags() { return drags; }, stealthState,
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

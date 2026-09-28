@@ -48,35 +48,36 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.3.0",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.3.0",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.3.0",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.3.0",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.3.0",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.3.0",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.3.0",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.3.0",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.3.0",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.3.0",
-    "./src/game/config.js": "./src/game/config.js?v=0.3.0",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.3.0",
-    "./src/game/round.js": "./src/game/round.js?v=0.3.0",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.3.0",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.3.0",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.3.0",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.3.0",
-    "./src/main.js": "./src/main.js?v=0.3.0",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.3.0",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.3.0",
-    "./src/settings.js": "./src/settings.js?v=0.3.0",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.3.0",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.3.0",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.3.0",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.3.0",
-    "./src/version.js": "./src/version.js?v=0.3.0",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.3.0",
-    "./src/world/level.js": "./src/world/level.js?v=0.3.0",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.3.0"
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.4.0",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.4.0",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.4.0",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.4.0",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.4.0",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.4.0",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.4.0",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.4.0",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.4.0",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.4.0",
+    "./src/game/config.js": "./src/game/config.js?v=0.4.0",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.4.0",
+    "./src/game/round.js": "./src/game/round.js?v=0.4.0",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.4.0",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.4.0",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.4.0",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.4.0",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.4.0",
+    "./src/main.js": "./src/main.js?v=0.4.0",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.4.0",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.4.0",
+    "./src/settings.js": "./src/settings.js?v=0.4.0",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.4.0",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.4.0",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.4.0",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.4.0",
+    "./src/version.js": "./src/version.js?v=0.4.0",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.4.0",
+    "./src/world/level.js": "./src/world/level.js?v=0.4.0",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.4.0"
   }
 }
 </script>
@@ -85,7 +86,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.3.0';
+    const PAGE_VERSION = '0.4.0';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -115,7 +116,12 @@
       <div id="meter"><div class="zone" id="zq"></div><div class="zone" id="zn"></div><div class="zone" id="zs"></div><div class="fill" id="fill"></div><div class="tick" id="tw"></div><div class="tick" id="ts"></div></div>
       <span id="level"></span>
     </div>
-    <p class="muted">Калібрування: 3 с тиші, потім 3 с звичайного голосу. Роби його в шоломі, там, де гратимеш. Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
+    <div class="row" id="shoutrow" style="display:none">
+      <span>Поріг крику: <b id="shoutdb"></b></span>
+      <button id="shoutdn">−2 дБ</button><button id="shoutup">+2 дБ</button>
+      <span class="muted">Звичайна мова стає «КРИК!»? Тисни +2 дБ. Крик не ловиться — −2 дБ.</span>
+    </div>
+    <p class="muted">Калібрування: 3 с тиші, 3 с звичайного голосу, 2 с крику (можна пропустити). Роби його в шоломі, там, де гратимеш. Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
     Звук аналізується лише на цьому пристрої й нікуди не передається. Щоб табло могло програти твій крик, гра тримає останні 4 с мікрофона в пам'яті; на диск нічого не пишеться, запис зникає з новим раундом.</p>
   </div>
 
@@ -126,6 +132,12 @@
     <label>Поворот ривком:<select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
   </div>
   <p class="muted">Грай стоячи на вільному місці. Уся ходьба можлива стіком, реальні кроки й присідання теж працюють.</p>
+
+  <h2>Як ховатись</h2>
+  <p class="muted" style="font-size:14px; color:#c9d3e3">
+  1. Присядь (по-справжньому або кнопкою B): стоячи сторож бачить тебе за 5 м, присівши — лише за 2.5 м.<br>
+  2. Ховайся за меблями до рівня очей (диван, стійка, комод, шафа): око на зап'ясті закриється — «Сховався».<br>
+  3. Тримайся темряви: у промені ліхтаря й біля ламп тебе видно в 1.6 раза далі. Смужка над сторожем показує, скільки лишилось до погоні.</p>
 
   <div class="controls"><div>
   <h2>Quest 3</h2>
@@ -162,6 +174,6 @@
 <div id="debug"></div>
 <div id="hint">WASD · E взяти/покласти · Q/T двері · Shift подих · C присід · клік на табло · Esc — меню</div>
 <div id="crosshair"></div>
-<script type="module" src="src/main.js?v=0.3.0"></script>
+<script type="module" src="src/main.js?v=0.4.0"></script>
 </body>
 </html>

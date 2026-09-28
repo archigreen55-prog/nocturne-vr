@@ -8,6 +8,7 @@ import { CFG } from '../game/config.js';
 import { Builder } from '../world/level.js';
 import { ROUTE } from './nav.js';
 import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
+import { nearLamp, targetY } from '../game/stealth.js';
 
 const EYE = 1.62;
 const RADIUS = 0.28;
@@ -64,10 +65,20 @@ export class Patrol {
     this.markTex = new THREE.CanvasTexture(this.markCanvas);
     this.mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.markTex, depthTest: false, fog: false, transparent: true }));
     this.mark.scale.set(0.35, 0.35, 1);
-    this.mark.position.set(0, 2.2, 0);
+    this.mark.position.set(0, 2.45, 0);
     this.mark.renderOrder = 20;
     this.group.add(this.mark);
     this.markChar = null;
+    // suspicion bar over the head: fills with the detection meter (yellow -> red), full = chase
+    this.barCanvas = document.createElement('canvas');
+    this.barCanvas.width = 128; this.barCanvas.height = 20;
+    this.barTex = new THREE.CanvasTexture(this.barCanvas);
+    this.bar = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.barTex, depthTest: false, fog: false, transparent: true }));
+    this.bar.scale.set(0.7, 0.11, 1);
+    this.bar.position.set(0, 2.15, 0);
+    this.bar.renderOrder = 20;
+    this.group.add(this.bar);
+    this.barShown = -1;
     this.voice = new Voice3D(1.4);
     this.reset();
   }
@@ -94,8 +105,24 @@ export class Patrol {
     this.occT = 0;
     this.repathT = 0;
     this.seenCount = 0;
+    this.reactAt = null;
     this.setMark(null);
+    this.drawBar(0);
     this.place();
+  }
+
+  drawBar(k) {
+    if (Math.abs(k - this.barShown) < 0.02 && !(k === 0 && this.barShown !== 0)) return;
+    this.barShown = k;
+    this.bar.visible = k > 0.01;
+    if (!this.bar.visible) return;
+    const g = this.barCanvas.getContext('2d');
+    g.clearRect(0, 0, 128, 20);
+    g.fillStyle = 'rgba(0, 0, 0, 0.75)'; g.fillRect(0, 0, 128, 20);
+    g.fillStyle = k < 0.5 ? '#ffd166' : k < 0.8 ? '#ff9f43' : '#ff3b3b';
+    g.fillRect(3, 3, 122 * k, 14);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.strokeRect(1, 1, 126, 18);
+    this.barTex.needsUpdate = true;
   }
 
   setMark(ch) {
@@ -121,6 +148,15 @@ export class Patrol {
     if (this.state !== 'investigate' && this.state !== 'look') playGrunt(this.voice, 'curious');
     this.state = this.env.alert.full ? 'hunt' : 'investigate';
     this.goTo(x, z);
+  }
+
+  // Noticed something at (x, z): stop, turn the head towards it for CFG.patrol.reactDelay s,
+  // then "?" and come to look. Already curious: go straight there.
+  react(x, z) {
+    if (this.state === 'investigate' || this.state === 'look') { this.investigate(x, z); return; }
+    if (this.state !== 'react') this.timer = 0;
+    this.state = 'react';
+    this.reactAt = [x, z];
   }
 
   hunt(x, z) {
@@ -155,7 +191,7 @@ export class Patrol {
     if (d > e.radius * (occluded ? CFG.hearing.occludedK : 1)) return false;
     if (this.state === 'chase') return true;
     if (this.env.alert.full) this.hunt(e.x, e.z);
-    else this.investigate(e.x, e.z);
+    else this.react(e.x, e.z);
     return true;
   }
 
@@ -185,6 +221,10 @@ export class Patrol {
       case 'pause':
         speed = 0; look = true;
         if (this.timer > 2) this.state = 'patrol';
+        break;
+      case 'react':
+        speed = 0; this.speed = 0;
+        if (this.timer >= P.reactDelay) this.investigate(...this.reactAt);
         break;
       case 'investigate':
         speed = P.investigate;
@@ -222,7 +262,9 @@ export class Patrol {
 
     // gaze: sweep while looking around, a little while walking
     const sweep = look ? Math.sin(this.timer * 1.6) * 0.9 : Math.sin(performance.now() / 1000 * 0.7) * 0.2;
-    const wantHead = this.state === 'chase' && this.visible ? angleDiff(Math.atan2(-(player.head.x - this.x), -(player.head.z - this.z)), this.heading) : sweep;
+    const lookAt = (x, z) => angleDiff(Math.atan2(-(x - this.x), -(z - this.z)), this.heading);
+    const wantHead = this.state === 'chase' && this.visible ? lookAt(player.head.x, player.head.z)
+      : this.state === 'react' ? lookAt(this.reactAt[0], this.reactAt[1]) : sweep;
     this.headYaw += (Math.max(-1.2, Math.min(1.2, wantHead)) - this.headYaw) * (1 - Math.exp(-dt / 0.15));
 
     // steps (positional, muffled behind walls)
@@ -240,8 +282,9 @@ export class Patrol {
     this.voice.setPos(this.x, 1.0, this.z);
 
     if (this.state === 'chase') this.setMark('!');
-    else if (this.state !== 'patrol' && this.state !== 'pause' && this.state !== 'return') this.setMark('?');
-    else this.setMark(this.meter > P.noticeAt * 0.5 ? '?' : null);
+    else if (this.state !== 'patrol' && this.state !== 'pause' && this.state !== 'return' && this.state !== 'react') this.setMark('?');
+    else this.setMark(null);
+    this.drawBar(this.state === 'chase' ? 0 : this.meter);
     this.place();
     return null;
   }
@@ -307,20 +350,20 @@ export class Patrol {
     const dx = hx - this.x, dz = hz - this.z, d = Math.hypot(dx, dz);
     const gaze = this.heading + this.headYaw;
     const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), gaze));
-    const inBeam = ang < P.beamHalf;
-    let range = P.sight * (player.crouched ? P.crouchK : 1) * (inBeam ? P.beamK : 1) * (alert.full ? P.alarmK : 1);
+    // light: in the flashlight beam or next to a lamp you are seen further
+    const lit = ang < P.beamHalf || nearLamp(hx, hz);
+    const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1);
     this.visible = false;
     // crouched, it has to see your face, not just the top of your head behind the furniture
-    const ty = player.head.y - (player.crouched ? 0.15 : 0);
-    if (d < range && ang < P.fov / 2 && !this.env.level.losBlocked(this.x, EYE, this.z, hx, ty, hz)) this.visible = true;
+    if (d < range && ang < P.fov / 2 && !this.env.level.losBlocked(this.x, EYE, this.z, hx, targetY(player), hz)) this.visible = true;
     const feel = d < P.feelDist && !this.env.level.soundOccluded(this.x, this.z, hx, hz);
     if (this.visible || feel) {
-      const near = this.visible ? 1 - d / range : 1;
-      this.meter += dt * (0.8 + 3 * near) * (alert.full ? 1.5 : 1) * (feel && !this.visible ? 2 : 1);
-    } else this.meter = Math.max(0, this.meter - dt * 0.4);
+      const rate = this.visible ? P.meterBase + P.meterNear * (1 - d / range) : P.feelRate;
+      this.meter += dt * rate * (alert.full ? 1.5 : 1);
+    } else this.meter = Math.max(0, this.meter - dt * P.meterDecay);
     if (this.meter >= 1) { this.meter = 1; if (this.visible || feel) { this.visible = true; this.startChase(player); } }
-    else if (this.meter > P.noticeAt && this.state !== 'chase' && (this.state === 'patrol' || this.state === 'pause' || this.state === 'return')) {
-      this.investigate(hx, hz);   // "hm? what was that?" - turns and comes to look
+    else if (this.meter > P.noticeAt && (this.state === 'patrol' || this.state === 'pause' || this.state === 'return')) {
+      this.react(hx, hz);   // stops, looks, then "hm? what was that?" and comes to look
     }
   }
 

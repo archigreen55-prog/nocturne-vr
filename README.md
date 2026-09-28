@@ -7,7 +7,9 @@ CDN, no build step).
 
 **Play:** https://archigreen55-prog.github.io/nocturne-vr/
 
-Status: deploy 3 — loot (one- and two-handed, fragile crystal) delivered through a glowing drop-off
+Status: deploy 4 — readable stealth (visibility eye and "hidden" on the wrist, suspicion bar over
+the patrol, a short reaction delay), a sturdier shout detector with a shout calibration step. Earlier:
+loot (one- and two-handed, fragile crystal) delivered through a glowing drop-off
 ring behind the van, noise from steps / doors / drops / your voice, a patrol that hears and sees
 (its flashlight stays in the rooms it can light), a lurker that jumps out, alarm lights, a 7-minute
 round with an escape phase, a result board that replays your loudest scream.

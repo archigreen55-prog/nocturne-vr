@@ -24,8 +24,10 @@ export const CFG = {
 
   mic: {
     whisperK: 0.5,         // whisper threshold = silence + K x (voice - silence), from calibration
-    shoutOver: 9,          // dB above the calibrated voice
+    shoutOver: 9,          // dB above the calibrated voice (when the shout step of the calibration was skipped)
     shoutRise: 6,          // dB rise within 0.1 s needed to start a shout
+    shoutMin: 0.25,        // s the level must stay above the shout threshold (a plosive or one loud syllable is not a shout)
+    voicePct: 0.95,        // calibration: "normal" = this percentile of the voice (its loud syllables)
     normalRadius: 3,       // talking normally: a noise of this radius...
     normalAfter: 0.7,      // ...only after this much continuous speech (pauses under 0.35 s do not break it)
     normalEvery: 1,        // ...and then once per this many seconds while it lasts
@@ -79,18 +81,30 @@ export const CFG = {
     catchDist: 0.8,
     fov: 80 * Math.PI / 180,   // vision cone (full angle)
     sight: 5,                  // sees a standing player this far in the dark
-    crouchK: 0.6,              // ... crouched: sight x this
-    beamK: 1.6,                // ... inside the flashlight beam: sight x this (5 x 1.6 = 8 m)
+    crouchK: 0.5,              // ... crouched: sight x this (2.5 m in the dark, 4 m in the light)
+    beamK: 1.6,                // ... in the flashlight beam or next to a lamp: sight x this (5 x 1.6 = 8 m)
     beamHalf: 0.35,            // flashlight half-angle, rad (~20°)
     alarmK: 1.25,              // sight x this during full alarm
     feelDist: 1.0,             // notices you this close even without seeing
-    noticeAt: 0.35,            // detection meter: turn and come to look
+    // detection meter (the bar over its head), per second while it sees you:
+    // meterBase + meterNear x (1 - distance / sight range) -> ~1.7 s to a chase at mid range
+    meterBase: 0.25, meterNear: 0.7, meterDecay: 0.3, feelRate: 2,
+    noticeAt: 0.35,            // meter level at which it stops, turns and comes to look
+    reactDelay: 0.6,           // s between noticing something (sight or sound) and the "?"
+    coverDrop: 0.25,           // crouched, it must see this far below your eyes (your face, not your hair)
     lookAround: 4,             // s spent looking around at a noise
     loseSight: 3,              // s without seeing you in a chase before it gives up
     pauseAt: [2, 9, 17],       // route points where it stops and looks around (2 s): kitchen, library, hall
   },
 
-  hearing: { occludedK: 0.5 },   // a noise behind walls / closed doors carries this much of its radius
+  hearing: { occludedK: 0.5 },
+
+  // Stealth read-out: lit spots (lamps) where you are seen as far as in the flashlight beam, and what
+  // counts as cover (furniture at least this close below your eyes, within `coverDist`).
+  stealth: {
+    lamps: [{ x: 0.6, z: 5.6, r: 3 }, { x: 1.5, z: -12.9, r: 2.5 }, { x: -3.0, z: -6.0, r: 2.2 }],
+    coverBelowEyes: 0.3, coverDist: 0.9,
+  },   // a noise behind walls / closed doors carries this much of its radius
 
   alert: {
     points: { step: 12, voice: 18, door: 25, drop: 30, glass: 60 },  // suspicion per heard noise

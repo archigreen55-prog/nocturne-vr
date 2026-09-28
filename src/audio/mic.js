@@ -28,6 +28,9 @@ export class Mic {
     this.hist = new Float32Array(8);  // envelope history at RATE, for the rise test
     this.histI = 0;
     this.shoutUntil = 0;
+    this.aboveT = 0;
+    this.dipT = 0;
+    this.riseOk = false;
     this.acc = 0;
     this.t = 0;
     this.collect = null;       // array while calibrating
@@ -40,7 +43,12 @@ export class Mic {
   }
 
   get whisperDb() { return this.cal.floor + CFG.mic.whisperK * (this.cal.normal - this.cal.floor); }
-  get shoutDb() { return this.cal.normal + CFG.mic.shoutOver; }
+  // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver;
+  // plus the player's own correction (the ± buttons on the start screen).
+  get shoutDb() {
+    const base = Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + CFG.mic.shoutOver;
+    return base + (this.cal.adj || 0);
+  }
 
   async enable() {
     if (this.state === 'on' || this.state === 'pending') return this.state;
@@ -103,10 +111,17 @@ export class Mic {
     const past = this.hist[(this.histI + this.hist.length - 3) % this.hist.length];
     this.hist[this.histI] = this.env;
     this.histI = (this.histI + 1) % this.hist.length;
-    const shoutDb = this.shoutDb;
-    if (this.env > shoutDb && (this.env - past > CFG.mic.shoutRise || this.t < this.shoutUntil)) {
-      if (this.t >= this.shoutUntil) this.shoutOnset = true;
-      this.shoutUntil = Math.max(this.shoutUntil, this.t + (this.t < this.shoutUntil ? 0.3 : SHOUT_HOLD));
+    // A shout: the raw level jumps (shoutRise dB above the envelope of 0.1 s ago) over the threshold
+    // and stays there for shoutMin s (dips under 70 ms allowed). Loud talk that builds up slowly, a
+    // plosive "p" or one stressed syllable is not a shout.
+    if (this.db > this.shoutDb) {
+      if (this.aboveT === 0) this.riseOk = this.db - past > CFG.mic.shoutRise;
+      this.aboveT += step; this.dipT = 0;
+      if (this.t < this.shoutUntil) this.shoutUntil = Math.max(this.shoutUntil, this.t + 0.3);   // still shouting
+      else if (this.riseOk && this.aboveT >= CFG.mic.shoutMin) { this.shoutOnset = true; this.shoutUntil = this.t + SHOUT_HOLD; }
+    } else {
+      this.dipT += step;
+      if (this.dipT > 0.07) { this.aboveT = 0; this.riseOk = false; }
     }
     if (this.t < this.shoutUntil) this.level = 'shout';
     else this.level = this.env >= this.whisperDb ? 'normal' : 'quiet';
@@ -125,9 +140,16 @@ export class Mic {
     }, seconds * 1000));
   }
 
-  setCalibration(floor, normal) {
-    this.cal = { floor, normal };
+  // shout: measured shout threshold (dB) or null to use voice + shoutOver
+  setCalibration(floor, normal, shout = null) {
+    this.cal = { floor, normal, shout, adj: 0 };
     this.calibrated = true;
+    saveSetting('mic', this.cal);
+  }
+
+  // Player's correction of the shout threshold (dB, + = shouts are harder to trigger).
+  adjustShout(delta) {
+    this.cal.adj = Math.max(-12, Math.min(18, (this.cal.adj || 0) + delta));
     saveSetting('mic', this.cal);
   }
 
