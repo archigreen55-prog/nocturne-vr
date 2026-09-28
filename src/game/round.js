@@ -3,7 +3,6 @@
 // Results: escaped (reached the van during the escape), left (drove off from the board before any
 // alarm), caught, late (the escape time ran out).
 import { CFG } from './config.js';
-import { SPAWN } from '../world/level.js';
 
 export const RESULT_TITLES = {
   left: 'ПОЇХАЛИ', escaped: 'УТЕКЛИ', caught: 'СПІЙМАЛИ', late: 'НЕ ВСТИГЛИ',
@@ -24,6 +23,7 @@ export class Round {
     this.result = null;
     this.shouts = 0;
     this.cause = '';
+    this.alarmed = false;      // a full alarm happened this round (for the contracts)
   }
 
   atVan(head) {
@@ -44,6 +44,7 @@ export class Round {
     if (this.phase !== 'heist' && this.phase !== 'ready') return;
     this.phase = 'escape';
     this.cause = cause;
+    this.alarmed = true;
     this.escapeLeft = CFG.round.escapeTime;
     this.env.onMessage(`ТРИВОГА! ${CFG.round.escapeTime} с до фургона`, '#ff5c5c', 4);
     this.env.onPhase('escape');
@@ -52,7 +53,7 @@ export class Round {
   update(dt, player) {
     const R = CFG.round;
     if (this.phase === 'ready') {
-      if (Math.hypot(player.head.x - SPAWN.x, player.head.z - SPAWN.z) > R.startDist) {
+      if (Math.hypot(player.head.x - R.vanZone.x, player.head.z - R.vanZone.z) > R.startDist) {
         this.phase = 'heist';
         this.env.onMessage('Годинник пішов: 7 хвилин', '#ffd166', 3);
         this.env.onPhase('heist');

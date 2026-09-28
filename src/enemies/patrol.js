@@ -1,12 +1,14 @@
-// The patrol: walks a loop kitchen - library - hall with a flashlight. Hears both noise
-// layers (walls and closed doors halve a noise's reach), sees in a cone (crouching shortens its
-// sight, furniture taller than the line of sight hides you, the flashlight beam lengthens it).
-// Ladder: patrol -> investigate a noise -> look around -> back; seen -> chase -> caught.
-// In full alarm it hunts: runs to the last thing heard or seen, then searches rooms.
+// The guard: walks the house with a flashlight. Calm time is planned by its Brain (brain.js): rooms
+// it has not seen for a while, habits (tea, toilet, phone, armchair), hiding spots; it closes the
+// doors behind itself and notices what changed. Hears both noise layers (walls and closed doors
+// weaken a noise), sees in a cone (crouching shortens its sight, furniture taller than the line of
+// sight hides you, the flashlight beam and lamps lengthen it).
+// Ladder: calm -> react (0.6 s) -> investigate -> look around -> search hiding spots -> calm;
+// seen -> chase -> caught. In full alarm it radios for help and hunts.
 import * as THREE from 'three';
 import { CFG } from '../game/config.js';
 import { Builder } from '../world/level.js';
-import { ROUTE } from './nav.js';
+import { Brain } from './brain.js';
 import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
 import { nearLamp, targetY } from '../game/stealth.js';
 
@@ -80,17 +82,37 @@ export class Patrol {
     this.group.add(this.bar);
     this.barShown = -1;
     this.voice = new Voice3D(1.4);
+    this.queue = [];
+    this.brain = new Brain(this, env);
     this.reset();
   }
 
+  // What it is doing, in words (the wrist shows it on the easy difficulty).
+  get activity() {
+    switch (this.state) {
+      case 'chase': return 'женеться за тобою!';
+      case 'hunt': return 'шукає тебе';
+      case 'react': return 'щось почув…';
+      case 'investigate': return 'іде перевірити шум';
+      case 'look': return 'роззирається';
+      default: return (this.queue[0] && this.queue[0].label) || 'думає, куди йти';
+    }
+  }
+
   reset() {
-    this.routeI = 9;                       // starts in the library
-    const [x, z] = ROUTE[this.routeI];
+    const x = -7.4, z = -10.4;             // starts in the library
     this.x = x; this.z = z;
     this.heading = Math.PI;
     this.headYaw = 0;
-    this.state = 'patrol';
-    this.path = [ROUTE[this.routeI]];
+    this.state = 'task';
+    this.path = [];
+    this.queue.length = 0;
+    this.toClose = [];
+    this.mods = null;
+    this.maskR = 0;
+    this.sitting = false;
+    this.talkT = 0;
+    this.brain.reset();
     this.timer = 0;
     this.meter = 0;
     this.aiT = 0;
@@ -153,20 +175,32 @@ export class Patrol {
   // Noticed something at (x, z): stop, turn the head towards it for CFG.patrol.reactDelay s,
   // then "?" and come to look. Already curious: go straight there.
   react(x, z) {
+    this.interrupt();
     if (this.state === 'investigate' || this.state === 'look') { this.investigate(x, z); return; }
     if (this.state !== 'react') this.timer = 0;
     this.state = 'react';
     this.reactAt = [x, z];
   }
 
+  // Drop the calm plan (stand up from the armchair, forget the doors to close).
+  interrupt() {
+    if (this.sitting) { this.sitting = false; [this.x, this.z] = this.standBack; }
+    this.queue.length = 0;
+    this.toClose.length = 0;
+    this.mods = null;
+    this.maskR = 0;
+  }
+
   hunt(x, z) {
     if (this.state === 'chase') return;
+    this.interrupt();
     this.state = 'hunt';
     if (x === undefined) [x, z] = this.env.nav.randomIndoor();
     this.goTo(x, z);
   }
 
   startChase(player) {
+    this.interrupt();
     if (this.state !== 'chase') { playGrunt(this.voice, 'alarm'); this.seenCount++; }
     this.state = 'chase';
     this.lostT = 0;
@@ -177,8 +211,9 @@ export class Patrol {
 
   // Full alarm raised elsewhere (a shout, the timer): run to where it came from.
   onAlarm(x, z) {
+    this.env.sound('radio');
+    this.env.say('Центральна, у будинку злодій! Потрібна підмога!');
     if (this.state === 'chase') return;
-    playGrunt(this.voice, 'alarm');
     this.hunt(x, z);
   }
 
@@ -186,9 +221,12 @@ export class Patrol {
   hear(e) {
     if (e.source === 'patrol') return false;
     const d = Math.hypot(e.x - this.x, e.z - this.z);
-    if (d > e.radius) return false;
+    // difficulty, habits (tea, toilet, phone: hears worse), a whistling kettle next to it
+    let r = e.radius * CFG.hearing.radiusK * (this.mods && this.mods.hearK ? this.mods.hearK : 1);
+    if (this.maskR && d < this.maskR) r *= CFG.hearing.maskK;
+    if (d > r) return false;
     const occluded = this.env.level.soundOccluded(this.x, this.z, e.x, e.z);
-    if (d > e.radius * (occluded ? CFG.hearing.occludedK : 1)) return false;
+    if (d > r * (occluded ? CFG.hearing.occludedK : 1)) return false;
     if (this.state === 'chase') return true;
     if (this.env.alert.full) this.hunt(e.x, e.z);
     else this.react(e.x, e.z);
@@ -210,17 +248,8 @@ export class Patrol {
 
     let speed = P.walk, look = false;
     switch (this.state) {
-      case 'patrol':
-        if (this.follow(dt, P.walk)) {
-          const i = this.routeI;
-          this.routeI = (this.routeI + 1) % ROUTE.length;
-          this.path = [ROUTE[this.routeI]];
-          if (P.pauseAt.includes(i)) { this.state = 'pause'; this.timer = 0; }
-        }
-        break;
-      case 'pause':
-        speed = 0; look = true;
-        if (this.timer > 2) this.state = 'patrol';
+      case 'task':
+        look = this.runTask(dt);
         break;
       case 'react':
         speed = 0; this.speed = 0;
@@ -238,11 +267,11 @@ export class Patrol {
         speed = 0; look = true;
         if (this.timer > (alert.full ? 2 : P.lookAround)) {
           if (alert.full) this.hunt();
-          else { this.state = 'return'; this.routeI = this.nearestRoute(); this.goTo(...ROUTE[this.routeI]); }
+          else {   // nobody there: check the hiding spots nearby, then back to its own plans
+            this.state = 'task'; this.queue.length = 0; this.timer = 0;
+            if (this.goal) this.brain.afterInvestigate(this.goal[0], this.goal[1]);
+          }
         }
-        break;
-      case 'return':
-        if (this.follow(dt, P.walk)) { this.state = 'patrol'; this.path = [ROUTE[this.routeI]]; }
         break;
       case 'chase': {
         speed = P.chase;
@@ -258,13 +287,17 @@ export class Patrol {
         break;
       }
     }
-    alert.checking = this.state !== 'patrol' && this.state !== 'pause' && this.state !== 'return';
+    const step = this.state === 'task' ? this.queue[0] : null;
+    alert.checking = this.state !== 'task' || !!(step && step.search);
+    // on the phone: murmur now and then
+    if (step && step.talk) { this.talkT -= dt; if (this.talkT <= 0) { this.talkT = 2 + Math.random(); this.env.sound('murmur'); } }
 
     // gaze: sweep while looking around, a little while walking
     const sweep = look ? Math.sin(this.timer * 1.6) * 0.9 : Math.sin(performance.now() / 1000 * 0.7) * 0.2;
     const lookAt = (x, z) => angleDiff(Math.atan2(-(x - this.x), -(z - this.z)), this.heading);
     const wantHead = this.state === 'chase' && this.visible ? lookAt(player.head.x, player.head.z)
-      : this.state === 'react' ? lookAt(this.reactAt[0], this.reactAt[1]) : sweep;
+      : this.state === 'react' ? lookAt(this.reactAt[0], this.reactAt[1])
+        : step && step.face && step.type === 'wait' ? 0 : sweep;
     this.headYaw += (Math.max(-1.2, Math.min(1.2, wantHead)) - this.headYaw) * (1 - Math.exp(-dt / 0.15));
 
     // steps (positional, muffled behind walls)
@@ -282,18 +315,74 @@ export class Patrol {
     this.voice.setPos(this.x, 1.0, this.z);
 
     if (this.state === 'chase') this.setMark('!');
-    else if (this.state !== 'patrol' && this.state !== 'pause' && this.state !== 'return' && this.state !== 'react') this.setMark('?');
+    else if ((this.state !== 'task' && this.state !== 'react') || (step && step.search)) this.setMark('?');
     else this.setMark(null);
     this.drawBar(this.state === 'chase' ? 0 : this.meter);
     this.place();
     return null;
   }
 
-  nearestRoute() {
-    let best = 0, bd = Infinity;
-    ROUTE.forEach(([x, z], i) => { const d = Math.hypot(x - this.x, z - this.z); if (d < bd && this.env.nav.clear(this.x, this.z, x, z)) { bd = d; best = i; } });
-    if (bd === Infinity) ROUTE.forEach(([x, z], i) => { const d = Math.hypot(x - this.x, z - this.z); if (d < bd) { bd = d; best = i; } });
-    return best;
+  // Calm time: run the step at the head of the queue (the Brain refills it). Returns true while
+  // it is looking around (the head sweeps).
+  runTask(dt) {
+    // doors opened on the way get closed behind once it is through
+    for (let k = this.toClose.length - 1; k >= 0; k--) {
+      const c = this.toClose[k], d = c.door;
+      const side = Math.sign((this.x - d.hx) * -Math.sin(d.base) + (this.z - d.hz) * -Math.cos(d.base));
+      if (!d.open) { this.toClose.splice(k, 1); continue; }
+      if (side !== c.side && Math.hypot(d.cx - this.x, d.cz - this.z) > 1.0) {
+        this.toClose.splice(k, 1);
+        this.queue.unshift({ type: 'close', door: d, label: 'зачиняє за собою двері' });
+      }
+    }
+    if (!this.queue.length) this.brain.plan();
+    const st = this.queue[0];
+    if (!st) return false;
+    if (!st.started) {
+      st.started = true; this.timer = 0;
+      if (st.onStart) st.onStart();
+      if (st.type === 'walk') this.goTo(st.to[0], st.to[1]);
+      if (st.sit) { this.standBack = [this.x, this.z]; this.x = st.sit[0]; this.z = st.sit[1]; this.sitting = true; }
+    }
+    this.mods = st.mods || null;
+    this.maskR = st.mask || 0;
+    let done = false;
+    switch (st.type) {
+      case 'walk':
+        done = this.follow(dt, (st.slow ? 0.6 : CFG.patrol.walk) * this.brain.speedK);
+        break;
+      case 'wait':
+        this.speed = 0;
+        if (st.face) this.turnTo(st.face, dt);
+        done = this.timer >= st.t;
+        break;
+      case 'close': {
+        this.speed = 0;
+        const d = st.door;
+        if (!d) { done = true; break; }
+        this.turnTo([d.cx, d.cz], dt);
+        if (!st.closing && this.timer > 0.3) {
+          st.closing = true;
+          if (d.open) { d.toggle(this.x, this.z, CFG.guard.closeDoorTime); d.lastUser = 'patrol'; }
+          this.brain.closed(d);
+        }
+        done = this.timer > 0.3 + CFG.guard.closeDoorTime;
+        break;
+      }
+    }
+    if (done) {
+      this.queue.shift();
+      if (st.onEnd) st.onEnd();
+      if (st.type === 'walk') this.brain.arrived(st);
+      if (st.sit) { this.sitting = false; [this.x, this.z] = this.standBack; }
+      this.mods = null; this.maskR = 0; this.timer = 0;
+    }
+    return st.type === 'wait' && !!st.sweep;
+  }
+
+  turnTo(p, dt) {
+    const diff = angleDiff(Math.atan2(-(p[0] - this.x), -(p[1] - this.z)), this.heading);
+    this.heading += Math.max(-TURN * dt, Math.min(TURN * dt, diff));
   }
 
   // Walks along this.path; returns true when the last point is reached.
@@ -339,6 +428,7 @@ export class Patrol {
       door.toggle(this.x, this.z);
       door.lastUser = 'patrol';      // the creak is played by main (a warning for you, not a noise for it)
       this.doorWait = 0.45;
+      if (this.state === 'task') this.toClose.push({ door, side: Math.sign(s1) });   // close it behind itself
       return;
     }
   }
@@ -352,24 +442,26 @@ export class Patrol {
     const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), gaze));
     // light: in the flashlight beam or next to a lamp you are seen further
     const lit = ang < P.beamHalf || nearLamp(hx, hz);
-    const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1);
+    const M = this.mods || {};
+    const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1);
     this.visible = false;
     // crouched, it has to see your face, not just the top of your head behind the furniture
-    if (d < range && ang < P.fov / 2 && !this.env.level.losBlocked(this.x, EYE, this.z, hx, targetY(player), hz)) this.visible = true;
+    if (d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, EYE, this.z, hx, targetY(player), hz)) this.visible = true;
     const feel = d < P.feelDist && !this.env.level.soundOccluded(this.x, this.z, hx, hz);
     if (this.visible || feel) {
       const rate = this.visible ? P.meterBase + P.meterNear * (1 - d / range) : P.feelRate;
       this.meter += dt * rate * (alert.full ? 1.5 : 1);
     } else this.meter = Math.max(0, this.meter - dt * P.meterDecay);
     if (this.meter >= 1) { this.meter = 1; if (this.visible || feel) { this.visible = true; this.startChase(player); } }
-    else if (this.meter > P.noticeAt && (this.state === 'patrol' || this.state === 'pause' || this.state === 'return')) {
+    else if (this.meter > P.noticeAt && this.state === 'task') {
       this.react(hx, hz);   // stops, looks, then "hm? what was that?" and comes to look
     }
+    if (this.state === 'task') this.brain.watch(dt);   // missing loot, doors left open
   }
 
   place() {
     const bob = Math.abs(Math.sin(this.phase)) * 0.035;
-    this.group.position.set(this.x, bob, this.z);
+    this.group.position.set(this.x, bob - (this.sitting ? 0.45 : 0), this.z);
     this.group.rotation.y = this.heading;
     this.upper.rotation.y = this.headYaw;
   }

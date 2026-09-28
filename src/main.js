@@ -12,7 +12,11 @@ import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren } from './audio/audio.js';
+import { unlockAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
+import { applyDifficulty, DIFFS } from './game/difficulty.js';
+import { contractById, goalText, bonusText, progress, evaluate, bestStars, recordStars } from './game/contracts.js';
+import { runCalibration } from './audio/calibrate.js';
+import { LEVELS } from './audio/mic.js';
 import { NoiseSystem } from './noise/noise.js';
 import { Loot } from './loot/items.js';
 import { Hands } from './loot/hands.js';
@@ -77,6 +81,15 @@ addEventListener('resize', () => {
 let flashText = '', flashT = 0, flashColor = '#ffd166', wristTimer = 0;
 function flash(text, seconds = 2, color = '#ffd166') { flashText = text; flashT = seconds; flashColor = color; wristTimer = 0; }
 
+// ---------- contract and difficulty (applied before the guard is built) ----------
+let contractId = loadSetting('contract', 'first'), difficulty = loadSetting('difficulty', 'medium');
+if (!DIFFS.includes(difficulty)) difficulty = 'medium';
+let contract = contractById(contractId);
+applyDifficulty(difficulty, contract);
+let verdict = null;
+// the guard's spoken lines: subtitles on the wrist
+let guardLine = '', guardLineT = 0;
+
 // ---------- world ----------
 const t0 = performance.now();
 const level = buildLevel();
@@ -107,7 +120,22 @@ scene.add(zone.group);
 let simT = 0, lastPop = -1;
 const nav = new Nav(level);
 const alert = new Alert({ hemi, moon: moonLight, points, glow: level.glowMaterial });
-const patrol = new Patrol({ level, nav, alert, listener });
+const patrol = new Patrol({
+  level, nav, alert, listener, loot,
+  roundTime: () => (round.phase === 'heist' ? round.t : null),
+  say: (text) => { guardLine = text; guardLineT = 3.5; wristTimer = 0; },
+  sound: (kind, x, z, o) => {
+    const L = player.head, v = patrol.voice;
+    const at = (px, pz) => ({ pos: { x: px, y: 1, z: pz }, occ: level.soundOccluded(L.x, L.z, px, pz) });
+    if (kind === 'kettle') { const a = at(x, z); playKettle(a.pos, a.occ, o.dur, o.whistleAt, o.whistleFor); }
+    else if (kind === 'flush') { const a = at(x, z); playFlush(a.pos, a.occ); }
+    else if (kind === 'ring') playRing(v);
+    else if (kind === 'murmur') playMurmur(v);
+    else if (kind === 'yawn') playYawn(v);
+    else if (kind === 'radio') playRadio(v);
+    else if (kind === 'grunt') playGrunt(v, 'alarm');
+  },
+});
 scene.add(patrol.group);
 const lurker = new Lurker({ level, onScare: () => { comfort.flashColor(0xffffff, 0.55); xrIn.pulse('both', 1, 250); } });
 scene.add(lurker.group);
@@ -133,7 +161,9 @@ const round = new Round({
         comfort.fadeIn(0.8);
       }
       resultT = 0; autoPlayed = false;
-      flash(R.title, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
+      verdict = evaluate(contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty, loot });
+      verdict.newBest = recordStars(contract.id, difficulty, verdict.stars);
+      flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
     }
   },
 });
@@ -353,6 +383,8 @@ let boardDirty = true, boardT = 0, caughtT = -1, heartT = 0, voiceT = 0, speakT 
 let resultT = -1, autoPlayed = false, wasHidden = false;
 function newRound() {
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
+  applyDifficulty(difficulty, contract);
+  verdict = null; boardPage = 'contract';
   loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
   caughtT = -1; resultT = -1;
@@ -361,12 +393,55 @@ function newRound() {
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
   boardDirty = true;
-  flash('Новий раунд. Годинник піде, щойно рушиш', 4);
+  flash('Новий раунд. Годинник піде, щойно рушиш до будинку', 4);
+}
+// Contract / difficulty can change only before the clock starts (at the van, or on the start screen).
+function setContract(id) {
+  if (round.phase !== 'ready') return;
+  contract = contractById(id); contractId = contract.id; saveSetting('contract', contractId);
+  applyDifficulty(difficulty, contract); patrol.reset(); lurker.reset(); round.reset();
+  syncStartScreen(); boardDirty = true;
+}
+function setDifficulty(id) {
+  if (round.phase !== 'ready') return;
+  difficulty = id; saveSetting('difficulty', id);
+  applyDifficulty(difficulty, contract); patrol.reset(); lurker.reset(); round.reset();
+  syncStartScreen(); boardDirty = true;
+}
+let boardPage = 'contract', calib = null, calibNotes = '';
+async function calibrateInVR() {
+  if (calib || mic.state !== 'on') return;
+  calib = { i: 0, step: { title: '', say: '' }, phase: 'prep', left: 1.5 };
+  const res = await runCalibration(mic, (st) => { calib = st; boardDirty = true; });
+  calib = null;
+  if (res.ok) mic.setCalibration(res.cal);
+  calibNotes = (res.ok ? 'Готово. ' : '') + res.notes.join(' ');
+  start.refresh(); boardDirty = true;
+}
+async function micOnInVR() {
+  await mic.enable();
+  if (mic.state === 'on') { scream.start(); calibNotes = 'Мікрофон увімкнено. Відкалібруй його (4 кроки).'; }
+  else calibNotes = `Мікрофон не ввімкнувся (${mic.error || mic.state}). Зніми шолом і дозволь його на стартовому екрані.`;
+  start.refresh(); boardDirty = true;
 }
 function pressBoard(id) {
+  const all = CFG.contracts, i = all.indexOf(contract);
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
   else if (id === 'play') scream.play();
   else if (id === 'again') newRound();
+  else if (id === 'cprev') setContract(all[(i + all.length - 1) % all.length].id);
+  else if (id === 'cnext') setContract(all[(i + 1) % all.length].id);
+  else if (id === 'diff') setDifficulty(DIFFS[(DIFFS.indexOf(difficulty) + 1) % DIFFS.length]);
+  else if (id === 'micpage') { boardPage = 'mic'; calibNotes = ''; }
+  else if (id === 'back') boardPage = 'contract';
+  else if (id === 'cal') calibrateInVR();
+  else if (id === 'micon') micOnInVR();
+  else if (id === 'nomic') { mic.setNoMic(!mic.noMic); start.refresh(); }
+  else if (id === 'wdn') mic.adjustWhisper(-2);
+  else if (id === 'wup') mic.adjustWhisper(2);
+  else if (id === 'sdn') mic.adjustShout(-2);
+  else if (id === 'sup') mic.adjustShout(2);
+  if (['wdn', 'wup', 'sdn', 'sup'].includes(id)) start.refresh();
   boardDirty = true;
 }
 function caught() {
@@ -486,14 +561,14 @@ function simulate(dt, xrFrame, now) {
   if (active && round.phase !== 'result') {
     // noise from the player: stick steps, voice, shout
     if (player.stepNoise) noise.emit(player.head.x, player.head.z, player.stepNoise, 'step');
-    const micLive = mic.state === 'on' && !breath.holding && !scream.playing && caughtT < 0;
+    const micLive = mic.state === 'on' && !mic.noMic && !breath.holding && !scream.playing && caughtT < 0;
     const shout = mic.takeShout();
     if (micLive && shout) {
       round.shouts++;
       scream.onShout(round.t);
       noise.emit(player.head.x, player.head.z, 40, 'shout');
-      alert.setFull('крик', player.head.x, player.head.z);
-      flash('КРИК! Тебе почув весь будинок', 3, '#ff4d4d');
+      if (CFG.run.shoutFull) { alert.setFull('крик', player.head.x, player.head.z); flash('КРИК! Тебе почув весь будинок', 3, '#ff4d4d'); }
+      else { alert.add(70, player.head.x, player.head.z); flash('КРИК! Сторож іде перевірити', 3, '#ff4d4d'); }   // easy
     }
     // talking: heard only after CFG.mic.normalAfter s of continuous speech (short pauses allowed)
     if (micLive && mic.level !== 'quiet') { speakT += dt; quietT = 0; }
@@ -531,14 +606,19 @@ function simulate(dt, xrFrame, now) {
   }
   noise.update(dt);
 
-  // board: pointer hover + redraw 4 times a second
+  // board: pointer hover + redraw 4 times a second (8 on the microphone page: a live level bar)
   if (pointer.update(inVR, camera)) boardDirty = true;
   boardT -= dt;
   if (boardDirty || boardT <= 0) {
-    boardT = 0.25; boardDirty = false;
+    boardT = round.phase === 'ready' && boardPage === 'mic' ? 0.125 : 0.25; boardDirty = false;
+    const T = loot.tally(), lv = LEVELS[mic.level];
     board.draw({
-      phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: loot.tally(), result: round.result,
+      phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: T, result: round.result,
       clip: scream.best, playing: !!scream.playing, recMode: scream.modeName,
+      page: boardPage, contract, contractIndex: CFG.contracts.indexOf(contract), contractCount: CFG.contracts.length,
+      goalText: goalText(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
+      diffName: CFG.difficulties[difficulty].name, difficulty, progress: progress(contract, T, loot), verdict,
+      noMic: mic.noMic, mic, calib, calibNotes, levelColor: lv.color, levelLabel: lv.label,
     });
   }
 }
@@ -576,8 +656,10 @@ function frame(now, xrFrame) {
     const st = stealthState(player, level, patrol);
     if (st.hidden && !wasHidden && inVR) xrIn.pulse('left', 0.15, 20);   // a small tick: you are hidden
     wasHidden = st.hidden;
+    guardLineT -= 0.1;
+    const guardText = guardLineT > 0 ? `Сторож: «${guardLine}»` : CFG.run.showGuard && round.phase !== 'result' ? `Сторож: ${patrol.activity}` : '';
     wrist.draw({
-      stealth: st,
+      stealth: st, goal: round.phase === 'result' ? null : progress(contract, T, loot), guardText,
       vanSum: T.sum, vanCount: T.inVan, speaking: speakT >= CFG.mic.normalAfter && !breath.holding,
       door: dragging ? { creak: dragging.door.creak } : null,
       mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
@@ -597,9 +679,20 @@ function frame(now, xrFrame) {
 }
 
 // ---------- start screen ----------
+function syncStartScreen() {
+  $('contract').value = contract.id;
+  $('difficulty').value = difficulty;
+  const b = bestStars(contract.id);
+  $('contractinfo').textContent = `${contract.brief} ★ ${goalText(contract, loot.items)} · ★★ ${bonusText(contract)} · ★★★ на важкому. `
+    + `Рекорди: ${['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', ')}.`;
+}
+for (const c of CFG.contracts) $('contract').add(new Option(c.name, c.id));
+$('contract').addEventListener('change', () => { if (round.phase === 'ready') setContract($('contract').value); else syncStartScreen(); });
+$('difficulty').addEventListener('change', () => { if (round.phase === 'ready') setDifficulty($('difficulty').value); else syncStartScreen(); });
 const start = setupStartScreen({
   mic,
   onMicOn: () => scream.start(),
+  onChange: () => { boardDirty = true; },
   onPlay() {
     unlockAudio();
     playingDesktop = true;
@@ -610,6 +703,7 @@ const start = setupStartScreen({
     if (round.phase === 'escape') siren.set(true);
   },
 });
+syncStartScreen();
 const vrButton = VRButton.createButton(renderer);
 vrButton.id = 'vrbutton';
 vrButton.addEventListener('click', () => unlockAudio(), true);
@@ -646,7 +740,8 @@ if (params.has('autostart')) start.play();
 window.__game = {
   THREE, CFG, renderer, scene, camera, player, level, mic, comfort, xrIn, wrist, perf, VERSION, flash, goHome, useDoor, nearestDoor,
   loot, hands, noise, nav, alert, patrol, lurker, board, round, scream, breath, pointer, newRound, pressBoard, zone, flashUniforms,
-  get speakT() { return speakT; }, get drags() { return drags; }, stealthState,
+  get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
+  get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

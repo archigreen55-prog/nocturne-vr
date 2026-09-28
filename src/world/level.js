@@ -43,8 +43,8 @@ export function roomAt(x, z) {
   return 'Двір';
 }
 
-export const SPAWN = { x: 2.2, z: 6.8, yaw: 0 };  // beside the van, facing the back door
-export const BOARD = { x: 1.75, z: 8.75, yaw: -2.75 };  // scoreboard stand next to the van, facing the path
+export const SPAWN = { x: 2.2, z: 6.8, yaw: 2.92 };  // beside the van, facing the board (contract menu); the house is behind
+export const BOARD = { x: 1.75, z: 8.75, yaw: 2.92 };   // scoreboard stand next to the van, facing the spawn point
 export const CARGO = { minX: 3.5, maxX: 5.3, minZ: 7.85, maxZ: 11.4, y: 0.4 };  // van cargo floor
 export const WARDROBE = { x: 9.25, z: -9.4, minZ: -10.2, maxZ: -8.6 };   // bedroom wardrobe front
 export const HOUSE = { minX: -10.14, maxX: 10.14, minZ: -14.14, maxZ: 0.14 };   // outer faces of the walls lie outside
@@ -337,8 +337,8 @@ export function buildLevel() {
       }
     }
   }
-  S.boxAt(0.7, 0.7, 0.7, 5.0, 0, -3.5, C.woodLight, 0.1); S.boxAt(0.6, 0.55, 0.6, 5.1, 0.7, -3.45, C.woodLight, -0.2); S.boxAt(0.7, 0.6, 0.7, 5.9, 0, -3.7, C.wood, 0.3);
-  solid(4.55, -4.2, 6.35, -3.05, 1.25, 0.7);
+  S.boxAt(0.7, 0.7, 0.7, 4.85, 0, -3.5, C.woodLight, 0.1); S.boxAt(0.6, 0.55, 0.6, 4.95, 0.7, -3.45, C.woodLight, -0.2); S.boxAt(0.7, 0.6, 0.7, 5.6, 0, -3.7, C.wood, 0.3);
+  solid(4.4, -4.2, 6.1, -3.05, 1.25, 0.7);
   S.cyl(0.32, 0.3, 0.9, 7.6, 0, -3.1, C.woodDark, 10); S.cyl(0.33, 0.33, 0.04, 7.6, 0.2, -3.1, C.metal, 10); S.cyl(0.33, 0.33, 0.04, 7.6, 0.7, -3.1, C.metal, 10);
   solid(7.28, -3.42, 7.92, -2.78, 0.9);
   // corridor

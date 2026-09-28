@@ -1,23 +1,25 @@
 // Start screen (2D, before Enter VR): microphone permission, calibration and a live level meter.
 // Asking here matters: inside an immersive session the permission dialog may not be reachable.
 import { LEVELS } from '../audio/mic.js';
-import { CFG } from '../game/config.js';
+import { runCalibration } from '../audio/calibrate.js';
 
 const $ = (id) => document.getElementById(id);
 
-export function setupStartScreen({ mic, onPlay, onMicOn }) {
+export function setupStartScreen({ mic, onPlay, onMicOn, onChange }) {
   const micBtn = $('micbtn'), calBtn = $('calbtn'), state = $('micstate'), step = $('calstep');
   const startBtn = $('start');
   let calibrating = false, meterT = 0;
 
   function showState() {
     const s = mic.state;
-    micBtn.disabled = s === 'on' || s === 'pending';
-    calBtn.disabled = s !== 'on' || calibrating;
+    micBtn.disabled = s === 'on' || s === 'pending' || mic.noMic;
+    calBtn.disabled = s !== 'on' || calibrating || mic.noMic;
+    $('nomic').checked = mic.noMic;
     micBtn.textContent = s === 'on' ? 'Мікрофон увімкнено' : 'Дозволити мікрофон';
-    calBtn.textContent = mic.calibrated ? 'Перекалібрувати' : 'Калібрувати';
-    if (s === 'on') state.textContent = mic.calibrated ? `калібровано: тиша ${mic.cal.floor.toFixed(0)} дБ, голос ${mic.cal.normal.toFixed(0)} дБ` : 'ще не калібровано — натисни «Калібрувати»';
-    else if (s === 'denied') state.textContent = 'Дозвіл не надано. Гра працюватиме без мікрофона. Дозвіл можна змінити в налаштуваннях сайту браузера.';
+    calBtn.textContent = mic.calibrated ? 'Перекалібрувати (4 кроки)' : 'Калібрувати (4 кроки)';
+    if (mic.noMic) state.textContent = 'Гра без мікрофона: голос не рахується, контракт «Ні звуку» не зараховується.';
+    else if (s === 'on') state.textContent = mic.calibrated ? `калібровано: тиша ${mic.cal.floor.toFixed(0)}, ${Number.isFinite(mic.cal.whisper) ? `шепіт ${mic.cal.whisper.toFixed(0)}, ` : ''}голос ${mic.cal.normal.toFixed(0)} дБ` : 'ще не калібровано — натисни «Калібрувати»';
+    else if (s === 'denied') state.textContent = 'Дозвіл не надано. Можна грати без мікрофона (галочка). Дозвіл змінюється в налаштуваннях сайту браузера.';
     else if (s === 'none') state.textContent = `Мікрофон недоступний: ${mic.error}`;
     else if (s === 'pending') state.textContent = 'Чекаю на дозвіл…';
     else state.textContent = 'Без дозволу гра працюватиме, але без головної механіки.';
@@ -25,17 +27,21 @@ export function setupStartScreen({ mic, onPlay, onMicOn }) {
     const pw = mic.barPos(mic.whisperDb), ps = mic.barPos(mic.shoutDb);
     z('zq', 0, pw, '#1f3b2b'); z('zn', pw, ps, '#3f3a1c'); z('zs', ps, 1, '#4a1c1c');
     $('tw').style.left = pw * 100 + '%'; $('ts').style.left = ps * 100 + '%';
-    $('shoutrow').style.display = s === 'on' ? 'flex' : 'none';
-    const adj = mic.cal.adj || 0;
-    $('shoutdb').textContent = `${mic.shoutDb.toFixed(0)} дБ${adj ? ` (${adj > 0 ? '+' : ''}${adj})` : ''}`;
+    $('shoutrow').style.display = s === 'on' && !mic.noMic ? 'block' : 'none';
+    $('whisperdb').textContent = `${mic.whisperDb.toFixed(0)} дБ`;
+    $('shoutdb').textContent = `${mic.shoutDb.toFixed(0)} дБ`;
+    $('adjw').value = mic.cal.adjW || 0;
+    $('adjs').value = mic.cal.adj || 0;
   }
-  $('shoutup').addEventListener('click', () => { mic.adjustShout(2); showState(); });
-  $('shoutdn').addEventListener('click', () => { mic.adjustShout(-2); showState(); });
+  $('adjw').addEventListener('input', () => { mic.setAdjust('adjW', +$('adjw').value); showState(); });
+  $('adjs').addEventListener('input', () => { mic.setAdjust('adj', +$('adjs').value); showState(); });
+  $('nomic').addEventListener('change', () => { mic.setNoMic($('nomic').checked); showState(); if (onChange) onChange(); });
 
   micBtn.addEventListener('click', async () => {
     showState();
     await mic.enable();
     showState();
+    if (mic.state === 'on' && !mic.calibrated) step.textContent = 'Тепер натисни «Калібрувати».';
     if (mic.state === 'on' && onMicOn) {
       const rec = $('recstate');
       rec.textContent = 'Перевіряю запис для повтору крику…';
@@ -45,39 +51,21 @@ export function setupStartScreen({ mic, onPlay, onMicOn }) {
         : `Запис для повтору крику працює (${{ worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder' }[mode] || mode}).`;
       rec.style.color = mode === 'none' ? '#ff9f43' : '#5fd38d';
     }
-    if (mic.state === 'on' && !mic.calibrated) step.textContent = 'Тепер натисни «Калібрувати».';
   });
 
   calBtn.addEventListener('click', async () => {
     if (calibrating || mic.state !== 'on') return;
     calibrating = true; showState();
-    const countdown = async (text, seconds, pct) => {
-      const until = performance.now() + seconds * 1000;
-      const timer = setInterval(() => { step.textContent = `${text} ${Math.max(0, (until - performance.now()) / 1000).toFixed(1)} с`; }, 100);
-      const v = await mic.measure(seconds, pct);
-      clearInterval(timer);
-      return v;
-    };
-    step.textContent = 'Приготуйся мовчати…';
-    await new Promise((r) => setTimeout(r, 1200));
-    const floor = await countdown('1/2 Тиша: мовчи й не рухайся…', 3, 0.5);
-    step.textContent = 'Тепер говоритимеш звичайним голосом, як у розмові…';
-    await new Promise((r) => setTimeout(r, 1500));
-    const normal = await countdown('2/3 Кажи звичайним голосом, як будеш говорити в грі: «Раз, два, три, ми заходимо в будинок»…', 3.5, CFG.mic.voicePct);
-    step.textContent = 'Останнє: зараз крикни (або промовч — тоді поріг крику буде стандартним)…';
-    await new Promise((r) => setTimeout(r, 1500));
-    const peak = await countdown('3/3 КРИКНИ коротко й голосно (або мовчи)…', 2.5, 0.98);
+    const res = await runCalibration(mic, ({ i, step: st, phase, left }) => {
+      step.textContent = phase === 'prep'
+        ? `${i + 1}/4 ${st.title}: приготуйся… ${left.toFixed(1)} с`
+        : `${i + 1}/4 ${st.title.toUpperCase()}: ${st.say} — ${left.toFixed(1)} с`;
+    });
     calibrating = false;
-    if (floor == null || normal == null) step.textContent = 'Не вдалося отримати звук з мікрофона. Спробуй ще раз.';
-    else if (normal - floor < 8) step.textContent = `Голос майже не гучніший за тишу (${floor.toFixed(0)} і ${normal.toFixed(0)} дБ). Перевір мікрофон і повтори.`;
-    else {
-      // shout threshold halfway between your voice and your shout (at least 6 dB above the voice)
-      const shouted = peak != null && peak > normal + 6;
-      mic.setCalibration(floor, normal, shouted ? normal + Math.max(6, 0.5 * (peak - normal)) : null);
-      step.textContent = (shouted ? 'Готово, поріг крику — між твоїм голосом і криком. ' : 'Готово (крик пропущено: стандартний поріг). ')
-        + 'Перевір: шепни, скажи звичайно, крикни — шкала нижче.';
-    }
+    if (res.ok) { mic.setCalibration(res.cal); step.textContent = 'Готово. ' + res.notes.join(' ') + ' Перевір: шепни, скажи звичайно, крикни.'; }
+    else step.textContent = res.notes.join(' ');
     showState();
+    if (onChange) onChange();
   });
 
   const play = () => { if (!startBtn.disabled) onPlay(); };
@@ -88,6 +76,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn }) {
 
   return {
     play,
+    refresh: showState,
     // live meter while the start screen is visible (~15 Hz)
     tick(dt) {
       meterT -= dt;

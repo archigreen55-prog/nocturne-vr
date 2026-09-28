@@ -272,3 +272,71 @@ export class Siren {
     }
   }
 }
+
+// ---------- the guard's habits ----------
+// Kettle: a low hum, then a whistle (tell for the tea break). Positional; returns nothing.
+export function playKettle(pos, occluded, dur, whistleAt, whistleFor) {
+  oneShot(pos, occluded, dur + 1, 1, (dst, t) => {
+    noise(dst, t, Math.min(dur, whistleAt + whistleFor), 'lowpass', 300, 0.7, 0.08, 1.5);   // water heating
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(1700, t + whistleAt);
+    o.frequency.linearRampToValueAtTime(2300, t + whistleAt + 1.5);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 6;
+    const lg = ctx.createGain(); lg.gain.value = 40;
+    lfo.connect(lg).connect(o.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.setValueAtTime(0, t + whistleAt);
+    g.gain.linearRampToValueAtTime(0.1, t + whistleAt + 1); g.gain.setValueAtTime(0.1, t + whistleAt + whistleFor - 0.5);
+    g.gain.linearRampToValueAtTime(0, t + whistleAt + whistleFor);
+    o.connect(g).connect(dst);
+    o.start(t); lfo.start(t); o.stop(t + dur + 0.5); lfo.stop(t + dur + 0.5);
+  });
+}
+// Toilet flush: a falling rush of water.
+export function playFlush(pos, occluded) {
+  oneShot(pos, occluded, 3.5, 1, (dst, t) => {
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
+    f.frequency.setValueAtTime(1800, t); f.frequency.exponentialRampToValueAtTime(300, t + 3);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.35, t + 0.2); g.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+    src.connect(f).connect(g).connect(dst); src.start(t); src.stop(t + 3.4);
+  });
+}
+// Phone ringing on the guard (two rings), through its voice.
+export function playRing(voice) {
+  if (!ready() || !voice.ok) return;
+  const t = ctx.currentTime;
+  for (const r of [0, 1.2]) for (let k = 0; k < 10; k++) {
+    const s = t + r + k * 0.05;
+    tone(voice.input, s, 'square', k % 2 ? 480 : 440, k % 2 ? 480 : 440, 0.045, 0.05);
+  }
+}
+// Talking on the phone: a short burst of vowel-like babble.
+export function playMurmur(voice) {
+  if (!ready() || !voice.ok) return;
+  const t = ctx.currentTime;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 1.5;
+  bp.connect(voice.input);
+  for (let k = 0; k < 4 + Math.floor(Math.random() * 3); k++) {
+    const f = 110 + Math.random() * 40, s = t + k * 0.18 + Math.random() * 0.05;
+    tone(bp, s, 'sawtooth', f, f * (0.9 + Math.random() * 0.2), 0.14, 0.25, 0.02);
+  }
+}
+export function playYawn(voice) {
+  if (!ready() || !voice.ok) return;
+  const t = ctx.currentTime;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 1.2;
+  bp.connect(voice.input);
+  tone(bp, t, 'sawtooth', 220, 110, 1.6, 0.35, 0.3);
+}
+// Radio: squelch, a garbled call, squelch.
+export function playRadio(voice) {
+  if (!ready() || !voice.ok) return;
+  const t = ctx.currentTime;
+  noise(voice.input, t, 0.15, 'bandpass', 2500, 1, 0.3);
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 4;
+  bp.connect(voice.input);
+  for (let k = 0; k < 8; k++) tone(bp, t + 0.2 + k * 0.12, 'square', 150 + Math.random() * 60, 140, 0.1, 0.12, 0.01);
+  noise(voice.input, t + 1.3, 0.2, 'bandpass', 2500, 1, 0.3);
+}

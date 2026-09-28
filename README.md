@@ -7,7 +7,11 @@ CDN, no build step).
 
 **Play:** https://archigreen55-prog.github.io/nocturne-vr/
 
-Status: deploy 4 — readable stealth (visibility eye and "hidden" on the wrist, suspicion bar over
+Status: wave 1 (0.5.0) — a guard that plans its own rounds (rooms it has not seen, habits like tea,
+phone and toilet as windows of opportunity, notices missing loot and doors left open, checks hiding
+spots, radios for help), three difficulties, five contracts with stars chosen on the board at the van,
+and a 4-step microphone calibration (silence / whisper / voice / shout) that also runs inside VR, with
+manual thresholds and a no-microphone mode. Earlier: deploy 4 — readable stealth (visibility eye and "hidden" on the wrist, suspicion bar over
 the patrol, a short reaction delay), a sturdier shout detector with a shout calibration step. Earlier:
 loot (one- and two-handed, fragile crystal) delivered through a glowing drop-off
 ring behind the van, noise from steps / doors / drops / your voice, a patrol that hears and sees
@@ -47,6 +51,11 @@ URL parameters: `?fps` (counter on), `?fbs=0.85` (XR framebuffer scale), `?fov=0
 `?hz=72` (frame rate), `?vignette` (vignette on the laptop too), `?autostart`,
 `?rec=script|recorder` (force a scream recorder fallback), `?flash=nomask|shadow|off` (flashlight
 variants for measuring).
+
+## Contracts and difficulty
+
+Choose them on the board next to the van (it faces you at the start) or on the start screen. The
+clock starts when you walk 4.5 m away from the van. Stars: ★ goal, ★★ bonus, ★★★ goal + bonus on hard.
 
 ## Tuning
 

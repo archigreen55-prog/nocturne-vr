@@ -36,13 +36,22 @@ export class Mic {
     this.collect = null;       // array while calibrating
     this.shoutOnset = false;   // true for one analysis when a new shout starts (see takeShout)
     this.source = null;        // MediaStreamSource (the scream recorder taps it too)
+    this.noMic = loadSetting('nomic', false) === true;   // play without the microphone
     const cal = loadSetting('mic', null);
     this.calibrated = !!(cal && Number.isFinite(cal.floor) && Number.isFinite(cal.normal));
     this.cal = this.calibrated ? cal : { ...DEFAULT_CAL };
     this.hist.fill(-100);
   }
 
-  get whisperDb() { return this.cal.floor + CFG.mic.whisperK * (this.cal.normal - this.cal.floor); }
+  // Whisper/voice boundary: between your whisper and your voice if the whisper step was usable,
+  // else between silence and voice; plus your own correction (slider / ± on the board).
+  get whisperDb() {
+    const c = this.cal;
+    const base = Number.isFinite(c.whisper) && c.normal - c.whisper >= 4
+      ? c.whisper + 0.45 * (c.normal - c.whisper)
+      : c.floor + CFG.mic.whisperK * (c.normal - c.floor);
+    return base + (c.adjW || 0);
+  }
   // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver;
   // plus the player's own correction (the ± buttons on the start screen).
   get shoutDb() {
@@ -140,18 +149,22 @@ export class Mic {
     }, seconds * 1000));
   }
 
-  // shout: measured shout threshold (dB) or null to use voice + shoutOver
-  setCalibration(floor, normal, shout = null) {
-    this.cal = { floor, normal, shout, adj: 0 };
+  // cal: { floor, normal, whisper (or null), shout (threshold, or null = voice + shoutOver) }
+  setCalibration(cal) {
+    this.cal = { floor: cal.floor, normal: cal.normal, whisper: cal.whisper ?? null, shout: cal.shout ?? null, adj: 0, adjW: 0 };
     this.calibrated = true;
     saveSetting('mic', this.cal);
   }
 
-  // Player's correction of the shout threshold (dB, + = shouts are harder to trigger).
-  adjustShout(delta) {
-    this.cal.adj = Math.max(-12, Math.min(18, (this.cal.adj || 0) + delta));
+  // Player's corrections (dB): + makes a shout (adj) / normal voice (adjW) harder to trigger.
+  adjustShout(delta) { this.setAdjust('adj', (this.cal.adj || 0) + delta); }
+  adjustWhisper(delta) { this.setAdjust('adjW', (this.cal.adjW || 0) + delta); }
+  setAdjust(key, v) {
+    this.cal[key] = key === 'adj' ? Math.max(-12, Math.min(18, v)) : Math.max(-10, Math.min(10, v));
     saveSetting('mic', this.cal);
   }
+
+  setNoMic(v) { this.noMic = !!v; saveSetting('nomic', this.noMic); }
 
   // 0..1 position of a dB value on the level bar (floor - 10 .. shout + 12)
   barPos(db) {

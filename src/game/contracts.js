@@ -1,0 +1,63 @@
+// Contracts in this house (CFG.contracts): goal, bonus star, the best stars kept per difficulty.
+//   ★1 goal met and you got away (drove off or escaped to the van)
+//   ★2 + the bonus condition (clean: no full alarm, no shout; intact: nothing damaged or broken)
+//   ★3 + both on the hard difficulty
+import { CFG } from './config.js';
+import { loadSetting, saveSetting } from '../settings.js';
+import { money } from '../ui/board.js';
+
+export const contracts = () => CFG.contracts;
+export const contractById = (id) => CFG.contracts.find((c) => c.id === id) || CFG.contracts[0];
+
+export function goalText(c, items) {
+  const G = c.goal, parts = [];
+  if (G.item) parts.push(`винеси: ${(items.find((i) => i.id === G.item) || {}).name || G.item}`);
+  if (G.sum) parts.push(`винеси щонайменше ${money(G.sum)}`);
+  if (G.noAlarm) parts.push('без повної тривоги');
+  if (G.noShout) parts.push('без жодного крику');
+  return parts.join(', ');
+}
+export const bonusText = (c) => (c.bonus === 'intact' ? 'нічого не пошкодити й не розбити' : 'без тривоги й без крику');
+
+// Progress toward the goal during the round, for the wrist and the board.
+export function progress(c, tally, loot) {
+  if (c.goal.item) {
+    const it = loot.items.find((i) => i.id === c.goal.item);
+    return { done: !!(it && it.delivered), text: `${it ? it.name : c.goal.item}: ${it && it.delivered ? 'у фургоні ✓' : 'ще ні'}` };
+  }
+  return { done: tally.sum >= c.goal.sum, text: `${money(tally.sum)} / ${money(c.goal.sum)}` };
+}
+
+// r: round.result; ctx: { alarmed, noMic, difficulty, loot }
+export function evaluate(c, r, ctx) {
+  const got = r.kind === 'left' || r.kind === 'escaped';
+  const G = c.goal;
+  let goal = got;
+  const why = [];
+  if (G.item) { const it = ctx.loot.items.find((i) => i.id === G.item); if (!(it && it.delivered)) { goal = false; why.push('потрібної речі немає у фургоні'); } }
+  if (G.sum && r.sum < G.sum) { goal = false; why.push(`${money(r.sum)} з ${money(G.sum)}`); }
+  if (G.noAlarm && ctx.alarmed) { goal = false; why.push('була тривога'); }
+  if (G.noShout && (r.shouts > 0 || ctx.noMic)) { goal = false; why.push(ctx.noMic ? 'без мікрофона не зараховується' : 'ти кричав'); }
+  if (!got) why.unshift(r.kind === 'caught' ? 'тебе спіймали' : 'не встиг утекти');
+  // clean: no full alarm and no shout (without a microphone only the alarm counts)
+  const bonus = c.bonus === 'intact' ? r.damaged === 0 && r.broken === 0 : !ctx.alarmed && r.shouts === 0;
+  const stars = goal ? 1 + (bonus ? 1 : 0) + (bonus && ctx.difficulty === 'hard' ? 1 : 0) : 0;
+  return { goal, bonus, stars, why };
+}
+
+// Best stars: { contractId: { easy, medium, hard } } in localStorage.
+export function bestStars(id) {
+  const all = loadSetting('stars', {});
+  return all[id] || { easy: 0, medium: 0, hard: 0 };
+}
+// Returns true when this is a new best for that contract and difficulty.
+export function recordStars(id, difficulty, stars) {
+  const all = loadSetting('stars', {});
+  const b = all[id] || { easy: 0, medium: 0, hard: 0 };
+  if (stars <= (b[difficulty] || 0)) return false;
+  b[difficulty] = stars;
+  all[id] = b;
+  saveSetting('stars', all);
+  return true;
+}
+export const starsText = (n, of = 3) => '★'.repeat(n) + '☆'.repeat(Math.max(0, of - n));

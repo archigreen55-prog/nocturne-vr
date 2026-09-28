@@ -133,8 +133,9 @@ export class WristPanel {
     g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
     g.fillText(s.holding ? `У руках: ${s.holding}` : s.room, 30, 320);
     if (s.holding) { g.textAlign = 'right'; g.fillStyle = '#6f8396'; g.fillText(s.room, W - 30, 320); }
-    g.textAlign = 'left'; g.font = 'bold 28px system-ui, sans-serif'; g.fillStyle = '#5fd38d';
-    g.fillText(`У фургоні: ${money(s.vanSum || 0)} · ${s.vanCount || 0} предм.`, 30, 360);
+    g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
+    if (s.goal) { g.fillStyle = s.goal.done ? '#5fd38d' : '#c9d3e3'; g.fillText(`Мета: ${s.goal.text}${s.goal.done ? ' ✓' : ''}`, 30, 360); }
+    else { g.fillStyle = '#5fd38d'; g.fillText(`У фургоні: ${money(s.vanSum || 0)} · ${s.vanCount || 0} предм.`, 30, 360); }
 
     // --- FPS block ---
     if (this.showFps) {
@@ -152,6 +153,7 @@ export class WristPanel {
 
     // --- door hint while dragging a door, else the message line ---
     let msg = s.msg, color = s.msgColor;
+    if (!msg && s.guardText) { msg = s.guardText; color = '#9fb3c8'; }
     if (s.door) {
       msg = s.door.creak > 0 ? `Двері: СКРИПИТЬ${s.door.creak > 0.5 ? '!' : ''}` : 'Двері: тихо';
       color = s.door.creak > 0 ? (s.door.creak > 0.5 ? '#ff5c5c' : '#ffb347') : '#5fd38d';
