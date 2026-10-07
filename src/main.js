@@ -6,13 +6,15 @@ import { buildLevel, roomAt, SPAWN } from './world/level.js';
 import { Player } from './xr/player.js';
 import { ComfortOverlay, VIGNETTE_LEVELS } from './comfort/vignette.js';
 import { KeyboardInput } from './input/keyboard.js';
+import { TouchControls, LOOK_SPEEDS } from './input/touch.js';
+import { enterPhonePlay, leavePhonePlay, screenState } from './platform/screen.js';
 import { XRInput } from './input/xrInput.js';
 import { WristPanel } from './ui/wrist.js';
 import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
+import { unlockAudio, existingAudioContext, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
 import { applyDifficulty, DIFFS } from './game/difficulty.js';
 import { contractById, goalText, bonusText, progress, evaluate, bestStars, recordStars } from './game/contracts.js';
 import { runCalibration } from './audio/calibrate.js';
@@ -30,12 +32,16 @@ import { stealthState } from './game/stealth.js';
 import { maskScene, maskBeam, updateFlashMask, flashUniforms } from './enemies/flashMask.js';
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
-import { loadSetting, saveSetting } from './settings.js';
+import { loadSetting, saveSetting, PREVIEW } from './settings.js';
+import { currentMode, refineAndroid, MODE_NAMES } from './platform/mode.js';
+import { FrameStats, prepareReport, buildReport, copyReport, deviceData } from './debug/report.js';
 
 const NIGHT = 0x0a0f1c;
 const params = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
-$('version').textContent = `версія ${VERSION}`;
+$('version').textContent = `версія ${VERSION}${PREVIEW ? ' · тестова (превʼю)' : ''}`;
+// vr / phone / pc (src/platform/mode.js). Phone controls come in the next wave (plan-phone-mode T1).
+let MODE = currentMode();
 
 // ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); // MSAA 4x in XR too
@@ -70,12 +76,15 @@ for (const [x, y, z, color, intensity, dist] of [
   points.push(l);
 }
 
-addEventListener('resize', () => {
+function onResize() {
   if (renderer.xr.isPresenting) return;
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-});
+  if (typeof phoneLayout === 'function') phoneLayout();
+}
+addEventListener('resize', onResize);
+if (window.visualViewport) visualViewport.addEventListener('resize', onResize);   // iOS Safari bars
 
 // ---------- messages ----------
 let flashText = '', flashT = 0, flashColor = '#ffd166', wristTimer = 0;
@@ -162,7 +171,7 @@ const round = new Round({
       }
       resultT = 0; autoPlayed = false;
       verdict = evaluate(contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty, loot });
-      verdict.newBest = recordStars(contract.id, difficulty, verdict.stars);
+      verdict.newBest = recordStars(contract.id, difficulty, verdict.stars, MODE.mode);
       flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
     }
   },
@@ -354,13 +363,41 @@ function autoFrameRate(now) {
   }
 }
 
-// ---------- desktop mouse look ----------
+// ---------- laptop mouse look / phone touch ----------
+// playingDesktop: playing on a flat screen (laptop with the mouse captured, or phone with touch)
 let playingDesktop = false;
+const touch = MODE.mode === 'phone' ? new TouchControls($('touch')) : null;
+if (touch) {
+  touch.lookSpeed = LOOK_SPEEDS[loadSetting('lookSpeed', 'normal')] || LOOK_SPEEDS.normal;
+  touch.breathToggle = loadSetting('breathMode', 'hold') === 'toggle';
+  document.body.classList.add('phone-mode');
+  // Safari: no pinch zoom, no double-tap zoom on the game
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+}
+// phone: portrait while playing = paused behind "rotate the phone"
+const rotateBlocked = () => !!touch && playingDesktop && innerHeight > innerWidth;
+function phoneLayout() {
+  if (!touch) return;
+  document.body.classList.toggle('portrait-block', rotateBlocked());
+  wrist.placeCorner(camera);
+}
+let holdDoor = null;   // phone: the door swinging slowly while the door button is held
+// Back to the menu (Esc on a laptop, the pause button on a phone)
+function pause2D() {
+  if (!playingDesktop || inVR) return;
+  playingDesktop = false;
+  $('overlay').style.display = 'flex';
+  $('hint').style.display = 'none';
+  $('crosshair').style.display = 'none';
+  siren.set(false);
+  if (holdDoor) { holdDoor.release(); holdDoor = null; }
+  if (touch) { touch.reset(); $('touch').hidden = true; document.body.classList.remove('phone-playing', 'portrait-block'); leavePhonePlay(); }
+}
 function lockPointer() {
   try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* not available */ }
 }
 renderer.domElement.addEventListener('click', () => {
-  if (!playingDesktop || inVR) return;
+  if (!playingDesktop || inVR || touch) return;
   if (!document.pointerLockElement) { lockPointer(); return; }
   if (pointer.hover.desk) pressBoard(pointer.hover.desk);
 });
@@ -369,13 +406,7 @@ addEventListener('mousemove', (e) => {
 });
 document.addEventListener('pointerlockchange', () => {
   // Esc releases the mouse: show the menu (calibration, settings) again
-  if (!document.pointerLockElement && playingDesktop && !inVR) {
-    playingDesktop = false;
-    $('overlay').style.display = 'flex';
-    $('hint').style.display = 'none';
-    $('crosshair').style.display = 'none';
-    siren.set(false);
-  }
+  if (!document.pointerLockElement && playingDesktop && !inVR && !touch) pause2D();
 });
 
 // ---------- round control ----------
@@ -459,6 +490,7 @@ function goHome() {
 
 // ---------- stats ----------
 const perf = { fps: 0, frames: 0, since: performance.now(), calls: 0, tris: 0 };
+const frameStats = new FrameStats();   // for the report: last 60 s and per minute
 const debugEl = $('debug');
 wrist.showFps = params.has('fps');
 const gpu = new GpuTimer(renderer.getContext());
@@ -469,6 +501,31 @@ function cycleVignette() {
   const l = comfort.cycleLevel();
   $('vignette').value = l.id;
   flash(`Віньєтка: ${l.label}`);
+}
+
+// ---------- flat-screen controls: one snapshot per frame from the keyboard and the touch screen ----------
+// (VR reads its controllers in simulate(), unchanged.)
+const ctl = { move: { x: 0, y: 0 }, look: { x: 0, y: 0 } };
+function flatControls(dt) {
+  ctl.stats = keys.take('KeyF'); ctl.vignette = keys.take('KeyV'); ctl.home = keys.take('KeyR'); ctl.newRound = keys.take('KeyN');
+  ctl.crouch = keys.take('KeyC'); ctl.interact = keys.take('KeyE'); ctl.doorSlow = keys.take('KeyQ'); ctl.doorFast = keys.take('KeyT');
+  ctl.doorHoldStart = ctl.doorHoldEnd = ctl.doorHoldToTap = false; ctl.tap = null; ctl.look.x = ctl.look.y = 0;
+  keys.readMove(ctl.move);
+  ctl.breath = keys.any('ShiftLeft', 'ShiftRight');
+  if (touch && playingDesktop) {
+    touch.update();
+    if (Math.hypot(touch.move.x, touch.move.y) > Math.hypot(ctl.move.x, ctl.move.y)) { ctl.move.x = touch.move.x; ctl.move.y = touch.move.y; }
+    ctl.breath = ctl.breath || touch.breath;
+    if (touch.take('crouch')) ctl.crouch = true;
+    if (touch.take('interact')) ctl.interact = true;
+    if (touch.take('doorTap')) ctl.doorFast = true;
+    ctl.doorHoldStart = touch.take('doorHoldStart');
+    ctl.doorHoldEnd = touch.take('doorHoldEnd');
+    ctl.doorHoldToTap = touch.take('doorHoldToTap');
+    ctl.tap = touch.takeTap();
+    touch.takeLook(ctl.look);
+  }
+  return ctl;
 }
 
 // ---------- simulation (one frame of game logic) ----------
@@ -486,14 +543,21 @@ function simulate(dt, xrFrame, now) {
   }
   const active = inVR || playingDesktop;
 
-  // input
-  if (keys.take('KeyF')) toggleStats();
-  if (keys.take('KeyV')) cycleVignette();
-  if (keys.take('KeyR')) goHome();
-  if (keys.take('KeyN')) newRound();
-  if (keys.take('KeyC')) player.virtualCrouch = !player.virtualCrouch;
-  keys.readMove(move);
-  let breathDown = keys.any('ShiftLeft', 'ShiftRight');
+  // input (laptop keyboard, phone touch; VR below)
+  flatControls(dt);
+  if (touch && touch.take('pause')) pause2D();
+  if (ctl.stats) toggleStats();
+  if (ctl.vignette) cycleVignette();
+  if (ctl.home) goHome();
+  if (ctl.newRound) newRound();
+  if (ctl.crouch) player.virtualCrouch = !player.virtualCrouch;
+  move.x = ctl.move.x; move.y = ctl.move.y;
+  let breathDown = ctl.breath;
+  if (playingDesktop && (ctl.look.x || ctl.look.y)) player.look(ctl.look.x / 0.0025, ctl.look.y / 0.0025);   // touch: rad -> look()'s px
+  if (playingDesktop && ctl.tap && caughtT < 0) {
+    const id = pointer.hitAt(ctl.tap.x / innerWidth * 2 - 1, 1 - ctl.tap.y / innerHeight * 2, camera);
+    if (id) pressBoard(id);
+  }
   if (inVR) {
     const act = xrIn.read(renderer.xr.getSession(), dt);
     if (Math.hypot(xrIn.move.x, xrIn.move.y) > Math.hypot(move.x, move.y)) { move.x = xrIn.move.x; move.y = xrIn.move.y; }
@@ -535,13 +599,25 @@ function simulate(dt, xrFrame, now) {
   if (inVR) hands.update(dt, xrIn.grip);
   else if (playingDesktop) {
     hands.aimDesk(player.head, player.yaw);
-    if (keys.take('KeyE')) hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
+    if (ctl.interact) hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
     hands.updateDesk(player.head, player.yaw, player.lookPitch);
     hands.updateHighlight();
   }
   if (!inVR) {
-    if (keys.take('KeyQ')) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), null, CFG.doors.slowTime);
-    if (keys.take('KeyT')) useDoor(nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), null, CFG.doors.fastTime);
+    const front = () => nearestDoor(player.head.x, player.head.z, 1.6, player.yaw);
+    if (ctl.doorSlow) useDoor(front(), null, CFG.doors.slowTime);
+    if (ctl.doorFast) useDoor(front(), null, CFG.doors.fastTime);
+    // phone: hold the door button = slow (quiet) swing; release = the leaf stops where it is
+    if (ctl.doorHoldStart) { const d = front(); if (d) { useDoor(d, null, CFG.doors.slowTime); holdDoor = d.locked ? null : d; } }
+    if (ctl.doorHoldEnd && holdDoor) { holdDoor.release(); holdDoor = null; }
+    if (ctl.doorHoldToTap && holdDoor) { holdDoor.swingTime(CFG.doors.fastTime); holdDoor = null; }
+  }
+  if (touch && playingDesktop) {
+    const atVan = round.atVan(player.head);
+    touch.setContext({
+      interact: hands.desk ? (atVan ? 'У фургон' : 'Покласти') : hands.deskAim ? 'Взяти' : null,
+      door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
+    });
   }
   // drop-off ring: head inside with loot in hand = the loot flies into the van
   const carried = hands.heldItems().filter((it) => !it.twoHanded || hands.desk === it || (hands.two && hands.two.item === it));
@@ -628,9 +704,10 @@ let last = performance.now();
 function frame(now, xrFrame) {
   const cpuStart = performance.now();
   const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+  frameStats.add(now - last);
   last = now;
 
-  simulate(dt, xrFrame, now);
+  if (!rotateBlocked()) simulate(dt, xrFrame, now);   // phone in portrait while playing: paused
   comfort.update(dt, player.speed, inVR || params.has('vignette'));
 
   gpu.poll();
@@ -697,9 +774,17 @@ const start = setupStartScreen({
     unlockAudio();
     playingDesktop = true;
     $('overlay').style.display = 'none';
-    $('hint').style.display = 'block';
     $('crosshair').style.display = 'block';
-    lockPointer();
+    if (touch) {
+      touch.reset();
+      $('touch').hidden = false;
+      document.body.classList.add('phone-playing');
+      enterPhonePlay();
+      phoneLayout();
+    } else {
+      $('hint').style.display = 'block';
+      lockPointer();
+    }
     if (round.phase === 'escape') siren.set(true);
   },
 });
@@ -707,7 +792,32 @@ syncStartScreen();
 const vrButton = VRButton.createButton(renderer);
 vrButton.id = 'vrbutton';
 vrButton.addEventListener('click', () => unlockAudio(), true);
-$('buttons').appendChild(vrButton);
+// phones: no "Enter VR" (Android may offer Cardboard) and no laptop play (it needs a mouse)
+if (MODE.mode !== 'phone') $('buttons').appendChild(vrButton);
+else {
+  $('start').textContent = 'Грати';
+  // phone settings and menu buttons (the full pause menu comes in T2)
+  $('lookspeed').value = loadSetting('lookSpeed', 'normal');
+  $('lookspeed').addEventListener('change', () => { saveSetting('lookSpeed', $('lookspeed').value); touch.lookSpeed = LOOK_SPEEDS[$('lookspeed').value]; });
+  $('breathmode').value = touch.breathToggle ? 'toggle' : 'hold';
+  $('breathmode').addEventListener('change', () => { saveSetting('breathMode', $('breathmode').value); touch.breathToggle = $('breathmode').value === 'toggle'; });
+  $('phonehome').addEventListener('click', () => { goHome(); start.play(); });
+  $('phonenew').addEventListener('click', () => { newRound(); start.play(); });
+}
+function showMode() {
+  const other = Object.keys(MODE_NAMES).filter((m) => m !== MODE.mode).map((m) => `<a href="?mode=${m}">${MODE_NAMES[m]}</a>`);
+  if (!MODE.auto) other.push('<a href="?mode=auto">визначати автоматично</a>');
+  $('modeline').innerHTML = `Режим: <b>${MODE_NAMES[MODE.mode]}</b> (${MODE.os && !MODE.os.startsWith(MODE.device) ? `${MODE.device}, ${MODE.os}` : MODE.os || MODE.device}${MODE.auto ? ', визначено автоматично' : `, вибрано вручну; автоматично було б «${MODE_NAMES[MODE.detected]}»`}). Інший режим: ${other.join(' · ')}.`
+    + (MODE.mode === 'phone' ? '<br>Тримай телефон горизонтально. Ліва частина екрана — ходьба (легкий рух — тихо), права — огляд, кнопки — справа. Табло біля фургона натискається пальцем.' : '');
+}
+showMode();
+prepareReport().then(() => { MODE = refineAndroid(MODE, deviceData()); showMode(); });
+const reportText = () => buildReport({
+  version: VERSION, mode: MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
+  game: { phase: round.phase, contract: contract.id, difficulty, inVR, playing: playingDesktop, simSeconds: +simT.toFixed(1) },
+  screen: touch ? { ...screenState(), lookSpeed: loadSetting('lookSpeed', 'normal'), breathMode: touch.breathToggle ? 'toggle' : 'hold' } : undefined,
+});
+$('report').addEventListener('click', () => copyReport(reportText()));
 
 const vsel = $('vignette');
 for (const l of VIGNETTE_LEVELS) vsel.add(new Option(l.label, l.id));
@@ -743,5 +853,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
+  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, get simT() { return simT; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

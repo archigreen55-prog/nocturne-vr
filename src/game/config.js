@@ -31,6 +31,9 @@ export const CFG = {
     normalRadius: 3,       // talking normally: a noise of this radius...
     normalAfter: 0.7,      // ...only after this much continuous speech (pauses under 0.35 s do not break it)
     normalEvery: 1,        // ...and then once per this many seconds while it lasts
+    // sane limits for the player's ± corrections (dB): the shout threshold stays this far above the
+    // calibrated voice, the whisper boundary this far above the whisper (or silence) and below the voice
+    limitMargin: { shoutOverVoice: 4, whisper: 3, voiceOverWhisper: 3 },
   },
 
   // A / Shift: the mic is ignored for up to `hold` s. Cooldown = cooldown x (time held / hold), at least

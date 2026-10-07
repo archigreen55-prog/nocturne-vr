@@ -658,6 +658,9 @@ export class Door {
     this.dragTarget = Math.max(-OPEN_ANGLE, Math.min(OPEN_ANGLE, t));
   }
   release() { this.dragging = false; this.target = this.angle; }
+  // Keep going to the same target, at the speed of a full swing in `time` s (phone: a tap that a long
+  // frame first reported as a hold becomes the quick swing it was).
+  swingTime(time) { this.rate = OPEN_ANGLE / time; }
 
   // Moves the leaf; returns the creak loudness 0..1 (continuous: silent below CFG.doors.creakFrom
   // deg/s of smoothed swing speed, full at creakFull).

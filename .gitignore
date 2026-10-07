@@ -4,3 +4,4 @@ node_modules/
 .vscode/
 # design docs and reports stay local: the repository is public
 docs/
+_site/

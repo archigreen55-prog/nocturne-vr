@@ -40,24 +40,42 @@ export class Mic {
     const cal = loadSetting('mic', null);
     this.calibrated = !!(cal && Number.isFinite(cal.floor) && Number.isFinite(cal.normal));
     this.cal = this.calibrated ? cal : { ...DEFAULT_CAL };
+    // corrections saved before the limits existed (or out of range): bring them inside
+    this.clampedOnLoad = false;
+    for (const k of ['adj', 'adjW']) {
+      if (!this.cal[k]) continue;
+      const [lo, hi] = this.adjustRange(k), v = Math.max(lo, Math.min(hi, this.cal[k]));
+      if (v !== this.cal[k]) { this.cal[k] = v; this.clampedOnLoad = true; }
+    }
+    if (this.clampedOnLoad) saveSetting('mic', this.cal);
     this.hist.fill(-100);
   }
 
   // Whisper/voice boundary: between your whisper and your voice if the whisper step was usable,
-  // else between silence and voice; plus your own correction (slider / ± on the board).
-  get whisperDb() {
+  // else between silence and voice; plus your own correction (± on the start screen and the board),
+  // kept within the sane range (whisperLimits).
+  get whisperBase() {
     const c = this.cal;
-    const base = Number.isFinite(c.whisper) && c.normal - c.whisper >= 4
-      ? c.whisper + 0.45 * (c.normal - c.whisper)
-      : c.floor + CFG.mic.whisperK * (c.normal - c.floor);
-    return base + (c.adjW || 0);
+    return this.whisperUsable ? c.whisper + 0.45 * (c.normal - c.whisper) : c.floor + CFG.mic.whisperK * (c.normal - c.floor);
   }
-  // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver;
-  // plus the player's own correction (the ± buttons on the start screen).
-  get shoutDb() {
-    const base = Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + CFG.mic.shoutOver;
-    return base + (this.cal.adj || 0);
+  get whisperUsable() { const c = this.cal; return Number.isFinite(c.whisper) && c.normal - c.whisper >= 4; }
+  // [lo, hi] for the whisper boundary: above your whisper (or the silence) + a margin, so a whisper
+  // stays "ШЕПІТ"; below your voice - a margin, so normal talk is still heard
+  get whisperLimits() {
+    const c = this.cal, M = CFG.mic.limitMargin;
+    let lo = (this.whisperUsable ? c.whisper : c.floor) + M.whisper, hi = c.normal - M.voiceOverWhisper;
+    if (lo > hi) lo = hi = (lo + hi) / 2;
+    return [lo, hi];
   }
+  get whisperDb() {
+    const [lo, hi] = this.whisperLimits;
+    return Math.min(hi, Math.max(lo, this.whisperBase + (this.cal.adjW || 0)));
+  }
+  // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver; plus
+  // your correction, never below your calibrated voice + a margin (else normal talk would be a shout).
+  get shoutBase() { return Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + CFG.mic.shoutOver; }
+  get shoutMin() { return this.cal.normal + CFG.mic.limitMargin.shoutOverVoice; }
+  get shoutDb() { return Math.max(this.shoutMin, this.shoutBase + (this.cal.adj || 0)); }
 
   async enable() {
     if (this.state === 'on' || this.state === 'pending') return this.state;
@@ -157,12 +175,23 @@ export class Mic {
   }
 
   // Player's corrections (dB): + makes a shout (adj) / normal voice (adjW) harder to trigger.
-  adjustShout(delta) { this.setAdjust('adj', (this.cal.adj || 0) + delta); }
-  adjustWhisper(delta) { this.setAdjust('adjW', (this.cal.adjW || 0) + delta); }
-  setAdjust(key, v) {
-    this.cal[key] = key === 'adj' ? Math.max(-12, Math.min(18, v)) : Math.max(-10, Math.min(10, v));
-    saveSetting('mic', this.cal);
+  // Clamped to the UI range and to the sane limits above; returns true if it hit a limit.
+  adjustShout(delta) { return this.setAdjust('adj', (this.cal.adj || 0) + delta); }
+  adjustWhisper(delta) { return this.setAdjust('adjW', (this.cal.adjW || 0) + delta); }
+  adjustRange(key) {
+    if (key === 'adj') return [Math.max(-12, Math.ceil(this.shoutMin - this.shoutBase)), 18];
+    const [lo, hi] = this.whisperLimits, b = this.whisperBase;
+    const min = Math.max(-10, Math.ceil(lo - b));
+    return [min, Math.max(min, Math.min(10, Math.floor(hi - b)))];
   }
+  setAdjust(key, v) {
+    const [lo, hi] = this.adjustRange(key);
+    const c = Math.max(lo, Math.min(hi, v));
+    this.cal[key] = c;
+    saveSetting('mic', this.cal);
+    return c !== v;
+  }
+  resetAdjust() { this.cal.adj = 0; this.cal.adjW = 0; saveSetting('mic', this.cal); }
 
   setNoMic(v) { this.noMic = !!v; saveSetting('nomic', this.noMic); }
 

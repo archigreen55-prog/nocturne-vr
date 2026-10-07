@@ -28,13 +28,32 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange }) {
     z('zq', 0, pw, '#1f3b2b'); z('zn', pw, ps, '#3f3a1c'); z('zs', ps, 1, '#4a1c1c');
     $('tw').style.left = pw * 100 + '%'; $('ts').style.left = ps * 100 + '%';
     $('shoutrow').style.display = s === 'on' && !mic.noMic ? 'block' : 'none';
-    $('whisperdb').textContent = `${mic.whisperDb.toFixed(0)} дБ`;
-    $('shoutdb').textContent = `${mic.shoutDb.toFixed(0)} дБ`;
-    $('adjw').value = mic.cal.adjW || 0;
-    $('adjs').value = mic.cal.adj || 0;
+    const shift = (v) => (v ? ` (зсув ${v > 0 ? '+' : '−'}${Math.abs(v)})` : '');
+    $('whisperdb').textContent = `${mic.whisperDb.toFixed(0)} дБ${shift(mic.cal.adjW || 0)}`;
+    $('shoutdb').textContent = `${mic.shoutDb.toFixed(0)} дБ${shift(mic.cal.adj || 0)}`;
+    const [wlo, whi] = mic.adjustRange('adjW'), [slo, shi] = mic.adjustRange('adj');
+    $('wdn').disabled = (mic.cal.adjW || 0) <= wlo; $('wup').disabled = (mic.cal.adjW || 0) >= whi;
+    $('sdn').disabled = (mic.cal.adj || 0) <= slo; $('sup').disabled = (mic.cal.adj || 0) >= shi;
+    $('adjreset').disabled = !mic.cal.adj && !mic.cal.adjW;
   }
-  $('adjw').addEventListener('input', () => { mic.setAdjust('adjW', +$('adjw').value); showState(); });
-  $('adjs').addEventListener('input', () => { mic.setAdjust('adj', +$('adjs').value); showState(); });
+  // ± 1 dB; at a limit the button greys out and the note says why (the sane limit or the end of the range)
+  const note = (t) => { $('adjnote').textContent = t; };
+  const WHY = {
+    adjW: { down: 'Нижче не можна: твій шепіт став би «НОРМАЛЬНО».', up: 'Вище не можна: твій звичайний голос став би «ШЕПІТ», і гра його не чула б.', ui: [-10, 10] },
+    adj: { down: 'Нижче не можна: межа крику має бути хоча б на 4 дБ вища за твій звичайний голос, інакше звичайна мова стане «КРИК!».', up: '', ui: [-12, 18] },
+  };
+  for (const [id, key, d] of [['wdn', 'adjW', -1], ['wup', 'adjW', 1], ['sdn', 'adj', -1], ['sup', 'adj', 1]]) {
+    $(id).addEventListener('click', () => {
+      mic.setAdjust(key, (mic.cal[key] || 0) + d);
+      const v = mic.cal[key] || 0, [lo, hi] = mic.adjustRange(key), w = WHY[key];
+      if (d < 0 && v <= lo) note(lo > w.ui[0] ? w.down : 'Це найбільший зсув униз.');
+      else if (d > 0 && v >= hi) note(hi < w.ui[1] && w.up ? w.up : 'Це найбільший зсув угору.');
+      else note('');
+      showState(); if (onChange) onChange();
+    });
+  }
+  if (mic.clampedOnLoad) note('Збережені зсуви робили межі безглуздими (звичайна мова була б «КРИК!» або шепіт — «НОРМАЛЬНО»), тому їх обмежено. «Скинути зсуви» поверне межі з калібрування.');
+  $('adjreset').addEventListener('click', () => { mic.resetAdjust(); note('Зсуви скинуто: межі такі, як дало калібрування.'); showState(); if (onChange) onChange(); });
   $('nomic').addEventListener('change', () => { mic.setNoMic($('nomic').checked); showState(); if (onChange) onChange(); });
 
   micBtn.addEventListener('click', async () => {
