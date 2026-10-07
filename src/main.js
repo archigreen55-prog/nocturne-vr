@@ -7,14 +7,19 @@ import { Player } from './xr/player.js';
 import { ComfortOverlay, VIGNETTE_LEVELS } from './comfort/vignette.js';
 import { KeyboardInput } from './input/keyboard.js';
 import { TouchControls, LOOK_SPEEDS } from './input/touch.js';
-import { enterPhonePlay, leavePhonePlay, ensureFullscreen, screenState } from './platform/screen.js';
+import { enterPhonePlay, leavePhonePlay, ensureFullscreen, holdScreen, screenState } from './platform/screen.js';
+import { Feedback } from './platform/feedback.js';
+import { Hud } from './ui/hud.js';
+import { PauseMenu } from './ui/menu.js';
+import { Summary } from './ui/summary.js';
+import { pressHooks } from './ui/press.js';
 import { XRInput } from './input/xrInput.js';
 import { WristPanel } from './ui/wrist.js';
 import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, existingAudioContext, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
+import { unlockAudio, existingAudioContext, setAudioStateHook, suspendAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
 import { applyDifficulty, DIFFS } from './game/difficulty.js';
 import { contractById, goalText, bonusText, progress, evaluate, bestStars, recordStars } from './game/contracts.js';
 import { runCalibration } from './audio/calibrate.js';
@@ -35,6 +40,10 @@ import { GpuTimer } from './perf/gpuTimer.js';
 import { loadSetting, saveSetting, PREVIEW } from './settings.js';
 import { currentMode, refineAndroid, MODE_NAMES } from './platform/mode.js';
 import { FrameStats, prepareReport, buildReport, copyReport, deviceData } from './debug/report.js';
+
+// phone feedback (vibration / edge flash), set up with the touch controls below; a no-op in VR and on a PC
+let feedback = null;
+const fx = (name) => { if (feedback) feedback.play(name); };
 
 const NIGHT = 0x0a0f1c;
 const params = new URLSearchParams(location.search);
@@ -81,6 +90,7 @@ function onResize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  lastRender = 0;   // a paused phone redraws at once after a resize
   if (typeof phoneLayout === 'function') phoneLayout();
 }
 addEventListener('resize', onResize);
@@ -115,7 +125,7 @@ const loot = new Loot({
   level, noise, listener,
   onMessage: (t, c) => flash(t, 2, c),
   onDeliver: (it) => {
-    playCash();
+    playCash(); fx('deliver');
     const delay = Math.max(0, lastPop + 0.35 - simT);   // several items: the labels rise one after another
     lastPop = simT + delay;
     zone.pop('+' + money(it.value), delay);
@@ -146,7 +156,7 @@ const patrol = new Patrol({
   },
 });
 scene.add(patrol.group);
-const lurker = new Lurker({ level, onScare: () => { comfort.flashColor(0xffffff, 0.55); xrIn.pulse('both', 1, 250); } });
+const lurker = new Lurker({ level, onScare: () => { comfort.flashColor(0xffffff, 0.55); xrIn.pulse('both', 1, 250); fx('scare'); } });
 scene.add(lurker.group);
 const board = new Board();
 scene.add(board.mesh);
@@ -189,6 +199,7 @@ alert.onFull = (cause, x, z) => {
   patrol.onAlarm(x, z);
   round.startEscape(cause);
   siren.set(true);
+  fx('alarm');
 };
 
 // controllers: small dark bodies; the wrist panel lives on the left one
@@ -371,19 +382,116 @@ if (touch) {
   touch.lookSpeed = LOOK_SPEEDS[loadSetting('lookSpeed', 'normal')] || LOOK_SPEEDS.normal;
   touch.breathToggle = loadSetting('breathMode', 'hold') === 'toggle';
   // a finger on a board button presses it (no camera turn); also after being caught (result board)
-  touch.hitBoard = (x, y) => (playingDesktop && caughtT < 0 ? pointer.hitAt(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2, camera) : null);
+  touch.hitBoard = (x, y) => (playingDesktop && caughtT < 0 && !paused && !summary.isOpen ? pointer.hitAt(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2, camera) : null);
   // Android: if full screen was dropped (a system dialog, a back swipe), the next finger lift restores it
   touch.onGesture = () => { if (playingDesktop) ensureFullscreen(); };
   document.body.classList.add('phone-mode');
   // Safari: no pinch zoom, no double-tap zoom on the game
   document.addEventListener('gesturestart', (e) => e.preventDefault());
+  // a finger lift on any HTML button (menu, summary) restores full screen too
+  pressHooks.onGesture = touch.onGesture;
+  touch.onLoud = () => fx('stepsLoud');
 }
 // phone: portrait while playing = paused behind "rotate the phone"
 const rotateBlocked = () => !!touch && playingDesktop && innerHeight > innerWidth;
 function phoneLayout() {
   if (!touch) return;
   document.body.classList.toggle('portrait-block', rotateBlocked());
-  wrist.placeCorner(camera);
+}
+// phone: the wrist panel is replaced by the HTML HUD (nothing is drawn on the wrist canvas)
+const hud = touch ? new Hud($('hud')) : null;
+if (touch) wrist.mesh.visible = false;
+
+// ---------- phone: pause (menu, minimised page, call), settings, feedback, round summary ----------
+let paused = false, lastRender = 0, graceUntil = 0;
+const pauseLog = [];                 // for the report: { reason, t (s of game time) }
+const OPTS = touch ? {
+  look: { id: 'lookspeed', save: 'lookSpeed', def: 'normal', values: ['slow', 'normal', 'fast'], title: 'Огляд пальцем', names: { slow: 'повільно', normal: 'звичайно', fast: 'швидко' }, apply: (v) => { touch.lookSpeed = LOOK_SPEEDS[v]; } },
+  breath: { id: 'breathmode', save: 'breathMode', def: 'hold', values: ['hold', 'toggle'], title: 'Подих', names: { hold: 'утримувати кнопку', toggle: 'тап — почати, тап — закінчити' }, apply: (v) => { touch.breathToggle = v === 'toggle'; } },
+  hud: { id: 'hudmode', save: 'hudMode', def: 'full', values: ['full', 'min'], title: 'Індикатори', names: { full: 'повні', min: 'мінімальні' }, apply: (v) => hud.setMinimal(v === 'min') },
+  fx: { id: 'feedback', save: 'feedback', def: 'auto', values: ['auto', 'flash', 'off'], title: 'Вібрація', names: { auto: 'вібрація, а без неї спалахи', flash: 'лише спалахи', off: 'вимкнено' }, apply: (v) => { feedback.mode = v; } },
+} : null;
+const optVal = {};
+function setOpt(key, v) {
+  const o = OPTS[key];
+  if (!o.values.includes(v)) v = o.def;
+  optVal[key] = v; saveSetting(o.save, v); o.apply(v); $(o.id).value = v;
+}
+const optLabel = (key) => {
+  const o = OPTS[key], v = optVal[key];
+  if (key === 'fx' && v === 'auto') return `${o.title}: ${feedback.canVibrate ? 'вібрація' : 'спалахи (вібрації в цьому браузері немає)'}`;
+  return `${o.title}: ${o.names[v]}`;
+};
+function pauseOpen(reason = 'user') {
+  if (!touch || !playingDesktop || inVR) return;
+  if (paused) { if (reason !== 'user') menu.reason = reason; return; }
+  paused = true;
+  if (reason !== 'user') pauseLog.push({ reason, t: +simT.toFixed(1) });
+  touch.reset();
+  if (holdDoor) { holdDoor.release(); holdDoor = null; }
+  suspendAudio();          // the whole mix: siren, creaks, the guard's kettle
+  holdScreen(false);       // a paused phone may go to sleep
+  menu.open(reason);
+}
+function pauseResume() {
+  if (!paused) return;
+  paused = false;
+  menu.close();
+  touch.reset();
+  unlockAudio();           // wake the mix after the pause / call (also after iPhone 'interrupted')
+  holdScreen(true);
+  ensureFullscreen();
+  graceUntil = performance.now() + 2000;
+  last = performance.now();
+  phoneLayout();
+  // the microphone may have been taken by the system during a call: say so (full recovery: wave T3)
+  setTimeout(() => {
+    if (paused || mic.state !== 'on' || !mic.track) return;
+    if (mic.track.readyState === 'ended') flash('Мікрофон відключила система. Відкрий меню → «Мікрофон і калібрування»', 6, '#ff9f43');
+  }, 800);
+}
+function pauseAuto(reason) { if (touch && playingDesktop && !inVR && !paused) pauseOpen(reason); }
+const menu = touch ? new PauseMenu($('pausemenu'), {
+  info: () => ({
+    contractName: contract.name, diffName: CFG.difficulties[difficulty].name, phase: round.phase, clock: round.clock, vanSum: loot.tally().sum,
+    canChange: round.phase === 'ready', brief: contract.brief, goalText: goalText(contract, loot.items), bonusText: bonusText(contract),
+    micText: mic.noMic ? 'Мікрофон: гра без мікрофона' : mic.state === 'on' ? `Мікрофон: увімкнено, ${mic.calibrated ? 'калібровано' : 'не калібровано'}` : mic.state === 'denied' ? 'Мікрофон: дозвіл не надано' : 'Мікрофон: вимкнено',
+  }),
+  label: optLabel,
+  cycle: (key) => { const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },
+  resume: pauseResume,
+  home: () => { goHome(); pauseResume(); },
+  newRound: () => { newRound(); pauseResume(); },
+  toStart: () => { paused = false; menu.close(); unlockAudio(); pause2D(); },
+  toMic: () => { paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => $('micbox').scrollIntoView({ block: 'start' }), 50); },
+  report: () => copyReport(reportText()),
+  contractStep: (d) => { const all = CFG.contracts, i = all.indexOf(contract); setContract(all[(i + d + all.length) % all.length].id); },
+  difficultyNext: () => setDifficulty(DIFFS[(DIFFS.indexOf(difficulty) + 1) % DIFFS.length]),
+}) : null;
+const summary = touch ? new Summary($('summary'), {
+  play: () => pressBoard('play'),
+  again: () => pressBoard('again'),
+  menu: () => pauseOpen('user'),
+  report: () => copyReport(reportText()),
+}) : null;
+const summaryState = () => ({
+  result: round.result, verdict, contractName: contract.name, difficulty, bonusText: bonusText(contract),
+  clip: scream.best, playing: !!scream.playing, recMode: scream.modeName, noMic: mic.noMic,
+});
+if (touch) {
+  feedback = new Feedback($('edgeflash'));
+  feedback.enabled = () => !paused && playingDesktop && document.visibilityState === 'visible';
+  for (const key of Object.keys(OPTS)) {
+    const o = OPTS[key];
+    setOpt(key, loadSetting(o.save, o.def));
+    $(o.id).addEventListener('change', () => { setOpt(key, $(o.id).value); menu.refresh(); });
+  }
+  // the page minimised, a call or a notification: the game waits behind the menu
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pauseAuto('hidden'); });
+  addEventListener('pagehide', () => pauseAuto('hidden'));
+  addEventListener('blur', () => setTimeout(() => { if (!document.hasFocus() && performance.now() > graceUntil) pauseAuto('blur'); }, 250));
+  // the system took the audio away (iPhone 'interrupted', Android 'suspended' during a call)
+  setAudioStateHook((state) => { if (state !== 'running') pauseAuto('audio'); });
 }
 let holdDoor = null;   // phone: the door swinging slowly while the door button is held
 // Back to the menu (Esc on a laptop, the pause button on a phone)
@@ -395,7 +503,10 @@ function pause2D() {
   $('crosshair').style.display = 'none';
   siren.set(false);
   if (holdDoor) { holdDoor.release(); holdDoor = null; }
-  if (touch) { touch.reset(); $('touch').hidden = true; document.body.classList.remove('phone-playing', 'portrait-block'); leavePhonePlay(); }
+  if (touch) {
+    paused = false; menu.close(); summary.hide(); hud.show(false);
+    touch.reset(); $('touch').hidden = true; document.body.classList.remove('phone-playing', 'portrait-block'); leavePhonePlay();
+  }
 }
 function lockPointer() {
   try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* not available */ }
@@ -420,6 +531,7 @@ function newRound() {
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
   applyDifficulty(difficulty, contract);
   verdict = null; boardPage = 'contract';
+  if (summary) { summary.hide(); board.mesh.visible = true; }
   loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
   caughtT = -1; resultT = -1;
@@ -484,6 +596,7 @@ function caught() {
   comfort.blackout();
   xrIn.pulse('both', 1, 400);
   flash('СПІЙМАЛИ', 3, '#ff5c5c');
+  fx('caught');
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
 }
 function goHome() {
@@ -550,7 +663,7 @@ function simulate(dt, xrFrame, now) {
 
   // input (laptop keyboard, phone touch; VR below)
   flatControls(dt);
-  if (touch && touch.take('pause')) pause2D();
+  if (touch && touch.take('pause')) pauseOpen('user');
   if (ctl.stats) toggleStats();
   if (ctl.vignette) cycleVignette();
   if (ctl.home) goHome();
@@ -643,6 +756,7 @@ function simulate(dt, xrFrame, now) {
     const shout = mic.takeShout();
     if (micLive && shout) {
       round.shouts++;
+      fx('shout');
       scream.onShout(round.t);
       noise.emit(player.head.x, player.head.z, 40, 'shout');
       if (CFG.run.shoutFull) { alert.setFull('крик', player.head.x, player.head.z); flash('КРИК! Тебе почув весь будинок', 3, '#ff4d4d'); }
@@ -667,7 +781,7 @@ function simulate(dt, xrFrame, now) {
     // heartbeat while escaping (plan §5: 1 Hz)
     if (round.phase === 'escape') {
       heartT -= dt;
-      if (heartT <= 0) { heartT = 0.9; playHeartbeat(); xrIn.pulse('both', 0.35, 60); }
+      if (heartT <= 0) { heartT = 0.9; playHeartbeat(); xrIn.pulse('both', 0.35, 60); fx('heartbeat'); }
     }
   } else {
     mic.takeShout();
@@ -677,6 +791,7 @@ function simulate(dt, xrFrame, now) {
   if (round.phase === 'result' && resultT >= 0) {
     resultT += dt;
     if (!board.floating && resultT > 0.2) { board.placeInFront(player.head, player.yaw); boardDirty = true; }
+    if (summary && playingDesktop && !summary.isOpen && resultT > 0.4 && verdict) { summary.show(summaryState()); board.mesh.visible = false; }   // phone: the result is a screen of its own
     if (!autoPlayed && resultT > 1.2 && !scream.pending && !scream.busy) {
       autoPlayed = true;
       if (scream.best && scream.play()) boardDirty = true;
@@ -687,6 +802,7 @@ function simulate(dt, xrFrame, now) {
   // board: pointer hover + redraw 4 times a second (8 on the microphone page: a live level bar)
   if (pointer.update(inVR, camera)) boardDirty = true;
   boardT -= dt;
+  if (summary && summary.isOpen && (boardDirty || boardT <= 0)) summary.update(summaryState());
   if (boardDirty || boardT <= 0) {
     boardT = round.phase === 'ready' && boardPage === 'mic' ? 0.125 : 0.25; boardDirty = false;
     const T = loot.tally(), lv = LEVELS[mic.level];
@@ -706,20 +822,25 @@ let last = performance.now();
 function frame(now, xrFrame) {
   const cpuStart = performance.now();
   const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
-  frameStats.add(now - last);
+  if (!paused) frameStats.add(now - last);
   last = now;
 
-  if (!rotateBlocked()) simulate(dt, xrFrame, now);   // phone in portrait while playing: paused
+  if (!rotateBlocked() && !paused) simulate(dt, xrFrame, now);   // phone: waits in portrait and behind the pause menu
   comfort.update(dt, player.speed, inVR || params.has('vignette'));
 
-  gpu.poll();
-  gpu.begin();
-  renderer.render(scene, camera);
-  gpu.end();
-  perf.calls = renderer.info.render.calls;
-  perf.tris = renderer.info.render.triangles;
-
-  perf.frames++;
+  // a paused phone redraws only a few times a second (battery, heat)
+  const draw = !paused || now - lastRender > 150;
+  if (draw) {
+    lastRender = now;
+    gpu.poll();
+    gpu.begin();
+    renderer.render(scene, camera);
+    gpu.end();
+    perf.calls = renderer.info.render.calls;
+    perf.tris = renderer.info.render.triangles;
+    perf.frames++;
+  }
+  if (summary) board.mesh.visible = !summary.isOpen;   // phone: the summary screen replaces the floating result board
   if (now - perf.since >= 500) {
     perf.fps = (perf.frames * 1000) / (now - perf.since);
     perf.frames = 0; perf.since = now;
@@ -734,10 +855,11 @@ function frame(now, xrFrame) {
     const dragging = drags.left || drags.right;
     const st = stealthState(player, level, patrol);
     if (st.hidden && !wasHidden && inVR) xrIn.pulse('left', 0.15, 20);   // a small tick: you are hidden
+    if (st.hidden && !wasHidden && !paused) fx('hidden');
     wasHidden = st.hidden;
     guardLineT -= 0.1;
     const guardText = guardLineT > 0 ? `Сторож: «${guardLine}»` : CFG.run.showGuard && round.phase !== 'result' ? `Сторож: ${patrol.activity}` : '';
-    wrist.draw({
+    const panel = {
       stealth: st, goal: round.phase === 'result' ? null : progress(contract, T, loot), guardText,
       vanSum: T.sum, vanCount: T.inVan, speaking: speakT >= CFG.mic.normalAfter && !breath.holding,
       door: dragging ? { creak: dragging.door.creak } : null,
@@ -748,7 +870,9 @@ function frame(now, xrFrame) {
       fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
       gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),
       msg: flashT > 0 ? flashText : '', msgColor: flashColor,
-    });
+      guardSpeech: guardLineT > 0, stance: player.crouched || player.virtualCrouch ? 'Присів' : 'Стоїш',
+    };
+    if (hud) hud.update(panel, now); else wrist.draw(panel);
     debugEl.style.display = wrist.showFps && !inVR ? 'block' : 'none';
     if (wrist.showFps) debugEl.textContent = `${perf.fps.toFixed(0)} FPS\ncalls ${perf.calls}  tris ${perf.tris}\npos ${player.head.x.toFixed(1)}, ${player.head.z.toFixed(1)}  h ${player.head.y.toFixed(2)}\npatrol ${patrol.state} ${patrol.x.toFixed(1)}, ${patrol.z.toFixed(1)}  alert ${alert.level} ${alert.suspicion.toFixed(0)}`;
   }
@@ -778,10 +902,13 @@ const start = setupStartScreen({
     $('overlay').style.display = 'none';
     $('crosshair').style.display = 'block';
     if (touch) {
+      paused = false; menu.close();
       touch.reset();
       $('touch').hidden = false;
+      hud.show(true);
       document.body.classList.add('phone-playing');
       enterPhonePlay();
+      graceUntil = performance.now() + 2500;   // entering full screen may blur the page for a moment
       phoneLayout();
     } else {
       $('hint').style.display = 'block';
@@ -798,11 +925,7 @@ vrButton.addEventListener('click', () => unlockAudio(), true);
 if (MODE.mode !== 'phone') $('buttons').appendChild(vrButton);
 else {
   $('start').textContent = 'Грати';
-  // phone settings and menu buttons (the full pause menu comes in T2)
-  $('lookspeed').value = loadSetting('lookSpeed', 'normal');
-  $('lookspeed').addEventListener('change', () => { saveSetting('lookSpeed', $('lookspeed').value); touch.lookSpeed = LOOK_SPEEDS[$('lookspeed').value]; });
-  $('breathmode').value = touch.breathToggle ? 'toggle' : 'hold';
-  $('breathmode').addEventListener('change', () => { saveSetting('breathMode', $('breathmode').value); touch.breathToggle = $('breathmode').value === 'toggle'; });
+  // the settings (look speed, breath, HUD, vibration) are wired above with the pause menu
   $('phonehome').addEventListener('click', () => { goHome(); start.play(); });
   $('phonenew').addEventListener('click', () => { newRound(); start.play(); });
 }
@@ -817,7 +940,10 @@ prepareReport().then(() => { MODE = refineAndroid(MODE, deviceData()); showMode(
 const reportText = () => buildReport({
   version: VERSION, mode: MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
   game: { phase: round.phase, contract: contract.id, difficulty, inVR, playing: playingDesktop, simSeconds: +simT.toFixed(1) },
-  screen: touch ? { ...screenState(), lookSpeed: loadSetting('lookSpeed', 'normal'), breathMode: touch.breathToggle ? 'toggle' : 'hold' } : undefined,
+  screen: touch ? {
+    ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused, pauses: pauseLog.slice(-10),
+    feedback: feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started',
+  } : undefined,
 });
 $('report').addEventListener('click', () => copyReport(reportText()));
 
@@ -855,6 +981,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
-  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
+  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, hud, menu, summary, feedback, pauseOpen, pauseResume, get paused() { return paused; }, get audio() { return existingAudioContext(); }, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

@@ -11,6 +11,10 @@ export function audioContext() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
+    ctx.addEventListener('statechange', () => {
+      if (ours && ctx.state === 'suspended') { ours = false; return; }   // our own suspend
+      if (stateHook) stateHook(ctx.state);
+    });
     master = ctx.createGain();
     master.gain.value = 1;
     master.connect(ctx.destination);
@@ -24,9 +28,20 @@ export function audioContext() {
 // the context if the game has started it (no new context: for the report)
 export const existingAudioContext = () => ctx;
 
+// Phone pause (plan-phone-mode §1.9): the game silences the whole mix while paused and wakes it on
+// "Продовжити". If the system takes the audio away (a call: 'interrupted' on iPhone, 'suspended' on
+// Android) the hook hears about it; our own suspend is not reported.
+let stateHook = null, ours = false;
+export function setAudioStateHook(fn) { stateHook = fn; }
+export function suspendAudio() {
+  if (!ctx || ctx.state !== 'running') return;
+  ours = true;
+  ctx.suspend().catch(() => { ours = false; });
+}
+
 export function unlockAudio() {
   const c = audioContext();
-  if (c && c.state === 'suspended') c.resume().catch(() => {});
+  if (c && c.state !== 'running') c.resume().catch(() => {});
   return c;
 }
 
@@ -246,6 +261,8 @@ export function playTick() { oneShot(null, false, 0.1, 1, (dst, t) => tone(dst, 
 export function playCash() {
   oneShot(null, false, 0.6, 1, (dst, t) => { tone(dst, t, 'sine', 880, 880, 0.18, 0.12); tone(dst, t + 0.1, 'sine', 1320, 1320, 0.3, 0.12); });
 }
+// iPhone replacement for the "hidden" vibration: a soft low blip (non-positional, quiet)
+export function playHiddenCue() { oneShot(null, false, 0.3, 1, (dst, t) => tone(dst, t, 'sine', 330, 260, 0.14, 0.07, 0.01)); }
 export function playHeartbeat() {
   oneShot(null, false, 0.5, 1, (dst, t) => { tone(dst, t, 'sine', 60, 42, 0.12, 0.45); tone(dst, t + 0.2, 'sine', 55, 40, 0.14, 0.32); });
 }

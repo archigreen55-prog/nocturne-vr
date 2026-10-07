@@ -25,10 +25,10 @@ One game, one code base; the mode is chosen automatically and shown on the start
 controls are being built, see below) and **PC** (keyboard and mouse). `?mode=vr|phone|pc` overrides
 the detection and is remembered on the device; `?mode=auto` goes back to automatic.
 
-Phone version status: wave T1 — touch controls (below). Earlier (T0): mode detection, "Скопіювати
-звіт" (device, version, FPS, microphone and errors as JSON to paste into a chat), `?debug` error
-panel, a clear message when the game cannot start (for example iOS older than 16.4). Next: an HTML
-HUD and pause menu instead of the wrist panel in the corner (T2).
+Phone version status: wave T2 — HTML HUD, pause menu, round summary, vibration (below). Earlier: T1
+touch controls; T0 mode detection, "Скопіювати звіт" (device, version, FPS, microphone and errors as JSON
+to paste into a chat), `?debug` error panel, a clear message when the game cannot start (for example iOS
+older than 16.4). Next: the microphone on a phone (T3).
 
 ## Controls (phone, landscape)
 
@@ -41,11 +41,30 @@ HUD and pause menu instead of the wrist panel in the corner (T2).
 | Двері | Tap = quick swing (creaks); hold = slow and quiet, release = the door stops |
 | Присісти | Crouch / stand |
 | Подих | Hold your breath (hold, or tap / tap in the settings) |
-| ❚❚ | Menu |
+| ❚❚ | Pause menu (fires when the finger is lifted over it) |
 
 Portrait while playing pauses the game behind "rotate the phone". Android Chrome goes full screen and
 locks landscape on "Грати"; iPhone Safari has neither (add the game to the home screen for full screen,
 wave T4). The screen stays on during play (Wake Lock).
+
+### HUD, menu, summary, feedback (phone)
+
+- **HUD** (HTML, instead of the wrist panel): top left the eye (how visible you are) and stance, then steps /
+  what you hold / room; top centre the clock, the alarm word and the contract goal; top right the microphone
+  (label, bar with both thresholds); bottom centre messages and the guard's lines. The breath ring is the
+  breath button. "Індикатори: мінімальні" keeps the eye, microphone and clock and shows the rest for a few
+  seconds when it changes.
+- **Pause menu** (❚❚): continue, to the van, new round, contract and difficulty (before the round starts),
+  settings (look speed, breath, HUD, vibration), microphone and calibration (opens the start screen), copy
+  the report. The game and all sound wait behind it.
+- **Automatic pause**: minimising the page, a phone call or notification, the system taking the audio away.
+  "Продовжити" (a tap) wakes the sound again.
+- **Round summary** (HTML) replaces the floating result board: title, money, items, stars and the contract
+  verdict, the scream replay, "Новий раунд".
+- **Feedback**: vibration on Android (steps become audible, hidden, heartbeat, shout, alarm, caught, scare);
+  on iPhone (no `navigator.vibrate`) a short flash of the screen edge, and a soft sound for "hidden".
+  Setting "Вібрація": auto / flashes only / off.
+- In VR and on a PC nothing changes: the wrist panel and the 3D board stay.
 
 ## Privacy
 

@@ -2,7 +2,7 @@
 // the browser allows it (Android Chrome; iPhone Safari has neither: there the "rotate the phone"
 // overlay and the safe-area layout do the job), and the screen kept on during a round (Wake Lock;
 // re-requested when the page comes back, since the browser drops it when the page is hidden).
-let lock = null, wanted = false, lastTry = 0;
+let lock = null, wanted = false, awake = true, lastTry = 0;
 const fs = { entered: 0, exits: 0, restored: 0, lastExit: null };   // for the report
 document.addEventListener('fullscreenchange', () => {
   if (document.fullscreenElement) fs.entered++;
@@ -10,7 +10,7 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 async function requestWakeLock() {
-  if (!wanted || lock || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  if (!wanted || !awake || lock || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
   try {
     lock = await navigator.wakeLock.request('screen');
     lock.addEventListener('release', () => { lock = null; });
@@ -20,7 +20,7 @@ document.addEventListener('visibilitychange', requestWakeLock);
 
 // Call from the "Грати" tap (a user gesture is required for full screen).
 export function enterPhonePlay() {
-  wanted = true;
+  wanted = true; awake = true;
   requestWakeLock();
   const el = document.documentElement;
   if (el.requestFullscreen && !document.fullscreenElement) {
@@ -38,6 +38,13 @@ export function ensureFullscreen() {
   el.requestFullscreen({ navigationUI: 'hide' })
     .then(() => { fs.restored++; return screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : null; })
     .catch(() => {});
+}
+
+// Paused (menu open, page hidden): let the screen sleep; "Продовжити" keeps it on again.
+export function holdScreen(on) {
+  awake = on;
+  if (on) requestWakeLock();
+  else if (lock) { lock.release().catch(() => {}); lock = null; }
 }
 
 export function leavePhonePlay() {
