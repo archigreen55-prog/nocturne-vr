@@ -52,6 +52,14 @@ export class WristPanel {
     this.mesh.scale.setScalar(1.1);
   }
 
+  // Phone: top-left corner of the view, a little larger (the joystick owns the bottom left).
+  placeCorner(camera) {
+    if (this.onGrip) return;
+    const d = 0.45, halfH = d * Math.tan(camera.fov * Math.PI / 360), halfW = halfH * camera.aspect, s = Math.min(1.9, halfH * 0.85 / SIZE), half = SIZE * s / 2;
+    this.mesh.position.set(-halfW + half + 0.012, halfH - half - 0.012, -d);
+    this.mesh.scale.setScalar(s);
+  }
+
   draw(s) {
     const g = this.g, b = s.breath, holding = b.state === 'holding';
     g.clearRect(0, 0, W, H);

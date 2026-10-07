@@ -25,9 +25,27 @@ One game, one code base; the mode is chosen automatically and shown on the start
 controls are being built, see below) and **PC** (keyboard and mouse). `?mode=vr|phone|pc` overrides
 the detection and is remembered on the device; `?mode=auto` goes back to automatic.
 
-Phone version status: wave T0 — mode detection, "Скопіювати звіт" (device, version, FPS, microphone
-and errors as JSON to paste into a chat), `?debug` error panel, a clear message when the game cannot
-start (for example iOS older than 16.4). Phone controls come in wave T1.
+Phone version status: wave T1 — touch controls (below). Earlier (T0): mode detection, "Скопіювати
+звіт" (device, version, FPS, microphone and errors as JSON to paste into a chat), `?debug` error
+panel, a clear message when the game cannot start (for example iOS older than 16.4). Next: an HTML
+HUD and pause menu instead of the wrist panel in the corner (T2).
+
+## Controls (phone, landscape)
+
+| Where | Action |
+|---|---|
+| Left part of the screen | Floating joystick: inside the dashed ring steps are quiet, beyond it they are heard (the ring turns amber; a short vibration on Android) |
+| Right part of the screen | Look around by dragging |
+| Tap on the board | Board buttons (contract, difficulty, microphone, "Поїхати") |
+| Взяти / Покласти | Appears when an item is at the centre of the screen |
+| Двері | Tap = quick swing (creaks); hold = slow and quiet, release = the door stops |
+| Присісти | Crouch / stand |
+| Подих | Hold your breath (hold, or tap / tap in the settings) |
+| ❚❚ | Menu |
+
+Portrait while playing pauses the game behind "rotate the phone". Android Chrome goes full screen and
+locks landscape on "Грати"; iPhone Safari has neither (add the game to the home screen for full screen,
+wave T4). The screen stays on during play (Wake Lock).
 
 ## Privacy
 
@@ -88,7 +106,9 @@ when `version.json` is newer than the cached page.
 
     npm install && npm test
 
-Chromium (Playwright) with three.js served from `node_modules`: mode detection for Android / iPhone /
-iPad / Quest / PC user agents, the report, boot failure messages, preview settings, a fake microphone,
-a short laptop round, and a VR regression in the WebXR emulator (IWER, Quest 3). Real Safari and real
-phones are tested by hand.
+Chromium (Playwright) with three.js served from `node_modules`, a fresh browser per test: mode
+detection for Android / iPhone / iPad / Quest / PC user agents, the report, boot failure messages,
+preview settings, a fake microphone and the threshold limits, phone touch controls (joystick quiet /
+loud, look, buttons, door hold, board tap, portrait pause), the laptop keyboard, a short laptop round,
+and a VR regression in the WebXR emulator (IWER, Quest 3). `ONLY=word npm test` runs the tests whose
+name contains the word. Real Safari and real phones are tested by hand.

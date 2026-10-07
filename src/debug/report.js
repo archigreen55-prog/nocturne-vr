@@ -105,6 +105,7 @@ export function buildReport(ctx) {
     mic: micInfo(ctx.mic),
     perf: { ...ctx.frames.summary(), drawCalls: ctx.perf.calls, triangles: ctx.perf.tris, gpuMs: ctx.perf.gpuMs, cpuMs: ctx.perf.cpuMs },
     game: ctx.game,
+    phone: ctx.screen,   // full screen, wake lock, look speed, breath mode (phone only)
     settings: allSettings(),
     errors: (window.__nocturneErrors || []).slice(-20),
   };

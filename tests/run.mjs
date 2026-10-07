@@ -10,7 +10,9 @@ import { startServer, launch, newContext, watchErrors, toneWav, ROOT } from './h
 const VERSION = JSON.parse(await readFile(join(ROOT, 'version.json'), 'utf8')).version;
 const { server, base } = await startServer();
 const preview = base + 'preview/test/';
-const browser = await launch({ micWav: await toneWav(0.1) });
+// a fresh Chromium per test: one browser for the whole run ran out of resources (WebGL + audio per page)
+const micWav = await toneWav(0.1);
+let browser = null;
 
 const UA = {
   pixel: devices['Pixel 7'].userAgent,
@@ -91,13 +93,14 @@ test('PC: loads clean, mode "комп\'ютер", play and VR buttons as before'
   await ctx.close();
 });
 
-test('Android phone: mode "телефон", no VR / laptop play, report copies valid JSON', async () => {
+test('Android phone: mode "телефон", no VR button, "Грати", report copies valid JSON', async () => {
   const ctx = await newContext(browser, phoneCtx(UA.pixel));
   const { page, errors } = await open(ctx, base);
   const m = await modeOf(page);
   assert.equal(m.mode, 'phone'); assert.equal(m.device, 'Android'); assert.equal(m.auto, true);
   assert.equal(await page.isVisible('#vrbutton'), false);
-  assert.equal(await page.isEnabled('#start'), false);
+  assert.equal(await page.textContent('#start'), 'Грати');
+  assert.equal(await page.isEnabled('#start'), true);
   assert.match(await page.textContent('#modeline'), /Режим: телефон \(Android/);
   await page.waitForTimeout(500);
   await page.tap('#report');
@@ -250,6 +253,201 @@ test('mic ± buttons (no sliders): stop at the limit with a note, reset, page sw
   await ctx.close();
 });
 
+// ---------- T1: phone controls (Chromium with touch emulation; real Safari is tested by hand) ----------
+const LAND = { ...devices['Pixel 7 landscape'], permissions: ['clipboard-read', 'clipboard-write'] };
+const tp = (cdp, type, pts = [], timestamp) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: p.id ?? i })), ...(timestamp ? { timestamp } : {}) });
+// a quick tap with explicit event times (80 ms): here a busy page delays the second event by 300+ ms,
+// which would make the tap look like a hold; on a phone the system stamps the real times
+async function quickTap(cdp, pt) { const t = Date.now() / 1000; await tp(cdp, 'touchStart', [pt], t); await tp(cdp, 'touchEnd', [], t + 0.08); }
+// Software rendering here is slow (a few frames per second inside the house): wait for game time,
+// not wall time. `ms` below is game time.
+const simT = (page) => page.evaluate(() => window.__game.simT);
+async function keepFor(page, ms, sample) {
+  const t0 = await simT(page), out = [];
+  while (await simT(page) - t0 < ms / 1000) { await page.waitForTimeout(60); if (sample) out.push(await page.evaluate(sample)); }
+  return out;
+}
+const frames = async (page, n = 3) => { const t0 = await simT(page); await page.waitForFunction(([t0, n]) => window.__game.simT > t0 + n / 200, [t0, n], { polling: 30 }); };
+async function drag(page, cdp, x0, y0, dx, dy, holdMs, sample) {
+  await tp(cdp, 'touchStart', [{ x: x0, y: y0 }]);
+  for (let i = 1; i <= 8; i++) await tp(cdp, 'touchMove', [{ x: x0 + dx * i / 8, y: y0 + dy * i / 8 }]);
+  const out = await keepFor(page, holdMs, sample);
+  await tp(cdp, 'touchEnd');
+  await frames(page);
+  return out;
+}
+async function hold(page, cdp, sel, ms, sample) {
+  const b = await page.locator(sel).boundingBox();
+  await tp(cdp, 'touchStart', [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }]);
+  const out = await keepFor(page, ms, sample);
+  await tp(cdp, 'touchEnd');
+  await frames(page);
+  return out;
+}
+async function playPhone(ctxOpts = LAND) {
+  const ctx = await newContext(browser, ctxOpts);
+  const { page, errors } = await open(ctx, base);
+  await page.tap('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  return { ctx, page, errors, cdp: await ctx.newCDPSession(page) };
+}
+// stand `dist` m from (x, z), facing it
+const standFacing = (page, x, z, dist, fromYaw) => page.evaluate(([x, z, dist, fromYaw]) => {
+  const g = window.__game, px = x + Math.sin(fromYaw) * dist, pz = z + Math.cos(fromYaw) * dist;
+  g.player.teleport(px, pz, fromYaw); g.sim(0.05);
+}, [x, z, dist, fromYaw]);
+
+test('phone: Грати shows touch controls; joystick quiet inside the ring, loud beyond; look; pause', async () => {
+  const { ctx, page, errors, cdp } = await playPhone();
+  assert.equal(await page.isVisible('#touch'), true);
+  assert.equal(await page.isVisible('#overlay'), false);
+  assert.equal(await page.isVisible('#vrbutton'), false);
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(2.2, 6.8, 2.92 - Math.PI); });   // spawn, facing the house
+  const vp = page.viewportSize();
+  const x0 = vp.width * 0.2, y0 = vp.height * 0.6;
+  const p0 = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));
+  const quiet = await drag(page, cdp, x0, y0, 0, -36, 1200, () => ({ s: window.__game.player.speed, a: window.__game.player.stepsAudible, ring: document.querySelector('#touch .joy').classList.contains('loud') }));
+  const p1 = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));
+  assert.ok(Math.hypot(p1.x - p0.x, p1.z - p0.z) > 0.2, 'walked with a light push');
+  assert.ok(quiet.every((q) => !q.a && !q.ring), `quiet push stays quiet: ${JSON.stringify(quiet.slice(-2))}`);
+  const loud = await drag(page, cdp, x0, y0, 0, -64, 1200, () => ({ a: window.__game.player.stepsAudible, ring: document.querySelector('#touch .joy').classList.contains('loud') }));
+  assert.ok(loud.some((q) => q.a) && loud.at(-1).ring, 'full push = audible steps, ring turns amber');
+  assert.equal(await page.isVisible('#touch .joy'), false, 'joystick hides on release');
+  const yaw0 = await page.evaluate(() => window.__game.player.yaw);
+  await drag(page, cdp, vp.width * 0.7, vp.height * 0.4, -120, 0, 100);
+  const yaw1 = await page.evaluate(() => window.__game.player.yaw);
+  assert.ok(Math.abs(yaw1 - yaw0) > 0.4, `look turned ${(yaw1 - yaw0).toFixed(2)} rad`);
+  await page.tap('#touch .pause');
+  await page.waitForFunction(() => !window.__game.playing);
+  assert.equal(await page.isVisible('#overlay'), true);
+  assert.equal(await page.evaluate(() => window.__game.playing), false);
+  assert.equal(await page.isVisible('#touch'), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone: Взяти / Покласти, door tap = quick, hold = slow and quiet, release stops; crouch; breath hold and tap / tap', async () => {
+  const { ctx, page, errors, cdp } = await playPhone();
+  // item: stand 1 m in front of the nearest one-handed item
+  const item = await page.evaluate(() => { const g = window.__game, it = g.loot.items.find((i) => !i.twoHanded); const c = it.mesh.getWorldPosition(new g.THREE.Vector3()); return { name: it.name, x: c.x, z: c.z }; });
+  await standFacing(page, item.x, item.z, 1.0, 0.3);
+  await page.waitForSelector('#touch .act:not([hidden])');
+  assert.equal(await page.textContent('#touch .act'), 'Взяти');
+  await page.tap('#touch .act');
+  await page.waitForFunction(() => window.__game.hands.desk);
+  assert.equal(await page.evaluate(() => window.__game.hands.desk.name), item.name);
+  await page.waitForFunction(() => document.querySelector('#touch .act').textContent === 'Покласти');
+  await page.tap('#touch .act');
+  await page.waitForFunction(() => !window.__game.hands.desk);
+  // door: an unlocked one, 1 m in front of its doorway
+  const door = await page.evaluate(() => { const g = window.__game, i = g.level.doors.findIndex((d) => !d.locked); const d = g.level.doors[i]; return { i, x: d.cx, z: d.cz, n: d.base }; });
+  await page.evaluate(() => window.__game.level.reset());
+  await standFacing(page, door.x, door.z, 1.0, door.n);
+  await page.waitForSelector('#touch .door:not([hidden])');
+  { const db = await page.locator('#touch .door').boundingBox(); await quickTap(cdp, { x: db.x + db.width / 2, y: db.y + db.height / 2 }); }
+  // the quick swing (a late frame may first start it as a slow one, then the tap speeds it up)
+  await page.waitForFunction((i) => { const d = window.__game.level.doors[i]; return Math.abs(d.target) > 1.5 && Math.abs(d.rate - (95 * Math.PI / 180) / 0.35) < 0.01; }, door.i, { timeout: 8000 }).catch(() => {});
+  const fast = await page.evaluate((i) => { const d = window.__game.level.doors[i]; return { target: d.target, rate: d.rate }; }, door.i);
+  assert.ok(Math.abs(fast.target) > 1.5, 'tap opens');
+  assert.ok(Math.abs(fast.rate - (95 * Math.PI / 180) / 0.35) < 0.01, 'tap = quick swing');
+  await page.evaluate((i) => { window.__game.level.doors[i].reset(); }, door.i);
+  const hs = await hold(page, cdp, '#touch .door', 1000, () => { const d = window.__game.level.doors.find((x) => !x.locked); return { a: d.angle, c: d.creak }; });
+  const after = await page.evaluate((i) => { const d = window.__game.level.doors[i]; return { a: d.angle, t: d.target }; }, door.i);
+  await keepFor(page, 300);
+  const later = await page.evaluate((i) => window.__game.level.doors[i].angle, door.i);
+  assert.ok(Math.abs(after.a) > 0.1 && Math.abs(after.a) < 1.5, `hold opened it partly (${after.a.toFixed(2)} rad)`);
+  assert.ok(Math.abs(later - after.a) < 0.02, 'released: the leaf stays where it is');
+  assert.ok(hs.every((h) => h.c === 0), 'slow swing does not creak');
+  // crouch
+  await page.tap('#touch .crouch');
+  await page.waitForFunction(() => window.__game.player.virtualCrouch);
+  assert.equal(await page.textContent('#touch .crouch'), 'Встати');
+  await page.tap('#touch .crouch');
+  await page.waitForFunction(() => !window.__game.player.virtualCrouch);
+  // breath: hold
+  const bh = await hold(page, cdp, '#touch .breath', 800, () => window.__game.breath.state);
+  assert.ok(bh.includes('holding'), 'holding while pressed');
+  assert.equal(await page.evaluate(() => window.__game.breath.state), 'cooldown');
+  // breath: tap / tap
+  await page.evaluate(() => { window.__game.breath.reset(); window.__game.touch.breathToggle = true; });
+  await page.tap('#touch .breath');
+  await page.waitForFunction(() => window.__game.breath.state === 'holding');
+  await keepFor(page, 500);
+  assert.equal(await page.evaluate(() => window.__game.breath.state), 'holding', 'still holding after the finger is up');
+  await page.tap('#touch .breath');
+  await page.waitForFunction(() => window.__game.breath.state === 'cooldown');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone: a tap on the board presses its button (contract ▶)', async () => {
+  const { ctx, page, errors, cdp } = await playPhone();
+  await page.waitForTimeout(400);
+  const pt = await page.evaluate(() => {
+    const g = window.__game, b = g.board.buttons.find((x) => x.id === 'cnext'), m = g.board.mesh, P = m.geometry.parameters;
+    const v = m.localToWorld(new g.THREE.Vector3(((b.x + b.w / 2) / 1024 - 0.5) * P.width, (0.5 - (b.y + b.h / 2) / 640) * P.height, 0)).project(g.camera);
+    return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, before: g.contract.id };
+  });
+  await quickTap(cdp, pt);
+  await page.waitForFunction((b) => window.__game.contract.id !== b, pt.before);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone: portrait while playing = "rotate the phone" and the game waits', async () => {
+  const { ctx, page } = await playPhone();
+  await page.setViewportSize({ width: 412, height: 839 });
+  await page.waitForSelector('#rotate', { state: 'visible' });
+  await page.waitForTimeout(200);
+  const t0 = await simT(page);
+  await page.waitForTimeout(800);
+  assert.equal(await simT(page), t0, 'paused in portrait');
+  await page.setViewportSize({ width: 839, height: 412 });
+  await page.waitForSelector('#rotate', { state: 'hidden' });
+  await page.waitForFunction((t0) => window.__game.simT > t0, t0);
+  await ctx.close();
+});
+
+test('iPhone landscape (UA in Chromium): play, buttons inside the screen, report has the phone block', async () => {
+  const { ctx, page, errors } = await playPhone({ ...devices['iPhone 15 landscape'], permissions: ['clipboard-read', 'clipboard-write'] });
+  const vp = page.viewportSize();
+  for (const sel of ['#touch .breath', '#touch .crouch', '#touch .pause']) {
+    const b = await page.locator(sel).boundingBox();
+    assert.ok(b.x >= 0 && b.y >= 0 && b.x + b.width <= vp.width && b.y + b.height <= vp.height, `${sel} inside the screen`);
+  }
+  const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
+  assert.equal(r.mode.device, 'iPhone');
+  assert.equal(r.phone.lookSpeed, 'normal');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('PC keyboard as before: WASD walks, E picks up / puts down, T door, C crouch', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  assert.equal(await page.isVisible('#touch'), false);
+  await page.evaluate(() => window.__game.player.teleport(2.2, 6.8, 2.92 - Math.PI));
+  const p0 = await page.evaluate(() => window.__game.player.head.z);
+  await page.keyboard.down('KeyW'); await keepFor(page, 800); await page.keyboard.up('KeyW');
+  assert.ok(Math.abs(await page.evaluate(() => window.__game.player.head.z) - p0) > 0.3, 'W walks');
+  const item = await page.evaluate(() => { const g = window.__game, it = g.loot.items.find((i) => !i.twoHanded); const c = it.mesh.getWorldPosition(new g.THREE.Vector3()); return { x: c.x, z: c.z }; });
+  await standFacing(page, item.x, item.z, 1.0, 0.3);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => !!window.__game.hands.desk, null, { timeout: 5000 });   // E picks up
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => !window.__game.hands.desk, null, { timeout: 5000 });    // E puts down
+  const door = await page.evaluate(() => { const g = window.__game, d = g.level.doors.find((x) => !x.locked); return { x: d.cx, z: d.cz, n: d.base }; });
+  await standFacing(page, door.x, door.z, 1.0, door.n);
+  await page.keyboard.press('KeyT');
+  await page.waitForFunction(() => Math.abs(window.__game.level.doors.find((x) => !x.locked).target) > 1.5, null, { timeout: 5000 });   // T opens
+  await page.keyboard.press('KeyC');
+  await page.waitForFunction(() => window.__game.player.virtualCrouch, null, { timeout: 5000 });   // C crouches
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('stars are also kept per mode', async () => {
   const ctx = await newContext(browser);
   const { page } = await open(ctx, base);
@@ -332,12 +530,15 @@ test('VR regression (IWER Quest 3): enter VR, walk with the stick, snap turn, pi
 });
 
 let failed = 0;
-for (const t of tests) {
+const only = process.env.ONLY;   // ONLY=word runs the tests whose name contains it
+for (const t of tests.filter((x) => !only || x.name.includes(only))) {
   const t0 = Date.now();
+  browser = await launch({ micWav });
   try { await t.fn(); console.log(`✓ ${t.name} (${((Date.now() - t0) / 1000).toFixed(1)} s)`); }
   catch (e) { failed++; console.log(`✗ ${t.name}\n  ${String(e.stack || e).split('\n').slice(0, 4).join('\n  ')}`); }
+  await browser.close().catch(() => {});
 }
-await browser.close();
 server.close();
-console.log(failed ? `${failed} of ${tests.length} failed` : `all ${tests.length} passed`);
+const ran = only ? tests.filter((x) => x.name.includes(only)).length : tests.length;
+console.log(failed ? `${failed} of ${ran} failed` : `all ${ran} passed`);
 process.exit(failed ? 1 : 0);

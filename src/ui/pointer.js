@@ -37,6 +37,16 @@ export class Pointer {
   // Attach the hit dots to the scene once.
   addTo(scene) { for (const d of this.dots) scene.add(d); }
 
+  // Board button under a screen point (phone tap), ndc -1..1; null if none.
+  hitAt(ndcX, ndcY, camera) {
+    const mesh = this.board.mesh;
+    mesh.updateWorldMatrix(true, false);
+    camera.updateWorldMatrix(true, false);
+    this.ray.setFromCamera({ x: ndcX, y: ndcY }, camera);
+    const hit = this.ray.intersectObject(mesh, false)[0];
+    return hit ? this.board.hit(hit.uv) : null;
+  }
+
   update(inVR, camera) {
     const mesh = this.board.mesh;
     mesh.updateWorldMatrix(true, false);
