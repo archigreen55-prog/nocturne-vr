@@ -1,0 +1,77 @@
+# GitHub Pages: main at the site root (as before), every other branch at /preview/<branch>/.
+# Settings -> Pages -> Source must be "GitHub Actions"; while it is still "Deploy from a branch" the
+# site is built and checked here but not deployed (the branch build keeps serving the site).
+name: Pages (main + previews)
+
+on:
+  push:
+    branches: ['**']
+  delete:             # a branch was deleted: rebuild without its preview
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # A push to a work branch rebuilds the site through a run on main: the github-pages environment
+  # accepts deployments from main only. (workflow_dispatch is one of the events GITHUB_TOKEN may start.)
+  kick:
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - run: |
+          if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/pages.yml?ref=main" --silent 2>/dev/null; then
+            echo "::notice::pages.yml is not on main yet: previews start after it is merged"; exit 0
+          fi
+          gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-build
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      deploy: ${{ steps.source.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # all branches, for the previews
+      - run: node tools/build-site.mjs _site
+      - id: source
+        name: Pages source
+        run: |
+          type=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type 2>/dev/null || echo none)
+          echo "Pages build_type: $type"
+          if [ "$type" = workflow ]; then echo deploy=true >> "$GITHUB_OUTPUT"
+          else echo "::notice::Pages source is '$type', not 'GitHub Actions': built, not deployed"; echo deploy=false >> "$GITHUB_OUTPUT"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
