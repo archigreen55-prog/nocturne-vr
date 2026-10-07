@@ -7,7 +7,7 @@ import { Player } from './xr/player.js';
 import { ComfortOverlay, VIGNETTE_LEVELS } from './comfort/vignette.js';
 import { KeyboardInput } from './input/keyboard.js';
 import { TouchControls, LOOK_SPEEDS } from './input/touch.js';
-import { enterPhonePlay, leavePhonePlay, screenState } from './platform/screen.js';
+import { enterPhonePlay, leavePhonePlay, ensureFullscreen, screenState } from './platform/screen.js';
 import { XRInput } from './input/xrInput.js';
 import { WristPanel } from './ui/wrist.js';
 import { Board, money } from './ui/board.js';
@@ -370,6 +370,10 @@ const touch = MODE.mode === 'phone' ? new TouchControls($('touch')) : null;
 if (touch) {
   touch.lookSpeed = LOOK_SPEEDS[loadSetting('lookSpeed', 'normal')] || LOOK_SPEEDS.normal;
   touch.breathToggle = loadSetting('breathMode', 'hold') === 'toggle';
+  // a finger on a board button presses it (no camera turn); also after being caught (result board)
+  touch.hitBoard = (x, y) => (playingDesktop && caughtT < 0 ? pointer.hitAt(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2, camera) : null);
+  // Android: if full screen was dropped (a system dialog, a back swipe), the next finger lift restores it
+  touch.onGesture = () => { if (playingDesktop) ensureFullscreen(); };
   document.body.classList.add('phone-mode');
   // Safari: no pinch zoom, no double-tap zoom on the game
   document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -509,7 +513,7 @@ const ctl = { move: { x: 0, y: 0 }, look: { x: 0, y: 0 } };
 function flatControls(dt) {
   ctl.stats = keys.take('KeyF'); ctl.vignette = keys.take('KeyV'); ctl.home = keys.take('KeyR'); ctl.newRound = keys.take('KeyN');
   ctl.crouch = keys.take('KeyC'); ctl.interact = keys.take('KeyE'); ctl.doorSlow = keys.take('KeyQ'); ctl.doorFast = keys.take('KeyT');
-  ctl.doorHoldStart = ctl.doorHoldEnd = ctl.doorHoldToTap = false; ctl.tap = null; ctl.look.x = ctl.look.y = 0;
+  ctl.doorHoldStart = ctl.doorHoldEnd = ctl.doorHoldToTap = false; ctl.boardPress = null; ctl.look.x = ctl.look.y = 0;
   keys.readMove(ctl.move);
   ctl.breath = keys.any('ShiftLeft', 'ShiftRight');
   if (touch && playingDesktop) {
@@ -522,7 +526,8 @@ function flatControls(dt) {
     ctl.doorHoldStart = touch.take('doorHoldStart');
     ctl.doorHoldEnd = touch.take('doorHoldEnd');
     ctl.doorHoldToTap = touch.take('doorHoldToTap');
-    ctl.tap = touch.takeTap();
+    ctl.boardPress = touch.takeBoardPress();
+    pointer.touchHover = touch.pressing;
     touch.takeLook(ctl.look);
   }
   return ctl;
@@ -554,10 +559,7 @@ function simulate(dt, xrFrame, now) {
   move.x = ctl.move.x; move.y = ctl.move.y;
   let breathDown = ctl.breath;
   if (playingDesktop && (ctl.look.x || ctl.look.y)) player.look(ctl.look.x / 0.0025, ctl.look.y / 0.0025);   // touch: rad -> look()'s px
-  if (playingDesktop && ctl.tap && caughtT < 0) {
-    const id = pointer.hitAt(ctl.tap.x / innerWidth * 2 - 1, 1 - ctl.tap.y / innerHeight * 2, camera);
-    if (id) pressBoard(id);
-  }
+  if (playingDesktop && ctl.boardPress && caughtT < 0) pressBoard(ctl.boardPress);
   if (inVR) {
     const act = xrIn.read(renderer.xr.getSession(), dt);
     if (Math.hypot(xrIn.move.x, xrIn.move.y) > Math.hypot(move.x, move.y)) { move.x = xrIn.move.x; move.y = xrIn.move.y; }
@@ -853,6 +855,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
-  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, get simT() { return simT; },
+  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

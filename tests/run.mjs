@@ -258,7 +258,10 @@ const LAND = { ...devices['Pixel 7 landscape'], permissions: ['clipboard-read', 
 const tp = (cdp, type, pts = [], timestamp) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: p.id ?? i })), ...(timestamp ? { timestamp } : {}) });
 // a quick tap with explicit event times (80 ms): here a busy page delays the second event by 300+ ms,
 // which would make the tap look like a hold; on a phone the system stamps the real times
-async function quickTap(cdp, pt) { const t = Date.now() / 1000; await tp(cdp, 'touchStart', [pt], t); await tp(cdp, 'touchEnd', [], t + 0.08); }
+// explicit event times must keep increasing: the browser drops a touch event older than the last one
+let lastTouchT = 0;
+const touchT = () => (lastTouchT = Math.max(Date.now() / 1000, lastTouchT + 0.05));
+async function quickTap(cdp, pt) { const t = touchT(); await tp(cdp, 'touchStart', [pt], t); await tp(cdp, 'touchEnd', [], (lastTouchT = t + 0.08)); }
 // Software rendering here is slow (a few frames per second inside the house): wait for game time,
 // not wall time. `ms` below is game time.
 const simT = (page) => page.evaluate(() => window.__game.simT);
@@ -380,17 +383,91 @@ test('phone: Взяти / Покласти, door tap = quick, hold = slow and qu
   await ctx.close();
 });
 
-test('phone: a tap on the board presses its button (contract ▶)', async () => {
+// screen point of a board button (the board as drawn now)
+const boardPoint = (page, id) => page.evaluate((id) => {
+  const g = window.__game, b = g.board.buttons.find((x) => x.id === id), m = g.board.mesh, P = m.geometry.parameters;
+  if (!b) return null;
+  g.camera.updateMatrixWorld(true); g.camera.matrixWorldInverse.copy(g.camera.matrixWorld).invert();   // as the game's own hit test sees it
+  const v = m.localToWorld(new g.THREE.Vector3(((b.x + b.w / 2) / 1024 - 0.5) * P.width, (0.5 - (b.y + b.h / 2) / 640) * P.height, 0)).project(g.camera);
+  return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight };
+}, id);
+// a real finger: held 0.4 s and sliding 10 px while pressing (the old tap rule rejected such presses)
+async function fingerPress(page, cdp, pt) {
+  const t = touchT();
+  await tp(cdp, 'touchStart', [pt], t);
+  await tp(cdp, 'touchMove', [{ x: pt.x + 6, y: pt.y + 4 }], t + 0.15);
+  await tp(cdp, 'touchMove', [{ x: pt.x + 10, y: pt.y + 4 }], t + 0.3);
+  await tp(cdp, 'touchEnd', [], (lastTouchT = t + 0.4));
+}
+const toResult = (page) => page.waitForFunction(() => window.__game.round.phase === 'result' && window.__game.board.floating, null, { polling: 50, timeout: 20000 });
+
+test('phone: a finger on a board button presses it (held 0.4 s, sliding 10 px), the view does not turn', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
-  await page.waitForTimeout(400);
-  const pt = await page.evaluate(() => {
-    const g = window.__game, b = g.board.buttons.find((x) => x.id === 'cnext'), m = g.board.mesh, P = m.geometry.parameters;
-    const v = m.localToWorld(new g.THREE.Vector3(((b.x + b.w / 2) / 1024 - 0.5) * P.width, (0.5 - (b.y + b.h / 2) / 640) * P.height, 0)).project(g.camera);
-    return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, before: g.contract.id };
-  });
-  await quickTap(cdp, pt);
-  await page.waitForFunction((b) => window.__game.contract.id !== b, pt.before);
+  await page.waitForTimeout(300);
+  const before = await page.evaluate(() => ({ c: window.__game.contract.id, yaw: window.__game.player.yaw }));
+  await fingerPress(page, cdp, await boardPoint(page, 'cnext'));
+  await page.waitForFunction((b) => window.__game.contract.id !== b, before.c);
+  assert.equal(await page.evaluate(() => window.__game.player.yaw), before.yaw, 'no camera turn while pressing the board');
   assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone: result board after every ending (caught, escaped, left with loot, out of time): Новий раунд and Ще раз послухати work', async () => {
+  const { ctx, page, errors, cdp } = await playPhone();
+  const endings = {
+    // the real path: the guard catches you -> 1 s black -> result at the van
+    caught: () => page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.2); g.caught(); }),
+    escaped: () => page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.2); g.round.finish('escaped'); }),
+    late: () => page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.2); g.round.finish('late'); }),
+    // a loot item in the van, then Поїхати pressed on the stand board with a finger
+    left: async () => {
+      // the clock starts 4.5 m from the van (Поїхати is on the board only then)
+      await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); g.loot.deliver(g.loot.items.find((i) => !i.twoHanded)); g.player.teleport(2.2, 6.8, 2.92); });
+      await page.waitForFunction(() => window.__game.board.buttons.some((b) => b.id === 'leave'), null, { timeout: 8000 });
+      await frames(page);
+      await fingerPress(page, cdp, await boardPoint(page, 'leave'));
+    },
+  };
+  for (const [kind, end] of Object.entries(endings)) {
+    await end();
+    await toResult(page).catch(async (e) => { throw new Error(`${kind}: no result board (${JSON.stringify(await page.evaluate(() => ({ phase: window.__game.round.phase, floating: window.__game.board.floating, buttons: window.__game.board.buttons.map((b) => b.id) })))}) ${e.message}`); });
+    const R = await page.evaluate(() => window.__game.round.result.kind);
+    assert.equal(R, kind, `ending ${kind}`);
+    assert.equal(await page.evaluate(() => window.__game.caughtT), -1, `${kind}: no leftover "caught" state`);
+    // Ще раз послухати: with a recorded scream (stubbed: no microphone here) the finger plays it
+    await page.evaluate(() => { const s = window.__game.scream; window.__played = 0; s.best = s.best || { t: 12 }; s.play = () => { window.__played++; return true; }; });
+    await page.waitForTimeout(400);
+    await fingerPress(page, cdp, await boardPoint(page, 'play'));
+    await page.waitForFunction(() => window.__played > 0, null, { timeout: 8000 });
+    await page.evaluate(() => { window.__game.scream.best = null; });
+    // Новий раунд
+    await page.waitForTimeout(300);
+    await fingerPress(page, cdp, await boardPoint(page, 'again'));
+    await page.waitForFunction(() => window.__game.round.phase === 'ready' && !window.__game.board.floating, null, { timeout: 8000 });
+    assert.equal(await page.evaluate(() => window.__game.playing), true, `${kind}: still playing after Новий раунд`);
+  }
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone (Android): full screen stays after being caught and a new round; if dropped, the next finger lift restores it', async () => {
+  const { ctx, page, cdp } = await playPhone();
+  await page.waitForFunction(() => !!document.fullscreenElement, null, { timeout: 5000 });
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.2); g.caught(); });
+  await toResult(page);
+  assert.equal(await page.evaluate(() => !!document.fullscreenElement), true, 'still full screen on the result board');
+  await fingerPress(page, cdp, await boardPoint(page, 'again'));
+  await page.waitForFunction(() => window.__game.round.phase === 'ready');
+  assert.equal(await page.evaluate(() => !!document.fullscreenElement), true, 'still full screen after Новий раунд');
+  // something else drops it (a system dialog, a back swipe): one look swipe brings it back
+  await page.evaluate(() => document.exitFullscreen());
+  await page.waitForFunction(() => !document.fullscreenElement);
+  const vp = page.viewportSize();
+  await drag(page, cdp, vp.width * 0.7, vp.height * 0.4, -40, 0, 100);
+  await page.waitForFunction(() => !!document.fullscreenElement, null, { timeout: 5000 });
+  const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
+  assert.equal(r.phone.fullscreenLog.exits, 1);
+  assert.equal(r.phone.fullscreenLog.restored, 1);
   await ctx.close();
 });
 

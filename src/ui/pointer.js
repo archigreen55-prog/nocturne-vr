@@ -10,6 +10,7 @@ export class Pointer {
     this.ray = new THREE.Raycaster();
     this.ray.far = MAX_DIST;
     this.hover = { left: null, right: null, desk: null };
+    this.touchHover = null;   // phone: board button under the pressing finger (set by main)
     this.ctrl = { left: null, right: null };
     const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
     const lineMat = new THREE.LineBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.7, fog: false });
@@ -73,7 +74,7 @@ export class Pointer {
       const hit = this.ray.intersectObject(mesh, false)[0];
       if (hit) this.hover.desk = this.board.hit(hit.uv);
     }
-    const any = this.hover.right || this.hover.left || this.hover.desk;
+    const any = this.touchHover || this.hover.right || this.hover.left || this.hover.desk;
     if (any !== this.board.hover) { this.board.hover = any; return true; }   // redraw needed
     return false;
   }
