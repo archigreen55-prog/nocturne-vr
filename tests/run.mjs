@@ -198,6 +198,58 @@ test('fake microphone: permission, level of a -23 dBFS tone, track settings in t
   await ctx.close();
 });
 
+test('mic limits: the Android report (corrections -12 / -10) is brought back to sane thresholds', async () => {
+  const ctx = await newContext(browser);
+  const { page } = await open(ctx, base);
+  await page.evaluate(() => localStorage.setItem('nocturne.mic', JSON.stringify({ floor: -50.119, normal: -22.408, whisper: -44.69, shout: -15.152, adj: -12, adjW: -10 })));
+  await page.reload(); await page.waitForFunction(() => window.__game, null, { polling: 200 });
+  const m = await page.evaluate(() => { const m = window.__game.mic; return { shout: m.shoutDb, whisper: m.whisperDb, adj: m.cal.adj, adjW: m.cal.adjW }; });
+  assert.ok(m.shout >= -22.408 + 4 - 1e-9, `shout threshold ${m.shout} must stay >= voice + 4`);
+  assert.ok(m.whisper >= -44.69 + 3 - 1e-9, `whisper boundary ${m.whisper} must stay >= whisper + 3`);
+  assert.ok(m.whisper <= -22.408 - 3 + 1e-9, 'whisper boundary below the voice');
+  assert.deepEqual([m.adj, m.adjW], [-3, -7], 'saved corrections clamped');
+  // without corrections the calibration's own thresholds are untouched
+  const raw = await page.evaluate(() => { const m = window.__game.mic; m.resetAdjust(); return [m.shoutDb, m.whisperDb]; });
+  assert.ok(Math.abs(raw[0] - -15.152) < 1e-6 && Math.abs(raw[1] - (-44.69 + 0.45 * (-22.408 + 44.69))) < 1e-6, String(raw));
+  await ctx.close();
+});
+
+test('mic ± buttons (no sliders): stop at the limit with a note, reset, page swipes change nothing', async () => {
+  const ctx = await newContext(browser, { ...devices['Pixel 7'], permissions: ['microphone'] });
+  const { page, errors } = await open(ctx, base);
+  await page.evaluate(() => localStorage.setItem('nocturne.mic', JSON.stringify({ floor: -50, normal: -22, whisper: -45, shout: -15 })));
+  await page.reload(); await page.waitForFunction(() => window.__game, null, { polling: 200 });
+  await page.tap('#micbtn'); await page.waitForFunction(() => window.__game.mic.state === 'on');
+  assert.equal(await page.locator('#shoutrow input[type=range]').count(), 0, 'no sliders');
+  const before = await page.evaluate(() => [window.__game.mic.shoutDb, window.__game.mic.whisperDb]);
+  // a page swipe that starts on the threshold rows (vertical, both ways)
+  const cdp = await ctx.newCDPSession(page);
+  for (const sel of ['#shoutdb', '#sdn', '#wup']) {
+    await page.evaluate((q) => document.querySelector(q).scrollIntoView({ block: 'center' }), sel);
+    const b = await page.locator(sel).boundingBox();
+    for (const dy of [-200, 200]) {
+      const x = b.x + b.width / 2, y = b.y + b.height / 2;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let i = 1; i <= 10; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - i * 2, y: y + dy * i / 10 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await page.waitForTimeout(150);
+    }
+  }
+  assert.deepEqual(await page.evaluate(() => [window.__game.mic.shoutDb, window.__game.mic.whisperDb]), before, 'swipes did not move the thresholds');
+  // shout threshold down to its limit: voice -22 + 4 = -18 (base -15, so at most -3)
+  for (let i = 0; i < 6; i++) if (await page.isEnabled('#sdn')) await page.tap('#sdn');
+  assert.equal(await page.evaluate(() => window.__game.mic.shoutDb), -18);
+  assert.equal(await page.isEnabled('#sdn'), false);
+  assert.match(await page.textContent('#adjnote'), /на 4 дБ вища за твій звичайний голос/);
+  assert.match(await page.textContent('#shoutdb'), /−18 дБ \(зсув −3\)|-18 дБ \(зсув −3\)/);
+  await page.tap('#adjreset');
+  assert.deepEqual(await page.evaluate(() => [window.__game.mic.cal.adj, window.__game.mic.cal.adjW]), [0, 0]);
+  assert.match(await page.textContent('#adjnote'), /Зсуви скинуто/);
+  assert.equal(await page.isEnabled('#adjreset'), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('stars are also kept per mode', async () => {
   const ctx = await newContext(browser);
   const { page } = await open(ctx, base);

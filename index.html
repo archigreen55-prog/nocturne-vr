@@ -103,6 +103,7 @@
   td { padding: 2px 10px 2px 0; vertical-align: top; }
   td:first-child { color: var(--warn); white-space: nowrap; font-weight: 600; }
   #modeline a { color: var(--accent); }
+  button.adj { min-width: 48px; padding: 6px 0; font-size: 20px; }
   #version { font-size: 12px; opacity: .55; margin-top: 6px; }
   #debug { position: fixed; left: 8px; top: 8px; font: 12px/1.35 ui-monospace, monospace; color: #fff; background: rgba(0, 0, 0, .55); padding: 4px 8px; border-radius: 4px; white-space: pre; display: none; z-index: 5; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 209, 102, .8); z-index: 5; display: none; pointer-events: none; }
@@ -113,42 +114,42 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.2",
-    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.2",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.2",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.2",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.2",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.2",
-    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.2",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.2",
-    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.2",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.2",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.2",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.2",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.2",
-    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.2",
-    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.2",
-    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.2",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.2",
-    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.2",
-    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.2",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.2",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.2",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.2",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.2",
-    "./src/main.js": "./src/main.js?v=0.6.0-pre.2",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.2",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.2",
-    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.2",
-    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.2",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.2",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.2",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.2",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.2",
-    "./src/version.js": "./src/version.js?v=0.6.0-pre.2",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.2",
-    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.2",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.2"
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.3",
+    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.3",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.3",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.3",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.3",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.3",
+    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.3",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.3",
+    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.3",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.3",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.3",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.3",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.3",
+    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.3",
+    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.3",
+    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.3",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.3",
+    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.3",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.3",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.3",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.3",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.3",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.3",
+    "./src/main.js": "./src/main.js?v=0.6.0-pre.3",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.3",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.3",
+    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.3",
+    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.3",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.3",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.3",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.3",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.3",
+    "./src/version.js": "./src/version.js?v=0.6.0-pre.3",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.3",
+    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.3",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.3"
   }
 }
 </script>
@@ -157,7 +158,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.6.0-pre.2';
+    const PAGE_VERSION = '0.6.0-pre.3';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -191,14 +192,16 @@
       <span id="level"></span>
     </div>
     <div id="shoutrow" style="display:none">
+      <!-- ± buttons, not sliders: on a phone a page swipe that starts on a slider moves it -->
       <div class="row"><label style="min-width:230px">Межа шепіт / голос: <b id="whisperdb"></b></label>
-        <input type="range" id="adjw" min="-10" max="10" step="1" style="width:220px">
-        <span class="muted">шепіт стає «НОРМАЛЬНО»? — вправо</span></div>
+        <button class="adj" id="wdn" aria-label="межа шепоту нижче">−</button><button class="adj" id="wup" aria-label="межа шепоту вище">+</button>
+        <span class="muted">шепіт стає «НОРМАЛЬНО»? — «+»</span></div>
       <div class="row"><label style="min-width:230px">Межа голос / крик: <b id="shoutdb"></b></label>
-        <input type="range" id="adjs" min="-12" max="18" step="1" style="width:220px">
-        <span class="muted">звичайна мова стає «КРИК!»? — вправо</span></div>
+        <button class="adj" id="sdn" aria-label="межа крику нижче">−</button><button class="adj" id="sup" aria-label="межа крику вище">+</button>
+        <span class="muted">звичайна мова стає «КРИК!»? — «+»</span></div>
+      <div class="row"><button id="adjreset">Скинути зсуви</button><span id="adjnote" class="muted"></span></div>
     </div>
-    <p class="muted">Калібрування: тиша 3 с → шепіт 3 с → звичайний голос 3.5 с → крик 2.5 с (можна промовчати). Роби його в шоломі, там, де гратимеш; у VR те саме є на табло (кнопка «Мікрофон»). Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
+    <p class="muted">Калібрування: тиша 3 с → шепіт 3 с → звичайний голос 3.5 с → крик 2.5 с (можна промовчати). Роби його там, де гратимеш, і так, як гратимеш (у шоломі; телефон — у руці на звичній відстані); у VR те саме є на табло (кнопка «Мікрофон»). Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
     Звук аналізується лише на цьому пристрої й нікуди не передається. Щоб табло могло програти твій крик, гра тримає останні 4 с мікрофона в пам'яті; на диск нічого не пишеться, запис зникає з новим раундом.</p>
   </div>
 
@@ -259,6 +262,6 @@
 <div id="debug"></div>
 <div id="hint">WASD · E взяти/покласти · Q/T двері · Shift подих · C присід · клік на табло · Esc — меню</div>
 <div id="crosshair"></div>
-<script type="module" src="src/main.js?v=0.6.0-pre.2"></script>
+<script type="module" src="src/main.js?v=0.6.0-pre.3"></script>
 </body>
 </html>
