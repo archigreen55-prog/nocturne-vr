@@ -38,6 +38,7 @@ export class FrameStats {
 }
 
 const cache = { uaData: null, xr: null, micPermission: null };
+export const deviceData = () => cache.uaData;   // model / platform version (Chrome), after prepareReport
 export async function prepareReport() {
   const jobs = [];
   if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {

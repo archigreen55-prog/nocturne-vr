@@ -22,10 +22,20 @@ export function detectDevice(nav = navigator, media = (q) => matchMedia(q).match
     return { mode: 'phone', device: 'iPad', os: v ? `iPadOS ${v[1]}.${v[2]}` : 'iPadOS', ios: v ? [+v[1], +v[2]] : null };
   }
   const android = /Android\s*([\d.]*)/.exec(ua);
-  if (android) return { mode: 'phone', device: 'Android', os: `Android ${android[1]}`.trim() };
-  // e.g. Chrome's "desktop site" on a phone (no "Android" in the UA) or a touch-only tablet
-  if (touch > 0 && media('(pointer: coarse)') && !media('(any-pointer: fine)')) return { mode: 'phone', device: 'сенсорний екран', os: '' };
+  // Chrome freezes the UA at "Android 10; K" (user-agent reduction): no version rather than a wrong
+  // one; the real version and model come from userAgentData (refineAndroid)
+  if (android) return { mode: 'phone', device: 'Android', os: /Android 10; K\b/.test(ua) ? '' : `Android ${android[1]}`.trim() };
+  // e.g. Chrome's "desktop site" on a phone (no "Android" in the UA) or a touch-first tablet. The
+  // primary pointer decides: Samsung phones also report a fine pointer (any-pointer: fine)
+  if (touch > 0 && media('(pointer: coarse)')) return { mode: 'phone', device: 'сенсорний екран', os: '' };
   return { mode: 'pc', device: "комп'ютер", os: '' };
+}
+
+// Android version and model from userAgentData.getHighEntropyValues (Chrome), when the UA is frozen
+export function refineAndroid(dev, uaData) {
+  if (dev.device !== 'Android' || !uaData) return dev;
+  const v = uaData.platformVersion ? uaData.platformVersion.split('.')[0] : '';
+  return { ...dev, os: [v && `Android ${v}`, uaData.model].filter(Boolean).join(', ') || dev.os };
 }
 
 // iOS older than MIN_IOS (or null when unknown / not iOS)

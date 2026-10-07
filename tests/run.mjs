@@ -24,6 +24,7 @@ const UA = {
   questOld: 'Mozilla/5.0 (Linux; Android 12; Quest 2) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/30.0 Chrome/118.0 Mobile VR Safari/537.36',
   windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
   androidDesktopSite: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+  androidReduced: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36',
 };
 const phoneCtx = (ua, extra = {}) => ({ ...devices['Pixel 7'], userAgent: ua, permissions: ['clipboard-read', 'clipboard-write'], ...extra });
 
@@ -43,26 +44,33 @@ test('detection table (Android, iPhone, iPad, Quest, PC)', async () => {
   const ctx = await newContext(browser);
   const { page } = await open(ctx, base);
   const rows = await page.evaluate(async (UA) => {
-    const { detectDevice, iosTooOld } = await import('./src/platform/mode.js');
-    const media = (touchOnly) => (q) => (q === '(pointer: coarse)' ? touchOnly : q === '(any-pointer: fine)' ? !touchOnly : false);
+    const { detectDevice, iosTooOld, refineAndroid } = await import('./src/platform/mode.js');
+    // touchOnly: primary pointer coarse, no fine pointer; 'samsung': primary coarse but also "any-pointer: fine"
+    const media = (touchOnly) => (q) => (q === '(pointer: coarse)' ? !!touchOnly : q === '(any-pointer: fine)' ? touchOnly !== true : false);
     const d = (ua, touch = 0, touchOnly = false) => { const r = detectDevice({ userAgent: ua, maxTouchPoints: touch }, media(touchOnly)); return { mode: r.mode, device: r.device, os: r.os, old: iosTooOld(r) }; };
+    const reduced = detectDevice({ userAgent: UA.androidReduced, maxTouchPoints: 5 }, media('samsung'));
     return {
       pixel: d(UA.pixel, 5, true), samsung: d(UA.samsung, 5, true), iphone: d(UA.iphone, 5, true), iphoneChrome: d(UA.iphoneChrome, 5, true),
       iphoneOld: d(UA.iphoneOld, 5, true), ipadOS: d(UA.ipadOS, 5, true), mac: d(UA.mac, 0, false), quest: d(UA.quest, 0, false),
       questOld: d(UA.questOld, 0, false), windows: d(UA.windows, 0, false), windowsTouchLaptop: d(UA.windows, 10, false),
       androidDesktopSite: d(UA.androidDesktopSite, 5, true),
+      samsungDesktopSite: d(UA.androidDesktopSite, 5, 'samsung'),
+      androidReduced: d(UA.androidReduced, 5, 'samsung'),
+      refined: refineAndroid(reduced, { platformVersion: '13.0.0', model: 'SM-G988B' }).os,
     };
   }, UA);
   const expect = {
     pixel: ['phone', 'Android'], samsung: ['phone', 'Android'], iphone: ['phone', 'iPhone'], iphoneChrome: ['phone', 'iPhone'],
     iphoneOld: ['phone', 'iPhone'], ipadOS: ['phone', 'iPad'], mac: ['pc'], quest: ['vr'], questOld: ['vr'], windows: ['pc'],
-    windowsTouchLaptop: ['pc'], androidDesktopSite: ['phone'],
+    windowsTouchLaptop: ['pc'], androidDesktopSite: ['phone'], samsungDesktopSite: ['phone'], androidReduced: ['phone', 'Android'],
   };
   for (const [k, [mode, device]] of Object.entries(expect)) {
     assert.equal(rows[k].mode, mode, `${k}: ${JSON.stringify(rows[k])}`);
     if (device) assert.equal(rows[k].device, device, k);
   }
   assert.equal(rows.iphone.os, 'iOS 18.6');
+  assert.equal(rows.androidReduced.os, '', 'frozen "Android 10; K" is not shown as Android 10');
+  assert.equal(rows.refined, 'Android 13, SM-G988B');
   assert.equal(rows.iphoneOld.old, true, 'iOS 16.3 is too old');
   assert.equal(rows.iphone.old, false);
   await ctx.close();

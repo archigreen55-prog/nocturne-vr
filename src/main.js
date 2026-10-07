@@ -31,15 +31,15 @@ import { maskScene, maskBeam, updateFlashMask, flashUniforms } from './enemies/f
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
 import { loadSetting, saveSetting, PREVIEW } from './settings.js';
-import { currentMode, MODE_NAMES } from './platform/mode.js';
-import { FrameStats, prepareReport, buildReport, copyReport } from './debug/report.js';
+import { currentMode, refineAndroid, MODE_NAMES } from './platform/mode.js';
+import { FrameStats, prepareReport, buildReport, copyReport, deviceData } from './debug/report.js';
 
 const NIGHT = 0x0a0f1c;
 const params = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
 $('version').textContent = `версія ${VERSION}${PREVIEW ? ' · тестова (превʼю)' : ''}`;
 // vr / phone / pc (src/platform/mode.js). Phone controls come in the next wave (plan-phone-mode T1).
-const MODE = currentMode();
+let MODE = currentMode();
 
 // ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); // MSAA 4x in XR too
@@ -719,13 +719,14 @@ else {
   $('start').disabled = true;
   $('start').textContent = 'Керування з телефона — у наступній версії';
 }
-{
+function showMode() {
   const other = Object.keys(MODE_NAMES).filter((m) => m !== MODE.mode).map((m) => `<a href="?mode=${m}">${MODE_NAMES[m]}</a>`);
   if (!MODE.auto) other.push('<a href="?mode=auto">визначати автоматично</a>');
   $('modeline').innerHTML = `Режим: <b>${MODE_NAMES[MODE.mode]}</b> (${MODE.os && !MODE.os.startsWith(MODE.device) ? `${MODE.device}, ${MODE.os}` : MODE.os || MODE.device}${MODE.auto ? ', визначено автоматично' : `, вибрано вручну; автоматично було б «${MODE_NAMES[MODE.detected]}»`}). Інший режим: ${other.join(' · ')}.`
     + (MODE.mode === 'phone' ? '<br>Грати з телефона ще не можна: керування з\'явиться в наступній версії. Зараз тут можна дозволити мікрофон і пройти калібрування, а «Скопіювати звіт» внизу передасть дані про телефон.' : '');
 }
-prepareReport();
+showMode();
+prepareReport().then(() => { MODE = refineAndroid(MODE, deviceData()); showMode(); });
 const reportText = () => buildReport({
   version: VERSION, mode: MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
   game: { phase: round.phase, contract: contract.id, difficulty, inVR, playing: playingDesktop, simSeconds: +simT.toFixed(1) },
@@ -766,6 +767,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
-  MODE, frameStats, reportText,
+  get MODE() { return MODE; }, frameStats, reportText,
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };
