@@ -12,7 +12,7 @@ import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
+import { unlockAudio, existingAudioContext, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
 import { applyDifficulty, DIFFS } from './game/difficulty.js';
 import { contractById, goalText, bonusText, progress, evaluate, bestStars, recordStars } from './game/contracts.js';
 import { runCalibration } from './audio/calibrate.js';
@@ -30,12 +30,16 @@ import { stealthState } from './game/stealth.js';
 import { maskScene, maskBeam, updateFlashMask, flashUniforms } from './enemies/flashMask.js';
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
-import { loadSetting, saveSetting } from './settings.js';
+import { loadSetting, saveSetting, PREVIEW } from './settings.js';
+import { currentMode, MODE_NAMES } from './platform/mode.js';
+import { FrameStats, prepareReport, buildReport, copyReport } from './debug/report.js';
 
 const NIGHT = 0x0a0f1c;
 const params = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
-$('version').textContent = `версія ${VERSION}`;
+$('version').textContent = `версія ${VERSION}${PREVIEW ? ' · тестова (превʼю)' : ''}`;
+// vr / phone / pc (src/platform/mode.js). Phone controls come in the next wave (plan-phone-mode T1).
+const MODE = currentMode();
 
 // ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); // MSAA 4x in XR too
@@ -162,7 +166,7 @@ const round = new Round({
       }
       resultT = 0; autoPlayed = false;
       verdict = evaluate(contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty, loot });
-      verdict.newBest = recordStars(contract.id, difficulty, verdict.stars);
+      verdict.newBest = recordStars(contract.id, difficulty, verdict.stars, MODE.mode);
       flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
     }
   },
@@ -459,6 +463,7 @@ function goHome() {
 
 // ---------- stats ----------
 const perf = { fps: 0, frames: 0, since: performance.now(), calls: 0, tris: 0 };
+const frameStats = new FrameStats();   // for the report: last 60 s and per minute
 const debugEl = $('debug');
 wrist.showFps = params.has('fps');
 const gpu = new GpuTimer(renderer.getContext());
@@ -628,6 +633,7 @@ let last = performance.now();
 function frame(now, xrFrame) {
   const cpuStart = performance.now();
   const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+  frameStats.add(now - last);
   last = now;
 
   simulate(dt, xrFrame, now);
@@ -707,7 +713,24 @@ syncStartScreen();
 const vrButton = VRButton.createButton(renderer);
 vrButton.id = 'vrbutton';
 vrButton.addEventListener('click', () => unlockAudio(), true);
-$('buttons').appendChild(vrButton);
+// phones: no "Enter VR" (Android may offer Cardboard) and no laptop play (it needs a mouse)
+if (MODE.mode !== 'phone') $('buttons').appendChild(vrButton);
+else {
+  $('start').disabled = true;
+  $('start').textContent = 'Керування з телефона — у наступній версії';
+}
+{
+  const other = Object.keys(MODE_NAMES).filter((m) => m !== MODE.mode).map((m) => `<a href="?mode=${m}">${MODE_NAMES[m]}</a>`);
+  if (!MODE.auto) other.push('<a href="?mode=auto">визначати автоматично</a>');
+  $('modeline').innerHTML = `Режим: <b>${MODE_NAMES[MODE.mode]}</b> (${MODE.os && !MODE.os.startsWith(MODE.device) ? `${MODE.device}, ${MODE.os}` : MODE.os || MODE.device}${MODE.auto ? ', визначено автоматично' : `, вибрано вручну; автоматично було б «${MODE_NAMES[MODE.detected]}»`}). Інший режим: ${other.join(' · ')}.`
+    + (MODE.mode === 'phone' ? '<br>Грати з телефона ще не можна: керування з\'явиться в наступній версії. Зараз тут можна дозволити мікрофон і пройти калібрування, а «Скопіювати звіт» внизу передасть дані про телефон.' : '');
+}
+prepareReport();
+const reportText = () => buildReport({
+  version: VERSION, mode: MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
+  game: { phase: round.phase, contract: contract.id, difficulty, inVR, playing: playingDesktop, simSeconds: +simT.toFixed(1) },
+});
+$('report').addEventListener('click', () => copyReport(reportText()));
 
 const vsel = $('vignette');
 for (const l of VIGNETTE_LEVELS) vsel.add(new Option(l.label, l.id));
@@ -743,5 +766,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
+  MODE, frameStats, reportText,
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

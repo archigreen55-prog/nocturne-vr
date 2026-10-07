@@ -21,6 +21,9 @@ export function audioContext() {
   return ctx;
 }
 
+// the context if the game has started it (no new context: for the report)
+export const existingAudioContext = () => ctx;
+
 export function unlockAudio() {
   const c = audioContext();
   if (c && c.state === 'suspended') c.resume().catch(() => {});

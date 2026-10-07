@@ -1,0 +1,14 @@
+{
+  "name": "nocturne-vr",
+  "private": true,
+  "description": "Tests only: the game itself has no build step (index.html + src/, three.js from a CDN).",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "iwer": "2.5.0",
+    "playwright": "1.56.1",
+    "three": "0.186.1"
+  }
+}

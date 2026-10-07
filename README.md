@@ -18,6 +18,17 @@ ring behind the van, noise from steps / doors / drops / your voice, a patrol tha
 (its flashlight stays in the rooms it can light), a lurker that jumps out, alarm lights, a 7-minute
 round with an escape phase, a result board that replays your loudest scream.
 
+## Devices
+
+One game, one code base; the mode is chosen automatically and shown on the start screen:
+**VR** (a headset browser: start screen, then Enter VR), **phone** (Android, iPhone, iPad: touch
+controls are being built, see below) and **PC** (keyboard and mouse). `?mode=vr|phone|pc` overrides
+the detection and is remembered on the device; `?mode=auto` goes back to automatic.
+
+Phone version status: wave T0 — mode detection, "Скопіювати звіт" (device, version, FPS, microphone
+and errors as JSON to paste into a chat), `?debug` error panel, a clear message when the game cannot
+start (for example iOS older than 16.4). Phone controls come in wave T1.
+
 ## Privacy
 
 The microphone is analysed on the device only. To replay a scream, the game keeps the last 4 s of
@@ -47,7 +58,7 @@ Click to capture the mouse (click the board to press its buttons), WASD walk (Sp
 E pick up / put down (walk into the ring behind the van to deliver), Q / T door slow / fast, Shift hold breath,
 C crouch, F FPS, R back to the van, N new round, Esc menu.
 
-URL parameters: `?fps` (counter on), `?fbs=0.85` (XR framebuffer scale), `?fov=0.5` (foveation),
+URL parameters: `?mode=vr|phone|pc|auto` (see Devices), `?debug` (error panel), `?fps` (counter on), `?fbs=0.85` (XR framebuffer scale), `?fov=0.5` (foveation),
 `?hz=72` (frame rate), `?vignette` (vignette on the laptop too), `?autostart`,
 `?rec=script|recorder` (force a scream recorder fallback), `?flash=nomask|shadow|off` (flashlight
 variants for measuring).
@@ -67,5 +78,17 @@ All gameplay numbers (radii, thresholds, speeds, timer, item values and position
     node tools/bump-version.mjs   # new ?v= on every module + version.json
     git commit -am "…" && git push
 
-GitHub Pages serves `main`. The page reloads itself once when `version.json` is newer than the
-cached page.
+GitHub Pages is built by `.github/workflows/pages.yml` (`tools/build-site.mjs`): `main` at the site
+root, every other branch at `/preview/<branch>/` (list: `/preview/`), so a change can be tried on a
+phone before it is merged. Previews keep their settings apart from the main site (they read the main
+site's until they save their own). Preview versions are `X.Y.Z-pre.N`. The page reloads itself once
+when `version.json` is newer than the cached page.
+
+## Tests
+
+    npm install && npm test
+
+Chromium (Playwright) with three.js served from `node_modules`: mode detection for Android / iPhone /
+iPad / Quest / PC user agents, the report, boot failure messages, preview settings, a fake microphone,
+a short laptop round, and a VR regression in the WebXR emulator (IWER, Quest 3). Real Safari and real
+phones are tested by hand.

@@ -45,13 +45,20 @@ export function evaluate(c, r, ctx) {
   return { goal, bonus, stars, why };
 }
 
-// Best stars: { contractId: { easy, medium, hard } } in localStorage.
+// Best stars: { contractId: { easy, medium, hard } } in localStorage (shown for all modes together).
+// Each record also goes to 'starsByMode' { mode: { contractId: { difficulty: stars } } }: VR, phone and
+// laptop records stay apart for a future leaderboard (plan-phone-mode §9, decision 14).
 export function bestStars(id) {
   const all = loadSetting('stars', {});
   return all[id] || { easy: 0, medium: 0, hard: 0 };
 }
 // Returns true when this is a new best for that contract and difficulty.
-export function recordStars(id, difficulty, stars) {
+export function recordStars(id, difficulty, stars, mode) {
+  if (mode) {
+    const byMode = loadSetting('starsByMode', {});
+    const m = byMode[mode] || (byMode[mode] = {}), c = m[id] || (m[id] = {});
+    if (stars > (c[difficulty] || 0)) { c[difficulty] = stars; saveSetting('starsByMode', byMode); }
+  }
   const all = loadSetting('stars', {});
   const b = all[id] || { easy: 0, medium: 0, hard: 0 };
   if (stars <= (b[difficulty] || 0)) return false;
