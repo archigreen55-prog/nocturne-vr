@@ -1,7 +1,8 @@
 // Phone controls: joystick, look, action buttons, the board by finger and by the crosshair, full screen, portrait, gyroscope.
 import assert from 'node:assert/strict';
+import { devices } from 'playwright';
 import { newContext } from './harness.mjs';
-import { base, browser, open, test, LAND, tp, touchT, quickTap, simT, keepFor, drag, hold, playPhone, standFacing, boardPoint, fingerPress, toResult, fingerPressEl, pm, toSummary, aimAt, touchEndAt } from './runner.mjs';
+import { browser, open, test, LAND, tp, touchT, touchEndAt, quickTap, simT, keepFor, drag, hold, playPhone, standFacing, boardPoint, fingerPress, toResult, fingerPressEl, pm, toSummary, aimAt, base } from './runner.mjs';
 
 test('phone: Грати shows touch controls; joystick quiet inside the ring, loud beyond; look; pause', async () => {
   const { ctx, page, errors, cdp } = await playPhone();

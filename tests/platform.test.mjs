@@ -1,7 +1,8 @@
 // Platform: mode detection, boot and boot failures, ?debug, ?mode=, previews, the report.
 import assert from 'node:assert/strict';
+import { devices } from 'playwright';
 import { newContext } from './harness.mjs';
-import { base, VERSION, preview, browser, UA, phoneCtx, open, modeOf, test } from './runner.mjs';
+import { VERSION, preview, browser, UA, phoneCtx, open, modeOf, test, base } from './runner.mjs';
 
 test('detection table (Android, iPhone, iPad, Quest, PC)', async () => {
   const ctx = await newContext(browser);

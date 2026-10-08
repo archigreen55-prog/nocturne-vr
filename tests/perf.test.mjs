@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { devices } from 'playwright';
 import { newContext } from './harness.mjs';
-import { base, browser, open, test, keepFor, frames, playPhone } from './runner.mjs';
+import { browser, open, test, keepFor, frames, playPhone, base } from './runner.mjs';
 
 test('phone quality: presets (pixel ratio, MSAA note, far lamps off on low), auto pick from 5 s, dynamic resolution, per-minute tags, 30 FPS cap', async () => {
   const { ctx, page, errors } = await playPhone();

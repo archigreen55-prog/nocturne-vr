@@ -1,7 +1,8 @@
 // Phone HUD, pause menu, round summary, small screens, pausing on minimise / call / blur, vibration and edge flashes.
 import assert from 'node:assert/strict';
+import { devices } from 'playwright';
 import { newContext } from './harness.mjs';
-import { base, browser, UA, open, test, LAND, tp, touchT, frames, drag, playPhone, boardPoint, fingerPress, toResult, fingerPressEl, pm, toSummary, pauseState, touchEndAt } from './runner.mjs';
+import { browser, UA, open, test, LAND, tp, touchT, touchEndAt, frames, drag, playPhone, boardPoint, fingerPress, toResult, fingerPressEl, pm, toSummary, pauseState, base } from './runner.mjs';
 
 test('phone: round summary (HTML) after every ending: stars, items, Ще раз послухати and Новий раунд by finger', async () => {
   const { ctx, page, errors, cdp } = await playPhone();

@@ -1,7 +1,8 @@
 // The microphone: fake-microphone level, limits and ± buttons, the phone wizard, the game-sound bus, knocks, refusal, calls, iPhone audio session.
 import assert from 'node:assert/strict';
+import { devices } from 'playwright';
 import { newContext } from './harness.mjs';
-import { base, knockWav, browser, UA, open, test, fingerPressEl, pm, MIC_CAL, micPhone, micOn, installFeed } from './runner.mjs';
+import { knockWav, browser, UA, open, test, fingerPressEl, pm, MIC_CAL, micPhone, micOn, installFeed, base } from './runner.mjs';
 
 test('fake microphone: permission, level of a -23 dBFS tone, track settings in the report', async () => {
   const ctx = await newContext(browser, { permissions: ['microphone'] });

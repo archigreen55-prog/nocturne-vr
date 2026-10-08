@@ -1,7 +1,7 @@
 // PC: keyboard, stars per mode, a full round.
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
-import { base, browser, open, test, keepFor, standFacing } from './runner.mjs';
+import { browser, open, test, keepFor, standFacing, base } from './runner.mjs';
 
 test('PC keyboard as before: WASD walks, E picks up / puts down, T door, C crouch', async () => {
   const ctx = await newContext(browser);

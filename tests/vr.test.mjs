@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newContext, ROOT } from './harness.mjs';
-import { base, browser, UA, open, modeOf, test } from './runner.mjs';
+import { browser, UA, open, modeOf, test, base } from './runner.mjs';
 
 test('VR regression (IWER Quest 3): enter VR, walk with the stick, snap turn, pick up an item, exit', async () => {
   const ctx = await newContext(browser, { userAgent: UA.quest });   // the Quest browser's own UA

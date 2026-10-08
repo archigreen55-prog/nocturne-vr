@@ -1,7 +1,8 @@
 // The home-screen app: manifest, icons, install, the service worker (offline, updates).
 import assert from 'node:assert/strict';
+import { devices } from 'playwright';
 import { newContext, watchErrors } from './harness.mjs';
-import { base, VERSION, preview, browser, open, test, LAND, fingerPressEl, siteCopy, swReady } from './runner.mjs';
+import { VERSION, preview, browser, open, test, LAND, fingerPressEl, siteCopy, swReady, base } from './runner.mjs';
 
 test('home-screen app: manifest and icons; Android install button (finger); iPhone "На початковий екран" hint', async () => {
   const ctx = await newContext(browser, LAND);
@@ -51,6 +52,8 @@ test('service worker: offline play after the first visit (also from the icon sta
       await page.reload(); await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
       await page.goto(url + '?app=1'); await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
       assert.equal(await page.evaluate(() => window.__game.MODE.mode), 'phone');
+      // the phone UI stylesheet (src/ui/phone.css) is in the offline copy too
+      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('hud')).position), 'fixed', `${url}: phone.css offline`);
       await ctx.setOffline(false);
       assert.deepEqual(errors.filter((e) => !/ERR_INTERNET_DISCONNECTED|Failed to fetch|net::/.test(e)), [], url);
       await page.close();
