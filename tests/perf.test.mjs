@@ -28,10 +28,11 @@ test('phone quality: presets (pixel ratio, MSAA note, far lamps off on low), aut
   q = await page.evaluate(() => window.__game.quality.state());
   assert.equal(q.preset, 'high'); assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor));
   assert.equal(q.needsReload, false); assert.equal(await page.textContent('#qualitynote'), '');
-  // dynamic resolution: 3 s at 40 FPS (< 83 % of 60) -> one step down; 10 s at 60 -> back up
-  // (the per-second accumulator starts empty: the real frames played above leave a part-second in it,
-  // and on a slow, loaded machine that part-second could shift which seconds count)
-  q = await page.evaluate(() => { const Q = window.__game.quality; Q.acc = { n: 0, ms: 0 }; Q.secs = []; for (let i = 0; i < 3.2 * 40; i++) Q.frame(25); return Q.state(); });
+  // dynamic resolution: 3 s at 40 FPS (< 83 % of 60) -> one step down; 10 s at 60 -> back up.
+  // The per-second accumulator starts empty and the slow part is exactly 3 whole seconds: the real
+  // frames played above (a part-second of them, longer on a loaded machine) and a slow remainder must
+  // not leak into the first of the fast seconds.
+  q = await page.evaluate(() => { const Q = window.__game.quality; Q.acc = { n: 0, ms: 0 }; Q.secs = []; for (let i = 0; i < 3 * 40; i++) Q.frame(25); return Q.state(); });
   assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor) - 0.125, JSON.stringify(q));
   q = await page.evaluate(() => { const Q = window.__game.quality; for (let i = 0; i < 10.5 * 60; i++) Q.frame(1000 / 60); return Q.state(); });
   assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor)); assert.equal(q.dynamicSteps, 2);
