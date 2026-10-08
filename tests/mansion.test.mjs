@@ -37,15 +37,19 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   assert.ok(Math.abs(info.board - 14.55) < 0.01, 'the board stands by the van');
   assert.ok(info.tris > 3000 && info.tris < 60000, `blockout triangles: ${info.tris}`);
   assert.deepEqual(errors, []);
+  await page.close();   // one running game at a time: a second tab loads slowly next to a running one
   // remembered on this preview
   const page2 = (await open(ctx, preview)).page;
   assert.equal(await page2.evaluate(() => window.__game.level.id), 'mansion', 'the map is remembered');
+  await page2.close();
   // the main site (no preview): the mansion is closed by the flag, ?map=mansion is ignored
   const page3 = (await open(ctx, base + '?map=mansion')).page;
   assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.length].join()), 'dacha,8,8', 'the first map as before');
+  await page3.close();
   // back
   const page4 = (await open(ctx, preview + '?map=dacha')).page;
   assert.equal(await page4.evaluate(() => window.__game.level.id), 'dacha');
+  await page4.close();
   const page5 = (await open(ctx, preview)).page;
   assert.equal(await page5.evaluate(() => window.__game.level.id), 'dacha', '?map=dacha is remembered too');
   await ctx.close();
