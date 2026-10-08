@@ -40,6 +40,26 @@ export async function toneWav(amp, seconds = 4) {
   return file;
 }
 
+// A mono WAV built from segments [{ secs, amp, kind: 'tone' | 'noise' | 'silence' }] (looped by
+// Chromium's fake microphone): e.g. silence, finger knocks, a shout.
+export async function segmentsWav(name, segs) {
+  const rate = 48000, n = Math.round(rate * segs.reduce((a, s) => a + s.secs, 0)), buf = Buffer.alloc(44 + n * 2);
+  buf.write('RIFF', 0); buf.writeUInt32LE(36 + n * 2, 4); buf.write('WAVEfmt ', 8);
+  buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(1, 22); buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate * 2, 28); buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34); buf.write('data', 36); buf.writeUInt32LE(n * 2, 40);
+  let i = 0;
+  for (const s of segs) {
+    const m = Math.round(rate * s.secs);
+    for (let k = 0; k < m && i < n; k++, i++) {
+      const v = s.kind === 'tone' ? Math.sin(2 * Math.PI * 300 * k / rate) * s.amp : s.kind === 'noise' ? (Math.random() * 2 - 1) * s.amp : 0;
+      buf.writeInt16LE(Math.max(-32767, Math.min(32767, Math.round(v * 32767))), 44 + i * 2);
+    }
+  }
+  const file = join(tmpdir(), `nocturne-${name}.wav`);
+  await writeFile(file, buf);
+  return file;
+}
+
 export async function launch({ micWav } = {}) {
   const args = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'];
   if (micWav) args.push('--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${micWav}`);

@@ -74,6 +74,12 @@ function glInfo(renderer) {
 function micInfo(mic) {
   const r = { state: mic.state, error: mic.error || undefined, noMic: mic.noMic, permission: cache.micPermission, calibrated: mic.calibrated, cal: mic.cal };
   r.whisperDb = +mic.whisperDb.toFixed(1); r.shoutDb = +mic.shoutDb.toFixed(1);
+  // phone (T3): the game's sound in the microphone, what the game did with the microphone
+  if (mic.gameDbFn) {
+    r.game = { bleedDb: mic.bleedDb, measured: mic.bleedMeasured, busDb: +mic.gameDb.toFixed(1), raisedByDb: +mic.masking.toFixed(1), whisperNow: +mic.whisperEff.toFixed(1), shoutNow: +mic.shoutEff.toFixed(1) };
+    r.covered = mic.covered; r.agc = mic.agc;
+  }
+  r.permissionLive = mic.permission; r.deviceChanged = mic.deviceChanged; r.device = mic.deviceLabel || undefined; r.events = mic.events;
   if (mic.state === 'on') {
     r.levelDb = +mic.env.toFixed(1); r.level = mic.level; r.problem = mic.problem || undefined;
     try {

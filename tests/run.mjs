@@ -5,13 +5,17 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { devices } from 'playwright';
-import { startServer, launch, newContext, watchErrors, toneWav, ROOT } from './harness.mjs';
+import { startServer, launch, newContext, watchErrors, toneWav, segmentsWav, ROOT } from './harness.mjs';
 
 const VERSION = JSON.parse(await readFile(join(ROOT, 'version.json'), 'utf8')).version;
 const { server, base } = await startServer();
 const preview = base + 'preview/test/';
 // a fresh Chromium per test: one browser for the whole run ran out of resources (WebGL + audio per page)
 const micWav = await toneWav(0.1);
+// 3 s silence, 6 finger knocks on the body (80 ms, loud), 1 s silence, a 1.5 s shout, 1.5 s silence (loops)
+const knockWav = await segmentsWav('knocks', [{ secs: 3, kind: 'noise', amp: 0.0008 },
+  ...Array.from({ length: 6 }, () => [{ secs: 0.08, kind: 'noise', amp: 0.5 }, { secs: 0.32, kind: 'noise', amp: 0.0008 }]).flat(),
+  { secs: 1, kind: 'noise', amp: 0.0008 }, { secs: 1.5, kind: 'tone', amp: 0.35 }, { secs: 1.5, kind: 'noise', amp: 0.0008 }]);
 let browser = null;
 
 const UA = {
@@ -40,7 +44,7 @@ async function open(ctx, url) {
 const modeOf = (page) => page.evaluate(() => ({ ...window.__game.MODE }));
 
 const tests = [];
-const test = (name, fn) => tests.push({ name, fn });
+const test = (name, fn, opts = {}) => tests.push({ name, fn, ...opts });
 
 test('detection table (Android, iPhone, iPad, Quest, PC)', async () => {
   const ctx = await newContext(browser);
@@ -192,6 +196,7 @@ test('fake microphone: permission, level of a -23 dBFS tone, track settings in t
   const { page, errors } = await open(ctx, base);
   await page.click('#micbtn');
   await page.waitForFunction(() => window.__game.mic.state === 'on');
+  assert.equal(await page.textContent('#calbtn'), 'Калібрувати (4 кроки)', 'PC: the 4-step calibration as before');
   await page.waitForTimeout(1500);
   const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
   assert.equal(r.mic.state, 'on');
@@ -406,6 +411,7 @@ async function fingerPress(page, cdp, pt) {
 const toResult = (page) => page.waitForFunction(() => window.__game.round.phase === 'result' && window.__game.board.floating, null, { polling: 50, timeout: 20000 });
 // a real finger on an HTML button (menu, summary, pause): really held (400 ms by default) and sliding 10 px
 async function fingerPressEl(page, cdp, sel, { holdMs = 400, slide = 10 } = {}) {
+  await page.locator(sel).first().scrollIntoViewIfNeeded();
   const b = await page.locator(sel).first().boundingBox();
   const pt = { x: b.x + b.width / 2, y: b.y + b.height / 2 };
   const t = touchT();
@@ -817,6 +823,276 @@ test('phone feedback: vibration on Android; no navigator.vibrate (iPhone) = edge
   await ictx.close();
 });
 
+// ---------- T3: the microphone on a phone ----------
+const MIC_CAL = { floor: -62, normal: -30, whisper: -48, shout: -21 };
+const micPhone = { ...LAND, permissions: ['microphone', 'clipboard-read', 'clipboard-write'] };
+async function micOn(page, cdp) {
+  await fingerPressEl(page, cdp, '#micbtn');
+  await page.waitForFunction(() => window.__game.mic.state === 'on', null, { timeout: 10000 });
+}
+// the fake microphone level, picked by what the wizard / check asks for right now (calstep text)
+const installFeed = (page, bleed) => page.evaluate((bleed) => {
+  window.__bleed = bleed;
+  window.__game.mic.feed = (m) => {
+    const t = document.getElementById('calstep').textContent.split('·')[0], n = () => (Math.random() - 0.5) * 2;
+    if (/ЗВУКИ ГРИ|Звуки гри/.test(t)) return window.__bleed === null ? -62 + n() : Math.max(-62 + n(), m.gameDb + window.__bleed + n());
+    if (/КРИК|Крикни/.test(t)) return -12 + n();
+    if (/ГОЛОС|Скажи/.test(t)) return -30 + n();
+    if (/ШЕПІТ|Шепни/.test(t)) return -48 + n();
+    return -62 + n();
+  };
+}, bleed);
+
+test('phone mic wizard (5 steps, by finger): silence, the game\'s own sounds through the bus, whisper, voice, shout; then the check of three phrases', async () => {
+  const ctx = await newContext(browser, micPhone);
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  assert.match(await page.textContent('#michold'), /як гратимеш/);
+  assert.match(await page.textContent('#michelp'), /два запити|Дозволити під час відвідування/, 'before asking: what the dialogs will be');
+  await micOn(page, cdp);
+  assert.equal(await page.textContent('#calbtn'), 'Калібрувати (5 кроків)');
+  await installFeed(page, -20);
+  await fingerPressEl(page, cdp, '#calbtn');
+  await page.waitForFunction(() => /2\/5 ЗВУКИ ГРИ/.test(document.getElementById('calstep').textContent), null, { timeout: 15000 });
+  const busPeak = await page.evaluate(async () => { let m = -100; for (let i = 0; i < 25; i++) { m = Math.max(m, window.__game.mic.gameDb); await new Promise((r) => setTimeout(r, 100)); } return m; });
+  assert.ok(busPeak > -45, `the sample of game sounds plays on the bus (${busPeak.toFixed(1)} dB)`);
+  await page.waitForFunction(() => /^Готово/.test(document.getElementById('calstep').textContent), null, { timeout: 45000 });
+  const cal = await page.evaluate(() => window.__game.mic.cal);
+  assert.ok(Math.abs(cal.floor - -62) < 3 && Math.abs(cal.normal - -30) < 3 && Math.abs(cal.whisper - -48) < 3, JSON.stringify(cal));
+  assert.ok(Number.isFinite(cal.bleed) && Math.abs(cal.bleed - -20) < 4, `bleed measured ${cal.bleed}`);
+  assert.match(await page.textContent('#calstep'), /Звуки гри чути в мікрофоні/);
+  assert.equal(await page.textContent('#micnote'), '', 'nothing to redo');
+  // the check after the wizard
+  assert.equal(await page.isEnabled('#verifybtn'), true);
+  await fingerPressEl(page, cdp, '#verifybtn');
+  await page.waitForFunction(() => /Крик:/.test(document.getElementById('verifyres').textContent), null, { timeout: 30000 });
+  const vr = await page.textContent('#verifyres');
+  assert.match(vr, /Шепіт: ШЕПІТ ✓ · Голос: НОРМАЛЬНО ✓ · Крик: КРИК! ✓/, vr);
+  // headphones: the game is not heard in the microphone -> no protection needed
+  await installFeed(page, null);
+  await fingerPressEl(page, cdp, '#calbtn');
+  await page.waitForFunction(() => /^Готово/.test(document.getElementById('calstep').textContent), null, { timeout: 45000 });
+  assert.equal(await page.evaluate(() => window.__game.mic.cal.bleed), -80);
+  assert.match(await page.textContent('#calstep'), /навушники/);
+  // the board at the van (tap) runs the same 5-step wizard on a phone
+  await page.evaluate(() => { const g = window.__game; g.pressBoard('micpage'); g.sim(0.1); });
+  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (5 кроків)')), 'phone board: 5 steps');
+  await page.evaluate(() => { const g = window.__game; g.pressBoard('back'); g.sim(0.1); });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone: the game\'s own sounds from the speaker are not your voice (bus analyser); your voice and shout still count', async () => {
+  const ctx = await newContext(browser, micPhone);
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -10 });
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  await micOn(page, cdp);
+  await page.tap('#start'); await page.waitForFunction(() => window.__game.playing);
+  // the microphone hears only the game (a leaky speaker: bus - 10 dB)
+  await page.evaluate(() => { const g = window.__game; window.__voice = null; g.mic.feed = (m) => window.__voice ?? Math.max(-62 + Math.random(), m.gameDb - 10); g.player.teleport(0, 2, 0); });
+  const loud = async (ms) => page.evaluate(async (ms) => {
+    const g = window.__game, seen = { normal: 0, shout: 0, bus: -100, raised: 0 };
+    g.siren.set(true);
+    const t0 = performance.now(), mt0 = g.mic.t;
+    let next = 0;
+    while (g.mic.t - mt0 < ms / 1000 && performance.now() - t0 < 60000) {   // microphone time
+      if (performance.now() - t0 >= next) { g.playGame(); next += 1200; }
+      await new Promise((r) => setTimeout(r, 30));
+      if (g.mic.level === 'normal') seen.normal++;
+      if (g.mic.level === 'shout') seen.shout++;
+      seen.bus = Math.max(seen.bus, g.mic.gameDb); seen.raised = Math.max(seen.raised, g.mic.masking);
+    }
+    g.siren.set(false);
+    return seen;
+  }, ms);
+  // control: without the protection the same game sound is taken for a voice
+  await page.evaluate(() => { window.__fn = window.__game.mic.gameDbFn; });
+  const unprotected = await page.evaluate(async () => {
+    const g = window.__game, m = g.mic, fn = m.gameDbFn;
+    // keep measuring the bus, but do not raise the boundaries
+    m.gameDbFn = null;
+    const seen = { normal: 0 };
+    g.siren.set(true);
+    const t0 = performance.now(); let next = 0;
+    while (performance.now() - t0 < 4000) {
+      if (performance.now() - t0 >= next) { g.playGame(); next += 1200; }
+      m.gameDb = fn();
+      await new Promise((r) => setTimeout(r, 30));
+      if (m.level !== 'quiet') seen.normal++;
+    }
+    g.siren.set(false);
+    m.gameDbFn = fn;
+    return seen;
+  });
+  // (the feed reads m.gameDb, which the control loop keeps updating)
+  assert.ok(unprotected.normal > 0, `control: unprotected, the game sound alone reads as a voice (${JSON.stringify(unprotected)})`);
+  await page.waitForTimeout(800);
+  const shouts0 = await page.evaluate(() => window.__game.round.shouts);
+  const prot = await loud(4000);
+  assert.ok(prot.bus > -40, `the game was loud on the bus (${prot.bus.toFixed(1)} dB)`);
+  assert.equal(prot.normal + prot.shout, 0, `protected: the game sound is never "НОРМАЛЬНО" / "КРИК!" (${JSON.stringify(prot)})`);
+  assert.ok(prot.raised >= 3, 'the boundaries were raised while the game sounded');
+  assert.equal(await page.evaluate(() => window.__game.round.shouts), shouts0, 'no shout counted');
+  await page.waitForFunction(() => /звуки гри: межі/.test(document.querySelector('#hud .micdb').textContent) || true);
+  // the game quiet (a moment without the guard's sounds): a normal voice is heard as before
+  await page.waitForFunction(() => window.__game.mic.gameInMic < -40, null, { timeout: 20000, polling: 30 });
+  await page.evaluate(() => { window.__voice = -30; });
+  await page.waitForFunction(() => window.__game.mic.level === 'normal' || window.__game.mic.gameInMic > -40, null, { timeout: 5000 });
+  const v = await page.evaluate(() => ({ level: window.__game.mic.level, game: window.__game.mic.gameInMic }));
+  assert.ok(v.level === 'normal' || v.game > -40, `voice heard while the game is quiet ${JSON.stringify(v)}`);
+  // while the game is loud, a real shout well above it still counts
+  await page.evaluate(() => { window.__voice = -62; });
+  await page.waitForTimeout(500);
+  const shout = await page.evaluate(async () => {
+    const g = window.__game; g.siren.set(true); g.playGame();
+    await new Promise((r) => setTimeout(r, 500));
+    const before = { shoutNow: g.mic.shoutEff, game: g.mic.gameInMic };
+    window.__voice = -3;   // a real shout near the phone: far above the game in the microphone
+    let got = false, maxEff = -100; const t0 = performance.now(), mt0 = g.mic.t, trace = [];
+    // microphone time, not wall time (software rendering here is slow)
+    while (g.mic.t - mt0 < 1.2 && performance.now() - t0 < 30000) { await new Promise((r) => setTimeout(r, 30)); maxEff = Math.max(maxEff, g.mic.shoutEff); if (g.mic.level === 'shout') got = true; trace.push([+(g.mic.t - mt0).toFixed(2), Math.round(g.mic.db), Math.round(g.mic.env), g.mic.aboveT.toFixed(2), g.mic.riseOk]); }
+    before.trace = trace.filter((x, i) => i % 5 === 0);
+    window.__voice = -62; g.siren.set(false);
+    return { got, before, maxEff };
+  });
+  assert.equal(shout.got, true, `a shout above the game is a shout ${JSON.stringify(shout)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('real fake-microphone WAV: finger knocks on the phone body are not a shout; the shout in the same recording is', async () => {
+  const ctx = await newContext(browser, micPhone);
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { floor: -62, normal: -30, whisper: -48, shout: -18 });
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  await micOn(page, cdp);
+  const r = await page.evaluate(async () => {
+    const m = window.__game.mic, orig = m.takeShout.bind(m);
+    let shouts = 0, maxDb = -100, peaks = 0, wasHigh = false;
+    m.takeShout = () => { const s = orig(); if (s) shouts++; return s; };
+    const t0 = performance.now();
+    while (performance.now() - t0 < 22000) {   // two loops of the 10.9 s recording
+      await new Promise((res) => setTimeout(res, 20));
+      maxDb = Math.max(maxDb, m.db);
+      const high = m.db > m.shoutDb; if (high && !wasHigh) peaks++; wasHigh = high;
+    }
+    return { shouts, maxDb, peaks };
+  });
+  assert.ok(r.maxDb > -15, `the recording reaches the analyser (${r.maxDb.toFixed(1)} dB)`);
+  assert.ok(r.peaks >= 4, `knocks went over the shout threshold (${r.peaks} times)`);
+  assert.ok(r.shouts >= 1 && r.shouts <= 3, `only the long shout counts: ${r.shouts} shouts in 2 loops (12 knocks)`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+}, { wav: knockWav });
+
+test('phone: microphone refused = where to allow it (Android and iPhone wording); covered microphone hint', async () => {
+  for (const [opts, re] of [[micPhone, /Chrome: натисни значок ліворуч від адреси → «Дозволи»/], [{ ...devices['iPhone 15 landscape'], permissions: ['clipboard-read', 'clipboard-write'] }, /«аА».*«Параметри вебсайту»/]]) {
+    const ctx = await newContext(browser, opts);
+    await ctx.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('denied', 'NotAllowedError'));
+    });
+    const { page, errors } = await open(ctx, base);
+    const cdp = await ctx.newCDPSession(page);
+    await fingerPressEl(page, cdp, '#micbtn');
+    await page.waitForFunction(() => window.__game.mic.state === 'denied');
+    assert.match(await page.textContent('#michelp'), re);
+    assert.match(await page.textContent('#michelp'), /без мікрофона/);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+  // covered: far under the calibrated silence for 3 s -> the HUD says so; gone when uncovered
+  const ctx = await newContext(browser, micPhone);
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -30 });
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  await micOn(page, cdp);
+  await page.tap('#start'); await page.waitForFunction(() => window.__game.playing);
+  await page.evaluate(() => { const g = window.__game; g.mic.feed = () => -90; g.sim(4); });
+  assert.match(await page.evaluate(() => window.__game.mic.problem), /закритий/);
+  await page.waitForFunction(() => /закритий/.test(document.querySelector('#hud .micdb').textContent), null, { timeout: 5000 });
+  await page.evaluate(() => { const g = window.__game; g.mic.feed = () => -60; g.sim(0.5); });
+  assert.equal(await page.evaluate(() => window.__game.mic.problem), '');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone: after a call the microphone comes back on Продовжити (re-opened if the system stopped it); headphones in / out ask for a new calibration', async () => {
+  const ctx = await newContext(browser, micPhone);
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -30 });
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  await micOn(page, cdp);
+  await page.waitForFunction(() => ['worklet', 'script', 'recorder', 'none'].includes(window.__game.scream.mode), null, { timeout: 10000 });
+  await page.tap('#start'); await page.waitForFunction(() => window.__game.playing);
+  // the call: the system stops the microphone and the page goes to the background
+  await page.evaluate(() => {
+    window.__game.mic.track.stop();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForFunction(() => window.__game.paused);
+  assert.equal(await page.evaluate(() => window.__game.mic.track.readyState), 'ended');
+  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); });
+  await fingerPressEl(page, cdp, pm('Продовжити'));
+  await page.waitForFunction(() => window.__game.mic.events.lastRecover === 'reacquired', null, { timeout: 8000 });
+  assert.equal(await page.evaluate(() => window.__game.mic.track.readyState), 'live');
+  await page.waitForFunction(() => /Мікрофон знову працює/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
+  await page.waitForFunction(() => window.__game.mic.env > -40, null, { timeout: 8000 });   // the -23 dB tone is heard again
+  // if it cannot be re-opened: say where to fix it
+  await page.evaluate(() => { const g = window.__game; g.mic.track.stop(); navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('busy', 'NotReadableError')); g.pauseOpen('user'); });
+  await fingerPressEl(page, cdp, pm('Продовжити'));
+  await page.waitForFunction(() => window.__game.mic.events.lastRecover === 'failed', null, { timeout: 8000 });
+  await page.waitForFunction(() => /Мікрофон не відновився/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
+  // headphones plugged in
+  await page.evaluate(() => navigator.mediaDevices.dispatchEvent(new Event('devicechange')));
+  await page.waitForFunction(() => window.__game.mic.deviceChanged || window.__game.mic.state !== 'on', null, { timeout: 5000 });
+  const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
+  assert.equal(r.mic.events.ended >= 0, true); assert.ok(r.mic.events.reacquired >= 1, JSON.stringify(r.mic.events));
+  assert.ok(r.mic.game && Number.isFinite(r.mic.game.bleedDb), 'report: the game sound in the microphone');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // a live microphone + devicechange: the note on the start screen and in the game, gone after a calibration
+  const c2 = await newContext(browser, micPhone);
+  await c2.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -30 });
+  const p2 = await open(c2, base);
+  const cdp2 = await c2.newCDPSession(p2.page);
+  await micOn(p2.page, cdp2);
+  await p2.page.tap('#start'); await p2.page.waitForFunction(() => window.__game.playing);
+  await p2.page.evaluate(() => navigator.mediaDevices.dispatchEvent(new Event('devicechange')));
+  await p2.page.waitForFunction(() => window.__game.mic.deviceChanged);
+  await p2.page.waitForFunction(() => /Змінився мікрофон або навушники/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
+  assert.match(await p2.page.textContent('#micnote'), /Змінився мікрофон або навушники/);
+  await p2.page.evaluate(() => window.__game.mic.setCalibration({ ...window.__game.mic.cal }));
+  assert.equal(await p2.page.evaluate(() => window.__game.mic.deviceChanged), false);
+  assert.deepEqual(p2.errors, []);
+  await c2.close();
+});
+
+test('iPhone (UA in Chromium): audio session playback -> play-and-record with the microphone; "silent switch" note; old calibration asks for the game-sounds step', async () => {
+  const ctx = await newContext(browser, { ...devices['iPhone 15 landscape'], permissions: ['microphone', 'clipboard-read', 'clipboard-write'] });
+  await ctx.addInitScript((cal) => {
+    navigator.audioSession = { type: 'auto', state: 'inactive' };
+    localStorage.setItem('nocturne.mic', JSON.stringify(cal));
+  }, MIC_CAL);
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  assert.equal(await page.isVisible('#iosnote'), true);
+  assert.match(await page.textContent('#iosnote'), /«Без звуку»/);
+  assert.match(await page.textContent('#michelp'), /Safari може питати дозвіл при кожному відкритті/);
+  await fingerPressEl(page, cdp, '#soundtest');   // the sound test also unlocks audio -> playback
+  await page.waitForFunction(() => navigator.audioSession.type === 'playback');
+  await micOn(page, cdp);
+  assert.equal(await page.evaluate(() => navigator.audioSession.type), 'play-and-record');
+  assert.match(await page.textContent('#micnote'), /без кроку «Звуки гри»/);
+  await page.tap('#start'); await page.waitForFunction(() => window.__game.playing);
+  const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
+  assert.equal(r.phone.audioSession.type, 'play-and-record'); assert.equal(r.phone.audioSession.ios, true);
+  assert.equal(r.mic.game.measured, false); assert.equal(r.mic.game.bleedDb, -34, 'estimate until the step is done');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('PC keyboard as before: WASD walks, E picks up / puts down, T door, C crouch', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, base);
@@ -896,6 +1172,11 @@ test('VR regression (IWER Quest 3): enter VR, walk with the stick, snap turn, pi
   assert.equal((await modeOf(page)).mode, 'vr', 'the emulated Quest is detected as a headset');
   await page.waitForFunction(() => /ENTER VR/i.test(document.getElementById('vrbutton').textContent));
   assert.deepEqual(await page.evaluate(() => [window.__game.hud, window.__game.menu, window.__game.feedback, window.__game.wrist.mesh.visible]), [null, null, null, true], 'VR: wrist panel, no phone UI');
+  const vrMic = await page.evaluate(async () => { const { stepsFor } = await import('./src/audio/calibrate.js'); const m = window.__game.mic; return { steps: stepsFor(false).length, game: m.gameDbFn, cover: m.coverHint, agc: m.agcAdjust, raised: m.masking }; });
+  assert.deepEqual(vrMic, { steps: 4, game: null, cover: false, agc: false, raised: 0 }, 'VR: the microphone and the 4-step calibration as before');
+  await page.evaluate(() => { const g = window.__game; g.mic.noMic = true; g.pressBoard('micpage'); g.sim(0.1); });
+  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (4 кроки)')), 'VR board: 4 steps');
+  await page.evaluate(() => { const g = window.__game; g.mic.noMic = false; g.pressBoard('back'); g.sim(0.1); });
   await page.click('#vrbutton');
   await page.waitForFunction(() => window.__game.inVR, null, { timeout: 10000 });
   await page.waitForTimeout(500);
@@ -936,7 +1217,7 @@ let failed = 0;
 const only = process.env.ONLY;   // ONLY=word runs the tests whose name contains it
 for (const t of tests.filter((x) => !only || x.name.includes(only))) {
   const t0 = Date.now();
-  browser = await launch({ micWav });
+  browser = await launch({ micWav: t.wav || micWav });
   try { await t.fn(); console.log(`✓ ${t.name} (${((Date.now() - t0) / 1000).toFixed(1)} s)`); }
   catch (e) { failed++; console.log(`✗ ${t.name}\n  ${String(e.stack || e).split('\n').slice(0, 4).join('\n  ')}`); }
   await browser.close().catch(() => {});

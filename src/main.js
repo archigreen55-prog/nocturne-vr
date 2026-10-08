@@ -19,7 +19,7 @@ import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, existingAudioContext, setAudioStateHook, suspendAudio, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
+import { unlockAudio, existingAudioContext, setAudioStateHook, suspendAudio, gameBusDb, playSampleSounds, audioSessionState, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
 import { applyDifficulty, DIFFS } from './game/difficulty.js';
 import { contractById, goalText, bonusText, progress, evaluate, bestStars, recordStars } from './game/contracts.js';
 import { runCalibration } from './audio/calibrate.js';
@@ -391,6 +391,22 @@ if (touch) {
   // a finger lift on any HTML button (menu, summary) restores full screen too
   pressHooks.onGesture = touch.onGesture;
   touch.onLoud = () => fx('stepsLoud');
+  // microphone on a phone (T3): the game's own sound from the speaker is not your voice (decision §9
+  // p. 10: the analyser on the game bus), "covered?" hint, auto gain default, headphones in / out
+  mic.gameDbFn = gameBusDb;
+  mic.coverHint = true;
+  mic.agcAdjust = true;
+  mic.watchDevices();
+}
+mic.watchPermission();
+mic.onSource = (src) => scream.retap(src);   // a re-opened microphone stream: the scream replay keeps recording
+// the sample of game sounds (calibration step "Звуки гри", "Перевірити звук")
+function playGame() {
+  const c = unlockAudio();
+  if (!c) return 0;
+  if (c.state === 'running') return playSampleSounds();
+  c.resume().then(() => playSampleSounds(), () => {});
+  return 3.2;
 }
 // phone: portrait while playing = paused behind "rotate the phone"
 const rotateBlocked = () => !!touch && playingDesktop && innerHeight > innerWidth;
@@ -444,18 +460,20 @@ function pauseResume() {
   graceUntil = performance.now() + 2000;
   last = performance.now();
   phoneLayout();
-  // the microphone may have been taken by the system during a call: say so (full recovery: wave T3)
-  setTimeout(() => {
-    if (paused || mic.state !== 'on' || !mic.track) return;
-    if (mic.track.readyState === 'ended') flash('Мікрофон відключила система. Відкрий меню → «Мікрофон і калібрування»', 6, '#ff9f43');
-  }, 800);
+  // the microphone after a call / a minimised page: re-opened right inside this tap if the system
+  // stopped it (iPhone allows that only from a user gesture); muted = still held by the system
+  mic.recover().then((r) => {
+    if (r === 'reacquired') flash('Мікрофон знову працює', 2.5, '#5fd38d');
+    else if (r === 'failed') flash('Мікрофон не відновився: меню → «Мікрофон і калібрування»', 6, '#ff9f43');
+    else if (r === 'muted') flash('Мікрофон ще зайнятий системою (дзвінок?). Повернеться сам', 4, '#ffb347');
+  });
 }
 function pauseAuto(reason) { if (touch && playingDesktop && !inVR && !paused) pauseOpen(reason); }
 const menu = touch ? new PauseMenu($('pausemenu'), {
   info: () => ({
     contractName: contract.name, diffName: CFG.difficulties[difficulty].name, phase: round.phase, clock: round.clock, vanSum: loot.tally().sum,
     canChange: round.phase === 'ready', brief: contract.brief, goalText: goalText(contract, loot.items), bonusText: bonusText(contract),
-    micText: mic.noMic ? 'Мікрофон: гра без мікрофона' : mic.state === 'on' ? `Мікрофон: увімкнено, ${mic.calibrated ? 'калібровано' : 'не калібровано'}` : mic.state === 'denied' ? 'Мікрофон: дозвіл не надано' : 'Мікрофон: вимкнено',
+    micText: mic.noMic ? 'Мікрофон: гра без мікрофона' : mic.state === 'on' ? `Мікрофон: увімкнено, ${mic.calibrated ? 'калібровано' : 'не калібровано'}${mic.bleedMeasured ? '' : ' (без кроку «Звуки гри»)'}${mic.deviceChanged ? ', змінився пристрій — перекалібруй' : ''}` : mic.state === 'denied' ? 'Мікрофон: дозвіл не надано' : 'Мікрофон: вимкнено',
   }),
   label: optLabel,
   cycle: (key) => { const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },
@@ -558,8 +576,8 @@ function setDifficulty(id) {
 let boardPage = 'contract', calib = null, calibNotes = '';
 async function calibrateInVR() {
   if (calib || mic.state !== 'on') return;
-  calib = { i: 0, step: { title: '', say: '' }, phase: 'prep', left: 1.5 };
-  const res = await runCalibration(mic, (st) => { calib = st; boardDirty = true; });
+  calib = { i: 0, step: { title: '', say: '' }, phase: 'prep', left: 1.5, total: touch ? 5 : 4 };
+  const res = await runCalibration(mic, (st) => { calib = st; boardDirty = true; }, touch ? { phone: true, playGame } : undefined);
   calib = null;
   if (res.ok) mic.setCalibration(res.cal);
   calibNotes = (res.ok ? 'Готово. ' : '') + res.notes.join(' ');
@@ -567,8 +585,8 @@ async function calibrateInVR() {
 }
 async function micOnInVR() {
   await mic.enable();
-  if (mic.state === 'on') { scream.start(); calibNotes = 'Мікрофон увімкнено. Відкалібруй його (4 кроки).'; }
-  else calibNotes = `Мікрофон не ввімкнувся (${mic.error || mic.state}). Зніми шолом і дозволь його на стартовому екрані.`;
+  if (mic.state === 'on') { scream.start(); calibNotes = `Мікрофон увімкнено. Відкалібруй його (${touch ? '5 кроків' : '4 кроки'}).`; }
+  else calibNotes = touch ? `Мікрофон не ввімкнувся (${mic.error || mic.state}). Меню ❚❚ → «Мікрофон і калібрування» — там написано, як дозволити.` : `Мікрофон не ввімкнувся (${mic.error || mic.state}). Зніми шолом і дозволь його на стартовому екрані.`;
   start.refresh(); boardDirty = true;
 }
 function pressBoard(id) {
@@ -812,7 +830,7 @@ function simulate(dt, xrFrame, now) {
       page: boardPage, contract, contractIndex: CFG.contracts.indexOf(contract), contractCount: CFG.contracts.length,
       goalText: goalText(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
       diffName: CFG.difficulties[difficulty].name, difficulty, progress: progress(contract, T, loot), verdict,
-      noMic: mic.noMic, mic, calib, calibNotes, levelColor: lv.color, levelLabel: lv.label,
+      noMic: mic.noMic, mic, calib, calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: touch ? 5 : 4,
     });
   }
 }
@@ -893,7 +911,7 @@ for (const c of CFG.contracts) $('contract').add(new Option(c.name, c.id));
 $('contract').addEventListener('change', () => { if (round.phase === 'ready') setContract($('contract').value); else syncStartScreen(); });
 $('difficulty').addEventListener('change', () => { if (round.phase === 'ready') setDifficulty($('difficulty').value); else syncStartScreen(); });
 const start = setupStartScreen({
-  mic,
+  mic, phone: !!touch, dev: MODE, playGame,
   onMicOn: () => scream.start(),
   onChange: () => { boardDirty = true; },
   onPlay() {
@@ -918,6 +936,19 @@ const start = setupStartScreen({
   },
 });
 syncStartScreen();
+// microphone changes (permission, a stream re-opened, headphones in / out): besides the start screen
+{
+  const startChange = mic.onChange;
+  let devSeen = 0;
+  mic.onChange = () => {
+    startChange();
+    if (menu) menu.refresh();
+    if (touch && mic.events.deviceChanges > devSeen) {
+      devSeen = mic.events.deviceChanges;
+      if (playingDesktop) flash('Змінився мікрофон або навушники: перекалібруй (меню → «Мікрофон і калібрування»)', 5, '#ffb347');
+    }
+  };
+}
 const vrButton = VRButton.createButton(renderer);
 vrButton.id = 'vrbutton';
 vrButton.addEventListener('click', () => unlockAudio(), true);
@@ -942,7 +973,7 @@ const reportText = () => buildReport({
   game: { phase: round.phase, contract: contract.id, difficulty, inVR, playing: playingDesktop, simSeconds: +simT.toFixed(1) },
   screen: touch ? {
     ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused, pauses: pauseLog.slice(-10),
-    feedback: feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started',
+    feedback: feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),
   } : undefined,
 });
 $('report').addEventListener('click', () => copyReport(reportText()));
@@ -981,6 +1012,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
-  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, hud, menu, summary, feedback, pauseOpen, pauseResume, get paused() { return paused; }, get audio() { return existingAudioContext(); }, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
+  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, hud, menu, summary, feedback, pauseOpen, pauseResume, get paused() { return paused; }, get audio() { return existingAudioContext(); }, playGame, siren, start, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };

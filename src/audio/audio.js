@@ -39,7 +39,79 @@ export function suspendAudio() {
   ctx.suspend().catch(() => { ours = false; });
 }
 
+// ---------- the game's own sound, measured (plan-phone-mode §2.3, decision §9 p. 10) ----------
+// An analyser on the shared bus (everything the game plays goes through `master`; the scream replay
+// and the microphone's silent taps do not). The microphone compares what it hears with this level:
+// while the game is loud, its own sounds coming out of the phone speaker are not taken for your voice.
+let busAn = null, busBuf = null;
+export function gameBusDb() {
+  if (!ctx || !master) return -100;
+  if (!busAn) {
+    busAn = ctx.createAnalyser();
+    busAn.fftSize = 1024;
+    busAn.smoothingTimeConstant = 0;
+    busBuf = new Float32Array(busAn.fftSize);
+    master.connect(busAn);   // a tap: the analyser has no output
+  }
+  if (ctx.state !== 'running') return -100;
+  busAn.getFloatTimeDomainData(busBuf);
+  let s = 0;
+  for (let i = 0; i < busBuf.length; i++) s += busBuf[i] * busBuf[i];
+  return Math.max(-100, 10 * Math.log10(s / busBuf.length + 1e-12));
+}
+
+// Calibration step "Звуки гри": ~3 s of typical loud game sounds at the game's own volume (steps,
+// a door creak, the guard's shout, heartbeat, a siren burst), so the microphone can measure how much
+// of the game it hears. Returns the length in s.
+export function playSampleSounds() {
+  if (!ready()) return 0;
+  const v = new Voice3D(1, false), t = ctx.currentTime;
+  for (let i = 0; i < 4; i++) setTimeout(() => playStep(v, 1.6), i * 380);
+  oneShot(null, false, 2.5, 1, (dst, t0) => {
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(90, t0 + 1.5); o.frequency.linearRampToValueAtTime(150, t0 + 2.1);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 3;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t0 + 1.5); g.gain.linearRampToValueAtTime(0.25, t0 + 1.6); g.gain.linearRampToValueAtTime(0, t0 + 2.1);
+    o.connect(bp).connect(g).connect(dst); o.start(t0 + 1.5); o.stop(t0 + 2.2);
+  });
+  setTimeout(() => playGrunt(v, 'alarm'), 1700);
+  setTimeout(() => playHeartbeat(), 2200);
+  oneShot(null, false, 3.2, 1, (dst) => {
+    const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(620, t + 2.2); o.frequency.linearRampToValueAtTime(900, t + 3);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t + 2.2); g.gain.linearRampToValueAtTime(0.06, t + 2.4); g.gain.linearRampToValueAtTime(0, t + 3.1);
+    o.connect(g).connect(dst); o.start(t + 2.2); o.stop(t + 3.2);
+  });
+  setTimeout(() => v.dispose(), 4000);
+  return 3.2;
+}
+
+// ---------- iPhone audio session (Safari 16.4+: navigator.audioSession; plan §10.1) ----------
+// 'playback' while only the game sounds (the side "silent" switch does not mute it), 'play-and-record'
+// once the microphone is on. Older iOS: a silent looping <audio> element started from a tap does
+// the same job for the silent switch. Both are no-ops elsewhere.
+const IOS = /\b(iPhone|iPod|iPad)\b/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const session = { api: !!navigator.audioSession, type: navigator.audioSession ? navigator.audioSession.type : null, silentLoop: false, changes: 0 };
+export function setAudioSession(type) {
+  if (!navigator.audioSession) return;
+  try { if (navigator.audioSession.type !== type) { navigator.audioSession.type = type; session.changes++; } } catch { /* not allowed */ }
+  session.type = navigator.audioSession.type;
+}
+let silentEl = null;
+function silentLoop() {
+  if (!IOS || navigator.audioSession || silentEl) return;
+  // 0.1 s of silence, 8 kHz mono WAV
+  const n = 800, b = new Uint8Array(44 + n * 2), v = new DataView(b.buffer);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) b[o + i] = str.charCodeAt(i); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  let bin = ''; for (const x of b) bin += String.fromCharCode(x);
+  silentEl = document.createElement('audio');
+  silentEl.loop = true; silentEl.setAttribute('playsinline', ''); silentEl.src = 'data:audio/wav;base64,' + btoa(bin);
+  silentEl.play().then(() => { session.silentLoop = true; }, () => { silentEl = null; });
+}
+export const audioSessionState = () => ({ ...session, state: navigator.audioSession ? navigator.audioSession.state : undefined, ios: IOS });
+
 export function unlockAudio() {
+  if (IOS) { if (session.type !== 'play-and-record') setAudioSession('playback'); silentLoop(); }
   const c = audioContext();
   if (c && c.state !== 'running') c.resume().catch(() => {});
   return c;

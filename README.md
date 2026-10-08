@@ -25,10 +25,11 @@ One game, one code base; the mode is chosen automatically and shown on the start
 controls are being built, see below) and **PC** (keyboard and mouse). `?mode=vr|phone|pc` overrides
 the detection and is remembered on the device; `?mode=auto` goes back to automatic.
 
-Phone version status: wave T2 — HTML HUD, pause menu, round summary, vibration (below). Earlier: T1
+Phone version status: wave T3 — the microphone on a phone (below). Earlier: T2 HTML HUD, pause menu,
+round summary, vibration; T1
 touch controls; T0 mode detection, "Скопіювати звіт" (device, version, FPS, microphone and errors as JSON
 to paste into a chat), `?debug` error panel, a clear message when the game cannot start (for example iOS
-older than 16.4). Next: the microphone on a phone (T3).
+older than 16.4). Next: performance and the home-screen app (T4).
 
 ## Controls (phone, landscape)
 
@@ -65,6 +66,24 @@ wave T4). The screen stays on during play (Wake Lock).
   on iPhone (no `navigator.vibrate`) a short flash of the screen edge, and a soft sound for "hidden".
   Setting "Вібрація": auto / flashes only / off.
 - In VR and on a PC nothing changes: the wrist panel and the 3D board stay.
+
+### Microphone on a phone (T3)
+
+- **Calibration in 5 steps**: silence, **game sounds** (the game plays steps, a creak, a siren from the speaker
+  while you keep quiet, and measures how much of it the microphone hears), whisper, voice, shout. Hold the
+  phone the way you will play; headphones are best.
+- **The game's own sounds are not your voice**: an analyser on the game's sound bus; while the game is loud,
+  the whisper / shout boundaries rise above the game as the microphone hears it (the HUD says "звуки гри:
+  межі +N дБ").
+- **Check after the wizard**: whisper, say, shout — the game shows what it heard and which ± to press.
+- **Permission**: before asking, what the dialogs will be; if refused, where to allow it (Chrome on Android,
+  Safari on iPhone).
+- **"Microphone covered?"** when the level stays far under your calibrated silence.
+- **After a call / a minimised page**: "Продовжити" re-opens the microphone if the system stopped it.
+  Headphones plugged in or out: the game asks for a new calibration.
+- **iPhone**: audio session 'playback' (the side silent switch does not mute the game) and 'play-and-record'
+  with the microphone (Safari 16.4+; older iOS: a silent audio loop); a "Перевірити звук" button.
+- VR and PC: the microphone and the 4-step calibration as before.
 
 ## Privacy
 

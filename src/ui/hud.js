@@ -111,7 +111,8 @@ export class Hud {
     const live = mic.state === 'on' && !mic.noMic;
     e.bar.classList.toggle('off', !live);
     if (live) {
-      const pw = mic.barPos(mic.whisperDb), ps = mic.barPos(mic.shoutDb), pct = (v) => (v * 100).toFixed(1) + '%';
+      // the boundaries in effect now (raised while the game's own sound is loud: decision §9 p. 10)
+      const pw = mic.barPos(mic.whisperEff ?? mic.whisperDb), ps = mic.barPos(mic.shoutEff ?? mic.shoutDb), pct = (v) => (v * 100).toFixed(1) + '%';
       this.style('zq', e.zq, 'width', pct(pw));
       this.style('zn', e.zn, 'left', pct(pw)); this.style('zn', e.zn, 'width', pct(ps - pw));
       this.style('zs', e.zs, 'left', pct(ps)); this.style('zs', e.zs, 'width', pct(1 - ps));
@@ -119,7 +120,7 @@ export class Hud {
       this.style('fill', e.fill, 'width', pct(mic.barPos(mic.env)));
       this.style('fill', e.fill, 'background', holding ? '#2e6aa0' : LEVELS[mic.level].color);
     }
-    const db = !live ? '' : mic.problem ? mic.problem : `${mic.env.toFixed(0)} дБ${s.speaking ? ' · тебе чути' : ''}`;
+    const db = !live ? '' : mic.problem ? mic.problem : mic.masking >= 3 ? `звуки гри: межі +${mic.masking.toFixed(0)} дБ` : `${mic.env.toFixed(0)} дБ${s.speaking ? ' · тебе чути' : ''}`;
     this.text('micdb', e.micdb, db);
     this.style('micdb', e.micdb, 'color', mic.problem ? '#ff5c5c' : '#6f8396');
     // message line: the latest message, else the guard

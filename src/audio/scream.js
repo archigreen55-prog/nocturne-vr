@@ -90,6 +90,12 @@ export class ScreamRecorder {
     });
   }
 
+  // The microphone stream was replaced (after a call, a device change): tap the new source.
+  retap(src) {
+    if (this.node && (this.mode === 'worklet' || this.mode === 'script')) { try { src.connect(this.node); } catch (e) { console.warn('scream retap', e); } }
+    // 'recorder' picks up mic.stream by itself with its next 2 s segment
+  }
+
   push(block) {
     const r = this.ring, n = r.length;
     for (let i = 0; i < block.length; i++) { r[this.w] = block[i]; this.w = (this.w + 1) % n; }

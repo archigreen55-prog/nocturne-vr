@@ -162,7 +162,7 @@ export class Board {
     g.fillText(status, 320, 78);
     if (s.calib) {   // the wizard is running
       g.font = 'bold 40px system-ui, sans-serif'; g.fillStyle = s.calib.phase === 'rec' ? '#ff9f43' : '#93a1b8';
-      g.fillText(`${s.calib.i + 1}/4  ${s.calib.step.title.toUpperCase()}  ${s.calib.left.toFixed(1)} с`, 50, 150);
+      g.fillText(`${s.calib.i + 1}/${s.calib.total || 4}  ${s.calib.step.title.toUpperCase()}  ${s.calib.left.toFixed(1)} с`, 50, 150);
       g.font = '28px system-ui, sans-serif'; g.fillStyle = '#e6ecf5';
       wrap(g, s.calib.phase === 'rec' ? s.calib.step.say : 'Приготуйся…', 50, 196, W - 100, 34);
     } else if (s.calibNotes) {
@@ -186,7 +186,7 @@ export class Board {
     }
     const on = M.state === 'on' && !M.noMic, busy = !!s.calib;
     if (!on && !M.noMic) this.buttons.push({ id: 'micon', label: 'Увімкнути мікрофон', x: 50, y: 410, w: 420, h: 80, font: 30 });
-    else this.buttons.push({ id: 'cal', label: 'Калібрувати (4 кроки)', x: 50, y: 410, w: 420, h: 80, font: 30, enabled: on && !busy });
+    else this.buttons.push({ id: 'cal', label: s.calSteps === 5 ? 'Калібрувати (5 кроків)' : 'Калібрувати (4 кроки)', x: 50, y: 410, w: 420, h: 80, font: 30, enabled: on && !busy });
     this.buttons.push({ id: 'nomic', label: M.noMic ? 'Без мікрофона: так' : 'Без мікрофона: ні', x: 490, y: 410, w: 484, h: 80, font: 30, enabled: !busy });
     this.buttons.push({ id: 'wdn', label: 'шепіт −', x: 50, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
     this.buttons.push({ id: 'wup', label: 'шепіт +', x: 262, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
