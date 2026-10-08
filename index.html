@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nocturne VR</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#0a0f1c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nocturne">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>
   // Errors from the very first moment, for the report and ?debug (a phone has no DevTools), and a
   // message on the start screen when the game cannot start at all (old iOS, a CDN that is down):
@@ -21,7 +28,7 @@
     };
     addEventListener('error', (e) => {
       const t = e.target;
-      if (t && t !== window && (t.src || t.href)) add('load', /main\.js/.test(t.src) ? 'не завантажились модулі гри (src/main.js або three.js з cdn.jsdelivr.net)' : `не завантажилось: ${t.src || t.href}`);
+      if (t && t !== window && (t.src || t.href)) add('load', /main\.js/.test(t.src) ? 'не завантажились модулі гри (src/main.js або vendor/three)' : `не завантажилось: ${t.src || t.href}`);
       else add('error', `${e.message}${e.filename ? ` @ ${e.filename.split('/').pop().split('?')[0]}:${e.lineno}:${e.colno}` : ''}`);
     }, true);
     addEventListener('unhandledrejection', (e) => add('promise', e.reason && (e.reason.stack || e.reason.message) || e.reason));
@@ -209,52 +216,56 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.8",
-    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.8",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.8",
-    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.8",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.8",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.8",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.8",
-    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.8",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.8",
-    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.8",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.8",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.8",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.8",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.8",
-    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.8",
-    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.8",
-    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.8",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.8",
-    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.8",
-    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.8",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.8",
-    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.8",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.8",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.8",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.8",
-    "./src/main.js": "./src/main.js?v=0.6.0-pre.8",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.8",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.8",
-    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.8",
-    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.8",
-    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.8",
-    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.8",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.8",
-    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.8",
-    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.8",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.8",
-    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.8",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.8",
-    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.8",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.8",
-    "./src/version.js": "./src/version.js?v=0.6.0-pre.8",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.8",
-    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.8",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.8"
+    "three": "./vendor/three-0.186.1.min.js",
+    "three/addons/webxr/VRButton.js": "./vendor/three-addons.js?v=0.186.1",
+    "three/addons/utils/BufferGeometryUtils.js": "./vendor/three-addons.js?v=0.186.1",
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.9",
+    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.9",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.9",
+    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.9",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.9",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.9",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.9",
+    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.9",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.9",
+    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.9",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.9",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.9",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.9",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.9",
+    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.9",
+    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.9",
+    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.9",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9",
+    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9",
+    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9",
+    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.9",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.9",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.9",
+    "./src/main.js": "./src/main.js?v=0.6.0-pre.9",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.9",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.9",
+    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.9",
+    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.9",
+    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.9",
+    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.9",
+    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.9",
+    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.9",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.9",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.9",
+    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.9",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.9",
+    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.9",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.9",
+    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.9",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.9",
+    "./src/version.js": "./src/version.js?v=0.6.0-pre.9",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.9",
+    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.9",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.9"
   }
 }
 </script>
@@ -263,7 +274,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.6.0-pre.8';
+    const PAGE_VERSION = '0.6.0-pre.9';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -331,9 +342,13 @@
     <label class="phone-only">Огляд пальцем:<select id="lookspeed"><option value="slow">повільно</option><option value="normal">звичайно</option><option value="fast">швидко</option></select></label>
     <label class="phone-only">Індикатори:<select id="hudmode"><option value="full">повні</option><option value="min">мінімальні</option></select></label>
     <label class="phone-only">Вібрація:<select id="feedback"><option value="auto">вібрація, а без неї спалахи</option><option value="flash">лише спалахи</option><option value="off">вимкнено</option></select></label>
+    <label class="phone-only">Якість:<select id="quality"><option value="auto">авто</option><option value="low">низька</option><option value="medium">середня</option><option value="high">висока</option></select></label>
+    <label class="phone-only">Частота:<select id="fpscap"><option value="60">60 кадрів/с</option><option value="30">30 кадрів/с (економія батареї)</option></select></label>
     <label class="phone-only">Подих:<select id="breathmode"><option value="hold">утримувати кнопку</option><option value="toggle">тап — почати, тап — закінчити</option></select></label>
   </div>
+  <div class="row phone-only"><button id="gyrobtn">Гіроскоп: вимкнено</button><span id="qualitynote" class="muted"></span></div>
   <div class="row phone-only"><button id="phonehome">До фургона</button><button id="phonenew">Новий раунд</button></div>
+  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden>Встановити на головний екран</button><span id="installnote" class="muted"></span></div>
   <p class="muted">Грай стоячи на вільному місці. Уся ходьба можлива стіком, реальні кроки й присідання теж працюють.</p>
 
   <h2>Як ховатись</h2>
@@ -397,6 +412,6 @@
 <div id="summary" hidden></div>
 <div id="pausemenu" hidden></div>
 <div id="rotate">Поверни телефон горизонтально.<br><span class="muted" style="font-size:15px">Не повертається? Вимкни блокування орієнтації: на iPhone — у Пункті керування, на Android — «Автоповорот» у верхній шторці.</span></div>
-<script type="module" src="src/main.js?v=0.6.0-pre.8"></script>
+<script type="module" src="src/main.js?v=0.6.0-pre.9"></script>
 </body>
 </html>

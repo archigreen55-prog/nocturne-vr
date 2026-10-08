@@ -25,11 +25,11 @@ One game, one code base; the mode is chosen automatically and shown on the start
 controls are being built, see below) and **PC** (keyboard and mouse). `?mode=vr|phone|pc` overrides
 the detection and is remembered on the device; `?mode=auto` goes back to automatic.
 
-Phone version status: wave T3 — the microphone on a phone (below). Earlier: T2 HTML HUD, pause menu,
-round summary, vibration; T1
+Phone version status: wave T4 — performance and the home-screen app (below). Earlier: T3 the microphone
+on a phone; T2 HTML HUD, pause menu, round summary, vibration; T1
 touch controls; T0 mode detection, "Скопіювати звіт" (device, version, FPS, microphone and errors as JSON
 to paste into a chat), `?debug` error panel, a clear message when the game cannot start (for example iOS
-older than 16.4). Next: performance and the home-screen app (T4).
+older than 16.4). Next: ready for players (T5).
 
 ## Controls (phone, landscape)
 
@@ -66,6 +66,25 @@ wave T4). The screen stays on during play (Wake Lock).
   on iPhone (no `navigator.vibrate`) a short flash of the screen edge, and a soft sound for "hidden".
   Setting "Вібрація": auto / flashes only / off.
 - In VR and on a PC nothing changes: the wrist panel and the 3D board stay.
+
+### Performance and the home-screen app (T4)
+
+- **Board by the crosshair**: aim the centre of the screen at a board button and press «Натиснути» (the
+  context button), or tap the board button itself.
+- **Quality** (settings): auto / low / medium / high (pixel ratio 1.0 / 1.25 / 1.5; low also drops MSAA,
+  far lamps and 3D sound panning). Auto starts at medium (high on iPhone) and steps down once if the
+  first 5 s of play run under 40 FPS. **Dynamic resolution** steps the pixel ratio down when the frame rate
+  stays low and back up when it recovers. **30 / 60 FPS** cap (30 = battery saver).
+- The board is redrawn only when what it shows changes and it is in view. The report has FPS per minute
+  with the preset, pixel ratio and cap, and the battery level.
+- three.js is a minified local copy in `vendor/` (`node tools/vendor-three.mjs`), no CDN.
+- **Home-screen app**: `manifest.webmanifest` (full screen, landscape), icons (`node tools/make-icons.mjs`),
+  an install button on Android, the "Поділитися → На початковий екран" hint on iPhone.
+- **Service worker** (`sw.js`, phone only): offline play after the first visit. It never keeps an old
+  version: pages come from the network first, every module URL carries `?v=<version>`, and
+  `tools/bump-version.mjs` writes the version and the file list into `sw.js`. The main site and each
+  preview have their own worker and caches. `?nosw` removes it.
+- **Gyroscope** (option): turning the phone turns the view, on top of the finger.
 
 ### Microphone on a phone (T3)
 

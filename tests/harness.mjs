@@ -1,6 +1,5 @@
 // Test harness: a static server for the working tree (at /nocturne-vr/ like GitHub Pages, and at
-// /nocturne-vr/preview/test/ like a branch preview) and Chromium with three.js served from
-// node_modules instead of the CDN (the cloud sessions cannot reach cdn.jsdelivr.net).
+// /nocturne-vr/preview/test/ like a branch preview) and Chromium.
 import { createServer } from 'node:http';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
@@ -9,9 +8,9 @@ import { tmpdir } from 'node:os';
 import { chromium } from 'playwright';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.md': 'text/markdown' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.md': 'text/markdown', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 
-export async function startServer() {
+export async function startServer(root = ROOT) {
   const server = createServer(async (req, res) => {
     const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const m = /^\/nocturne-vr(?:\/preview\/[^/]+)?(\/.*)$/.exec(path);
@@ -19,7 +18,7 @@ export async function startServer() {
     let rel = normalize(m[1]).replace(/^(\.\.[/\\])+/, '');
     if (rel.endsWith('/')) rel += 'index.html';
     try {
-      const body = await readFile(join(ROOT, rel));
+      const body = await readFile(join(root, rel));
       res.writeHead(200, { 'content-type': TYPES[extname(rel)] || 'application/octet-stream', 'cache-control': 'no-store' });
       res.end(body);
     } catch { res.writeHead(404); res.end(); }
@@ -66,16 +65,12 @@ export async function launch({ micWav } = {}) {
   return chromium.launch({ args });
 }
 
-// New context; `three` and `three/addons` come from node_modules; abortCdn = simulate a CDN outage.
-export async function newContext(browser, options = {}, { abortCdn = false } = {}) {
-  const { abortCdn: _, ...opts } = options;
-  const ctx = await browser.newContext(opts);
-  await ctx.route('https://cdn.jsdelivr.net/npm/three@*/**', async (route) => {
-    if (abortCdn) return route.abort('connectionrefused');
-    const p = /three@[^/]+\/(.*)$/.exec(new URL(route.request().url()).pathname)[1];
-    try { route.fulfill({ status: 200, contentType: 'text/javascript', body: await readFile(join(ROOT, 'node_modules/three', p)) }); }
-    catch { route.fulfill({ status: 404 }); }
-  });
+// New context. three.js is served from vendor/ (the minified bundle) like on the site; abortVendor =
+// simulate it failing to load. Service workers are blocked unless sw: true (they would cache between
+// pages and keep requests away from the routes); the service-worker tests opt in.
+export async function newContext(browser, options = {}, { abortVendor = false, sw = false } = {}) {
+  const ctx = await browser.newContext({ serviceWorkers: sw ? 'allow' : 'block', ...options });
+  if (abortVendor) await ctx.route('**/vendor/**', (route) => route.abort('connectionrefused'));
   return ctx;
 }
 

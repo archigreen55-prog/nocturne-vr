@@ -41,7 +41,7 @@ export class TouchControls {
     this.hitBoard = null;                // (clientX, clientY) -> board button id | null, set by main
     this.onGesture = null;               // called on every finger lift (a user gesture: full screen)
     this.onLoud = null;                  // called when the stick crosses the "quiet" ring (a vibration / flash cue)
-    this.pausePtr = null;                // { id, x0, y0 } a finger on the pause button (fires on release)
+    this.rel = new Map();                // pointerId -> { b, x0, y0 }: pause and the context button fire on release
     this.build();
   }
 
@@ -80,7 +80,7 @@ export class TouchControls {
         else this.breathDown = true;
         this.breathPtr = e.pointerId;
       } else if (b === 'door') this.door = { id: e.pointerId, t0: e.timeStamp, holding: false };
-      else if (b === 'pause') this.pausePtr = { id: e.pointerId, x0: e.clientX, y0: e.clientY };   // opens the menu on release
+      else if (b === 'pause' || b === 'interact') this.rel.set(e.pointerId, { b, btn, x0: e.clientX, y0: e.clientY });   // fire on release, like the board buttons
       else this.edges.add(b);
       return;
     }
@@ -100,10 +100,9 @@ export class TouchControls {
   }
 
   moveEv(e) {
-    if (this.pausePtr && e.pointerId === this.pausePtr.id) {
-      const P = this.pausePtr, btn = this.el.pause.getBoundingClientRect();
-      const inside = Math.hypot(e.clientX - P.x0, e.clientY - P.y0) <= BOARD_SLOP || (e.clientX >= btn.left && e.clientX <= btn.right && e.clientY >= btn.top && e.clientY <= btn.bottom);
-      this.el.pause.classList.toggle('on', inside);
+    if (this.rel.has(e.pointerId)) {
+      const P = this.rel.get(e.pointerId);
+      P.btn.classList.toggle('on', this.overRel(P, e));
     } else if (this.board && e.pointerId === this.board.id) {
       this.pressing = this.overBoardButton(e) ? this.board.btn : null;
     } else if (this.joy && e.pointerId === this.joy.id) {
@@ -121,12 +120,11 @@ export class TouchControls {
 
   up(e, cancelled = false) {
     if (!cancelled && this.onGesture) this.onGesture();
-    if (this.pausePtr && e.pointerId === this.pausePtr.id) {
+    if (this.rel.has(e.pointerId)) {
       // like the board buttons: pressed when the finger is lifted over the button, however long it was held
-      const P = this.pausePtr, btn = this.el.pause.getBoundingClientRect();
-      const inside = Math.hypot(e.clientX - P.x0, e.clientY - P.y0) <= BOARD_SLOP || (e.clientX >= btn.left && e.clientX <= btn.right && e.clientY >= btn.top && e.clientY <= btn.bottom);
-      if (!cancelled && inside) this.edges.add('pause');
-      this.pausePtr = null;
+      const P = this.rel.get(e.pointerId);
+      if (!cancelled && this.overRel(P, e)) this.edges.add(P.b);
+      this.rel.delete(e.pointerId);
     }
     if (this.board && e.pointerId === this.board.id) {
       if (!cancelled && this.overBoardButton(e)) this.boardPress = this.board.btn;
@@ -145,6 +143,12 @@ export class TouchControls {
     }
     if (this.joy && e.pointerId === this.joy.id) { this.joy = null; this.el.joy.hidden = true; this.setKnob(0, 0); }
     if (this.lookPtr && e.pointerId === this.lookPtr.id) this.lookPtr = null;
+  }
+
+  // A release button is still pressed: over it, or within BOARD_SLOP px of where the finger landed
+  overRel(P, e) {
+    const r = P.btn.getBoundingClientRect();
+    return Math.hypot(e.clientX - P.x0, e.clientY - P.y0) <= BOARD_SLOP || (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
   }
 
   // Still on the pressed board button: over it, or within BOARD_SLOP px of where the finger landed
@@ -195,7 +199,7 @@ export class TouchControls {
   }
 
   reset() {
-    this.joy = null; this.lookPtr = null; this.door = null; this.pausePtr = null; this.board = null; this.pressing = null; this.boardPress = null;
+    this.joy = null; this.lookPtr = null; this.door = null; this.rel.clear(); this.board = null; this.pressing = null; this.boardPress = null;
     this.breathDown = false; this.breathLatched = false; this.edges.clear();
     this.el.joy.hidden = true; this.setKnob(0, 0); this.look.x = this.look.y = 0;
     for (const b of this.root.querySelectorAll('.on')) b.classList.remove('on');

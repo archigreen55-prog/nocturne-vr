@@ -14,7 +14,7 @@ const over = (el, e) => {
 const isOff = (el) => el.disabled || el.getAttribute('aria-disabled') === 'true';
 
 export function bindPress(el, fn) {
-  let p = null;
+  let p = null, lastPointer = -1e9;
   const scroller = () => el.closest('.scroll');
   el.addEventListener('pointerdown', (e) => {
     if (p || isOff(el) || (e.pointerType === 'mouse' && e.button !== 0)) return;
@@ -36,6 +36,7 @@ export function bindPress(el, fn) {
   });
   const end = (e, cancelled) => {
     if (!p || e.pointerId !== p.id) return;
+    lastPointer = performance.now();
     const fire = !cancelled && p.ok && !isOff(el);
     p = null;
     el.classList.remove('down');
@@ -45,5 +46,7 @@ export function bindPress(el, fn) {
   el.addEventListener('pointerup', (e) => end(e, false));
   el.addEventListener('pointercancel', (e) => end(e, true));
   el.addEventListener('contextmenu', (e) => e.preventDefault());
-  el.addEventListener('click', (e) => { if (e.detail === 0 && !isOff(el)) fn(e); });
+  // keyboard / screen reader only: the click that follows a finger or mouse press (some browsers send
+  // it with detail 0 too) must not press the button a second time
+  el.addEventListener('click', (e) => { if (e.detail === 0 && !isOff(el) && performance.now() - lastPointer > 1000) fn(e); });
 }

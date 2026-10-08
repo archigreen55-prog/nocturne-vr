@@ -2,7 +2,9 @@
 // settings, the fake microphone, and a VR regression in the WebXR emulator (IWER, Quest 3).
 //   npm install && npm test            (Chromium from Playwright; WebKit is not available here)
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, cp, rm, writeFile as writeFileFs } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { devices } from 'playwright';
 import { startServer, launch, newContext, watchErrors, toneWav, segmentsWav, ROOT } from './harness.mjs';
@@ -139,13 +141,13 @@ test('old iPhone (iOS 16.3): the start screen says which iOS is needed', async (
   await ctx.close();
 });
 
-test('CDN down: "Гра не завантажилась" with the error and a copyable boot report', async () => {
-  const ctx = await newContext(browser, phoneCtx(UA.pixel), { abortCdn: true });
+test('three.js (vendor/) does not load: "Гра не завантажилась" with the error and a copyable boot report', async () => {
+  const ctx = await newContext(browser, phoneCtx(UA.pixel), { abortVendor: true });
   const page = await ctx.newPage();
   await page.goto(base);
   await page.waitForSelector('#bootfail', { timeout: 30000 });
   assert.equal(await page.textContent('#start'), 'Гра не завантажилась');
-  assert.match(await page.textContent('#bootfail pre'), /three|cdn\.jsdelivr|module/i);
+  assert.match(await page.textContent('#bootfail pre'), /three|vendor|module/i);
   await page.tap('#bootfail button');
   await page.waitForFunction(() => document.querySelector('#bootfail button').textContent === 'Скопійовано');
   const r = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
@@ -1125,6 +1127,281 @@ test('iPhone (UA in Chromium): audio session playback -> play-and-record with th
   await ctx.close();
 });
 
+// ---------- T4: board by the crosshair, performance, gyroscope, home-screen app ----------
+// look at a board button: yaw / pitch from the head to the button's centre
+const aimAt = (page, id) => page.evaluate((id) => {
+  const g = window.__game, b = g.board.buttons.find((x) => x.id === id), m = g.board.mesh, P = m.geometry.parameters;
+  const w = m.localToWorld(new g.THREE.Vector3(((b.x + b.w / 2) / 1024 - 0.5) * P.width, (0.5 - (b.y + b.h / 2) / 640) * P.height, 0));
+  const h = g.player.head, dx = w.x - h.x, dy = w.y - h.y, dz = w.z - h.z;
+  g.player.lookYaw = Math.atan2(-dx, -dz); g.player.lookPitch = Math.atan2(dy, Math.hypot(dx, dz));
+}, id);
+
+test('phone: the board by the crosshair: aim at a board button -> «Натиснути» presses it (finger held 0.4 s); a slid-off finger does not', async () => {
+  const { ctx, page, errors, cdp } = await playPhone();
+  await page.waitForFunction(() => window.__game.board.buttons.some((b) => b.id === 'cnext'));
+  await aimAt(page, 'cnext');
+  await page.waitForFunction(() => window.__game.board.hover === 'cnext' && document.querySelector('#touch .act').textContent === 'Натиснути' && !document.querySelector('#touch .act').hidden, null, { timeout: 8000 });
+  const c0 = await page.evaluate(() => window.__game.contract.id);
+  // a finger that slides far off the button: nothing
+  {
+    const b = await page.locator('#touch .act').boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2, t = touchT();
+    await tp(cdp, 'touchStart', [{ x, y }], t);
+    await tp(cdp, 'touchMove', [{ x: x - 150, y: y - 60 }], t + 0.2);
+    await tp(cdp, 'touchEnd', [], (lastTouchT = t + 0.4));
+    await keepFor(page, 300);
+    assert.equal(await page.evaluate(() => window.__game.contract.id), c0, 'slid off: not pressed');
+  }
+  await fingerPressEl(page, cdp, '#touch .act');
+  await page.waitForFunction((c0) => window.__game.contract.id !== c0, c0, { timeout: 8000 });
+  // aim away from the board: the button goes (or turns into an item action)
+  await page.evaluate(() => { window.__game.player.lookYaw += Math.PI; });
+  await page.waitForFunction(() => document.querySelector('#touch .act').hidden || document.querySelector('#touch .act').textContent !== 'Натиснути', null, { timeout: 8000 });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone quality: presets (pixel ratio, MSAA note, far lamps off on low), auto pick from 5 s, dynamic resolution, per-minute tags, 30 FPS cap', async () => {
+  const { ctx, page, errors } = await playPhone();
+  await page.evaluate(() => { window.__game.playing = false; });   // drive the quality logic by hand (no real frames feed it)
+  let q = await page.evaluate(() => window.__game.quality.state());
+  assert.equal(q.setting, 'auto'); assert.equal(q.preset, 'medium', 'Android starts at medium');
+  assert.equal(q.pixelRatio, Math.min(1.25, devices['Pixel 7 landscape'].deviceScaleFactor));
+  assert.equal(await page.evaluate(() => window.__game.renderer.getPixelRatio()), q.pixelRatio);
+  // auto pick: 6 s at 30 FPS -> one preset down, remembered
+  q = await page.evaluate(() => { const Q = window.__game.quality; for (let i = 0; i < 6.5 * 30; i++) Q.frame(1000 / 30); return Q.state(); });
+  assert.equal(q.autoPick, 'low'); assert.equal(q.preset, 'low'); assert.equal(q.pixelRatio, 1);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('nocturne.qualityAuto'))), 'low');
+  // low: lamps further than 12 m are off, the near ones on
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(2.2, 6.8, 0); g.playing = true; });
+  await page.waitForFunction(() => window.__game.points.some((l) => l.intensity === 0) && window.__game.points.some((l) => l.intensity > 0), null, { timeout: 8000 });
+  await page.evaluate(() => { window.__game.playing = false; });
+  // a fixed preset from the settings (the start-screen select); the page started with MSAA (medium), so
+  // "low" (no MSAA) says it takes effect after a reload, and "high" does not need one
+  await page.evaluate(() => { const s = document.getElementById('quality'); s.value = 'low'; s.dispatchEvent(new Event('change')); });
+  assert.equal(await page.evaluate(() => window.__game.quality.needsReload), true);
+  assert.match(await page.textContent('#qualitynote'), /після перезавантаження/);
+  await page.evaluate(() => { const s = document.getElementById('quality'); s.value = 'high'; s.dispatchEvent(new Event('change')); });
+  q = await page.evaluate(() => window.__game.quality.state());
+  assert.equal(q.preset, 'high'); assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor));
+  assert.equal(q.needsReload, false); assert.equal(await page.textContent('#qualitynote'), '');
+  // dynamic resolution: 3 s at 40 FPS (< 83 % of 60) -> one step down; 10 s at 60 -> back up
+  q = await page.evaluate(() => { const Q = window.__game.quality; for (let i = 0; i < 3.2 * 40; i++) Q.frame(25); return Q.state(); });
+  assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor) - 0.125, JSON.stringify(q));
+  q = await page.evaluate(() => { const Q = window.__game.quality; for (let i = 0; i < 10.5 * 60; i++) Q.frame(1000 / 60); return Q.state(); });
+  assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor)); assert.equal(q.dynamicSteps, 2);
+  // the report: each minute says preset / pixel ratio / cap
+  const minute = await page.evaluate(() => { const f = window.__game.frameStats; for (let i = 0; i < 62; i++) f.add(990); return f.minutes.at(-1); });
+  assert.deepEqual(Object.keys(minute).sort(), ['cap', 'fps', 'pr', 'q', 'worstMs']);
+  // 30 FPS cap: rendered frames at least ~31 ms apart while playing
+  await page.evaluate(() => { const s = document.getElementById('fpscap'); s.value = '30'; s.dispatchEvent(new Event('change')); window.__game.playing = true; });
+  // the intervals the game itself recorded between the frames it ran (rAF times, as frameStats uses them)
+  await keepFor(page, 300);
+  const gaps = await page.evaluate(async () => {
+    const f = window.__game.frameStats, i0 = f.i;
+    const t0 = performance.now(); while (performance.now() - t0 < 2000) await new Promise((r) => setTimeout(r, 50));
+    const out = []; for (let k = i0; k !== f.i; k = (k + 1) % f.ms.length) out.push(f.ms[k]);
+    return out;
+  });
+  assert.ok(gaps.length > 3 && gaps.every((ms) => ms >= 31), `30 FPS cap: ${gaps.map((x) => x.toFixed(0)).join(' ')}`);
+  const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
+  assert.equal(r.phone.quality.cap, 30); assert.ok('battery' in r.phone && 'pwa' in r.phone && 'gyro' in r.phone);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // iPhone starts at high
+  const ictx = await newContext(browser, { ...devices['iPhone 15 landscape'] });
+  const ip = await open(ictx, base);
+  assert.equal(await ip.page.evaluate(() => window.__game.quality.preset), 'high');
+  await ictx.close();
+});
+
+test('board redraws only when its content changes and it is in view (phone)', async () => {
+  const { ctx, page, errors } = await playPhone();
+  const draws = () => page.evaluate(() => window.__game.perf.boardDraws || 0);
+  // at the van, facing the board, nothing changes: no redraws
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(2.2, 6.8, 2.92); });
+  await keepFor(page, 600);
+  let d0 = await draws();
+  await keepFor(page, 1500);
+  assert.equal(await draws(), d0, 'idle board: not redrawn');
+  // the clock runs (heist) but the board is behind you: not redrawn
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); g.player.teleport(2.2, 4.5, 2.92 + Math.PI); });
+  await keepFor(page, 600);
+  d0 = await draws();
+  await keepFor(page, 2500);
+  assert.equal(await draws(), d0, 'out of view: not redrawn');
+  // turned towards it: redrawn (the clock changed)
+  await page.evaluate(() => { window.__game.player.lookYaw = 2.92; });
+  await page.waitForFunction((d0) => (window.__game.perf.boardDraws || 0) > d0, d0, { timeout: 8000 });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phone gyroscope (option): off by default; on from the menu (a tap); turning the phone turns the view, the side of landscape flips it; iPhone without permission says so', async () => {
+  const { ctx, page, errors, cdp } = await playPhone();
+  assert.equal(await page.evaluate(() => window.__game.gyro.on), false);
+  await fingerPressEl(page, cdp, '#touch .pause');
+  await page.waitForFunction(() => window.__game.paused);
+  await fingerPressEl(page, cdp, pm('Налаштування'));
+  await fingerPressEl(page, cdp, '#pausemenu .pm-btn:has-text("Гіроскоп")');
+  await page.waitForFunction(() => window.__game.gyro.on);
+  await fingerPressEl(page, cdp, pm('Назад'));
+  await fingerPressEl(page, cdp, pm('Продовжити'));
+  await page.waitForFunction(() => !window.__game.paused);
+  const turn = (angle, beta, gamma) => page.evaluate(async ([angle, beta, gamma]) => {
+    Object.defineProperty(screen.orientation, 'angle', { configurable: true, get: () => angle });
+    const g = window.__game, y0 = g.player.lookYaw, p0 = g.player.lookPitch;
+    for (let i = 0; i < 30; i++) {
+      dispatchEvent(new DeviceMotionEvent('devicemotion', { rotationRate: { alpha: 0, beta, gamma }, interval: 16 }));
+      await new Promise((r) => setTimeout(r, 16));
+    }
+    const t0 = g.simT; while (g.simT < t0 + 0.05) await new Promise((r) => setTimeout(r, 20));
+    return { dyaw: g.player.lookYaw - y0, dpitch: g.player.lookPitch - p0 };
+  }, [angle, beta, gamma]);
+  const a = await turn(90, 60, 0), b = await turn(270, 60, 0), c = await turn(90, 0, -40);
+  assert.ok(Math.abs(a.dyaw) > 0.2, `turned: ${JSON.stringify(a)}`);
+  assert.ok(Math.sign(a.dyaw) === -Math.sign(b.dyaw), `the other landscape side turns the other way: ${JSON.stringify([a, b])}`);
+  assert.ok(a.dyaw > 0, 'landscape 90, rotation about the device x axis +: the view turns left');
+  assert.ok(c.dpitch > 0.1, `looking up: ${JSON.stringify(c)}`);
+  const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
+  assert.equal(r.phone.gyro.state, 'on'); assert.ok(r.phone.gyro.events >= 90);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // iPhone: the motion permission refused
+  const ictx = await newContext(browser, { ...devices['iPhone 15 landscape'] });
+  await ictx.addInitScript(() => { DeviceMotionEvent.requestPermission = async () => 'denied'; });
+  const ip = await open(ictx, base);
+  const icdp = await ictx.newCDPSession(ip.page);
+  await fingerPressEl(ip.page, icdp, '#gyrobtn');
+  await ip.page.waitForFunction(() => /немає дозволу/.test(document.getElementById('gyrobtn').textContent), null, { timeout: 5000 });
+  await ictx.close();
+});
+
+test('a finger press fires a start-screen button once (no second press from the click that follows)', async () => {
+  const ctx = await newContext(browser, LAND);
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  await fingerPressEl(page, cdp, '#gyrobtn');
+  await page.waitForTimeout(600);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('nocturne.gyro'))), 'on', 'one press = one step (a double press would switch it back off)');
+  await page.tap('#gyrobtn');
+  await page.waitForTimeout(600);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('nocturne.gyro'))), 'off');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('home-screen app: manifest and icons; Android install button (finger); iPhone "На початковий екран" hint', async () => {
+  const ctx = await newContext(browser, LAND);
+  await ctx.addInitScript(() => {
+    window.__prompted = 0;
+    window.__fakePrompt = () => { const e = new Event('beforeinstallprompt', { cancelable: true }); e.prompt = () => { window.__prompted++; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); dispatchEvent(e); };
+  });
+  const { page, errors } = await open(ctx, base);
+  const cdp = await ctx.newCDPSession(page);
+  const man = await page.evaluate(async () => { const r = await fetch(document.querySelector('link[rel=manifest]').href); return { type: r.headers.get('content-type'), json: await r.json() }; });
+  assert.equal(man.json.display, 'fullscreen'); assert.equal(man.json.orientation, 'landscape'); assert.equal(man.json.start_url, './?app=1');
+  for (const ic of man.json.icons) {
+    const size = await page.evaluate(async (src) => { const img = new Image(); img.src = src; await img.decode(); return `${img.naturalWidth}x${img.naturalHeight}`; }, ic.src);
+    assert.equal(size, ic.sizes, ic.src);
+  }
+  assert.ok(man.json.icons.some((i) => i.purpose === 'maskable'));
+  assert.equal(await page.evaluate(async () => { const img = new Image(); img.src = document.querySelector('link[rel=apple-touch-icon]').href; await img.decode(); return img.naturalWidth; }), 180);
+  assert.equal(await page.isVisible('#installbtn'), false);
+  await page.evaluate(() => window.__fakePrompt());
+  await page.waitForSelector('#installbtn', { state: 'visible' });
+  await fingerPressEl(page, cdp, '#installbtn');
+  await page.waitForFunction(() => window.__prompted === 1);
+  await page.waitForFunction(() => /Гру встановлено/.test(document.getElementById('installnote').textContent));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  const ictx = await newContext(browser, { ...devices['iPhone 15 landscape'] });
+  const ip = await open(ictx, base);
+  assert.match(await ip.page.textContent('#installnote'), /«Поділитися».*«На початковий екран».*окреме сховище/);
+  await ictx.close();
+});
+
+// A copy of the site in a temp folder, its own server: the service-worker tests change the version there.
+async function siteCopy() {
+  const dir = await mkdtemp(join(tmpdir(), 'nocturne-site-'));
+  for (const f of ['index.html', 'version.json', 'sw.js', 'manifest.webmanifest', 'src', 'vendor', 'icons', 'tools']) await cp(join(ROOT, f), join(dir, f), { recursive: true });
+  const srv = await startServer(dir);
+  return { dir, ...srv, bump: (v) => execFileSync('node', [join(dir, 'tools/bump-version.mjs'), v]), close: async () => { srv.server.close(); await rm(dir, { recursive: true, force: true }); } };
+}
+// the worker installed and active, then a page load it controls (a load that began while it was still
+// installing stays uncontrolled: that is how service workers work)
+async function swReady(page) {
+  // (waitForFunction does not wait for a promise: a page-side wait instead)
+  await page.evaluate(async () => {
+    const r = await navigator.serviceWorker.ready;
+    if (r.active.state !== 'activated') await new Promise((res) => r.active.addEventListener('statechange', () => { if (r.active.state === 'activated') res(); }));
+  });
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker.controller && window.__game, null, { timeout: 30000, polling: 200 });
+}
+
+test('service worker: offline play after the first visit (also from the icon start URL); a new deploy is picked up on the main site AND on a preview; ?nosw removes it', async () => {
+  const site = await siteCopy();
+  try {
+    const ctx = await newContext(browser, LAND, { sw: true });
+    for (const url of [site.base, site.base + 'preview/test/']) {
+      const page = await ctx.newPage();
+      const errors = watchErrors(page);
+      await page.goto(url);
+      await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
+      await swReady(page);
+      assert.match(await page.textContent('#version'), new RegExp(VERSION.replace(/\./g, '\\.')));
+      const scope = await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).scope);
+      assert.equal(new URL(scope).pathname, new URL(url).pathname, 'one worker per site copy (main / preview)');
+      // offline: the game still opens, also from the home-screen icon (start_url ./?app=1)
+      await ctx.setOffline(true);
+      await page.reload(); await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
+      await page.goto(url + '?app=1'); await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
+      assert.equal(await page.evaluate(() => window.__game.MODE.mode), 'phone');
+      await ctx.setOffline(false);
+      assert.deepEqual(errors.filter((e) => !/ERR_INTERNET_DISCONNECTED|Failed to fetch|net::/.test(e)), [], url);
+      await page.close();
+    }
+    // a new deploy: the next visit runs the new version (main site and preview), and the worker updates
+    site.bump('0.6.0-test.2');
+    for (const url of [site.base, site.base + 'preview/test/']) {
+      const page = await ctx.newPage();
+      await page.goto(url);
+      await page.waitForFunction(() => window.__game && /0\.6\.0-test\.2/.test(document.getElementById('version').textContent), null, { timeout: 30000, polling: 200 });
+      // the page's worker reports the new version (asked until it does: the new worker takes over by itself)
+      const swVersion = await page.evaluate(async () => {
+        const ask = () => new Promise((res) => {
+          if (!navigator.serviceWorker.controller) return res(null);
+          navigator.serviceWorker.addEventListener('message', (e) => res(e.data && e.data.version), { once: true });
+          navigator.serviceWorker.controller.postMessage('version');
+          setTimeout(() => res(null), 1000);
+        });
+        for (let i = 0; i < 30; i++) { const v = await ask(); if (v === '0.6.0-test.2') return v; await new Promise((r) => setTimeout(r, 500)); }
+        return 'timeout';
+      });
+      assert.equal(swVersion, '0.6.0-test.2', `${url}: the worker updated`);
+      // and offline now gives the new version, not the old one
+      await ctx.setOffline(true);
+      await page.reload(); await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
+      assert.match(await page.textContent('#version'), /0\.6\.0-test\.2/, `${url}: offline copy is the new version`);
+      await ctx.setOffline(false);
+      // the old caches of this copy are gone
+      const keys = await page.evaluate(async (path) => (await caches.keys()).filter((k) => k.startsWith(`nocturne:${path}:`)), new URL(url).pathname);
+      assert.deepEqual(keys, [`nocturne:${new URL(url).pathname}:0.6.0-test.2`]);
+      await page.close();
+    }
+    // the main site's worker never answers for a preview it does not own
+    const page = await ctx.newPage();
+    await page.goto(site.base + '?nosw');
+    await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
+    const gone = await page.evaluate(async () => {
+      for (let i = 0; i < 30; i++) { if (!(await navigator.serviceWorker.getRegistrations()).some((r) => new URL(r.scope).pathname === location.pathname)) return true; await new Promise((r) => setTimeout(r, 300)); }
+      return false;
+    });
+    assert.equal(gone, true, '?nosw removed the main site worker');
+    await ctx.close();
+  } finally { await site.close(); }
+});
+
 test('PC keyboard as before: WASD walks, E picks up / puts down, T door, C crouch', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, base);
@@ -1206,6 +1483,7 @@ test('VR regression (IWER Quest 3): enter VR, walk with the stick, snap turn, pi
   assert.deepEqual(await page.evaluate(() => [window.__game.hud, window.__game.menu, window.__game.feedback, window.__game.wrist.mesh.visible]), [null, null, null, true], 'VR: wrist panel, no phone UI');
   const vrMic = await page.evaluate(async () => { const { stepsFor } = await import('./src/audio/calibrate.js'); const m = window.__game.mic; return { steps: stepsFor(false).length, game: m.gameDbFn, cover: m.coverHint, agc: m.agcAdjust, raised: m.masking }; });
   assert.deepEqual(vrMic, { steps: 4, game: null, cover: false, agc: false, raised: 0 }, 'VR: the microphone and the 4-step calibration as before');
+  assert.deepEqual(await page.evaluate(() => [window.__game.quality, window.__game.gyro, window.__game.renderer.getPixelRatio() === Math.min(devicePixelRatio, 1.5)]), [null, null, true], 'VR: no phone quality / gyroscope, the pixel ratio as before');
   await page.evaluate(() => { const g = window.__game; g.mic.noMic = true; g.pressBoard('micpage'); g.sim(0.1); });
   assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (4 кроки)')), 'VR board: 4 steps');
   await page.evaluate(() => { const g = window.__game; g.mic.noMic = false; g.pressBoard('back'); g.sim(0.1); });

@@ -98,8 +98,8 @@ export class PauseMenu {
       }
       grid.append(this.btn('Назад', () => this.go('main'), 'quiet wide'));
     } else {
-      for (const key of ['look', 'breath', 'hud', 'fx']) {
-        grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'wide'));
+      for (const key of ['look', 'breath', 'hud', 'fx', 'quality', 'fps', 'gyro']) {
+        grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'small'));
       }
       grid.append(this.btn('Назад', () => this.go('main'), 'quiet wide'));
     }

@@ -132,6 +132,10 @@ export function setListener(x, y, z, yaw) {
   }
 }
 
+// 'HRTF' (3D through headphones) or 'equalpower' (cheaper: the phone's low quality preset)
+let panning = 'HRTF';
+export function setPanning(model) { panning = model === 'equalpower' ? 'equalpower' : 'HRTF'; }
+
 // A sound source in the world: input -> muffle (low-pass) -> gain -> HRTF panner -> out.
 export class Voice3D {
   constructor(gain = 1, positional = true) {
@@ -147,7 +151,7 @@ export class Voice3D {
     this.panner = null;
     if (positional) {
       this.panner = ctx.createPanner();
-      this.panner.panningModel = 'HRTF';
+      this.panner.panningModel = panning;
       this.panner.distanceModel = 'inverse';
       this.panner.refDistance = 1.2;
       this.panner.rolloffFactor = 1.3;

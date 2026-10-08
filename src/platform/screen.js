@@ -3,6 +3,7 @@
 // overlay and the safe-area layout do the job), and the screen kept on during a round (Wake Lock;
 // re-requested when the page comes back, since the browser drops it when the page is hidden).
 let lock = null, wanted = false, awake = true, lastTry = 0;
+const wake = { acquired: 0, released: 0, byTouch: 0, failed: 0 };   // for the report
 const fs = { entered: 0, exits: 0, restored: 0, lastExit: null };   // for the report
 document.addEventListener('fullscreenchange', () => {
   if (document.fullscreenElement) fs.entered++;
@@ -13,8 +14,9 @@ async function requestWakeLock() {
   if (!wanted || !awake || lock || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
   try {
     lock = await navigator.wakeLock.request('screen');
-    lock.addEventListener('release', () => { lock = null; });
-  } catch { lock = null; /* not allowed (battery saver, old browser) */ }
+    wake.acquired++;
+    lock.addEventListener('release', () => { lock = null; wake.released++; });
+  } catch { lock = null; wake.failed++; /* not allowed (battery saver, old browser) */ }
 }
 document.addEventListener('visibilitychange', requestWakeLock);
 
@@ -31,7 +33,10 @@ export function enterPhonePlay() {
 }
 
 // Back to full screen if it was dropped while playing (call from a user gesture: a finger lift).
+// Also the Wake Lock fallback (iPhone home-screen apps before iOS 18.4 lose it): a lost lock is asked
+// for again with the next touch, and every touch resets the system's sleep timer anyway.
 export function ensureFullscreen() {
+  if (wanted && awake && !lock && 'wakeLock' in navigator) { wake.byTouch++; requestWakeLock(); }
   const el = document.documentElement;
   if (!wanted || document.fullscreenElement || !el.requestFullscreen || performance.now() - lastTry < 1500) return;
   lastTry = performance.now();
@@ -52,4 +57,4 @@ export function leavePhonePlay() {
   if (lock) { lock.release().catch(() => {}); lock = null; }
 }
 
-export const screenState = () => ({ fullscreen: !!document.fullscreenElement, wakeLock: !!lock, fullscreenApi: !!document.documentElement.requestFullscreen, fullscreenLog: { ...fs } });
+export const screenState = () => ({ fullscreen: !!document.fullscreenElement, wakeLock: !!lock, wakeLog: { ...wake }, fullscreenApi: !!document.documentElement.requestFullscreen, fullscreenLog: { ...fs } });

@@ -12,14 +12,14 @@ import { Feedback } from './platform/feedback.js';
 import { Hud } from './ui/hud.js';
 import { PauseMenu } from './ui/menu.js';
 import { Summary } from './ui/summary.js';
-import { pressHooks } from './ui/press.js';
+import { pressHooks, bindPress } from './ui/press.js';
 import { XRInput } from './input/xrInput.js';
 import { WristPanel } from './ui/wrist.js';
 import { Board, money } from './ui/board.js';
 import { Pointer } from './ui/pointer.js';
 import { Mic, Breath } from './audio/mic.js';
 import { ScreamRecorder } from './audio/scream.js';
-import { unlockAudio, existingAudioContext, setAudioStateHook, suspendAudio, gameBusDb, playSampleSounds, audioSessionState, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
+import { unlockAudio, existingAudioContext, setAudioStateHook, setPanning, suspendAudio, gameBusDb, playSampleSounds, audioSessionState, setListener, CreakVoice, playKnock, playCash, playHeartbeat, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from './audio/audio.js';
 import { applyDifficulty, DIFFS } from './game/difficulty.js';
 import { contractById, goalText, bonusText, progress, evaluate, bestStars, recordStars } from './game/contracts.js';
 import { runCalibration } from './audio/calibrate.js';
@@ -37,6 +37,9 @@ import { stealthState } from './game/stealth.js';
 import { maskScene, maskBeam, updateFlashMask, flashUniforms } from './enemies/flashMask.js';
 import { setupStartScreen } from './ui/start.js';
 import { GpuTimer } from './perf/gpuTimer.js';
+import { Quality, PRESETS, startPreset } from './perf/quality.js';
+import { Gyro } from './input/gyro.js';
+import { setupPwa, pwaState } from './platform/pwa.js';
 import { loadSetting, saveSetting, PREVIEW } from './settings.js';
 import { currentMode, refineAndroid, MODE_NAMES } from './platform/mode.js';
 import { FrameStats, prepareReport, buildReport, copyReport, deviceData } from './debug/report.js';
@@ -53,14 +56,24 @@ $('version').textContent = `версія ${VERSION}${PREVIEW ? ' · тестов
 let MODE = currentMode();
 
 // ---------- renderer / scene ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); // MSAA 4x in XR too
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+// phone (T4): the quality preset decides MSAA when the page starts (WebGL cannot switch it later)
+const PHONE = MODE.mode === 'phone', IOS = MODE.device === 'iPhone' || MODE.device === 'iPad';
+const qSetting = loadSetting('quality', 'auto'), qAuto = loadSetting('qualityAuto', null);
+const renderer = new THREE.WebGLRenderer({ antialias: PHONE ? PRESETS[startPreset(qSetting, qAuto, IOS)].aa : true, powerPreference: 'high-performance' }); // MSAA 4x in XR too
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));   // VR / PC as before; the phone's Quality sets it below
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local-floor');
 renderer.xr.setFoveation(params.has('fov') ? +params.get('fov') : 1);
 renderer.xr.setFramebufferScaleFactor(params.has('fbs') ? +params.get('fbs') : 1);
 document.body.appendChild(renderer.domElement);
+// phone: presets, dynamic resolution, the 30 / 60 cap (src/perf/quality.js)
+const quality = PHONE ? new Quality({
+  renderer, setting: qSetting, autoPick: qAuto, ios: IOS, cap: +loadSetting('fpsCap', '60'),
+  onAutoPick: (preset) => { saveSetting('qualityAuto', preset); setPanning(PRESETS[preset].panning); if (typeof menu !== 'undefined' && menu) menu.refresh(); },
+}) : null;
+if (quality) setPanning(quality.p.panning);
+const gyro = PHONE ? new Gyro() : null;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(NIGHT);
@@ -83,6 +96,7 @@ for (const [x, y, z, color, intensity, dist] of [
   l.position.set(x, y, z);
   scene.add(l);
   points.push(l);
+  l.userData.base = intensity;
 }
 
 function onResize() {
@@ -426,16 +440,27 @@ const OPTS = touch ? {
   breath: { id: 'breathmode', save: 'breathMode', def: 'hold', values: ['hold', 'toggle'], title: 'Подих', names: { hold: 'утримувати кнопку', toggle: 'тап — почати, тап — закінчити' }, apply: (v) => { touch.breathToggle = v === 'toggle'; } },
   hud: { id: 'hudmode', save: 'hudMode', def: 'full', values: ['full', 'min'], title: 'Індикатори', names: { full: 'повні', min: 'мінімальні' }, apply: (v) => hud.setMinimal(v === 'min') },
   fx: { id: 'feedback', save: 'feedback', def: 'auto', values: ['auto', 'flash', 'off'], title: 'Вібрація', names: { auto: 'вібрація, а без неї спалахи', flash: 'лише спалахи', off: 'вимкнено' }, apply: (v) => { feedback.mode = v; } },
+  // T4: quality preset, frame cap, gyroscope
+  quality: { id: 'quality', save: 'quality', def: 'auto', values: ['auto', 'low', 'medium', 'high'], title: 'Якість', names: { auto: 'авто', low: 'низька', medium: 'середня', high: 'висока' },
+    apply: (v) => { quality.setSetting(v); setPanning(quality.p.panning); $('qualitynote').textContent = quality.needsReload ? 'Згладжування країв зміниться після перезавантаження сторінки.' : ''; } },
+  fps: { id: 'fpscap', save: 'fpsCap', def: '60', values: ['60', '30'], title: 'Частота', names: { 60: '60 кадрів/с', 30: '30 кадрів/с (економія батареї)' }, apply: (v) => quality.setCap(+v) },
+  gyro: { id: 'gyrobtn', save: 'gyro', def: 'off', values: ['off', 'on'], title: 'Гіроскоп', names: { off: 'вимкнено', on: 'увімкнено' },
+    apply: (v) => { if (v === 'off') gyro.disable(); else if (gyroReady) gyro.enable().then(() => { if (menu) menu.refresh(); start.refresh(); $('gyrobtn').textContent = optLabel('gyro'); }); } },
 } : null;
+let gyroReady = false;   // the saved "on" is applied with the first tap (iPhone asks for the motion permission only from a tap)
 const optVal = {};
 function setOpt(key, v) {
   const o = OPTS[key];
   if (!o.values.includes(v)) v = o.def;
-  optVal[key] = v; saveSetting(o.save, v); o.apply(v); $(o.id).value = v;
+  optVal[key] = v; saveSetting(o.save, v); o.apply(v);
+  const el = $(o.id);
+  if (el.tagName === 'BUTTON') el.textContent = optLabel(key); else el.value = v;
 }
 const optLabel = (key) => {
   const o = OPTS[key], v = optVal[key];
   if (key === 'fx' && v === 'auto') return `${o.title}: ${feedback.canVibrate ? 'вібрація' : 'спалахи (вібрації в цьому браузері немає)'}`;
+  if (key === 'quality' && v === 'auto') return `${o.title}: авто (зараз ${PRESETS[quality.preset].name})`;
+  if (key === 'gyro' && v === 'on' && gyro.state !== 'on' && gyro.state !== 'off') return `${o.title}: ${gyro.state === 'denied' ? 'немає дозволу' : 'недоступний'}`;
   return `${o.title}: ${o.names[v]}`;
 };
 function pauseOpen(reason = 'user') {
@@ -459,6 +484,7 @@ function pauseResume() {
   ensureFullscreen();
   graceUntil = performance.now() + 2000;
   last = performance.now();
+  gyro.look.x = gyro.look.y = 0;   // the phone may have been turned while paused
   phoneLayout();
   // the microphone after a call / a minimised page: re-opened right inside this tap if the system
   // stopped it (iPhone allows that only from a user gesture); muted = still held by the system
@@ -476,7 +502,7 @@ const menu = touch ? new PauseMenu($('pausemenu'), {
     micText: mic.noMic ? 'Мікрофон: гра без мікрофона' : mic.state === 'on' ? `Мікрофон: увімкнено, ${mic.calibrated ? 'калібровано' : 'не калібровано'}${mic.bleedMeasured ? '' : ' (без кроку «Звуки гри»)'}${mic.deviceChanged ? ', змінився пристрій — перекалібруй' : ''}` : mic.state === 'denied' ? 'Мікрофон: дозвіл не надано' : 'Мікрофон: вимкнено',
   }),
   label: optLabel,
-  cycle: (key) => { const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },
+  cycle: (key) => { gyroReady = true; const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },
   resume: pauseResume,
   home: () => { goHome(); pauseResume(); },
   newRound: () => { newRound(); pauseResume(); },
@@ -502,7 +528,8 @@ if (touch) {
   for (const key of Object.keys(OPTS)) {
     const o = OPTS[key];
     setOpt(key, loadSetting(o.save, o.def));
-    $(o.id).addEventListener('change', () => { setOpt(key, $(o.id).value); menu.refresh(); });
+    if ($(o.id).tagName === 'BUTTON') bindPress($(o.id), () => { gyroReady = true; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); menu.refresh(); });
+    else $(o.id).addEventListener('change', () => { setOpt(key, $(o.id).value); menu.refresh(); });
   }
   // the page minimised, a call or a notification: the game waits behind the menu
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') pauseAuto('hidden'); });
@@ -511,7 +538,9 @@ if (touch) {
   // the system took the audio away (iPhone 'interrupted', Android 'suspended' during a call)
   setAudioStateHook((state) => { if (state !== 'running') pauseAuto('audio'); });
 }
-let holdDoor = null;   // phone: the door swinging slowly while the door button is held
+let holdDoor = null;
+// phone: the board button under the crosshair (decision A + B: tap the board or aim and press «Натиснути»)
+const boardAim = () => (touch && playingDesktop && caughtT < 0 && !paused && !(summary && summary.isOpen) ? pointer.hover.desk : null);   // phone: the door swinging slowly while the door button is held
 // Back to the menu (Esc on a laptop, the pause button on a phone)
 function pause2D() {
   if (!playingDesktop || inVR) return;
@@ -626,6 +655,15 @@ function goHome() {
 // ---------- stats ----------
 const perf = { fps: 0, frames: 0, since: performance.now(), calls: 0, tris: 0 };
 const frameStats = new FrameStats();   // for the report: last 60 s and per minute
+// phone: each minute also says which preset / pixel ratio / cap it ran with (heat shows as falling FPS)
+if (quality) frameStats.tag = () => ({ q: quality.preset, pr: quality.pr, cap: quality.cap });
+// battery at the start and now (Chrome on Android; §5.2 p. 10: 3 rounds in a row)
+const battery = { start: null, now: null, charging: null };
+if (PHONE && navigator.getBattery) navigator.getBattery().then((b) => {
+  battery.start = Math.round(b.level * 100); battery.charging = b.charging;
+  const upd = () => { battery.now = Math.round(b.level * 100); battery.charging = b.charging; };
+  upd(); b.addEventListener('levelchange', upd); b.addEventListener('chargingchange', upd);
+}).catch(() => {});
 const debugEl = $('debug');
 wrist.showFps = params.has('fps');
 const gpu = new GpuTimer(renderer.getContext());
@@ -660,6 +698,7 @@ function flatControls(dt) {
     ctl.boardPress = touch.takeBoardPress();
     pointer.touchHover = touch.pressing;
     touch.takeLook(ctl.look);
+    if (gyro.on) gyro.take(ctl.look);   // the gyroscope turns the view on top of the finger
   }
   return ctl;
 }
@@ -732,7 +771,11 @@ function simulate(dt, xrFrame, now) {
   if (inVR) hands.update(dt, xrIn.grip);
   else if (playingDesktop) {
     hands.aimDesk(player.head, player.yaw);
-    if (ctl.interact) hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
+    // the context button: an item under the crosshair first, else a board button under it («Натиснути»)
+    if (ctl.interact) {
+      if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
+      else hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
+    }
     hands.updateDesk(player.head, player.yaw, player.lookPitch);
     hands.updateHighlight();
   }
@@ -748,7 +791,7 @@ function simulate(dt, xrFrame, now) {
   if (touch && playingDesktop) {
     const atVan = round.atVan(player.head);
     touch.setContext({
-      interact: hands.desk ? (atVan ? 'У фургон' : 'Покласти') : hands.deskAim ? 'Взяти' : null,
+      interact: hands.desk ? (atVan ? 'У фургон' : 'Покласти') : hands.deskAim ? 'Взяти' : boardAim() ? 'Натиснути' : null,
       door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
     });
   }
@@ -817,13 +860,19 @@ function simulate(dt, xrFrame, now) {
   }
   noise.update(dt);
 
-  // board: pointer hover + redraw 4 times a second (8 on the microphone page: a live level bar)
+  // board: pointer hover + checked 4 times a second (8 on the microphone page: a live level bar).
+  // Redrawn (and re-uploaded to the GPU) only when what it shows changed, and on a flat screen only
+  // while it is in view (plan-phone-mode §4: every canvas upload is a hitch on a phone).
   if (pointer.update(inVR, camera)) boardDirty = true;
   boardT -= dt;
   if (summary && summary.isOpen && (boardDirty || boardT <= 0)) summary.update(summaryState());
   if (boardDirty || boardT <= 0) {
     boardT = round.phase === 'ready' && boardPage === 'mic' ? 0.125 : 0.25; boardDirty = false;
     const T = loot.tally(), lv = LEVELS[mic.level];
+    const sig = boardSignature(T, lv);
+    if (sig === lastBoardSig || (!inVR && !boardInView())) return;
+    lastBoardSig = sig;
+    perf.boardDraws = (perf.boardDraws || 0) + 1;
     board.draw({
       phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: T, result: round.result,
       clip: scream.best, playing: !!scream.playing, recMode: scream.modeName,
@@ -835,10 +884,34 @@ function simulate(dt, xrFrame, now) {
   }
 }
 
+// Everything the board shows, as one string: the same string = nothing to redraw.
+let lastBoardSig = '';
+function boardSignature(T, lv) {
+  const R = round.result, V = verdict, onMic = round.phase === 'ready' && boardPage === 'mic';
+  return JSON.stringify([
+    round.phase, Math.ceil(round.clock), alert.level, T.sum, T.inVan, T.list.length, T.damaged, R && R.kind, R && R.sum,
+    !!scream.best, scream.best && scream.best.t, !!scream.playing, scream.modeName, boardPage, contract.id, difficulty, bestStars(contract.id),
+    V && V.stars, V && V.newBest, mic.noMic, mic.state, mic.calibrated, board.hover, progress(contract, T, loot).text,
+    calib && [calib.i, calib.phase, calib.left.toFixed(1)], calibNotes,
+    onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
+  ]);
+}
+const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4();
+function boardInView() {
+  camera.updateMatrixWorld();
+  _pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _frustum.setFromProjectionMatrix(_pv);
+  return _frustum.intersectsObject(board.mesh);
+}
+
 // ---------- loop ----------
 let last = performance.now();
+let lampT = 0;
 function frame(now, xrFrame) {
+  // phone: the 30 / 60 cap (a 90 / 120 Hz screen calls this more often)
+  if (quality && playingDesktop && !paused && !inVR && now - last < 1000 / quality.cap - 2) return;
   const cpuStart = performance.now();
+  if (quality && playingDesktop && !paused && !inVR) quality.frame(now - last);
   const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
   if (!paused) frameStats.add(now - last);
   last = now;
@@ -859,6 +932,11 @@ function frame(now, xrFrame) {
     perf.frames++;
   }
   if (summary) board.mesh.visible = !summary.isOpen;   // phone: the summary screen replaces the floating result board
+  // low preset: lamps further than 12 m are off (the number of lights never changes: no shader rebuild)
+  if (quality && (lampT -= dt) <= 0) {
+    lampT = 0.5;
+    for (const l of points) l.intensity = quality.p.farLights || Math.hypot(l.position.x - player.head.x, l.position.z - player.head.z) < 12 ? l.userData.base : 0;
+  }
   if (now - perf.since >= 500) {
     perf.fps = (perf.frames * 1000) / (now - perf.since);
     perf.frames = 0; perf.since = now;
@@ -927,6 +1005,8 @@ const start = setupStartScreen({
       document.body.classList.add('phone-playing');
       enterPhonePlay();
       graceUntil = performance.now() + 2500;   // entering full screen may blur the page for a moment
+      gyroReady = true; gyro.look.x = gyro.look.y = 0;
+      if (optVal.gyro === 'on' && !gyro.on) gyro.enable().then(() => menu.refresh());
       phoneLayout();
     } else {
       $('hint').style.display = 'block';
@@ -967,6 +1047,8 @@ function showMode() {
     + (MODE.mode === 'phone' ? '<br>Тримай телефон горизонтально. Ліва частина екрана — ходьба (легкий рух — тихо), права — огляд, кнопки — справа. Табло біля фургона натискається пальцем.' : '');
 }
 showMode();
+// phone: the service worker (offline, updates) and installing to the home screen (src/platform/pwa.js)
+if (PHONE) setupPwa({ phone: true, ios: IOS, preview: PREVIEW });
 prepareReport().then(() => { MODE = refineAndroid(MODE, deviceData()); showMode(); });
 const reportText = () => buildReport({
   version: VERSION, mode: MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
@@ -974,6 +1056,7 @@ const reportText = () => buildReport({
   screen: touch ? {
     ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused, pauses: pauseLog.slice(-10),
     feedback: feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),
+    quality: quality.state(), gyro: { setting: optVal.gyro, state: gyro.state, events: gyro.events }, battery: { ...battery }, pwa: pwaState(), boardDraws: perf.boardDraws || 0,
   } : undefined,
 });
 $('report').addEventListener('click', () => copyReport(reportText()));
@@ -1012,6 +1095,6 @@ window.__game = {
   get speakT() { return speakT; }, get drags() { return drags; }, stealthState, setContract, setDifficulty,
   get verdict() { return verdict; }, get contract() { return contract; }, get difficulty() { return difficulty; }, get calib() { return calib; }, get calibNotes() { return calibNotes; },
   get inVR() { return inVR; }, get playing() { return playingDesktop; }, set playing(v) { playingDesktop = v; },
-  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, hud, menu, summary, feedback, pauseOpen, pauseResume, get paused() { return paused; }, get audio() { return existingAudioContext(); }, playGame, siren, start, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
+  get MODE() { return MODE; }, frameStats, reportText, touch, pause2D, rotateBlocked, hud, menu, summary, feedback, pauseOpen, pauseResume, get paused() { return paused; }, get audio() { return existingAudioContext(); }, playGame, siren, start, quality, gyro, points, get simT() { return simT; }, caught, get caughtT() { return caughtT; },
   sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
 };
