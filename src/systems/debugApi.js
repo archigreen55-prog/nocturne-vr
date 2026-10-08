@@ -14,6 +14,7 @@ import { reportText } from './startScreen.js';
 import { pause2D } from './desktop.js';
 import { rotateBlocked, playGame } from './flatScreen.js';
 import { pauseOpen, pauseResume } from './phone.js';
+import { tutorialState, restartTutorial, skipTutorial } from './tutorial.js';
 
 export function exposeDebugApi(simulate) {
   const g = G;
@@ -24,6 +25,7 @@ export function exposeDebugApi(simulate) {
     get verdict() { return g.verdict; }, get contract() { return g.contract; }, get difficulty() { return g.difficulty; }, get calib() { return g.calib; }, get calibNotes() { return g.calibNotes; },
     get inVR() { return g.inVR; }, get playing() { return g.playingDesktop; }, set playing(v) { g.playingDesktop = v; },
     get MODE() { return g.MODE; }, frameStats: g.frameStats, reportText, touch: g.touch, pause2D, rotateBlocked, hud: g.hud, menu: g.menu, summary: g.summary, feedback: g.feedback, pauseOpen, pauseResume, get paused() { return g.paused; }, get audio() { return existingAudioContext(); }, playGame, siren: g.siren, start: g.start, quality: g.quality, gyro: g.gyro, points: g.points, get simT() { return g.simT; }, caught, get caughtT() { return g.caughtT; },
+    tutorial: { state: tutorialState, restart: restartTutorial, skip: skipTutorial },
     sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
   };
 }

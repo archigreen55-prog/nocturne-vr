@@ -28,11 +28,13 @@ import { desktop } from './desktop.js';
 import { stats } from './stats.js';
 import { controls } from './controls.js';
 import { player } from './player.js';
+import { tutorial } from './tutorial.js';
 import { heist } from './heist.js';
 import { board } from './board.js';
 import { panel } from './panel.js';
 import { startScreen } from './startScreen.js';
 import { flashlight } from './flashlight.js';
+import { progressCode } from './progressCode.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -48,11 +50,13 @@ export const SYSTEMS = [
   stats,         // FPS, GPU / CPU time, battery
   controls,      // input: keyboard, touch, VR controllers
   player,        // act: breath, walking, hands, doors, the drop-off ring
+  tutorial,      // act: the first-run tutorial (phone, PC)
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
   board,         // present: the board
   panel,         // frame: wrist panel / HUD
   startScreen,   // the start screen, report, PWA
   flashlight,    // the flashlight's room mask (after everything is in the scene)
+  progressCode,  // start screen: progress as a code, «Навчання ще раз»
 ];
 
 export const PHASES = ['pre', 'input', 'act', 'world', 'result', 'present'];

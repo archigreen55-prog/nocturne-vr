@@ -72,7 +72,8 @@ for (const f of styles) {
 
 // the service worker: its version (a new sw.js on every deploy) and the files it keeps for offline play
 const icons = readdirSync(join(root, 'icons')).filter((f) => f.endsWith('.png')).sort().map((f) => `./icons/${f}`);
-const files = ['./', './index.html', './manifest.webmanifest', ...icons, ...vendor, ...styles.map((f) => `./${f}?v=${next}`), ...modules.map((f) => `./${f}?v=${next}`)];
+const pages = ['privacy.html'].filter((f) => { try { readFileSync(join(root, f)); return true; } catch { return false; } }).map((f) => `./${f}`);
+const files = ['./', './index.html', ...pages, './manifest.webmanifest', ...icons, ...vendor, ...styles.map((f) => `./${f}?v=${next}`), ...modules.map((f) => `./${f}?v=${next}`)];
 let sw = readFileSync(swFile, 'utf8');
 const swChecks = [];
 sw = sw.replace(/const VERSION = '[^']*';/, () => { swChecks.push('version'); return `const VERSION = '${next}';`; });

@@ -160,7 +160,7 @@ export const aimAt = (page, id) => page.evaluate((id) => {
 // A copy of the site in a temp folder, its own server: the service-worker tests change the version there.
 export async function siteCopy() {
   const dir = await mkdtemp(join(tmpdir(), 'nocturne-site-'));
-  for (const f of ['index.html', 'version.json', 'sw.js', 'manifest.webmanifest', 'src', 'vendor', 'icons', 'tools']) await cp(join(ROOT, f), join(dir, f), { recursive: true });
+  for (const f of ['index.html', 'privacy.html', 'version.json', 'sw.js', 'manifest.webmanifest', 'src', 'vendor', 'icons', 'tools']) await cp(join(ROOT, f), join(dir, f), { recursive: true });
   const srv = await startServer(dir);
   return { dir, ...srv, bump: (v) => execFileSync('node', [join(dir, 'tools/bump-version.mjs'), v]), close: async () => { srv.server.close(); await rm(dir, { recursive: true, force: true }); } };
 }

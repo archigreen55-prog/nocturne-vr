@@ -19,6 +19,8 @@ import { phoneLayout } from './flatScreen.js';
 import { pause2D } from './desktop.js';
 import { newRound, setContract, setDifficulty, pressBoard, goHome } from './contract.js';
 import { reportText } from './startScreen.js';
+import { restartTutorial } from './tutorial.js';
+import { openProgress } from './progressCode.js';
 import { S } from '../i18n/index.js';
 
 export const pauseLog = [];                 // for the report: { reason, t (s of game time) }
@@ -114,6 +116,9 @@ export const phone = {
       report: () => copyReport(reportText()),
       contractStep: (d) => { const all = CFG.contracts, i = all.indexOf(G.contract); setContract(all[(i + d + all.length) % all.length].id); },
       difficultyNext: () => setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]),
+      tutorial: () => { restartTutorial(); pauseResume(); },
+      toProgress: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); openProgress(); },
+      privacy: () => window.open('privacy.html', '_blank', 'noopener'),
     }) : null;
     G.summary = touch ? new Summary($('summary'), {
       play: () => pressBoard('play'),

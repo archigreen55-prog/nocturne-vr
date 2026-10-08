@@ -15,7 +15,8 @@ const REASONS = {
 };
 
 export class PauseMenu {
-  // h: { info(), label(key), cycle(key), resume(), home(), newRound(), toStart(), toMic(), report(), contractStep(±1), difficultyNext() }
+  // h: { info(), label(key), cycle(key), resume(), home(), newRound(), toStart(), toMic(), report(), contractStep(±1), difficultyNext(),
+  //      tutorial(), toProgress(), privacy() }
   constructor(root, h) {
     this.root = root; this.h = h;
     this.page = 'main'; this.reason = 'user';
@@ -102,6 +103,8 @@ export class PauseMenu {
       for (const key of ['look', 'breath', 'hud', 'fx', 'quality', 'fps', 'gyro']) {
         grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'small'));
       }
+      grid.append(this.btn(S.tutorial.again, () => h.tutorial(), 'small'), this.btn(S.progress.button, () => h.toProgress(), 'small'),
+        this.btn(S.privacy.menu, () => h.privacy(), 'quiet wide'));
       grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
     }
     card.append(head, grid);
