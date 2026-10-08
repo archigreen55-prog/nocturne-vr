@@ -94,8 +94,10 @@ export const world = {
       scene.add(G.patrol2.group);
     }
     const guards = G.guards = [patrol, G.patrol2].filter(Boolean);
-    const lurker = G.lurker = new Lurker({ level, onScare: () => { G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); } });
-    scene.add(lurker.group);
+    const onScare = () => { G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); };
+    const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec }));
+    const lurker = G.lurker = lurkers[0];
+    for (const l of lurkers) scene.add(l.group);
     const board = G.board = new Board(level.board);
     scene.add(board.mesh);
     const mic = G.mic = new Mic();
@@ -104,7 +106,7 @@ export const world = {
     G.breath = new Breath();
     const siren = G.siren = new Siren();
     const round = G.round = new Round({
-      loot, alert, patrol, lurker, scream,
+      loot, alert, patrol, lurker, lurkers, scream,
       get hands() { return G.hands; },
       onMessage: (t, c, s) => flash(t, s || 3, c),
       onPhase: (phase) => {
@@ -112,7 +114,8 @@ export const world = {
         if (phase === 'result') {
           siren.set(false);
           for (const g of guards) g.reset();
-          lurker.reset(); alert.reset();
+          for (const l of lurkers) l.reset();
+          alert.reset();
           const R = round.result;
           if (R.kind === 'caught' || R.kind === 'late') {   // back at the van, facing it
             player.teleport(SPAWN.x, SPAWN.z, Math.atan2(-(CFG.dropZone.x - SPAWN.x), -(CFG.dropZone.z - SPAWN.z)));
@@ -130,11 +133,11 @@ export const world = {
     // noise -> who hears it: with two guards, the one it is louder to (plan-W6 §3.2)
     noise.on((e) => {
       if (round.phase === 'result') return;
-      const ey = e.floorY == null ? player.floorY : e.floorY;   // a noise's y is the ripple's; its floor is the player's unless said otherwise
+      const ey = e.source === 'world' ? e.y : player.floorY;   // a dropped item's noise is at its height; the player's noises on the player's floor
       let best = null, bestK = 0;
       for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
       if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] || 20, e.x, e.z); }
-      lurker.hear(e);
+      for (const l of lurkers) l.hear(e);
     });
     alert.onFull = (cause, x, z) => {
       if (round.phase === 'result') return;

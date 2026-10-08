@@ -41,7 +41,8 @@ export function stealthState(player, level, patrol) {
   const P = CFG.patrol, h = player.head, guards = Array.isArray(patrol) ? patrol : [patrol];
   const lit = guards.some((g) => inBeam(g, level, h.x, h.z, player.floorY || 0)) || nearLamp(h.x, h.z);
   const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1);
-  const cover = player.crouched && coverNear(level, h);
+  const inPocket = !!(level.pockets && level.pockets.some((p) => h.x >= p.minX && h.x <= p.maxX && h.z >= p.minZ && h.z <= p.maxZ && (level.floorIndex ? level.floorIndex(player.floorY || 0) : 0) === (p.floor || 0)));
+  const cover = (player.crouched && coverNear(level, h)) || inPocket;   // W6: a small room with a door hides you while its door is shut
   let hidden = false;
   if (cover) {
     hidden = guards.every((g) => {

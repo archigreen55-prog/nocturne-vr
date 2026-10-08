@@ -28,8 +28,8 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   });
   assert.equal(info.id, 'mansion');
   assert.equal(info.floors, 2, 'one collision world per floor');
-  assert.equal(info.doors, 21, `doors on both floors: ${info.doors}`);
-  assert.deepEqual(info.items, ['m_chest', 'm_vase', 'm_candelabrum']);
+  assert.equal(info.doors, 22, `doors on both floors and the shed: ${info.doors}`);
+  assert.equal(info.items.length, 15, 'the 14 items of the plan and the fake painting in the van');
   assert.deepEqual(info.guard, [10, -8.5, 0], 'the guard starts in the study');
   assert.deepEqual(info.spawn, [15, -4.2], 'the player starts in the alley by the van');
   assert.equal(info.van.x, 16.5, 'the "at the van" zone is the mansion\'s');
@@ -197,12 +197,14 @@ test('mansion (M2): the rooms of the other floor are not drawn, the doors are on
   const hall = await measure(0, -8.5, Math.PI / 2, 0);              // the hall, towards the stairs
   assert.deepEqual(gallery.floors, [false, true], 'upstairs: the ground-floor rooms are not drawn');
   assert.deepEqual(hall.floors, [true, false], 'downstairs: the upstairs rooms are not drawn');
-  assert.equal(hall.doors, 21, 'one instanced mesh holds every door');
+  assert.equal(hall.doors, 22, 'one instanced mesh holds every door');
   for (const [name, m] of [['gallery', gallery], ['garden', garden], ['hall', hall]]) {
     assert.ok(m.tris > 1000 && m.tris <= 45000, `${name}: ${m.tris} triangles drawn (budget 45 000)`);
     assert.ok(m.calls <= 40, `${name}: ${m.calls} draw calls`);
   }
-  // the first map, for comparison (the plan: mansion <= first map + 8 draw calls)
+  // the first map, for comparison (the plan: mansion <= first map + 8 draw calls); the running game is
+  // closed first — a second tab next to it loads past the timeout under the full run's load
+  await page.close();
   const d = (await open(ctx, preview + '?map=dacha')).page;
   await d.click('#start'); await d.waitForFunction(() => window.__game.playing);
   await d.evaluate(() => { const g = window.__game; g.player.teleport(0, -2.5, 0, 0); g.sim(0.3); });
@@ -309,6 +311,134 @@ test('mansion (M3): a noise upstairs reaches Zhora, not Valera through the slab;
   await page.evaluate(() => { window.__game.player.teleport(18, 25, 0); window.__game.sim(40); });
   const at = await page.evaluate(() => { const g = window.__game; return { x: g.patrol2.x, z: g.patrol2.z, y: g.patrol2.y, state: g.patrol2.state, stay: g.patrol2.stay, goal: g.patrol2.goal }; });
   assert.ok(at.y === 0 && Math.hypot(at.x - at.goal[0], at.z - at.goal[1]) < 1.2 && at.stay, `Zhora stands at the exit downstairs: ${JSON.stringify(at)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('mansion (M4): 12 of the 15 items can be taken and delivered into the van\'s cargo (the 2 heavy ones cannot, the fake is not counted); a heavy item says why when you come up to it', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  const r = await page.evaluate(() => {
+    const g = window.__game, L = g.loot, out = { ids: [], notTakeable: [], delivered: 0, inCargo: 0, slots: new Set() };
+    g.playing = true; g.sim(0.1);
+    for (const it of L.items) {
+      out.ids.push(it.id);
+      if (!it.takeable) { out.notTakeable.push(it.id); continue; }
+      if (it.prop) continue;
+      L.deliver(it);
+    }
+    g.sim(1.5);
+    for (const it of L.items) {
+      if (!it.delivered) continue;
+      out.delivered++;
+      const c = g.level.cargo, p = it.mesh.position;
+      if (p.x > c.minX && p.x < c.maxX && p.z > c.minZ && p.z < c.maxZ && Math.abs(p.y - c.y) < 0.01) out.inCargo++;
+      out.slots.add(p.x.toFixed(2) + ',' + p.z.toFixed(2));
+    }
+    out.slots = out.slots.size;
+    const t = L.tally();
+    out.total = t.total; out.sum = t.sum; out.inVanT = t.inVan;
+    return out;
+  });
+  assert.equal(r.ids.length, 15);
+  assert.deepEqual(r.notTakeable, ['m_statue', 'm_clock'], `only the heavy stand-ins cannot be taken: ${JSON.stringify(r.notTakeable)}`);
+  assert.equal(r.delivered, 12, 'all 12 delivered');
+  assert.equal(r.inCargo, 12, 'all of them lie on the cargo floor');
+  assert.ok(r.slots >= 10, `each in its own place (${r.slots} places)`);
+  assert.equal(r.total, 12, 'the board counts 12, not the heavy ones or the fake');
+  assert.equal(r.sum, 12800, 'the plan\'s $12,800');
+  assert.equal(r.inVanT, 12);
+  // the heavy statue in the gazebo: come up to it
+  const msg = await page.evaluate(() => { const g = window.__game; g.newRound(); g.player.teleport(13, 20, Math.PI / 2, 0); g.sim(0.3); return g.flashText; });
+  assert.equal(msg, 'Сам не підніму — це на двох');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('mansion (M4): loot dropped off the balcony lands on the hedge unharmed with a rustle Valera hears; onto the path it is damaged; the mirror breaks; over the gallery rail it falls into the well; the van has two lurkers — the crate in the garage scares', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  const r = await page.evaluate(() => {
+    const g = window.__game, L = g.loot, out = {};
+    g.playing = true; g.sim(0.1);
+    const by = (id) => L.items.find((i) => i.id === id);
+    g.player.teleport(15, -4.2, 0, 0);
+    const heard = [];
+    const orig = g.patrol.audible.bind(g.patrol);
+    g.patrol.audible = (e, ey) => { const k = orig(e, ey); if (e.source === 'world') heard.push({ kind: e.kind, r: e.radius, k: +k.toFixed(2), y: +e.y.toFixed(2) }); return k; };
+    // 1. the jewel box over the hedge under the balcony (hedge x[-10.5,-5.5] z[2.2,3.2], top 1.0)
+    g.patrol.x = -8; g.patrol.z = 8; g.patrol.y = 0;   // Valera in the garden, 5 m away
+    let it = by('m_jewelbox'); it.mesh.position.set(-8, 3.9, 2.7); it.drop(new g.THREE.Vector3(0, 0, 0)); g.sim(3);
+    out.hedge = { y: +it.mesh.position.y.toFixed(2), damaged: it.damaged, state: it.state, heard: heard.slice() };
+    heard.length = 0;
+    // 2. the statuette onto the path beyond the hedge
+    it = by('m_statuette'); it.mesh.position.set(-8, 3.9, 4.5); it.drop(new g.THREE.Vector3(0, 0, 0)); g.sim(3);
+    out.path = { y: +it.mesh.position.y.toFixed(2), damaged: it.damaged, heard: heard.slice() };
+    // 3. the mirror from half a metre
+    it = by('m_mirror'); it.mesh.position.set(-9, 3.5, -2.5); it.drop(new g.THREE.Vector3(0, 0, 0)); g.sim(2);
+    out.mirror = { broken: it.broken, state: it.state, y: +it.mesh.position.y.toFixed(2) };
+    // 4. the trophy over the gallery rail into the stair well (well x[-6.8,-2] z[-11.93,-7.36]) and on the gallery floor
+    it = by('m_trophy'); it.mesh.position.set(-4.5, 3.6, -9.0); it.drop(new g.THREE.Vector3(0, 0, 0)); g.sim(3);
+    out.well = { y: +it.mesh.position.y.toFixed(2), floor: g.level.floorIndex(it.mesh.position.y) };
+    it = by('m_robot'); it.mesh.position.set(5, 3.4, -8.5); it.drop(new g.THREE.Vector3(0, 0, 0)); g.sim(2);
+    out.gallery = { y: +it.mesh.position.y.toFixed(2) };
+    // 5. the crate lurker in the garage (x 12.2, z 0.2): walk up to it
+    out.lurkers = g.lurkers.map((l) => l.kind);
+    g.newRound();
+    g.player.teleport(10.6, 0.2, 0, 0); g.sim(0.5);
+    out.crateState1 = g.lurkers[1].state;
+    g.sim(2.5);
+    out.crateState2 = g.lurkers[1].state; out.scares = g.lurkers[1].scares; out.wardrobeScares = g.lurkers[0].scares;
+    out.lidUp = g.lurkers[1].lid ? +g.lurkers[1].lid.rotation.x.toFixed(2) : null;
+    return out;
+  });
+  assert.ok(Math.abs(r.hedge.y - 1.0) < 0.05, `lands on the hedge top: ${JSON.stringify(r.hedge)}`);
+  assert.equal(r.hedge.damaged, false, 'the hedge is soft');
+  assert.ok(r.hedge.heard.some((h) => h.r === 8), `a rustle of 8 m reaches Valera: ${JSON.stringify(r.hedge.heard)}`);
+  assert.ok(Math.abs(r.path.y) < 0.05 && r.path.damaged === true, `onto the path from 3.9 m: damaged ${JSON.stringify(r.path)}`);
+  assert.equal(r.mirror.broken, true, `the mirror is fragile: ${JSON.stringify(r.mirror)}`);
+  assert.ok(r.well.y < 1.6 && r.well.floor === 0, `over the gallery rail into the well it lands on the stairs below: ${JSON.stringify(r.well)}`);
+  assert.ok(Math.abs(r.gallery.y - 3) < 0.05, `dropped on the gallery floor it stays upstairs: ${JSON.stringify(r.gallery)}`);
+  assert.deepEqual(r.lurkers, ['wardrobe', 'crate']);
+  assert.equal(r.crateState1, 'telegraph', 'the crate rattles when you come close');
+  assert.ok(r.scares === 1 && r.wardrobeScares === 0, `the crate lunged once: ${r.crateState2} ${r.scares}/${r.wardrobeScares}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('mansion (M4): a pocket hides you standing while its door is shut (not with it open, not with the guard inside); the fountain masks noise for a guard beside it; the shed has a door', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  const r = await page.evaluate(() => {
+    const g = window.__game, L = g.level, out = {};
+    const st = () => { const s = g.stealthState(g.player, L, g.guards); return { cover: s.cover, hidden: s.hidden, eye: s.eye }; };
+    g.playing = true; g.sim(0.1);
+    // the wardrobe pocket upstairs x[-6,-3] z[-18,-12]; its door is in the bedroom wall at (-6, -15); Zhora just outside it
+    const door = L.doors.find((d) => d.floor === 1 && Math.abs(d.cx - (-6)) < 0.3 && Math.abs(d.cz - (-15)) < 0.8);
+    out.door = door ? [+door.cx.toFixed(1), +door.cz.toFixed(1)] : null;
+    g.player.teleport(-4.5, -15, Math.PI / 2, 3); g.player.virtualCrouch = false; g.sim(0.3);
+    g.patrol2.x = -7.5; g.patrol2.z = -15; g.patrol2.y = 3; g.patrol2.heading = -Math.PI / 2; g.patrol.x = 10; g.patrol.z = -8.5;
+    out.shut = st();
+    if (door) { door.angle = door.target = 1.4; }
+    out.open = st();
+    if (door) { door.angle = door.target = 0; }
+    g.patrol2.x = -4.0; g.patrol2.z = -13.5;   // inside, looking
+    out.inside = st();
+    // the fountain (0, 13), r 5: Valera next to it hears a noise 6 m away less than from the same distance elsewhere
+    const e = { x: 0, z: 7, y: 0.03, radius: 8, kind: 'step', source: 'player' };
+    g.patrol.x = 0; g.patrol.z = 12; g.patrol.y = 0; out.nearFountain = +g.patrol.audible(e, 0).toFixed(2);
+    g.patrol.x = 0; g.patrol.z = 2; out.away = +g.patrol.audible(e, 0).toFixed(2);
+    out.shedDoor = L.doors.some((d) => Math.abs(d.cx - (-17)) < 0.6 && Math.abs(d.cz - 21) < 0.3);
+    out.pockets = L.pockets.length;
+    return out;
+  });
+  assert.ok(r.door, 'the wardrobe has a door');
+  assert.deepEqual(r.shut, { cover: true, hidden: true, eye: 'closed' }, `standing in the shut pocket: ${JSON.stringify(r.shut)}`);
+  assert.equal(r.open.hidden, false, `with the door open the guard outside sees in: ${JSON.stringify(r.open)}`);
+  assert.equal(r.inside.hidden, false, `with the guard inside you are seen: ${JSON.stringify(r.inside)}`);
+  assert.ok(r.nearFountain < r.away, `the fountain masks: ${r.nearFountain} < ${r.away}`);
+  assert.equal(r.shedDoor, true);
+  assert.equal(r.pockets, 5);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

@@ -12,6 +12,8 @@ import { Builder, Door, C } from '../level.js';
 import { Floors } from '../floors.js';
 import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T } from '../kit.js';
 import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
+// the crate of the second lurker: in the garage by the gate, its lid pops up in the telegraph
+const CRATE = { x: 12.2, z: 0.2, y0: 0, kind: 'crate', size: 0.9, minZ: -0.25, maxZ: 0.65 };
 import { mansion as MCFG } from '../../config/mansion.js';
 import { furnish } from './furniture.js';
 import { CFG } from '../../config/index.js';
@@ -178,6 +180,14 @@ export function buildMansion() {
     block(1, w.x, w.minZ, w.x + 0.7, w.maxZ, 2.2, null);
   }
 
+  // ---------- the crate of the second lurker (garage) ----------
+  {
+    const c = CRATE, s = c.size;
+    S0.box(c.x - s / 2, 0, c.z - s / 2, c.x + s / 2, s * 0.8, c.z + s / 2, C.woodLight);
+    for (const z of [c.z - s / 2, c.z + s / 2 - 0.06]) S0.box(c.x - s / 2, s * 0.3, z, c.x + s / 2, s * 0.36, z + 0.06, C.woodDark);
+    block(0, c.x - s / 2, c.z - s / 2, c.x + s / 2, c.z + s / 2, s * 0.85, null);
+  }
+
   // ---------- furniture (./furniture.js) ----------
   furnish({ S0, S1, SA, G, block }, FLOOR_Y);
 
@@ -193,19 +203,21 @@ export function buildMansion() {
   }
   const hedge = (x0, z0, x1, z1) => { S.box(x0, 0, z0, x1, 1.4, z1, C.leaves); block(0, x0, z0, x1, z1, 1.4, null); };
   hedge(-12, 5.5, -2, 6.5); hedge(2, 5.5, 12, 6.5); hedge(-16, 11.5, -8, 12.5); hedge(8, 11.5, 16, 12.5); hedge(-6, 17.5, 6, 18.5);
-  hedge(-10.5, 2.2, -5.5, 3.2);   // under the balcony: a soft landing (M4)
+  // under the balcony: a lower hedge you can land loot on (a soft landing: much slower, but a rustle)
+  { const [x0, z0, x1, z1] = [-10.5, 2.2, -5.5, 3.2]; S.box(x0, 0, z0, x1, 1.0, z1, C.leaves); block(0, x0, z0, x1, z1, 1.0, 1.0); }
+  const SOFT = [{ minX: -10.5, maxX: -5.5, minZ: 2.2, maxZ: 3.2, k: MCFG.balcony.softK, noise: MCFG.balcony.rustle }];
   S.cyl(1.5, 1.6, 0.6, 0, 0, 13, C.stone, 14); S.cyl(0.15, 0.2, 1.2, 0, 0.6, 13, C.stone, 8);   // fountain
   block(0, -1.6, 11.4, 1.6, 14.6, 0.6, null);
+  const MASK = [{ x: 0, z: 13, r: MCFG.fountain.maskR }];   // the fountain hides your steps near it (a guard beside it hears less)
   {   // gazebo with the heavy statue (a stand-in until W5)
     const gx = 14, gz = 20;
     for (const [dx, dz] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) { S.cyl(0.08, 0.1, 2.6, gx + dx, 0, gz + dz, C.wood, 6); block(0, gx + dx - 0.1, gz + dz - 0.1, gx + dx + 0.1, gz + dz + 0.1, 2.6, null); }
     S.box(gx - 2, 2.6, gz - 2, gx + 2, 2.75, gz + 2, C.roof);
-    S.cyl(0.4, 0.5, 0.5, gx, 0, gz, C.stone, 8); S.cyl(0.3, 0.3, 1.2, gx, 0.5, gz, C.stone, 8);
-    block(0, gx - 0.5, gz - 0.5, gx + 0.5, gz + 0.5, 1.7, null);
+    block(0, gx - 0.5, gz - 0.5, gx + 0.5, gz + 0.5, 1.7, null);   // the heavy statue stands here (a loot item nobody can lift yet)
   }
-  {   // shed (a hiding pocket, its door comes with M4) and the greenhouse
-    const Ks = wallKit(S, solidOn(0), [], 0, 0, 2.3);
-    Ks.wallX(18, -19, -15, 0.1, C.fence); Ks.wallX(21, -19, -15, 0.1, C.fence, [{ c: -17, w: 1.0 }]); Ks.wallZ(-19, 18, 21, 0.1, C.fence); Ks.wallZ(-15, 18, 21, 0.1, C.fence);
+  {   // shed (a hiding pocket with a door) and the greenhouse
+    const Ks = wallKit(S, solidOn(0), doorSpecs, 0, 0, 2.3);
+    Ks.wallX(18, -19, -15, 0.1, C.fence); Ks.wallX(21, -19, -15, 0.1, C.fence, [{ c: -17, w: 1.0, door: 'normal' }]); Ks.wallZ(-19, 18, 21, 0.1, C.fence); Ks.wallZ(-15, 18, 21, 0.1, C.fence);
     S.box(-19.2, 2.3, 17.8, -14.8, 2.45, 21.2, C.roof);
     const Kg = wallKit(S, solidOn(0), [], 0, 0, 2.2);
     Kg.wallX(6, 14, 19, 0.06, C.glass); Kg.wallX(10, 14, 19, 0.06, C.glass, [{ c: 16.5, w: 1.0 }]); Kg.wallZ(14, 6, 10, 0.06, C.glass); Kg.wallZ(19, 6, 10, 0.06, C.glass);
@@ -227,7 +239,7 @@ export function buildMansion() {
   const V = van(S, G, VAN.x, VAN.z, VAN.yaw);
   worlds[0].addBox(V.body.minX, V.body.minZ, V.body.maxX, V.body.maxZ);
   furniture.push({ ...V.body, h: 2.2, top: null, floor: 0 });
-  const CARGO = V.cargo;
+  const CARGO = { ...V.cargo, rear: 'max' };   // the rear doors face +Z: the first places are at maxZ
   // scoreboard stand (the board itself is ui/board.js)
   S.cyl(0.03, 0.03, 1.1, BOARD.x, 0, BOARD.z, C.pole, 6);
   S.cyl(0.25, 0.25, 0.03, BOARD.x, 0, BOARD.z, C.pole, 10);
@@ -262,12 +274,27 @@ export function buildMansion() {
   const surfaces = furniture.filter((b) => b.top != null);
   surfaces.push({ ...CARGO, top: CARGO.y });
   const floorIndex = (y) => floors.floorIndex(y);
+  const inHouse = (x, z) => x > H.minX && x < H.maxX && z > H.minZ && z < H.maxZ;
+  const BAL = ROOMS.find((r) => r.name === TEXT.mansion.rooms.balcony);
+  // The ground under a falling thing at (x, z) that is at height maxY: the stairs and the landing
+  // where they are; under the slab the floor at or below it; in the stair well, on the balcony's
+  // outside and in the garden — the ground (loot thrown over a rail falls all the way down).
+  const groundAt = (x, z, maxY) => {
+    const r = floors.rampAt(x, z); if (r) return r.y;
+    const f = floors.flatAt(x, z); if (f) return f.y;
+    const onBalcony = x >= BAL.minX && x <= BAL.maxX && z >= BAL.minZ && z <= BAL.maxZ;
+    if ((inHouse(x, z) && !inWell(x, z)) || onBalcony) return maxY >= FLOOR_Y[1] - 0.2 ? FLOOR_Y[1] : FLOOR_Y[0];
+    return FLOOR_Y[0];
+  };
+  const RN = TEXT.rooms, MN = TEXT.mansion.rooms;
+  const POCKETS = [RN.pantry, MN.boiler, MN.wardrobe, MN.attic].map((n) => ROOMS.find((r) => r.name === n)).map((r) => ({ name: r.name, floor: r.floor, minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ }));
+  POCKETS.push({ name: TEXT.mansion.rooms.shed, floor: 0, minX: -19, maxX: -15, minZ: 18, maxZ: 21 });
+  const inWell = (x, z) => x >= W.minX && x <= W.maxX && z >= W.minZ && z <= W.maxZ;
   const roomAt = (x, z, y = 0) => {
     const f = floorIndex(y);
     for (const r of ROOMS) if (r.floor === f && x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ) return r.name;
     return OUTSIDE[1];
   };
-  const inWell = (x, z) => x >= W.minX && x <= W.maxX && z >= W.minZ && z <= W.maxZ;
   // Line of sight on one floor: its walls, its closed doors, and furniture taller than the line.
   function losOnFloor(f, ax, ay, az, bx, by, bz) {
     if (walls[f].segmentBlocked(ax, az, bx, bz)) return true;
@@ -295,7 +322,7 @@ export function buildMansion() {
     floorMeshes: [mesh0, mesh1],
     // draw the rooms of floor f only (the hall band, the stairs and the outside are always drawn)
     setFloorVisible(f) { mesh0.visible = f === 0; mesh1.visible = f === 1; },
-    wardrobe: WARDROBE, nav: { nodes: NAV_NODES, stairs: NAV_STAIRS, indoor: (n) => n[0] > H.minX && n[0] < H.maxX && n[1] > H.minZ && n[1] < H.maxZ },
+    wardrobe: WARDROBE, lurkers: [WARDROBE, CRATE], pockets: POCKETS, softZones: SOFT, maskZones: MASK, nav: { nodes: NAV_NODES, stairs: NAV_STAIRS, indoor: (n) => n[0] > H.minX && n[0] < H.maxX && n[1] > H.minZ && n[1] < H.maxZ },
     guard: MCFG.guard, guard2: MCFG.guard2, alarmPosts: MCFG.alarmPosts, items: MCFG.items,
     roomAt, floorIndex,
     floorY: (x, z, yHint = 0) => floors.floorY(x, z, yHint),
@@ -321,9 +348,11 @@ export function buildMansion() {
       }
       return [x, z];
     },
-    // Highest surface under (x, z) at or below maxY: the ground of that floor or a furniture top.
+    // the soft zone under (x, z) (the hedge under the balcony), or null
+    softAt(x, z) { for (const s of SOFT) if (x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ) return s; return null; },
+    // Highest surface under (x, z) at or below maxY: the ground there (groundAt) or a furniture top.
     surfaceAt(x, z, maxY, margin = 0) {
-      let best = floors.floorY(x, z, maxY);
+      let best = groundAt(x, z, maxY);
       for (const b of surfaces) {
         if (b.top > maxY + 1e-3 || b.top <= best) continue;
         if (x >= b.minX + margin && x <= b.maxX - margin && z >= b.minZ + margin && z <= b.maxZ - margin) best = b.top;

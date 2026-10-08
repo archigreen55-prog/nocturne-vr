@@ -20,7 +20,7 @@ export const mansion = {
       [M.garage]: [[9.5, -2], [5.0, -1.5]],
       [R.anteroom]: [[-4.5, -2.5]],
       [R.corridor]: [[-8, -8.5]],
-      [M.garden]: [[-3, 3], [3, 9], [-9, 9]],
+      [M.garden]: [[-3, 3], [3, 9], [-9, 9], [-13, 16]],
       [M.alley]: [[15, -6], [15, -12]],
     },
     // Hiding spots: where a crouching thief hides; `from` is where the guard stands to look there.
@@ -33,7 +33,8 @@ export const mansion = {
       { name: S.mansion.spots.desk, at: [9.5, -11.5], from: [9.5, -8.5] },
       { name: S.mansion.spots.car, at: [9.0, -1.5], from: [5.0, -1.5] },
       { name: S.mansion.spots.crates, at: [5.0, 0.6], from: [5.0, -4.0] },
-      { name: S.mansion.spots.pantry, at: [-11, -10.5], from: [-9.6, -8.5] },
+      { name: S.mansion.spots.pantry, at: [-11, -10.5], from: [-10.3, -8.5] },   // a pocket: it steps inside (opens the door)
+      { name: S.mansion.spots.shed, at: [-16, 19], from: [-17, 20.2] },           // a pocket in the garden
       { name: S.mansion.spots.boiler, at: [-1.2, -2.5], from: [3.4, -2.5] },
     ],
     // Habits: the same windows as on the first map (see src/config/guard.js), at this house's places.
@@ -87,11 +88,28 @@ export const mansion = {
   radio: { every: 60, jitter: 15, answerAfter: 1.8 },
   // a noise on the other floor carries this part of its radius through the slab (through the stair well: as a wall)
   hearing: { floorK: 0.3 },
+  // loot dropped off the balcony onto the hedge under it: lands at softK of its speed (no damage), rustles this far
+  balcony: { softK: 0.3, rustle: 8 },
+  // a guard this close to the fountain hears less (CFG.hearing.maskK, as by the kettle)
+  fountain: { maskR: 5 },
 
-  // M1: three items on the ground floor to test carrying; the 14 of the plan come with M4.
+  // 14 items (plan-W6 §4.1): 12 to take (4 upstairs), 2 heavy stand-ins nobody can lift alone (W5);
+  // the fake painting lies in the van for contract 12 (M5). pos: bottom centre, y = the surface.
   items: [
-    { id: 'm_chest', name: S.mansion.items.chest, kind: 'medium', mesh: 'chest', value: 1300, pos: [9.5, 0, -3.0], yaw: 0.2 },
-    { id: 'm_vase', name: S.mansion.items.vase, kind: 'medium', mesh: 'vase', value: 1200, pos: [4.5, 0, -10.5], yaw: 0 },
-    { id: 'm_candelabrum', name: S.mansion.items.candelabrum, kind: 'light', mesh: 'candelabrum', value: 300, pos: [3.0, 0, -16.5], yaw: 0 },
+    { id: 'm_statuette', name: S.mansion.items.statuette, kind: 'light', mesh: 'statuette', value: 350, pos: [-11.0, 0.76, -16.3], yaw: 0.4 },     // library table
+    { id: 'm_candelabrum', name: S.mansion.items.candelabrum, kind: 'light', mesh: 'candelabrum', value: 300, pos: [3.0, 0.76, -15.3], yaw: 0 },   // dining table
+    { id: 'm_laptop', name: S.mansion.items.laptop, kind: 'light', mesh: 'laptop', value: 800, pos: [9.5, 0.76, -10.5], yaw: Math.PI },           // study desk
+    { id: 'm_jewelbox', name: S.mansion.items.jewelbox, kind: 'light', mesh: 'jewelbox', value: 600, pos: [-9.5, 3.55, -15.2], yaw: -0.3 },      // bedroom nightstand (upstairs)
+    { id: 'm_trophy', name: S.mansion.items.trophy, kind: 'light', mesh: 'trophy', value: 400, pos: [-9.6, 3.84, -11.2], yaw: 0 },              // guard room dresser (upstairs)
+    { id: 'm_robot', name: S.mansion.items.robot, kind: 'light', mesh: 'robot', value: 450, pos: [6.4, 3.72, -17.2], yaw: 0.3 },                // kids' table (upstairs)
+    { id: 'm_painting', name: S.mansion.items.painting, kind: 'medium', mesh: 'painting2', value: 1500, pos: [-3.0, 1.3, -17.5], yaw: 0 },      // over the fireplace
+    { id: 'm_vase', name: S.mansion.items.vase, kind: 'medium', mesh: 'vase', value: 1200, pos: [-0.3, 0, -11.6], yaw: 0 },                     // hall, by the north wall
+    { id: 'm_chest', name: S.mansion.items.chest, kind: 'medium', mesh: 'chest', value: 1300, pos: [9.5, 0, -3.0], yaw: 0.2 },                  // garage
+    { id: 'm_wine', name: S.mansion.items.wine, kind: 'medium', mesh: 'wine', value: 1400, pos: [10.5, 0, 0.4], yaw: 0 },                       // garage, by the shelves
+    { id: 'm_crystal', name: S.mansion.items.crystal, kind: 'crystal', mesh: 'crystal', value: 2500, pos: [0.45, 0.94, -16.6], yaw: 0 },        // dining sideboard
+    { id: 'm_mirror', name: S.mansion.items.mirror, kind: 'medium', mesh: 'mirror', fragile: true, value: 2000, pos: [-12.7, 3, -1.3], yaw: Math.PI / 2 },   // guest room (upstairs), against the west wall
+    { id: 'm_statue', name: S.mansion.items.statue, kind: 'medium', mesh: 'statue', heavy: true, value: 3000, pos: [14, 0, 20], yaw: 0 },          // gazebo: "two to carry" (W5)
+    { id: 'm_clock', name: S.mansion.items.floorclock, kind: 'medium', mesh: 'floorclock', heavy: true, value: 2500, pos: [6.68, 0, -7.3], yaw: -Math.PI / 2 },   // hall: "two to carry" (W5)
+    { id: 'fake', name: S.mansion.items.fake, kind: 'medium', mesh: 'painting2', prop: true, value: 0, pos: [16.5, 0.4, -9.7], yaw: Math.PI },   // in the van, for contract 12 (M5)
   ],
 };

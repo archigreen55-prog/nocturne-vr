@@ -12,10 +12,11 @@ export class Lurker {
   // env: { level, onScare() }
   constructor(env) {
     this.env = env;
-    const W = this.spec = env.spec || (env.level && env.level.wardrobe) || WARDROBE;   // the wardrobe it sits in
+    const W = this.spec = env.spec || (env.level && env.level.wardrobe) || WARDROBE;   // the wardrobe (or crate, W6) it sits in
     this.y0 = W.y0 || 0;
-    this.HOME = new THREE.Vector3(W.x + 0.36, this.y0 + 1.05, W.z);
-    this.FRONT = { x: W.x - 0.15, z: W.z };
+    this.kind = W.kind || 'wardrobe';
+    this.HOME = this.kind === 'crate' ? new THREE.Vector3(W.x, this.y0 + 0.45, W.z) : new THREE.Vector3(W.x + 0.36, this.y0 + 1.05, W.z);
+    this.FRONT = this.kind === 'crate' ? { x: W.x, z: W.z } : { x: W.x - 0.15, z: W.z };
     this.group = new THREE.Group();
     this.group.name = 'lurker';
     // body: dark lumpy ball, long arms with claws, wide jaw full of teeth; faces -Z
@@ -61,7 +62,14 @@ export class Lurker {
     const g1 = D1.mesh(mat), g2 = D2.mesh(mat);
     this.door1 = new THREE.Group(); this.door1.position.set(W.x - 0.02, this.y0, W.minZ); this.door1.add(g1);
     this.door2 = new THREE.Group(); this.door2.position.set(W.x - 0.02, this.y0, W.maxZ); this.door2.add(g2);
-    this.group.add(this.door1, this.door2);
+    if (this.kind === 'crate') {
+      // a crate: its lid, hinged on the far edge, pops up in the telegraph and flies open with the lunge
+      const s = W.size || 0.9, Ld = new Builder();
+      Ld.box(-s / 2, 0, -s, s / 2, 0.05, 0, 0x7a6a4a);
+      Ld.box(-s / 2 + 0.05, 0.05, -s + 0.05, s / 2 - 0.05, 0.07, -0.05, 0x5a4a30);
+      this.lid = new THREE.Group(); this.lid.position.set(W.x, this.y0 + s * 0.8, W.z + s / 2); this.lid.add(Ld.mesh(mat));
+      this.group.add(this.lid);
+    } else this.group.add(this.door1, this.door2);
     this.voice = new Voice3D(1.6);
     this.voice.setPos(this.HOME.x, this.HOME.y, this.HOME.z);
     this.target = new THREE.Vector3();
@@ -80,8 +88,9 @@ export class Lurker {
     this.setDoors(0);
   }
 
-  // doors: 0 closed .. 1 wide open
+  // doors: 0 closed .. 1 wide open (a crate: its lid)
   setDoors(k) {
+    if (this.lid) { this.lid.rotation.x = k * 1.7; return; }
     this.door1.rotation.y = -k * 1.9;
     this.door2.rotation.y = k * 1.9;
   }

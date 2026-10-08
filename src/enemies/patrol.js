@@ -268,6 +268,7 @@ export class Patrol {
     // difficulty, habits (tea, toilet, phone: hears worse), a whistling kettle next to it
     let r = e.radius * CFG.hearing.radiusK * (this.mods && this.mods.hearK ? this.mods.hearK : 1);
     if (this.maskR && d < this.maskR) r *= CFG.hearing.maskK;
+    for (const m of this.env.level.maskZones || []) if (Math.hypot(m.x - this.x, m.z - this.z) < m.r) { r *= CFG.hearing.maskK; break; }   // W6: a fountain nearby
     if (d > r) return 0;
     const L = this.env.level;
     const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? CFG.hearing.occludedK : 1);

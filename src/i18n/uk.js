@@ -186,7 +186,7 @@ export default {
       dining: 'Їдальня', study: 'Кабінет', laundry: 'Пральня', boiler: 'Котельня', garage: 'Гараж',
       bedroom: 'Спальня господарів', wardrobe: 'Гардероб', bath: 'Ванна', kids: 'Дитяча', attic: 'Горище-комора',
       guardroom: 'Кімната сторожа', corridor2: 'Коридор нагорі', gallery: 'Галерея', guest: 'Гостьова', billiard: 'Більярдна',
-      music: 'Музична', balcony: 'Балкон', alley: 'Провулок', garden: 'Сад',
+      music: 'Музична', balcony: 'Балкон', alley: 'Провулок', garden: 'Сад', shed: 'Сарай',
     },
     names: { valera: 'Валера', zhora: 'Жора' },
     guard: {
@@ -200,6 +200,7 @@ export default {
       sofa: 'за диваном у вітальні', diningTable: 'під столом у їдальні', island: 'за кухонним островом', libTable: 'за столом у бібліотеці',
       pillar: 'за колоною в холі', desk: 'за столом у кабінеті', car: 'за машиною', crates: 'за ящиками в гаражі', pantry: 'у коморі', boiler: 'у котельні',
       bed: 'за ліжком господарів', wardrobe: 'у гардеробі', billiard: 'під більярдним столом', piano: 'за піаніно', atticCrates: 'за ящиками на горищі', cot: 'за лежаком',
+      shed: 'у сараї',
     },
     // the radio between the guards: [what Valera says, what Zhora answers]
     radio: {
@@ -213,9 +214,22 @@ export default {
       coming: 'Прийняв, біжу до виходу!',
     },
     items: {
-      chest: 'Скриня з інструментами',
-      vase: 'Ваза з холу',
+      statuette: 'Статуетка з бібліотеки',
       candelabrum: 'Канделябр',
+      laptop: 'Ноутбук з кабінету',
+      jewelbox: 'Шкатулка господині',
+      trophy: 'Кубок Жори',
+      robot: 'Робот-іграшка (колекційний)',
+      painting: 'Картина над каміном',
+      vase: 'Ваза з холу',
+      chest: 'Скриня з інструментами',
+      wine: 'Ящик вина',
+      crystal: 'Кришталева ваза',
+      mirror: 'Дзеркало в рамі',
+      statue: 'Статуя з альтанки',
+      floorclock: 'Підлоговий годинник',
+      fake: 'Підробка картини',
+      heavy: 'Сам не підніму — це на двох',
     },
   },
   difficulty: {

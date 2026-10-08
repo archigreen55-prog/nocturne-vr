@@ -116,7 +116,7 @@ export function furnish(ctx, FLOOR_Y) {
   F.sofa(-5.6, -14.3, -3.2, -13.5, false);
   F.table(-5.0, -16.4, -3.8, -15.7, 0.42, C.wood, C.woodDark);
   F.armchair(-5.4, -17.0, 0.4);
-  F.painting(-3.0, -17.85, 's', 1.2, 0.8, 0x6a5a3a);
+  // (the painting over the fireplace is a loot item, config/mansion.js)
   F.rug(-5.0, -16.9, -1.0, -13.9, C.rugBlue);
   F.ceilingLamp(-3, -15.5);
   // dining room x[0,6] z[-18,-12]
@@ -143,7 +143,7 @@ export function furnish(ctx, FLOOR_Y) {
   FB.pillar(1.0, -10.5); FB.pillar(1.0, -6.5);
   FB.box(4.4, 0, -11.1, 6.0, 0.45, -10.5, C.woodDark); FB.box(4.4, 0.45, -11.1, 6.0, 0.95, -11.0, C.woodDark); FB.solid(4.4, -11.1, 6.0, -10.5, 0.95, 0.45);   // bench under the picture
   FB.box(0.4, 0, -11.93, 1.8, 0.8, -11.5, C.wood); FB.solid(0.4, -11.93, 1.8, -11.5, 0.8);   // console by the north wall
-  FB.box(6.4, 0, -7.6, 6.95, 2.1, -7.0, C.woodDark); FB.solid(6.4, -7.6, 6.95, -7.0, 2.1, null);   // the floor clock (a heavy item, W5)
+  FB.solid(6.4, -7.6, 6.95, -7.0, 2.1, null);   // the floor clock stands here (a heavy loot item, config/mansion.js)
   FB.rug(-1.5, -10.0, 1.5, -6.5, C.rugRed);
   FB.painting(5.0, -11.93, 's', 1.4, 0.9, 0x5a3a3a);
   // study x[7,13] z[-12,-5]: desk, the safe (W2c), bookcase

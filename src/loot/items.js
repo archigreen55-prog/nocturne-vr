@@ -70,6 +70,52 @@ function buildItem(id, B) {
       B.cyl(0.045, 0.07, 0.1, 0, 0.17, 0, 0xc8ecff);
       B.cyl(0.06, 0.045, 0.04, 0, 0.27, 0, 0xa8dcff);
       return { h: 0.31, r: 0.07 };
+    // ---------- map 2 (W6) ----------
+    case 'laptop':
+      B.box(-0.16, 0, -0.11, 0.16, 0.02, 0.11, 0x2a2d33);
+      B.box(-0.15, 0.02, -0.1, 0.15, 0.025, 0.1, 0x3a3e46);
+      { const g = new THREE.BoxGeometry(0.32, 0.21, 0.012); g.translate(0, 0.105, 0); g.rotateX(-0.35); g.translate(0, 0.02, -0.11); B.add(g, 0x2a2d33); }
+      { const g = new THREE.BoxGeometry(0.29, 0.18, 0.004); g.translate(0, 0.105, 0.008); g.rotateX(-0.35); g.translate(0, 0.02, -0.11); B.add(g, 0x5a8ac0); }
+      return { h: 0.22, r: 0.18 };
+    case 'trophy':
+      B.box(-0.07, 0, -0.07, 0.07, 0.03, 0.07, 0x2a2420);
+      B.cyl(0.02, 0.035, 0.1, 0, 0.03, 0, GOLD);
+      B.cyl(0.07, 0.035, 0.13, 0, 0.13, 0, GOLD);
+      for (const s of [-1, 1]) B.box(s * 0.07, 0.15, -0.01, s * 0.1, 0.24, 0.01, GOLD);
+      return { h: 0.26, r: 0.1 };
+    case 'robot':
+      B.box(-0.08, 0, -0.06, 0.08, 0.18, 0.06, 0x8a9ab0);
+      B.box(-0.06, 0.18, -0.05, 0.06, 0.28, 0.05, 0xa8b4c4);
+      for (const s of [-1, 1]) { B.box(s * 0.08, 0.08, -0.025, s * 0.12, 0.17, 0.025, 0x6a7a90); B.box(s * 0.03 - 0.02, 0.2, -0.052, s * 0.03 + 0.02, 0.24, -0.05, 0xff4040); }
+      B.box(-0.05, 0, -0.07, 0.05, 0.02, 0.07, 0x3a3a3a);
+      return { h: 0.28, r: 0.12 };
+    case 'wine':
+      B.box(-0.25, 0, -0.17, 0.25, 0.3, 0.17, 0x6b4a2a);
+      B.box(-0.26, 0.28, -0.18, 0.26, 0.3, 0.18, 0x5a3a22);
+      for (let i = 0; i < 6; i++) B.cyl(0.03, 0.03, 0.1, -0.17 + (i % 3) * 0.17, 0.3, i < 3 ? -0.08 : 0.08, 0x1f3a2a, 6);
+      return { h: 0.4, r: 0.3 };
+    case 'painting2':    // a bigger painting (W6): 0.8 x 0.6
+      B.box(-0.4, 0, -0.02, 0.4, 0.6, 0.02, GOLD);
+      B.box(-0.34, 0.06, -0.025, 0.34, 0.54, 0.025, 0x4a3a2a);
+      B.box(-0.34, 0.06, 0.025, 0.34, 0.3, 0.028, 0x2a4a3a);
+      B.add(new THREE.CircleGeometry(0.07, 12).translate(0.15, 0.42, 0.029), 0xe8d8a0);
+      return { h: 0.6, r: 0.4 };
+    case 'mirror':
+      B.box(-0.3, 0, -0.025, 0.3, 0.8, 0.025, GOLD);
+      B.box(-0.26, 0.04, 0.025, 0.26, 0.76, 0.03, 0x9fb4c8);
+      return { h: 0.8, r: 0.3 };
+    case 'floorclock':   // a heavy item (W5): a stand-in that cannot be picked up yet
+      B.box(-0.28, 0, -0.25, 0.28, 2.1, 0.25, 0x3b2418);
+      B.add(new THREE.CylinderGeometry(0.17, 0.17, 0.02, 20).rotateX(Math.PI / 2).translate(0, 1.75, 0.26), 0xe8e0c8);
+      B.box(-0.1, 0.3, 0.255, 0.1, 1.4, 0.26, 0x1a1410);
+      B.add(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 12).rotateX(Math.PI / 2).translate(0, 0.5, 0.265), GOLD);
+      return { h: 2.1, r: 0.3 };
+    case 'statue':       // a heavy item (W5): a stand-in that cannot be picked up yet
+      B.cyl(0.4, 0.5, 0.5, 0, 0, 0, 0x6c6760, 8);
+      B.cyl(0.18, 0.22, 0.9, 0, 0.5, 0, 0x8a857c, 8);
+      B.add(new THREE.SphereGeometry(0.16, 10, 8).translate(0, 1.55, 0), 0x8a857c);
+      B.box(-0.3, 1.15, -0.08, 0.3, 1.3, 0.08, 0x8a857c);
+      return { h: 1.7, r: 0.5 };
   }
   throw new Error('unknown item ' + id);
 }
@@ -80,7 +126,17 @@ export function inCargo(x, z) {
 }
 
 // Places in the van for delivered loot (2 columns, front to back).
-const SLOTS = [[3.95, 8.3], [4.85, 8.3], [3.95, 9.0], [4.85, 9.0], [3.95, 9.7], [4.85, 9.7], [3.95, 10.4], [4.85, 10.4], [4.4, 11.0]];
+const SLOTS_DACHA = [[3.95, 8.3], [4.85, 8.3], [3.95, 9.0], [4.85, 9.0], [3.95, 9.7], [4.85, 9.7], [3.95, 10.4], [4.85, 10.4], [4.4, 11.0]];
+let SLOTS = SLOTS_DACHA;
+// another map's van: 2 columns along its cargo floor, from the rear (the end nearer the drop-off ring) forwards
+function slotsFor(c, rear) {
+  const out = [], x0 = c.minX + 0.45, x1 = c.maxX - 0.45, len = c.maxZ - c.minZ;
+  for (let i = 0; i * 0.7 + 0.45 < len; i++) {
+    const z = rear === 'max' ? c.maxZ - 0.45 - i * 0.7 : c.minZ + 0.45 + i * 0.7;
+    out.push([x0, z], [x1, z]);
+  }
+  return out.length ? out : [[(c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2]];
+}
 
 class Item {
   constructor(def) {
@@ -90,6 +146,9 @@ class Item {
     this.kind = def.kind;
     this.twoHanded = def.kind === 'medium';
     this.crystal = def.kind === 'crystal';
+    this.fragile = !!def.fragile;       // breaks like the crystal when dropped (W6: the mirror), no shards
+    this.heavy = !!def.heavy;           // a two-carrier item (W5): a stand-in nobody can pick up yet
+    this.prop = !!def.prop;             // not loot (W6: the fake painting in the van): not counted
     const B = new Builder();
     const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
@@ -135,7 +194,7 @@ class Item {
   get value() { return this.broken ? 0 : Math.round(this.def.value * (this.damaged ? CFG.loot.damagedK : 1)); }
   get held() { return this.holders.length > 0; }
   // can a hand pick it up? (not broken, not flying, not already in the van)
-  get takeable() { return this.state !== 'broken' && this.state !== 'fly' && !this.delivered; }
+  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered; }
 
   centre(out) { return out.copy(this.mesh.position).addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.mesh.quaternion), this.h / 2); }
 
@@ -160,7 +219,8 @@ export class Loot {
   // env: { level, noise, listener() -> {x, z}, onMessage(text, color), onDeliver(item) }
   constructor(env) {
     this.env = env;
-    if (env.level && env.level.cargo) cargo = env.level.cargo;
+    if (env.level && env.level.cargo) { cargo = env.level.cargo; SLOTS = cargo.slots || slotsFor(cargo, cargo.rear || 'min'); }
+    else SLOTS = SLOTS_DACHA;
     this.items = ((env.level && env.level.items) || CFG.items).map((d) => new Item(d));
     this.group = new THREE.Group();
     this.group.name = 'loot';
@@ -176,8 +236,9 @@ export class Loot {
 
   // Summary for the board and the wrist; list = delivered items in delivery order.
   tally() {
-    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.length, list: [] };
+    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.filter((i) => !i.heavy && !i.prop).length, list: [] };
     for (const it of this.items) {
+      if (it.prop) continue;
       if (it.broken) s.broken++;
       if (!it.delivered) continue;
       s.inVan++; s.sum += it.value;
@@ -220,7 +281,7 @@ export class Loot {
 
   // An item resting on the cargo floor (flown in, stowed, or thrown in) counts, once and for good.
   markDelivered(it, force = false) {
-    if (it.delivered || it.broken || it.state !== 'rest') return;
+    if (it.delivered || it.broken || it.prop || it.state !== 'rest') return;   // a prop (the fake painting) is never loot
     if (!force && !(inCargo(it.mesh.position.x, it.mesh.position.z) && it.mesh.position.y > 0.2)) return;
     it.delivered = true;
     it.order = ++this.orderN;
@@ -305,10 +366,18 @@ export class Loot {
     const env = this.env, p = it.mesh.position, L = env.listener();
     const occ = env.level.soundOccluded(L.x, L.z, p.x, p.z);
     const pos = { x: p.x, y: p.y + 0.1, z: p.z };
-    if (it.crystal && speed > CFG.loot.crystal.breakSpeed) {
+    // a soft landing (W6: the hedge under the balcony): much slower, but a rustle the garden hears
+    if (!wall && env.level.softAt && env.level.softAt(p.x, p.z)) {
+      const soft = env.level.softAt(p.x, p.z);
+      speed *= soft.k;
+      playThud(pos, occ, 0.3, false);
+      env.noise.emit(p.x, p.z, soft.noise, 'drop', { y: p.y + 0.02, source: 'world' });
+      if (speed < CFG.loot.quietLanding) return;
+    }
+    if ((it.crystal || it.fragile) && speed > CFG.loot.crystal.breakSpeed) {
       it.broken = true; it.damaged = true; it.state = 'broken';
       it.mesh.visible = false;
-      it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true;
+      if (it.shards) { it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true; }
       playGlass(pos, occ);
       env.noise.emit(p.x, p.z, CFG.loot.noiseRadius.glass, 'glass', { y: p.y + 0.02, source: 'world' });
       env.onMessage(S.loot.crystalBroke, '#ff5c5c');
