@@ -34,6 +34,16 @@ export const CFG = {
     // sane limits for the player's ± corrections (dB): the shout threshold stays this far above the
     // calibrated voice, the whisper boundary this far above the whisper (or silence) and below the voice
     limitMargin: { shoutOverVoice: 4, whisper: 3, voiceOverWhisper: 3 },
+    // Phone (plan-phone-mode §2.3, decision §9 p. 10): the game's own sound from the phone speaker is
+    // not your voice. bleed = how loud the game bus is in the microphone (dB, measured by the
+    // calibration step "Звуки гри"); while the game sounds, your whisper boundary / shout threshold sit
+    // at least maskWhisper / maskShout dB above the game as the microphone hears it.
+    bleedDefault: -34,     // estimate until the step is done (speaker; headphones measure far lower)
+    maskWhisper: 4,
+    maskShout: 8,
+    shoutOverAgc: 6,       // shout step skipped and the browser keeps auto gain on (iPhone): voice + this
+    coverDrop: 10,         // "microphone covered?": the level this many dB under your calibrated silence...
+    coverSecs: 3,          // ...for this many seconds
   },
 
   // A / Shift: the mic is ignored for up to `hold` s. Cooldown = cooldown x (time held / hold), at least

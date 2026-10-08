@@ -1,7 +1,7 @@
 // Microphone loudness (plan §6): getUserMedia with AGC / noise suppression / echo cancellation off,
 // AnalyserNode RMS 30 times a second -> dBFS, envelope (attack 50 ms, release 300 ms), classified
 // against a per-player calibration into quiet (whisper) / normal / shout.
-import { audioContext, unlockAudio } from './audio.js';
+import { audioContext, unlockAudio, setAudioSession } from './audio.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { CFG } from '../game/config.js';
 
@@ -9,6 +9,18 @@ const RATE = 30;               // analyses per second
 const ATTACK = 0.05, RELEASE = 0.3;
 const SHOUT_HOLD = 0.8;        // s the shout label stays after the peak
 const DEFAULT_CAL = { floor: -62, normal: -32 };
+const CONSTRAINTS = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false };
+// readable reasons for a microphone that did not open
+const why = (e) => (e && e.name === 'NotAllowedError' ? 'дозвіл не надано'
+  : e && e.name === 'NotFoundError' ? 'мікрофон не знайдено'
+    : e && e.name === 'NotReadableError' ? 'мікрофон зайнятий іншим застосунком (дзвінок, диктофон) — закрий його й спробуй ще раз'
+      : String(e && (e.message || e.name) || e));
+// The game's loudness used for the boundaries rises at once, is held GAME_HOLD s after the game was
+// last loud (speaker -> air -> microphone lag, the analyser windows), then falls by at most GAME_FALL
+// dB/s. The microphone envelope falls faster than that while it is above the whisper boundary
+// (release 0.3 s over a 20+ dB gap), so a fading game sound in the microphone stays under the raised
+// boundary until it is a whisper anyway.
+const GAME_HOLD = 0.25, GAME_FALL = 40;
 
 export const LEVELS = {
   quiet: { label: 'ШЕПІТ', color: '#5fd38d' },
@@ -49,7 +61,39 @@ export class Mic {
     }
     if (this.clampedOnLoad) saveSetting('mic', this.cal);
     this.hist.fill(-100);
+    // phone only (set by main): the game bus level, for the protection against the game's own sounds
+    this.gameDbFn = null;
+    this.gameDb = -100;
+    this.gameEnv = -100;
+    this.gamePeakT = 0;
+    this.coverHint = false;     // phone: say "microphone covered?" when the level stays far under your silence
+    this.lowT = 0;
+    this.covered = false;
+    this.deviceChanged = false; // an input / output device came or went since the calibration
+    this.permission = 'unknown';
+    this.events = { ended: 0, reacquired: 0, recoverFailed: 0, deviceChanges: 0, lastRecover: '' };
+    this.onSource = null;       // (MediaStreamSource) after the stream was replaced: the scream recorder re-taps
+    this.onChange = null;       // permission / device / stream changes: refresh the UI
+    this.feed = null;           // tests: () => dB instead of the analyser
+    this.agcAdjust = false;     // phone: a smaller default voice -> shout gap when auto gain stays on
   }
+
+  // ---- protection against the game's own sounds (phone) ----
+  // bleed: the calibration's measurement, else (phone, not measured yet) an estimate; null = no protection
+  get bleedMeasured() { return Number.isFinite(this.cal.bleed); }
+  get bleedDb() { return this.bleedMeasured ? this.cal.bleed : this.gameDbFn ? CFG.mic.bleedDefault : null; }
+  get gameHold() { return this.gameEnv; }
+  // the game as the microphone hears it now (dBFS), -Infinity when silent or unprotected
+  get gameInMic() {
+    const b = this.bleedDb, g = this.gameHold;
+    return !this.gameDbFn || b === null || g <= -90 ? -Infinity : g + b;
+  }
+  // the boundaries in effect right now: raised while the game is loud
+  get whisperEff() { return Math.max(this.whisperDb, this.gameInMic + CFG.mic.maskWhisper); }
+  get shoutEff() { return Math.max(this.shoutDb, this.gameInMic + CFG.mic.maskShout, this.whisperEff + 3); }
+  get masking() { return Math.max(0, this.whisperEff - this.whisperDb); }   // dB the whisper boundary is raised by the game
+  // auto gain the browser did not switch off (Safari often ignores the constraint)
+  get agc() { try { return !!this.track && this.track.getSettings().autoGainControl === true; } catch { return false; } }
 
   // Whisper/voice boundary: between your whisper and your voice if the whisper step was usable,
   // else between silence and voice; plus your own correction (± on the start screen and the board),
@@ -73,7 +117,7 @@ export class Mic {
   }
   // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver; plus
   // your correction, never below your calibrated voice + a margin (else normal talk would be a shout).
-  get shoutBase() { return Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + CFG.mic.shoutOver; }
+  get shoutBase() { return Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + (this.agcAdjust && this.agc ? CFG.mic.shoutOverAgc : CFG.mic.shoutOver); }
   get shoutMin() { return this.cal.normal + CFG.mic.limitMargin.shoutOverVoice; }
   get shoutDb() { return Math.max(this.shoutMin, this.shoutBase + (this.cal.adj || 0)); }
 
@@ -85,26 +129,99 @@ export class Mic {
       return this.state;
     }
     this.state = 'pending';
+    setAudioSession('play-and-record');   // iPhone: record and play at once (no-op elsewhere)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
-        video: false,
-      });
-      const src = audioContext().createMediaStreamSource(stream);
-      this.analyser = audioContext().createAnalyser();
+      this.attach(await navigator.mediaDevices.getUserMedia(CONSTRAINTS));
+      this.state = 'on';
+      this.error = '';
+    } catch (e) {
+      setAudioSession('playback');
+      this.state = e && e.name === 'NotAllowedError' ? 'denied' : 'none';
+      this.error = why(e);
+    }
+    if (this.onChange) this.onChange();
+    return this.state;
+  }
+
+  // Wire a (new) stream into the analyser; the old one is stopped.
+  attach(stream) {
+    const ctx = audioContext();
+    if (!this.analyser) {
+      this.analyser = ctx.createAnalyser();
       this.analyser.fftSize = 2048;
       this.analyser.smoothingTimeConstant = 0;
       this.buf = new Float32Array(this.analyser.fftSize);
-      src.connect(this.analyser);   // analysis only: never routed to the speakers
-      this.source = src;
-      this.stream = stream;
-      this.track = stream.getAudioTracks()[0];
-      this.state = 'on';
-    } catch (e) {
-      this.state = e && e.name === 'NotAllowedError' ? 'denied' : 'none';
-      this.error = e && e.name === 'NotAllowedError' ? 'дозвіл не надано' : String(e && (e.message || e.name) || e);
     }
-    return this.state;
+    if (this.source) { try { this.source.disconnect(); } catch { /* already */ } }
+    if (this.stream && this.stream !== stream) for (const t of this.stream.getTracks()) t.stop();
+    const src = ctx.createMediaStreamSource(stream);
+    src.connect(this.analyser);   // analysis only: never routed to the speakers
+    this.source = src;
+    this.stream = stream;
+    const track = this.track = stream.getAudioTracks()[0];
+    this.deviceLabel = track ? track.label : '';
+    if (track) {
+      track.addEventListener('ended', () => { if (this.track === track) { this.events.ended++; if (this.onChange) this.onChange(); } });
+      track.addEventListener('mute', () => { if (this.onChange) this.onChange(); });
+      track.addEventListener('unmute', () => { if (this.onChange) this.onChange(); });
+    }
+    if (this.onSource) this.onSource(src);
+  }
+
+  // A new stream for a microphone that the system stopped (a call, a device unplugged). No dialog
+  // when the permission is already granted.
+  async reacquire() {
+    try {
+      setAudioSession('play-and-record');
+      this.attach(await navigator.mediaDevices.getUserMedia(CONSTRAINTS));
+      this.state = 'on'; this.error = '';
+      this.events.reacquired++;
+      return true;
+    } catch (e) {
+      this.events.recoverFailed++;
+      if (e && e.name === 'NotAllowedError') { this.state = 'denied'; this.error = 'дозвіл не надано'; }
+      else this.error = why(e);
+      return false;
+    } finally { if (this.onChange) this.onChange(); }
+  }
+
+  // After a pause, a minimised page or a call: wake the audio and bring the microphone back.
+  // Call from a tap (iPhone resumes audio and opens the microphone only from a user gesture).
+  // Returns 'off' | 'ok' | 'muted' (the system still holds it: it comes back by itself) | 'reacquired' | 'failed'.
+  async recover() {
+    let r;
+    if (this.state !== 'on') r = 'off';
+    else {
+      unlockAudio();
+      if (!this.track || this.track.readyState === 'ended') r = (await this.reacquire()) ? 'reacquired' : 'failed';
+      else r = this.track.muted ? 'muted' : 'ok';
+    }
+    this.events.lastRecover = r;
+    return r;
+  }
+
+  // Headphones with a microphone plugged in or out: the calibration (and the game's sound in the
+  // microphone) no longer fit. The stream is re-opened if the system ended it.
+  watchDevices() {
+    const md = navigator.mediaDevices;
+    if (!md || !md.addEventListener) return;
+    md.addEventListener('devicechange', async () => {
+      if (this.state !== 'on') return;
+      this.events.deviceChanges++;
+      this.deviceChanged = true;
+      if (this.track && this.track.readyState === 'ended') await this.reacquire();
+      if (this.onChange) this.onChange();
+    });
+  }
+
+  // The permission state before asking (Chrome; Safari often answers 'prompt' or nothing)
+  watchPermission() {
+    if (!navigator.permissions || !navigator.permissions.query) return;
+    navigator.permissions.query({ name: 'microphone' }).then((st) => {
+      this.permission = st.state;
+      st.onchange = () => { this.permission = st.state; if (this.onChange) this.onChange(); };
+      if (this.onChange) this.onChange();
+    }, () => { this.permission = 'unknown'; });
   }
 
   // '' when the signal is live, else what is wrong (shown on the wrist: helps the first headset test)
@@ -114,6 +231,7 @@ export class Mic {
     if (ctx.state !== 'running') return `аудіо: ${ctx.state}`;
     if (this.track && this.track.readyState === 'ended') return 'потік мікрофона зупинено';
     if (this.track && this.track.muted) return 'мікрофон приглушено системою';
+    if (this.covered) return 'Мікрофон закритий? Прибери палець з нижнього краю';
     return '';
   }
 
@@ -125,14 +243,28 @@ export class Mic {
     const step = Math.min(0.2, this.acc);
     this.acc = 0;
     this.t += step;
-    const a = this.analyser, b = this.buf;
-    a.getFloatTimeDomainData(b);
-    let s = 0;
-    for (let i = 0; i < b.length; i++) s += b[i] * b[i];
-    this.db = Math.max(-100, 10 * Math.log10(s / b.length + 1e-12));
+    if (this.gameDbFn) {
+      const g = this.gameDb = this.gameDbFn();
+      if (g >= this.gameEnv - 3) this.gamePeakT = this.t;   // still loud: keep holding
+      if (g >= this.gameEnv) this.gameEnv = g;
+      else if (this.t - this.gamePeakT > GAME_HOLD) this.gameEnv = Math.max(g, this.gameEnv - GAME_FALL * step);
+    }
+    if (this.feed) this.db = this.feed(this);
+    else {
+      const a = this.analyser, b = this.buf;
+      a.getFloatTimeDomainData(b);
+      let s = 0;
+      for (let i = 0; i < b.length; i++) s += b[i] * b[i];
+      this.db = Math.max(-100, 10 * Math.log10(s / b.length + 1e-12));
+    }
     const tau = this.db > this.env ? ATTACK : RELEASE;
     this.env += (this.db - this.env) * (1 - Math.exp(-step / tau));
-    if (this.collect) this.collect.push(this.db);
+    if (this.collect) { this.collect.push(this.db); if (this.collectBus) this.collectBus.push(this.gameDb); }
+    // "microphone covered?" (phone): far under your silence for a while
+    if (this.coverHint && this.calibrated) {
+      this.lowT = this.env < this.cal.floor - CFG.mic.coverDrop ? this.lowT + step : 0;
+      this.covered = this.lowT >= CFG.mic.coverSecs;
+    }
 
     // rise over ~100 ms: compare with the envelope 3 analyses ago
     const past = this.hist[(this.histI + this.hist.length - 3) % this.hist.length];
@@ -141,7 +273,8 @@ export class Mic {
     // A shout: the raw level jumps (shoutRise dB above the envelope of 0.1 s ago) over the threshold
     // and stays there for shoutMin s (dips under 70 ms allowed). Loud talk that builds up slowly, a
     // plosive "p" or one stressed syllable is not a shout.
-    if (this.db > this.shoutDb) {
+    // (the effective boundaries: raised while the game's own sound is loud in the microphone)
+    if (this.db > this.shoutEff) {
       if (this.aboveT === 0) this.riseOk = this.db - past > CFG.mic.shoutRise;
       this.aboveT += step; this.dipT = 0;
       if (this.t < this.shoutUntil) this.shoutUntil = Math.max(this.shoutUntil, this.t + 0.3);   // still shouting
@@ -151,26 +284,31 @@ export class Mic {
       if (this.dipT > 0.07) { this.aboveT = 0; this.riseOk = false; }
     }
     if (this.t < this.shoutUntil) this.level = 'shout';
-    else this.level = this.env >= this.whisperDb ? 'normal' : 'quiet';
+    else this.level = this.env >= this.whisperEff ? 'normal' : 'quiet';
   }
 
   // true once when a new shout has started since the last call
   takeShout() { const s = this.shoutOnset; this.shoutOnset = false; return s; }
 
   // Calibration: collect raw dB for `seconds`, then return a percentile of them.
-  measure(seconds, pct) {
+  // withBus: also the game bus level over the same time -> { db, bus }
+  measure(seconds, pct, withBus = false) {
     this.collect = [];
+    this.collectBus = withBus ? [] : null;
+    const pick = (a) => { if (!a || !a.length) return null; const v = a.slice().sort((x, y) => x - y); return v[Math.min(v.length - 1, Math.floor(v.length * pct))]; };
     return new Promise((resolve) => setTimeout(() => {
-      const v = this.collect.slice().sort((x, y) => x - y);
-      this.collect = null;
-      resolve(v.length ? v[Math.min(v.length - 1, Math.floor(v.length * pct))] : null);
+      const db = pick(this.collect), bus = pick(this.collectBus);
+      this.collect = null; this.collectBus = null;
+      resolve(withBus ? { db, bus } : db);
     }, seconds * 1000));
   }
 
-  // cal: { floor, normal, whisper (or null), shout (threshold, or null = voice + shoutOver) }
+  // cal: { floor, normal, whisper (or null), shout (threshold, or null = voice + shoutOver), bleed (phone) }
   setCalibration(cal) {
     this.cal = { floor: cal.floor, normal: cal.normal, whisper: cal.whisper ?? null, shout: cal.shout ?? null, adj: 0, adjW: 0 };
+    if (Number.isFinite(cal.bleed)) this.cal.bleed = cal.bleed;   // phone: the game's sound in the microphone
     this.calibrated = true;
+    this.deviceChanged = false;
     saveSetting('mic', this.cal);
   }
 

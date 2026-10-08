@@ -25,10 +25,11 @@ One game, one code base; the mode is chosen automatically and shown on the start
 controls are being built, see below) and **PC** (keyboard and mouse). `?mode=vr|phone|pc` overrides
 the detection and is remembered on the device; `?mode=auto` goes back to automatic.
 
-Phone version status: wave T1 — touch controls (below). Earlier (T0): mode detection, "Скопіювати
-звіт" (device, version, FPS, microphone and errors as JSON to paste into a chat), `?debug` error
-panel, a clear message when the game cannot start (for example iOS older than 16.4). Next: an HTML
-HUD and pause menu instead of the wrist panel in the corner (T2).
+Phone version status: wave T4 — performance and the home-screen app (below). Earlier: T3 the microphone
+on a phone; T2 HTML HUD, pause menu, round summary, vibration; T1
+touch controls; T0 mode detection, "Скопіювати звіт" (device, version, FPS, microphone and errors as JSON
+to paste into a chat), `?debug` error panel, a clear message when the game cannot start (for example iOS
+older than 16.4). Next: ready for players (T5).
 
 ## Controls (phone, landscape)
 
@@ -41,11 +42,67 @@ HUD and pause menu instead of the wrist panel in the corner (T2).
 | Двері | Tap = quick swing (creaks); hold = slow and quiet, release = the door stops |
 | Присісти | Crouch / stand |
 | Подих | Hold your breath (hold, or tap / tap in the settings) |
-| ❚❚ | Menu |
+| ❚❚ | Pause menu (fires when the finger is lifted over it) |
 
 Portrait while playing pauses the game behind "rotate the phone". Android Chrome goes full screen and
 locks landscape on "Грати"; iPhone Safari has neither (add the game to the home screen for full screen,
 wave T4). The screen stays on during play (Wake Lock).
+
+### HUD, menu, summary, feedback (phone)
+
+- **HUD** (HTML, instead of the wrist panel): top left the eye (how visible you are) and stance, then steps /
+  what you hold / room; top centre the clock, the alarm word and the contract goal; top right the microphone
+  (label, bar with both thresholds); bottom centre messages and the guard's lines. The breath ring is the
+  breath button. "Індикатори: мінімальні" keeps the eye, microphone and clock and shows the rest for a few
+  seconds when it changes.
+- **Pause menu** (❚❚): continue, to the van, new round, contract and difficulty (before the round starts),
+  settings (look speed, breath, HUD, vibration), microphone and calibration (opens the start screen), copy
+  the report. The game and all sound wait behind it.
+- **Automatic pause**: minimising the page, a phone call or notification, the system taking the audio away.
+  "Продовжити" (a tap) wakes the sound again.
+- **Round summary** (HTML) replaces the floating result board: title, money, items, stars and the contract
+  verdict, the scream replay, "Новий раунд".
+- **Feedback**: vibration on Android (steps become audible, hidden, heartbeat, shout, alarm, caught, scare);
+  on iPhone (no `navigator.vibrate`) a short flash of the screen edge, and a soft sound for "hidden".
+  Setting "Вібрація": auto / flashes only / off.
+- In VR and on a PC nothing changes: the wrist panel and the 3D board stay.
+
+### Performance and the home-screen app (T4)
+
+- **Board by the crosshair**: aim the centre of the screen at a board button and press «Натиснути» (the
+  context button), or tap the board button itself.
+- **Quality** (settings): auto / low / medium / high (pixel ratio 1.0 / 1.25 / 1.5; low also drops MSAA,
+  far lamps and 3D sound panning). Auto starts at medium (high on iPhone) and steps down once if the
+  first 5 s of play run under 40 FPS. **Dynamic resolution** steps the pixel ratio down when the frame rate
+  stays low and back up when it recovers. **30 / 60 FPS** cap (30 = battery saver).
+- The board is redrawn only when what it shows changes and it is in view. The report has FPS per minute
+  with the preset, pixel ratio and cap, and the battery level.
+- three.js is a minified local copy in `vendor/` (`node tools/vendor-three.mjs`), no CDN.
+- **Home-screen app**: `manifest.webmanifest` (full screen, landscape), icons (`node tools/make-icons.mjs`),
+  an install button on Android, the "Поділитися → На початковий екран" hint on iPhone.
+- **Service worker** (`sw.js`, phone only): offline play after the first visit. It never keeps an old
+  version: pages come from the network first, every module URL carries `?v=<version>`, and
+  `tools/bump-version.mjs` writes the version and the file list into `sw.js`. The main site and each
+  preview have their own worker and caches. `?nosw` removes it.
+- **Gyroscope** (option): turning the phone turns the view, on top of the finger.
+
+### Microphone on a phone (T3)
+
+- **Calibration in 5 steps**: silence, **game sounds** (the game plays steps, a creak, a siren from the speaker
+  while you keep quiet, and measures how much of it the microphone hears), whisper, voice, shout. Hold the
+  phone the way you will play; headphones are best.
+- **The game's own sounds are not your voice**: an analyser on the game's sound bus; while the game is loud,
+  the whisper / shout boundaries rise above the game as the microphone hears it (the HUD says "звуки гри:
+  межі +N дБ").
+- **Check after the wizard**: whisper, say, shout — the game shows what it heard and which ± to press.
+- **Permission**: before asking, what the dialogs will be; if refused, where to allow it (Chrome on Android,
+  Safari on iPhone).
+- **"Microphone covered?"** when the level stays far under your calibrated silence.
+- **After a call / a minimised page**: "Продовжити" re-opens the microphone if the system stopped it.
+  Headphones plugged in or out: the game asks for a new calibration.
+- **iPhone**: audio session 'playback' (the side silent switch does not mute the game) and 'play-and-record'
+  with the microphone (Safari 16.4+; older iOS: a silent audio loop); a "Перевірити звук" button.
+- VR and PC: the microphone and the 4-step calibration as before.
 
 ## Privacy
 

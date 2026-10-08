@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nocturne VR</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+<meta name="theme-color" content="#0a0f1c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nocturne">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>
   // Errors from the very first moment, for the report and ?debug (a phone has no DevTools), and a
   // message on the start screen when the game cannot start at all (old iOS, a CDN that is down):
@@ -21,7 +28,7 @@
     };
     addEventListener('error', (e) => {
       const t = e.target;
-      if (t && t !== window && (t.src || t.href)) add('load', /main\.js/.test(t.src) ? 'не завантажились модулі гри (src/main.js або three.js з cdn.jsdelivr.net)' : `не завантажилось: ${t.src || t.href}`);
+      if (t && t !== window && (t.src || t.href)) add('load', /main\.js/.test(t.src) ? 'не завантажились модулі гри (src/main.js або vendor/three)' : `не завантажилось: ${t.src || t.href}`);
       else add('error', `${e.message}${e.filename ? ` @ ${e.filename.split('/').pop().split('?')[0]}:${e.lineno}:${e.colno}` : ''}`);
     }, true);
     addEventListener('unhandledrejection', (e) => add('promise', e.reason && (e.reason.stack || e.reason.message) || e.reason));
@@ -129,6 +136,76 @@
   #touch .act { right: var(--sr); bottom: calc(var(--sb) + 100px); width: 84px; height: 84px; border-color: #5fd38d; }
   #touch .door { right: calc(var(--sr) + 100px); bottom: calc(var(--sb) + 88px); width: 72px; height: 72px; border-color: #7fc8ff; }
   #touch .pause { right: var(--sr); top: var(--st); width: 46px; height: 46px; font-size: 14px; letter-spacing: -2px; }
+  /* ---------- phone HUD, pause menu, round summary (T2) ---------- */
+  #hud, #pausemenu, #summary, #edgeflash { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+  #hud { position: fixed; inset: 0; z-index: 6; pointer-events: none; color: #e6ecf5; text-shadow: 0 1px 3px #000, 0 0 7px #000;
+    --sl: max(12px, env(safe-area-inset-left)); --sr: max(16px, env(safe-area-inset-right)); --st: max(8px, env(safe-area-inset-top)); --sb: max(16px, env(safe-area-inset-bottom)); }
+  #hud[hidden] { display: none; }
+  #hud .gone, #hud .hud-sub span:empty, #hud .alarm:empty, #hud .goal:empty, #hud .micdb:empty, #hud .hud-msg:empty { display: none; }
+  #hud .hud-tl { position: absolute; left: var(--sl); top: var(--st); display: flex; flex-direction: column; gap: 3px; max-width: 30vw; }
+  #hud .hud-eye { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 700; color: #ffb347; }
+  #hud .hud-eye svg { width: 38px; height: 25px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; filter: drop-shadow(0 1px 2px #000); }
+  #hud .hud-eye .pupil { fill: currentColor; stroke: none; }
+  #hud .hud-eye .lid, #hud .hud-eye .shut { display: none; }
+  #hud .hud-eye[data-eye=half] .lid { display: block; }
+  #hud .hud-eye[data-eye=closed] .almond, #hud .hud-eye[data-eye=closed] .pupil { display: none; }
+  #hud .hud-eye[data-eye=closed] .shut { display: block; }
+  #hud .hud-sub { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; font-weight: 600; color: #b9c4d6; }
+  #hud .hud-tc { position: absolute; left: 50%; top: var(--st); transform: translateX(-50%); text-align: center; max-width: 34vw; line-height: 1.2; }
+  #hud .time { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+  #hud .alarm { font-size: 13px; font-weight: 800; letter-spacing: .4px; }
+  #hud .goal { font-size: 12.5px; font-weight: 600; }
+  #hud .hud-tr { position: absolute; right: calc(var(--sr) + 58px); top: var(--st); width: clamp(120px, 22vw, 200px); display: flex; flex-direction: column; gap: 3px; text-align: right; }
+  #hud .miclabel { font-size: 15px; font-weight: 800; letter-spacing: .3px; }
+  #hud .bar { position: relative; height: 12px; border-radius: 4px; overflow: hidden; background: #1a2130; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
+  #hud .bar.off { opacity: .35; }
+  #hud .bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; }
+  #hud .bar .zq { background: #1f3b2b; } #hud .bar .zn { background: #3f3a1c; } #hud .bar .zs { background: #4a1c1c; }
+  #hud .bar .fill { top: 3px; bottom: 3px; background: #5fd38d; }
+  #hud .bar .tick { width: 2px; margin-left: -1px; background: #fff; opacity: .85; }
+  #hud .micdb { font-size: 12px; font-weight: 600; color: #6f8396; }
+  #hud .hud-msg { position: absolute; left: 50%; bottom: calc(var(--sb) + 2px); transform: translateX(-50%); max-width: 38vw; text-align: center; font-size: 16px; font-weight: 700; line-height: 1.25; padding: 4px 12px; border-radius: 10px; background: rgba(5, 8, 16, .45); }
+  #edgeflash { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; }
+  #pausemenu, #summary { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; touch-action: none;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+  #pausemenu { z-index: 12; background: rgba(5, 8, 16, .8); }
+  #summary { z-index: 11; background: rgba(5, 8, 16, .9); }
+  #pausemenu[hidden], #summary[hidden] { display: none; }
+  .scroll { overflow-y: auto; overscroll-behavior: contain; }
+  .pm-card, .sm-card { box-sizing: border-box; max-height: 100%; background: var(--card); border: 1px solid #26314a; border-radius: 14px; padding: 8px 14px; }
+  .pm-card { width: min(640px, 100%); display: flex; flex-direction: column; }
+  .pm-head h2 { margin: 0; font-size: 17px; line-height: 1.25; color: var(--ink); }
+  .pm-note { margin: 1px 0; font-size: 12.5px; color: var(--warn); }
+  .pm-info { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.35; }
+  .pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 5px; touch-action: pan-y; min-height: 0; }
+  .pm-grid .wide, .pm-row.wide { grid-column: 1 / -1; }
+  .pm-btn, .sm-btn { min-height: 42px; padding: 4px 12px; font: 700 15.5px system-ui, sans-serif; border-radius: 12px; border: 2px solid var(--accent); background: transparent; color: var(--accent); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .pm-btn.primary, .sm-btn.primary { background: var(--accent); color: #0a0f1c; }
+  .pm-btn.quiet, .sm-btn.quiet { border-color: #3a4560; color: var(--muted); }
+  .pm-btn.down, .sm-btn.down { background: rgba(127, 200, 255, .35); color: #fff; }
+  .pm-btn.primary.down, .sm-btn.primary.down { background: #cfe9ff; color: #0a0f1c; }
+  .pm-btn:disabled, .sm-btn:disabled { opacity: .4; }
+  .pm-row { display: flex; align-items: stretch; gap: 8px; }
+  .pm-row .step { width: 72px; flex: none; font-size: 22px; }
+  .pm-contract { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 18px; font-weight: 800; color: var(--warn); }
+  .sm-card { overflow-y: auto; display: grid; grid-template-columns: 1.15fr 1fr; gap: 6px 18px; width: min(820px, 100%); border-width: 2px; }
+  .sm-card.good { border-color: #5fd38d; } .sm-card.bad { border-color: #ff5c5c; }
+  .sm-left, .sm-right { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .sm-title { margin: 0; font-size: 32px; letter-spacing: .5px; } .good .sm-title { color: #5fd38d; } .bad .sm-title { color: #ff4d4d; }
+  .sm-money { font-size: 32px; font-weight: 800; } .bad .sm-money { color: #ff9f43; }
+  .sm-sub { font-size: 13px; color: var(--muted); line-height: 1.35; }
+  .sm-list { max-height: 34vh; margin-top: 4px; touch-action: pan-y; }
+  .sm-item { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; line-height: 1.5; color: #c9d3e3; }
+  .sm-item b { color: #5fd38d; } .sm-item.dmg, .sm-item.dmg b { color: #ffb347; }
+  .sm-empty { color: #5a6680; font-size: 14px; }
+  .sm-extra { font-size: 13px; color: var(--muted); }
+  .sm-contract { font-size: 17px; font-weight: 800; color: var(--warn); }
+  .sm-stars { font-size: 40px; line-height: 1.1; color: #ffd166; letter-spacing: 3px; } .sm-stars.none { color: #ff9f43; }
+  .sm-record { font-size: 14px; font-weight: 800; color: #5fd38d; }
+  .sm-scream { font-size: 15px; font-weight: 700; margin: 4px 0; min-height: 20px; }
+  .sm-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+  .sm-buttons .primary, .sm-buttons .sm-btn:nth-child(2) { grid-column: 1 / -1; }
+  .sm-buttons .quiet { min-height: 42px; font-size: 14px; }
   #rotate { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; background: #0a0f1c; color: #e6ecf5; font-size: 18px; line-height: 1.5; }
   body.portrait-block #rotate { display: flex; }
   #version { font-size: 12px; opacity: .55; margin-top: 6px; }
@@ -139,46 +216,56 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.5",
-    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.5",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.5",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.5",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.5",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.5",
-    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.5",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.5",
-    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.5",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.5",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.5",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.5",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.5",
-    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.5",
-    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.5",
-    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.5",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.5",
-    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.5",
-    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.5",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.5",
-    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.5",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.5",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.5",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.5",
-    "./src/main.js": "./src/main.js?v=0.6.0-pre.5",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.5",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.5",
-    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.5",
-    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.5",
-    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.5",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.5",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.5",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.5",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.5",
-    "./src/version.js": "./src/version.js?v=0.6.0-pre.5",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.5",
-    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.5",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.5"
+    "three": "./vendor/three-0.186.1.min.js",
+    "three/addons/webxr/VRButton.js": "./vendor/three-addons.js?v=0.186.1",
+    "three/addons/utils/BufferGeometryUtils.js": "./vendor/three-addons.js?v=0.186.1",
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.9",
+    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.9",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.9",
+    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.9",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.9",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.9",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.9",
+    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.9",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.9",
+    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.9",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.9",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.9",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.9",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.9",
+    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.9",
+    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.9",
+    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.9",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9",
+    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9",
+    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9",
+    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.9",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.9",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.9",
+    "./src/main.js": "./src/main.js?v=0.6.0-pre.9",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.9",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.9",
+    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.9",
+    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.9",
+    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.9",
+    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.9",
+    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.9",
+    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.9",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.9",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.9",
+    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.9",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.9",
+    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.9",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.9",
+    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.9",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.9",
+    "./src/version.js": "./src/version.js?v=0.6.0-pre.9",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.9",
+    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.9",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.9"
   }
 }
 </script>
@@ -187,7 +274,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.6.0-pre.5';
+    const PAGE_VERSION = '0.6.0-pre.9';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -208,14 +295,20 @@
 
   <h2>1. Мікрофон</h2>
   <div id="micbox">
+    <p id="michold" class="phone-only muted" style="margin-top:0"></p>
     <div class="row">
       <button id="micbtn">Дозволити мікрофон</button>
-      <button id="calbtn" disabled>Калібрувати (4 кроки)</button>
+      <button id="calbtn" disabled>Калібрувати</button>
       <label><input type="checkbox" id="nomic"> Грати без мікрофона</label>
       <span id="micstate" class="muted"></span>
     </div>
+    <div id="michelp" class="muted"></div>
+    <div id="micnote" style="font-size:13px;color:var(--warn)"></div>
     <div id="recstate" class="muted"></div>
     <div id="calstep"></div>
+    <div class="row phone-only"><button id="verifybtn" disabled>Перевірити: шепіт, голос, крик</button><button id="soundtest">Перевірити звук</button></div>
+    <div id="verifyres" style="font-size:14px"></div>
+    <p id="iosnote" class="muted" hidden></p>
     <div class="row">
       <div id="meter"><div class="zone" id="zq"></div><div class="zone" id="zn"></div><div class="zone" id="zs"></div><div class="fill" id="fill"></div><div class="tick" id="tw"></div><div class="tick" id="ts"></div></div>
       <span id="level"></span>
@@ -230,7 +323,7 @@
         <span class="muted">звичайна мова стає «КРИК!»? — «+»</span></div>
       <div class="row"><button id="adjreset">Скинути зсуви</button><span id="adjnote" class="muted"></span></div>
     </div>
-    <p class="muted">Калібрування: тиша 3 с → шепіт 3 с → звичайний голос 3.5 с → крик 2.5 с (можна промовчати). Роби його там, де гратимеш, і так, як гратимеш (у шоломі; телефон — у руці на звичній відстані); у VR те саме є на табло (кнопка «Мікрофон»). Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
+    <p class="muted">Калібрування: тиша 3 с → шепіт 3 с → звичайний голос 3.5 с → крик 2.5 с (можна промовчати); на телефоні після тиші ще «звуки гри» 3 с (мовчи, гра зіграє свої звуки). Роби його там, де гратимеш, і так, як гратимеш (у шоломі; телефон — у руці на звичній відстані); у VR те саме є на табло (кнопка «Мікрофон»). Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
     Звук аналізується лише на цьому пристрої й нікуди не передається. Щоб табло могло програти твій крик, гра тримає останні 4 с мікрофона в пам'яті; на диск нічого не пишеться, запис зникає з новим раундом.</p>
   </div>
 
@@ -247,9 +340,15 @@
     <label class="pc-only">Віньєтка під час руху:<select id="vignette"></select></label>
     <label class="pc-only">Поворот ривком:<select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
     <label class="phone-only">Огляд пальцем:<select id="lookspeed"><option value="slow">повільно</option><option value="normal">звичайно</option><option value="fast">швидко</option></select></label>
+    <label class="phone-only">Індикатори:<select id="hudmode"><option value="full">повні</option><option value="min">мінімальні</option></select></label>
+    <label class="phone-only">Вібрація:<select id="feedback"><option value="auto">вібрація, а без неї спалахи</option><option value="flash">лише спалахи</option><option value="off">вимкнено</option></select></label>
+    <label class="phone-only">Якість:<select id="quality"><option value="auto">авто</option><option value="low">низька</option><option value="medium">середня</option><option value="high">висока</option></select></label>
+    <label class="phone-only">Частота:<select id="fpscap"><option value="60">60 кадрів/с</option><option value="30">30 кадрів/с (економія батареї)</option></select></label>
     <label class="phone-only">Подих:<select id="breathmode"><option value="hold">утримувати кнопку</option><option value="toggle">тап — почати, тап — закінчити</option></select></label>
   </div>
+  <div class="row phone-only"><button id="gyrobtn">Гіроскоп: вимкнено</button><span id="qualitynote" class="muted"></span></div>
   <div class="row phone-only"><button id="phonehome">До фургона</button><button id="phonenew">Новий раунд</button></div>
+  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden>Встановити на головний екран</button><span id="installnote" class="muted"></span></div>
   <p class="muted">Грай стоячи на вільному місці. Уся ходьба можлива стіком, реальні кроки й присідання теж працюють.</p>
 
   <h2>Як ховатись</h2>
@@ -268,7 +367,7 @@
     <tr><td>Двері</td><td>тап — швидко (скрипить); утримати — повільно й тихо, відпустив — зупинились</td></tr>
     <tr><td>Присісти</td><td>присісти / встати</td></tr>
     <tr><td>Подих</td><td>утримати — мікрофон не чути до 6 с (або тап / тап — у налаштуваннях)</td></tr>
-    <tr><td>❚❚</td><td>меню (це вікно)</td></tr>
+    <tr><td>❚❚</td><td>меню паузи: продовжити, до фургона, новий раунд, контракт, налаштування. Гра сама стає на паузу, коли згортаєш сторінку чи приходить дзвінок</td></tr>
   </table>
   </div>
   <div class="controls pc-only"><div>
@@ -308,7 +407,11 @@
 <div id="hint">WASD · E взяти/покласти · Q/T двері · Shift подих · C присід · клік на табло · Esc — меню</div>
 <div id="crosshair"></div>
 <div id="touch" hidden></div>
+<div id="hud" hidden></div>
+<div id="edgeflash"></div>
+<div id="summary" hidden></div>
+<div id="pausemenu" hidden></div>
 <div id="rotate">Поверни телефон горизонтально.<br><span class="muted" style="font-size:15px">Не повертається? Вимкни блокування орієнтації: на iPhone — у Пункті керування, на Android — «Автоповорот» у верхній шторці.</span></div>
-<script type="module" src="src/main.js?v=0.6.0-pre.5"></script>
+<script type="module" src="src/main.js?v=0.6.0-pre.9"></script>
 </body>
 </html>

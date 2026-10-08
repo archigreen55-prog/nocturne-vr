@@ -40,6 +40,8 @@ export class TouchControls {
     this.boardPress = null;              // board button to press this frame
     this.hitBoard = null;                // (clientX, clientY) -> board button id | null, set by main
     this.onGesture = null;               // called on every finger lift (a user gesture: full screen)
+    this.onLoud = null;                  // called when the stick crosses the "quiet" ring (a vibration / flash cue)
+    this.rel = new Map();                // pointerId -> { b, x0, y0 }: pause and the context button fire on release
     this.build();
   }
 
@@ -55,7 +57,7 @@ export class TouchControls {
     this.el = {
       joy: r.querySelector('.joy'), knob: r.querySelector('.joy-knob'), quiet: r.querySelector('.joy-quiet'),
       interact: r.querySelector('[data-btn=interact]'), door: r.querySelector('[data-btn=door]'),
-      crouch: r.querySelector('[data-btn=crouch]'), breath: r.querySelector('[data-btn=breath]'), breathRing: r.querySelector('.breath i'),
+      crouch: r.querySelector('[data-btn=crouch]'), pause: r.querySelector('[data-btn=pause]'), breath: r.querySelector('[data-btn=breath]'), breathRing: r.querySelector('.breath i'),
     };
     this.el.joy.style.setProperty('--r', `${JOY_R}px`);
     this.el.quiet.style.setProperty('--q', `${QUIET_R}px`);
@@ -78,6 +80,7 @@ export class TouchControls {
         else this.breathDown = true;
         this.breathPtr = e.pointerId;
       } else if (b === 'door') this.door = { id: e.pointerId, t0: e.timeStamp, holding: false };
+      else if (b === 'pause' || b === 'interact') this.rel.set(e.pointerId, { b, btn, x0: e.clientX, y0: e.clientY });   // fire on release, like the board buttons
       else this.edges.add(b);
       return;
     }
@@ -97,7 +100,10 @@ export class TouchControls {
   }
 
   moveEv(e) {
-    if (this.board && e.pointerId === this.board.id) {
+    if (this.rel.has(e.pointerId)) {
+      const P = this.rel.get(e.pointerId);
+      P.btn.classList.toggle('on', this.overRel(P, e));
+    } else if (this.board && e.pointerId === this.board.id) {
       this.pressing = this.overBoardButton(e) ? this.board.btn : null;
     } else if (this.joy && e.pointerId === this.joy.id) {
       let dx = e.clientX - this.joy.x0, dy = e.clientY - this.joy.y0;
@@ -114,6 +120,12 @@ export class TouchControls {
 
   up(e, cancelled = false) {
     if (!cancelled && this.onGesture) this.onGesture();
+    if (this.rel.has(e.pointerId)) {
+      // like the board buttons: pressed when the finger is lifted over the button, however long it was held
+      const P = this.rel.get(e.pointerId);
+      if (!cancelled && this.overRel(P, e)) this.edges.add(P.b);
+      this.rel.delete(e.pointerId);
+    }
     if (this.board && e.pointerId === this.board.id) {
       if (!cancelled && this.overBoardButton(e)) this.boardPress = this.board.btn;
       this.board = null; this.pressing = null;
@@ -133,6 +145,12 @@ export class TouchControls {
     if (this.lookPtr && e.pointerId === this.lookPtr.id) this.lookPtr = null;
   }
 
+  // A release button is still pressed: over it, or within BOARD_SLOP px of where the finger landed
+  overRel(P, e) {
+    const r = P.btn.getBoundingClientRect();
+    return Math.hypot(e.clientX - P.x0, e.clientY - P.y0) <= BOARD_SLOP || (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+  }
+
   // Still on the pressed board button: over it, or within BOARD_SLOP px of where the finger landed
   // (the ◀ ▶ buttons on the far board are only ~25 px wide; a finger rolls more than that).
   overBoardButton(e) {
@@ -148,7 +166,7 @@ export class TouchControls {
     if (loud !== this.loud) {
       this.loud = loud;
       this.el.joy.classList.toggle('loud', loud);
-      if (loud && navigator.vibrate) navigator.vibrate(12);   // Android; iPhone has no vibration API
+      if (loud && this.onLoud) this.onLoud();   // main: vibration (Android) or an edge flash (iPhone)
     }
   }
 
@@ -181,7 +199,7 @@ export class TouchControls {
   }
 
   reset() {
-    this.joy = null; this.lookPtr = null; this.door = null; this.board = null; this.pressing = null; this.boardPress = null;
+    this.joy = null; this.lookPtr = null; this.door = null; this.rel.clear(); this.board = null; this.pressing = null; this.boardPress = null;
     this.breathDown = false; this.breathLatched = false; this.edges.clear();
     this.el.joy.hidden = true; this.setKnob(0, 0); this.look.x = this.look.y = 0;
     for (const b of this.root.querySelectorAll('.on')) b.classList.remove('on');
