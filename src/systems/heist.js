@@ -19,7 +19,7 @@ export const heist = {
 
     if (G.active && round.phase !== 'result') {
       // noise from the player: stick steps, voice, shout
-      if (player.stepNoise) noise.emit(player.head.x, player.head.z, player.stepNoise, 'step');
+      if (player.stepNoise) noise.emit(player.head.x, player.head.z, player.stepNoise, player.stepKind);   // 'step' or 'run'
       const micLive = mic.state === 'on' && !mic.noMic && !breath.holding && !scream.playing && G.caughtT < 0;
       const shout = mic.takeShout();
       if (micLive && shout) {

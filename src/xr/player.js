@@ -40,10 +40,13 @@ export class Player {
     this.turnedThisFrame = 0;
     this.stepAcc = 0;
     this.stepNoise = 0;       // radius of a step noise made this frame (0 = none); real steps are silent
+    this.stepKind = 'step';   // 'step' or 'run' (systems/sprint.js sets runSpeed while running)
+    this.runSpeed = 0;        // m/s while running (0 = walking)
   }
 
   get crouched() { return this.head.y < CROUCH_K * this.standingHeight; }
   get stepsAudible() { return this.speed > QUIET_SPEED; }
+  get running() { return this.runSpeed > 0; }
 
   enterVR() {
     this.inVR = true;
@@ -119,11 +122,14 @@ export class Player {
   update(dt, move, level, speedK = 1) {
     // velocity relative to where the head looks
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
-    const tx = (move.x * cos - move.y * sin) * MAX_SPEED * speedK;
-    const tz = (-move.x * sin - move.y * cos) * MAX_SPEED * speedK;
-    const k = 1 - Math.exp(-dt / ACCEL_TAU);
-    this.vel.x += (tx - this.vel.x) * k;
-    this.vel.y += (tz - this.vel.y) * k;
+    // running: the stick's direction at the running speed (how far it is pushed does not matter)
+    const m = Math.hypot(move.x, move.y), run = this.runSpeed > 0 && m > 0;
+    const k = run ? this.runSpeed / m : MAX_SPEED * speedK;
+    const tx = (move.x * cos - move.y * sin) * k;
+    const tz = (-move.x * sin - move.y * cos) * k;
+    const ka = 1 - Math.exp(-dt / ACCEL_TAU);
+    this.vel.x += (tx - this.vel.x) * ka;
+    this.vel.y += (tz - this.vel.y) * ka;
     if (Math.abs(this.vel.x) < 1e-3 && Math.abs(this.vel.y) < 1e-3 && !move.x && !move.y) this.vel.set(0, 0);
     this.speed = this.vel.length();
 
@@ -141,13 +147,16 @@ export class Player {
     // actual speed after collisions (sliding along a wall is slower)
     if (dt > 0) this.speed = Math.min(this.speed, Math.hypot(nx - hx, nz - hz) / dt);
     // stick steps above the quiet speed make noise, one per stride, louder the faster
+    // running faster than walking can go: a running step (longer stride, far louder: CFG.sprint)
     this.stepNoise = 0;
+    const runStep = run && this.speed > MAX_SPEED * 1.05;
     if (this.speed > QUIET_SPEED) {
       this.stepAcc += this.speed * dt;
-      if (this.stepAcc >= CFG.player.stepLength) {
+      if (this.stepAcc >= (runStep ? CFG.sprint.stepLength : CFG.player.stepLength)) {
         this.stepAcc = 0;
         const [r0, r1] = CFG.player.stepRadius, k = Math.min(1, (this.speed - QUIET_SPEED) / (MAX_SPEED - QUIET_SPEED));
-        this.stepNoise = r0 + (r1 - r0) * k;
+        this.stepNoise = runStep ? CFG.sprint.radius : r0 + (r1 - r0) * k;
+        this.stepKind = runStep ? 'run' : 'step';
       }
     } else this.stepAcc = 0;
     this.rig.updateMatrixWorld();

@@ -1,7 +1,7 @@
 // The first-run tutorial (phone and PC; not in VR). Steps at the van, while the clock still waits:
 // look around, walk, press the board, then "the clock starts when you leave the van". Then, during the
 // first round, short hints when the situation comes up (an item under the crosshair, carrying it, a
-// door, loud steps, the guard near, talking, the alarm), each once. It never pauses the game and
+// door, running, loud steps, the guard near, talking, the alarm), each once. It never pauses the game and
 // changes no numbers. Shown once (setting "tutorial"); «Пропустити» (H on a PC) ends it; «Навчання
 // ще раз» (start screen, menu → Налаштування) starts it again at the van.
 import { loadSetting, saveSetting } from '../settings.js';
@@ -11,7 +11,7 @@ import { G } from './state.js';
 import { nearestDoor } from './doors.js';
 
 const STEPS = ['look', 'walk', 'board', 'go'];
-const HINTS = ['alarm', 'take', 'carry', 'door', 'loud', 'guard', 'talk'];   // priority order
+const HINTS = ['alarm', 'take', 'carry', 'door', 'run', 'loud', 'guard', 'talk'];   // priority order
 const HINT_SECS = 6;
 
 const T = {
@@ -64,6 +64,7 @@ function hintDue(name) {
   if (name === 'carry') return !!hands.desk;
   if (name === 'door') return !hands.desk && !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw);
   if (name === 'loud') return player.stepsAudible;
+  if (name === 'run') return player.running;   // running (W1): what it costs, the auto-run
   if (name === 'guard') return round.phase === 'heist' && Math.hypot(patrol.x - player.head.x, patrol.z - player.head.z) < 7;
   return mic.state === 'on' && !mic.noMic && G.speakT > 0.3;   // 'talk'
 }

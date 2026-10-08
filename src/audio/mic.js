@@ -90,9 +90,11 @@ export class Mic {
     return !this.gameDbFn || b === null || g <= -90 ? -Infinity : g + b;
   }
   // the boundaries in effect right now: raised while the game is loud
-  get whisperEff() { return Math.max(this.whisperDb, this.gameInMic + CFG.mic.maskWhisper); }
+  // raise: dB added while out of breath after running (systems/sprint.js), so real heavy breathing
+  // into the microphone is not punished on top of the game's own breathing noise
+  get whisperEff() { return Math.max(this.whisperDb + (this.raise || 0), this.gameInMic + CFG.mic.maskWhisper); }
   get shoutEff() { return Math.max(this.shoutDb, this.gameInMic + CFG.mic.maskShout, this.whisperEff + 3); }
-  get masking() { return Math.max(0, this.whisperEff - this.whisperDb); }   // dB the whisper boundary is raised by the game
+  get masking() { return Math.max(0, this.whisperEff - this.whisperDb - (this.raise || 0)); }   // dB the whisper boundary is raised by the game
   // auto gain the browser did not switch off (Safari often ignores the constraint)
   get agc() { try { return !!this.track && this.track.getSettings().autoGainControl === true; } catch { return false; } }
 
