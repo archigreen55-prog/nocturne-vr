@@ -15,7 +15,12 @@ const why = (e) => (e && e.name === 'NotAllowedError' ? 'дозвіл не на�
   : e && e.name === 'NotFoundError' ? 'мікрофон не знайдено'
     : e && e.name === 'NotReadableError' ? 'мікрофон зайнятий іншим застосунком (дзвінок, диктофон) — закрий його й спробуй ще раз'
       : String(e && (e.message || e.name) || e));
-const GAME_HOLD = 9;           // analyses (~0.3 s) the game's loudest moment is remembered: speaker -> air -> mic lag
+// The game's loudness used for the boundaries rises at once, is held GAME_HOLD s after the game was
+// last loud (speaker -> air -> microphone lag, the analyser windows), then falls by at most GAME_FALL
+// dB/s. The microphone envelope falls faster than that while it is above the whisper boundary
+// (release 0.3 s over a 20+ dB gap), so a fading game sound in the microphone stays under the raised
+// boundary until it is a whisper anyway.
+const GAME_HOLD = 0.25, GAME_FALL = 40;
 
 export const LEVELS = {
   quiet: { label: 'ШЕПІТ', color: '#5fd38d' },
@@ -59,8 +64,8 @@ export class Mic {
     // phone only (set by main): the game bus level, for the protection against the game's own sounds
     this.gameDbFn = null;
     this.gameDb = -100;
-    this.gameHist = new Float32Array(GAME_HOLD).fill(-100);
-    this.gameI = 0;
+    this.gameEnv = -100;
+    this.gamePeakT = 0;
     this.coverHint = false;     // phone: say "microphone covered?" when the level stays far under your silence
     this.lowT = 0;
     this.covered = false;
@@ -77,7 +82,7 @@ export class Mic {
   // bleed: the calibration's measurement, else (phone, not measured yet) an estimate; null = no protection
   get bleedMeasured() { return Number.isFinite(this.cal.bleed); }
   get bleedDb() { return this.bleedMeasured ? this.cal.bleed : this.gameDbFn ? CFG.mic.bleedDefault : null; }
-  get gameHold() { let m = -100; for (const v of this.gameHist) if (v > m) m = v; return m; }
+  get gameHold() { return this.gameEnv; }
   // the game as the microphone hears it now (dBFS), -Infinity when silent or unprotected
   get gameInMic() {
     const b = this.bleedDb, g = this.gameHold;
@@ -239,9 +244,10 @@ export class Mic {
     this.acc = 0;
     this.t += step;
     if (this.gameDbFn) {
-      this.gameDb = this.gameDbFn();
-      this.gameHist[this.gameI] = this.gameDb;
-      this.gameI = (this.gameI + 1) % GAME_HOLD;
+      const g = this.gameDb = this.gameDbFn();
+      if (g >= this.gameEnv - 3) this.gamePeakT = this.t;   // still loud: keep holding
+      if (g >= this.gameEnv) this.gameEnv = g;
+      else if (this.t - this.gamePeakT > GAME_HOLD) this.gameEnv = Math.max(g, this.gameEnv - GAME_FALL * step);
     }
     if (this.feed) this.db = this.feed(this);
     else {

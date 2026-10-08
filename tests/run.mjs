@@ -961,6 +961,38 @@ test('phone: the game\'s own sounds from the speaker are not your voice (bus ana
   await ctx.close();
 });
 
+test('mic protection, deterministic: a game sound that stops abruptly or fades never leaves a false "НОРМАЛЬНО" (30, 72 and 10 analyses / s)', async () => {
+  const ctx = await newContext(browser);
+  const { page } = await open(ctx, base);
+  const r = await page.evaluate(async (cal) => {
+    const { Mic } = await import('./src/audio/mic.js');
+    const out = {};
+    for (const hz of [30, 72, 10]) {
+      const m = new Mic();
+      m.state = 'on'; m.cal = { ...cal, bleed: -10 }; m.calibrated = true;
+      let g = -100, voice = null;
+      m.gameDbFn = () => g;
+      m.feed = (mm) => voice ?? Math.max(-62 + Math.random(), mm.gameDb - 10);
+      let falseNormal = 0, heard = 0, t = 0;
+      const run = (secs, fn) => { for (let k = 0; k < secs * hz; k++) { t += 1 / hz; fn(t); m.update(1 / hz); if (voice === null && m.level !== 'quiet') falseNormal++; if (voice !== null && m.level !== 'quiet') heard++; } };
+      for (let i = 0; i < 6; i++) {
+        run(0.3 + i * 0.15, () => { g = -8 + Math.random() * 3; });     // loud game sound...
+        run(0.8, () => { g = -100; });                                  // ...that stops at once
+        run(1.2, (tt) => { g = Math.max(-100, -8 - (tt % 1.2) * 40); }); // ...or fades out
+      }
+      run(1, () => { g = -100; });
+      voice = -30; run(0.6, () => {});                                  // then a normal voice in silence
+      out[hz] = { falseNormal, heard };
+    }
+    return out;
+  }, MIC_CAL);
+  for (const [hz, v] of Object.entries(r)) {
+    assert.equal(v.falseNormal, 0, `${hz} Hz: the game's own sound read as a voice ${JSON.stringify(v)}`);
+    assert.ok(v.heard > 0, `${hz} Hz: a voice in silence is still heard`);
+  }
+  await ctx.close();
+});
+
 test('real fake-microphone WAV: finger knocks on the phone body are not a shout; the shout in the same recording is', async () => {
   const ctx = await newContext(browser, micPhone);
   await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { floor: -62, normal: -30, whisper: -48, shout: -18 });
