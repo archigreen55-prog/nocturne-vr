@@ -51,6 +51,7 @@ export const ROOMS = [
   { name: M.garden, floor: 0, minX: -22, maxX: 22, minZ: -22, maxZ: 30 },
 ];
 export const OUTSIDE = [M.alley, M.garden];
+export const WELL_NAME = '#well';   // the stair well: a pseudo-room of the flashlight mask, open through both floors
 
 // Openings between rooms: [roomA, roomB, door centre x, z] (null = an arch, always open).
 export const LINKS = [
@@ -61,11 +62,11 @@ export const LINKS = [
   [R.pantry, R.corridor, -9, -8.5], [R.corridor, R.hall, null], [M.study, R.hall, 7, -8.5],
   [R.hall, R.anteroom, null], [R.hall, M.garage, 5.5, -5], [M.laundry, R.anteroom, -7, -2.5], [M.boiler, M.garage, 4, -2.5],
   // upstairs
-  [M.bedroom, M.corridor2, -9.5, -12], [M.wardrobe, M.bedroom, -6, -15], [M.bath, M.gallery, -0.5, -12],
+  [M.bedroom, M.corridor2, -8, -12], [M.wardrobe, M.bedroom, -6, -15], [M.bath, M.gallery, -0.5, -12],
   [M.kids, M.gallery, 5, -12], [M.attic, M.gallery, 10.5, -12], [M.guardroom, M.corridor2, -9, -7],
   [M.corridor2, M.gallery, null], [M.guest, M.corridor2, -8, -5], [M.billiard, M.gallery, -1, -5], [M.music, M.gallery, 9, -5],
   [M.guest, M.balcony, -8, 0], [M.balcony, M.garden, null],
-  [M.gallery, R.hall, null],   // the stair well
+  [M.gallery, WELL_NAME, null], [R.hall, WELL_NAME, null],   // the stair well lets the light through between the floors
 ];
 
 // The U-stairs in the west half of the hall, against its north wall: flight 1 rises north along
@@ -97,8 +98,19 @@ export const LIGHTS = [
   [15.5, 2.8, -4.0, 0xffc98a, 6, 12],    // alley lamp over the van
   [0, 2.8, 12, 0x9fb4ff, 3, 10],         // garden lantern
 ];
+// Every lamp of the house and garden: the three point lights of the scene move to the three nearest
+// ones on the player's floor (plan-W6 §6). [x, y, z, colour, intensity, distance, floor]
+export const LAMP_LIST = [
+  [0, 2.45, -8.5, 0xffc98a, 5, 12, 0], [9.5, 2.4, -15, 0xffd9a0, 3, 9, 0], [-9.5, 2.4, -15, 0xffd9a0, 3, 9, 0], [-3, 2.4, -15.5, 0xff9a5a, 3.5, 9, 0],
+  [3, 2.4, -15.3, 0xffd9a0, 3, 9, 0], [10, 2.4, -8.5, 0xffd9a0, 3, 9, 0], [-4.5, 2.4, -2.5, 0xffd9a0, 2.5, 8, 0], [8.5, 2.4, -2, 0xcfe0ff, 3, 10, 0],
+  [-8, 2.4, -8.5, 0x7f9cff, 2.5, 8, 0], [-10, 2.4, -2.5, 0xcfe0ff, 2, 7, 0],
+  [5, 5.4, -8.5, 0xffd9a0, 4, 11, 1], [-9.5, 5.4, -15, 0xffd9a0, 3, 9, 1], [5, 5.4, -15, 0xffd9a0, 3, 9, 1], [-11, 5.4, -8.5, 0xffd9a0, 3, 9, 1],
+  [-9, 5.4, -2.5, 0xffd9a0, 3, 9, 1], [0, 5.4, -2.5, 0xffd9a0, 3, 9, 1], [9, 5.4, -2.5, 0xffd9a0, 3, 9, 1], [-0.5, 5.4, -15, 0xcfe0ff, 2.5, 8, 1],
+  [-8, 5.4, -8.5, 0x7f9cff, 2.5, 8, 1],
+  [15.5, 2.8, -4.0, 0xffc98a, 6, 12, 0], [0, 2.8, 12, 0x9fb4ff, 3, 10, 0], [-10, 2.8, 20, 0x9fb4ff, 3, 10, 0],
+];
 // lit spots for the stealth read-out (seen further here)
-export const LAMPS = [{ x: 15.5, z: -4.0, r: 3 }, { x: 0, z: 12, r: 3 }, { x: 0, z: -8.5, r: 2.5 }];
+export const LAMPS = [{ x: 15.5, z: -4.0, r: 3 }, { x: 0, z: 12, r: 3 }, { x: -10, z: 20, r: 3 }, { x: 0, z: -8.5, r: 2.5 }, { x: 5, z: -8.5, r: 2.5 }];
 
 // The lurker's wardrobe: in the master bedroom upstairs, against its east wall, front facing -X.
 export const WARDROBE = { x: -6.8, z: -16.8, minZ: -17.6, maxZ: -16.0, y0: 3 };
@@ -110,16 +122,16 @@ export const NAV_NODES = [
   [6.4, -8.5, 0], [7.6, -8.5, 0], [6.5, -11.4, 0], [6.5, -12.6, 0], [3, -11.4, 0], [3, -12.6, 0],
   [-6.4, -6.2, 0], [-7.6, -6.2, 0], [-4.5, -5.6, 0], [-4.5, -4.4, 0], [5.5, -5.6, 0], [5.5, -4.4, 0],
   // kitchen, dining, living, library
-  [9.5, -15, 0], [11.5, -13.5, 0], [8, -17, 0], [12, -16.5, 0], [12.4, -15, 0], [13.8, -15, 0], [5.4, -15, 0], [6.6, -15, 0],
-  [3, -15, 0], [1.5, -17, 0], [4.5, -13.5, 0],
-  [-3, -15, 0], [-1.5, -13.5, 0], [-4.5, -17, 0], [-5.4, -15, 0], [-6.6, -15, 0], [-3, -12.6, 0],
-  [-9.5, -15, 0], [-7.5, -13.5, 0], [-11.5, -17, 0], [-8, -12.6, 0], [-8, -11.4, 0],
+  [9.5, -15, 0], [11.5, -13.5, 0], [8, -16.4, 0], [12, -16.5, 0], [12.4, -15, 0], [13.8, -15, 0], [5.4, -15, 0], [6.6, -15, 0],
+  [5.2, -17.0, 0], [1.5, -13.3, 0], [4.5, -13.5, 0],
+  [-1.5, -14.7, 0], [-1.5, -12.8, 0], [-2.2, -16.6, 0], [-5.4, -15, 0], [-6.6, -15, 0], [-3, -12.6, 0],
+  [-9.5, -14.4, 0], [-7.5, -13.5, 0], [-11.8, -14.2, 0], [-9.0, -16.5, 0], [-8, -12.6, 0], [-8, -11.4, 0],
   // west corridor, pantry, study
   [-8, -8.5, 0], [-8, -10.5, 0], [-8, -6.2, 0], [-9.6, -8.5, 0], [-8.4, -8.5, 0], [-11, -8.5, 0], [-11, -10.5, 0],
-  [10, -8.5, 0], [9, -6.5, 0], [11.5, -10.5, 0],
+  [10, -8.5, 0], [9, -6.5, 0], [11.6, -8.0, 0],
   // south row: anteroom, laundry, boiler room, garage
   [-4.5, -2.5, 0], [-3, -1, 0], [-6, -1.5, 0], [-6.4, -2.5, 0], [-7.6, -2.5, 0], [-10, -2.5, 0], [-11.5, -1, 0], [-4.5, -0.6, 0], [-4.5, 0.8, 0],
-  [8.5, -2, 0], [6, -0.5, 0], [11, -3.5, 0], [6.5, -3.5, 0], [4.6, -2.5, 0], [3.4, -2.5, 0], [1, -2.5, 0], [-1, -1.5, 0], [12.4, -1.5, 0], [14, -1.5, 0],
+  [9.5, -2, 0], [5.0, -1.5, 0], [11, -3.3, 0], [9.5, 0.5, 0], [5.0, -4.0, 0], [4.6, -2.5, 0], [3.4, -2.5, 0], [1, -2.5, 0], [-1, -1.5, 0], [12.4, -1.5, 0], [14, -1.5, 0],
   // alley and garden (a mesh about 6 m apart, around the hedges and the fountain)
   [15, -1.5, 0], [15, -6, 0], [15, -12, 0], [15, -16, 0], [16, -20, 0], [19.5, -5, 0], [19.5, -13, 0], [19.5, -19, 0],
   [-15, 3.5, 0], [-9, 4.2, 0], [-3, 3, 0], [3, 3, 0], [9, 3, 0], [15, 3, 0], [18, 4, 0],
@@ -132,10 +144,10 @@ export const NAV_NODES = [
   // upstairs: gallery, corridor, rooms and their doorways
   [0, -8.5, 1], [4, -7, 1], [4, -10.5, 1], [9, -8.5, 1], [-1, -10.8, 1], [-4.5, -6.2, 1], [11, -6.5, 1],
   [-8, -10.8, 1], [-8, -8.5, 1], [-8, -6.2, 1], [-7.6, -6.2, 1], [-6.4, -6.2, 1],
-  [-9.5, -15, 1], [-11.5, -13.5, 1], [-9.5, -12.6, 1], [-9.5, -11.4, 1], [-4.5, -15, 1], [-6.6, -15, 1], [-5.4, -15, 1],
-  [-0.5, -15, 1], [-0.5, -12.6, 1], [-0.5, -11.4, 1], [5, -15, 1], [3.5, -17, 1], [5, -12.6, 1], [5, -11.4, 1],
-  [10.5, -15, 1], [10.5, -12.6, 1], [10.5, -11.4, 1], [-11, -8.5, 1], [-9.6, -7, 1], [-8.4, -7, 1],
-  [-9, -2.5, 1], [-7, -1, 1], [-8, -5.6, 1], [-8, -4.4, 1], [0, -2.5, 1], [2.5, -1, 1], [-1, -5.6, 1], [-1, -4.4, 1],
+  [-9.0, -14.3, 1], [-11.5, -13.5, 1], [-8, -12.6, 1], [-8, -11.4, 1], [-4.5, -15, 1], [-6.6, -15, 1], [-5.0, -15, 1],
+  [-0.5, -15, 1], [-0.5, -12.6, 1], [-0.5, -11.4, 1], [5, -15, 1], [4.3, -16.0, 1], [5, -12.6, 1], [5, -11.4, 1],
+  [10.5, -15, 1], [10.5, -12.6, 1], [10.5, -11.4, 1], [-10.3, -9.0, 1], [-9.6, -7, 1], [-8.4, -7, 1],
+  [-9, -2.5, 1], [-7, -1, 1], [-8, -5.6, 1], [-8, -4.4, 1], [-3, -2.5, 1], [2.5, -4.2, 1], [-1, -5.6, 1], [-1, -4.4, 1],
   [9, -2.5, 1], [11, -1, 1], [9, -5.6, 1], [9, -4.4, 1], [-8, -0.6, 1], [-8, 0.6, 1], [-8, 1.2, 1],
 ];
 // Edges the automatic linking cannot see (different floors): [[x, z], [x, z]] by nearest node.

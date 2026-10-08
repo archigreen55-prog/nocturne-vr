@@ -2,23 +2,57 @@
 // Built from the numbers in ./layout.js with the blocks of ../kit.js. Same shape of result as the
 // first map's buildLevel() (src/world/level.js) plus the floor functions (plan-W6 §2).
 //
-// M1 (blockout): walls, floors, the stairs, the garage, the garden without detail, the van and the
-// board. Furniture, windows, lamps by room and the hidden other floor come with M2.
+// The static geometry is three meshes: SA (always drawn: the outside of the house, the slab and roof,
+// the hall band of both floors, the stairs, the garden), S0 (the rooms of the ground floor) and S1 (the
+// rooms upstairs); the player's floor decides which of S0 / S1 is drawn (plan-W6 §6). The doors are
+// one instanced mesh (one draw call for all 21).
 import * as THREE from 'three';
 import { CollisionWorld } from '../collision.js';
 import { Builder, Door, C } from '../level.js';
 import { Floors } from '../floors.js';
 import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T } from '../kit.js';
-import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
+import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
 import { mansion as MCFG } from '../../config/mansion.js';
+import { furnish } from './furniture.js';
 import { S as TEXT } from '../../i18n/index.js';
 
 const GLOW = { window: 0x2b3f6b, lamp: 0xffd9a0, moon: 0xdfe8ff };
 const SLAB_T = FLOOR_Y[1] - WALL_H;   // the floor-2 slab: 0.3 m
 const SLAB_MID = WALL_H + SLAB_T / 2;
+const LEAF_W = 0.96;   // the door leaf geometry is built for this width; other widths are scaled
+
+// One instanced mesh for every door: the leaf geometry of src/world/level.js's Door at width
+// LEAF_W, one instance per door, its matrix refreshed before each render from the door's swing.
+function instancedDoors(doors, material) {
+  const B = new Builder(), LEAF_T = 0.05, DOOR_H = 2.1;
+  B.box(0, 0.01, -LEAF_T / 2, LEAF_W, DOOR_H - 0.02, LEAF_T / 2, C.door);
+  for (const y of [0.25, 1.15]) for (const s of [-1, 1]) B.box(0.12, y, s * LEAF_T / 2, LEAF_W - 0.12, y + 0.75, s * (LEAF_T / 2 + 0.012), 0x57402f);
+  for (const s of [-1, 1]) B.box(LEAF_W - 0.12, 0.98, s * (LEAF_T / 2), LEAF_W - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
+  const leaf = B.mesh(material);
+  const mesh = new THREE.InstancedMesh(leaf.geometry, material, doors.length);
+  mesh.name = 'doors';
+  mesh.frustumCulled = false;
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const last = new Float32Array(doors.length).fill(NaN);
+  const refresh = () => {
+    let changed = false;
+    doors.forEach((d, i) => {
+      const a = d.base + d.angle;
+      if (a === last[i]) return;
+      last[i] = a; changed = true;
+      q.setFromAxisAngle(up, a); p.set(d.hx, d.y0, d.hz); sc.set(d.w / LEAF_W, 1, 1);
+      mesh.setMatrixAt(i, m.compose(p, q, sc));
+    });
+    if (changed) mesh.instanceMatrix.needsUpdate = true;
+  };
+  refresh();
+  mesh.onBeforeRender = refresh;
+  return mesh;
+}
 
 export function buildMansion() {
-  const S = new Builder();   // static, lit
+  const SA = new Builder(), S0 = new Builder(), S1 = new Builder();   // static, lit: always / ground floor / upstairs
+  const S = SA;              // the default for everything seen from both floors
   const G = new Builder();   // glow, unlit
   const floors = new Floors({ levels: FLOOR_Y, ramps: STAIRS.ramps, flats: STAIRS.flats });
   const worlds = FLOOR_Y.map(() => new CollisionWorld(LOT));   // everything a body bumps into, per floor
@@ -35,8 +69,8 @@ export function buildMansion() {
     return b;
   };
   const rail = (f, x0, z0, x1, z1) => worlds[f].addEdge(x0, z0, x1, z1);   // a line a body cannot cross
-  const K0 = wallKit(S, solidOn(0), doorSpecs, FLOOR_Y[0], 0);
-  const K1 = wallKit(S, solidOn(1), doorSpecs, FLOOR_Y[1], 1);
+  const K0 = wallKit(SA, solidOn(0), doorSpecs, FLOOR_Y[0], 0), R0 = wallKit(S0, solidOn(0), doorSpecs, FLOOR_Y[0], 0);   // band / rows
+  const K1 = wallKit(SA, solidOn(1), doorSpecs, FLOOR_Y[1], 1), R1 = wallKit(S1, solidOn(1), doorSpecs, FLOOR_Y[1], 1);
   const H = HOUSE;
 
   // ---------- ground floor walls ----------
@@ -48,31 +82,31 @@ export function buildMansion() {
   K0.wallZ(13, -18, 1.5, EXT_T, C.wallExt, [{ c: -15, w: 1.0, door: 'normal' }, { c: -1.5, w: 2.6, door: 'normal' }]);   // back door, garage gate
   K0.wallX(-12, -13, 13, INT_T, C.wallInt, [{ c: -8, w: 1.0, door: 'normal' }, { c: -1, w: 1.6 }, { c: 3, w: 1.0, door: 'normal' }, { c: 6.5, w: 1.0, door: 'normal' }]);
   K0.wallX(-5, -13, 13, INT_T, C.wallInt, [{ c: -4.5, w: 1.6 }, { c: 5.5, w: 1.0, door: 'normal' }]);
-  K0.wallZ(-6, -18, -12, INT_T, C.wallpaperLib, [{ c: -15, w: 1.4 }]);
-  K0.wallZ(0, -18, -12, INT_T, C.wallInt);
-  K0.wallZ(6, -18, -12, INT_T, C.wallInt, [{ c: -15, w: 1.4 }]);
+  R0.wallZ(-6, -18, -12, INT_T, C.wallpaperLib, [{ c: -15, w: 1.4 }]);
+  R0.wallZ(0, -18, -12, INT_T, C.wallInt);
+  R0.wallZ(6, -18, -12, INT_T, C.wallInt, [{ c: -15, w: 1.4 }]);
   K0.wallZ(-9, -12, -5, INT_T, C.wallInt, [{ c: -8.5, w: 1.0, door: 'normal' }]);
   K0.wallZ(-7, -12, -5, INT_T, C.wallInt, [{ c: -6.2, w: 1.4 }]);
   K0.wallZ(7, -12, -5, INT_T, C.wallInt, [{ c: -8.5, w: 1.0, door: 'normal' }]);
-  K0.wallZ(-7, -5, 0, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
-  K0.wallZ(-2, -5, 0, INT_T, C.wallInt);
-  K0.wallZ(4, -5, 0, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
+  R0.wallZ(-7, -5, 0, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
+  R0.wallZ(-2, -5, 0, INT_T, C.wallInt);
+  R0.wallZ(4, -5, 0, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
 
   // ---------- upstairs walls (y = 3) ----------
   K1.wallX(-18, H.minX, H.maxX, EXT_T, C.wallExt);
   K1.wallX(0, H.minX, H.maxX, EXT_T, C.wallExt, [{ c: -8, w: 1.0, door: 'normal' }]);   // balcony door
   K1.wallZ(H.minX, -18, 0, EXT_T, C.wallExt);
   K1.wallZ(13, -18, 0, EXT_T, C.wallExt);
-  K1.wallX(-12, -13, 13, INT_T, C.wallpaperBed, [{ c: -9.5, w: 1.0, door: 'normal' }, { c: -0.5, w: 1.0, door: 'normal' }, { c: 5, w: 1.0, door: 'normal' }, { c: 10.5, w: 1.0, door: 'normal' }]);
+  K1.wallX(-12, -13, 13, INT_T, C.wallpaperBed, [{ c: -8, w: 1.0, door: 'normal' }, { c: -0.5, w: 1.0, door: 'normal' }, { c: 5, w: 1.0, door: 'normal' }, { c: 10.5, w: 1.0, door: 'normal' }]);
   K1.wallX(-5, -13, 13, INT_T, C.wallInt, [{ c: -8, w: 1.0, door: 'normal' }, { c: -1, w: 1.0, door: 'normal' }, { c: 9, w: 1.0, door: 'normal' }]);
-  K1.wallZ(-6, -18, -12, INT_T, C.wallpaperBed, [{ c: -15, w: 0.9, door: 'normal' }]);
-  K1.wallZ(-3, -18, -12, INT_T, C.wallInt);
-  K1.wallZ(2, -18, -12, INT_T, C.wallInt);
-  K1.wallZ(8, -18, -12, INT_T, C.wallInt);
+  R1.wallZ(-6, -18, -12, INT_T, C.wallpaperBed, [{ c: -15, w: 0.9, door: 'normal' }]);
+  R1.wallZ(-3, -18, -12, INT_T, C.wallInt);
+  R1.wallZ(2, -18, -12, INT_T, C.wallInt);
+  R1.wallZ(8, -18, -12, INT_T, C.wallInt);
   K1.wallZ(-9, -12, -5, INT_T, C.wallInt, [{ c: -7, w: 1.0, door: 'normal' }]);
   K1.wallZ(-7, -12, -5, INT_T, C.wallInt, [{ c: -6.2, w: 1.4 }]);
-  K1.wallZ(-5, -5, 0, INT_T, C.wallInt);
-  K1.wallZ(5, -5, 0, INT_T, C.wallInt);
+  R1.wallZ(-5, -5, 0, INT_T, C.wallInt);
+  R1.wallZ(5, -5, 0, INT_T, C.wallInt);
 
   // ---------- floors, the slab, the roof ----------
   S.box(-30, -0.1, -30, 30, 0, 36, C.grass);                                      // ground
@@ -136,10 +170,13 @@ export function buildMansion() {
   // ---------- the wardrobe of the lurker (master bedroom, upstairs) ----------
   {
     const w = WARDROBE;
-    S.box(w.x, w.y0, w.minZ, w.x + 0.7, w.y0 + 2.2, w.maxZ, C.woodDark);
-    S.box(w.x - 0.01, w.y0, w.minZ - 0.01, w.x + 0.71, w.y0 + 0.02, w.maxZ + 0.01, C.wood);
+    S1.box(w.x, w.y0, w.minZ, w.x + 0.7, w.y0 + 2.2, w.maxZ, C.woodDark);
+    S1.box(w.x - 0.01, w.y0, w.minZ - 0.01, w.x + 0.71, w.y0 + 0.02, w.maxZ + 0.01, C.wood);
     block(1, w.x, w.minZ, w.x + 0.7, w.maxZ, 2.2, null);
   }
+
+  // ---------- furniture (./furniture.js) ----------
+  furnish({ S0, S1, SA, G, block }, FLOOR_Y);
 
   // ---------- glow: windows on the facades, a chandelier in the hall ----------
   for (const [x0, z0, x1, z1] of [[-10.5, -18.14, -8.5, -18.16], [-3.5, -18.14, -1.5, -18.16], [2.5, -18.14, 4.5, -18.16], [8.5, -18.14, 10.5, -18.16], [-10.5, 0.14, -8.5, 0.16]]) {
@@ -202,17 +239,22 @@ export function buildMansion() {
 
   // ---------- meshes ----------
   const lit = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const staticMesh = S.mesh(lit);
-  staticMesh.name = 'level';
-  staticMesh.matrixAutoUpdate = false;
+  const meshA = SA.mesh(lit), mesh0 = S0.mesh(lit), mesh1 = S1.mesh(lit);
+  meshA.name = 'level'; mesh0.name = 'level: ground floor'; mesh1.name = 'level: upstairs';
+  for (const m of [meshA, mesh0, mesh1]) m.matrixAutoUpdate = false;
   const glowMesh = G.mesh(new THREE.MeshBasicMaterial({ vertexColors: true }));
   glowMesh.name = 'glow';
   glowMesh.matrixAutoUpdate = false;
   const doorMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const doors = doorSpecs.map((spec) => new Door(spec, doorMat));
+  const doors = doorSpecs.map((spec) => new Door(spec, doorMat));   // their own meshes stay unused: one instanced mesh draws all of them
+  const doorMesh = instancedDoors(doors, doorMat);
   const group = new THREE.Group();
-  group.add(staticMesh, glowMesh, moon);
-  for (const d of doors) group.add(d.mesh);
+  group.add(meshA, mesh0, mesh1, glowMesh, doorMesh, moon);
+  const triangles = [meshA, mesh0, mesh1, glowMesh].reduce((n, m) => n + m.geometry.index.count / 3, 0);
+  // rooms with the height band the flashlight mask lights (plan-W6 §2.5); the stair well is a
+  // pseudo-room open through both floors
+  const rooms = ROOMS.map((r) => ({ ...r, yMin: FLOOR_Y[r.floor] - 0.1, yMax: FLOOR_Y[r.floor] + WALL_H + 0.2 }));
+  rooms.push({ name: WELL_NAME, floor: -1, minX: W.minX, maxX: W.maxX, minZ: W.minZ, maxZ: W.maxZ, yMin: -0.1, yMax: FLOOR_Y[1] + WALL_H });
 
   const surfaces = furniture.filter((b) => b.top != null);
   surfaces.push({ ...CARGO, top: CARGO.y });
@@ -243,11 +285,13 @@ export function buildMansion() {
   }
 
   return {
-    id: 'mansion', group, doors, furniture, moon, glowMaterial: glowMesh.material,
-    triangles: staticMesh.geometry.index.count / 3 + glowMesh.geometry.index.count / 3,
+    id: 'mansion', group, doors, furniture, moon, glowMaterial: glowMesh.material, triangles,
     world: worlds[0], walls: walls[0],   // as on the first map: the ground floor
-    worlds, floors, rooms: ROOMS, links: LINKS, outside: OUTSIDE, house: HOUSE,
-    spawn: SPAWN, board: BOARD, cargo: CARGO, dropZone: DROP, vanZone: VAN_ZONE, lights: LIGHTS, lamps: LAMPS,
+    worlds, floors, rooms, links: LINKS, outside: OUTSIDE, house: HOUSE,
+    spawn: SPAWN, board: BOARD, cargo: CARGO, dropZone: DROP, vanZone: VAN_ZONE, lights: LIGHTS, lamps: LAMPS, lampList: LAMP_LIST,
+    floorMeshes: [mesh0, mesh1],
+    // draw the rooms of floor f only (the hall band, the stairs and the outside are always drawn)
+    setFloorVisible(f) { mesh0.visible = f === 0; mesh1.visible = f === 1; },
     wardrobe: WARDROBE, nav: { nodes: NAV_NODES, stairs: NAV_STAIRS, indoor: (n) => n[2] === 0 && n[0] > H.minX && n[0] < H.maxX && n[1] > H.minZ && n[1] < H.maxZ },
     guard: MCFG.guard, items: MCFG.items,
     roomAt, floorIndex,

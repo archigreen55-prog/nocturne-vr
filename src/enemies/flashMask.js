@@ -9,6 +9,7 @@ const MAX = 8;
 
 export const flashUniforms = {
   uFlashRooms: { value: Array.from({ length: MAX }, () => new THREE.Vector4()) },
+  uFlashBands: { value: Array.from({ length: MAX }, () => new THREE.Vector2(-1, 50)) },   // y range of each room (W6: floors)
   uFlashCount: { value: 0 },
   uFlashOutside: { value: 0 },
 };
@@ -21,6 +22,7 @@ export function setLevel(lv) {
 }
 const glsl = () => /* glsl */ `
 uniform vec4 uFlashRooms[${MAX}];
+uniform vec2 uFlashBands[${MAX}];
 uniform int uFlashCount;
 uniform float uFlashOutside;
 varying vec3 vFlashPos;
@@ -29,7 +31,8 @@ float flashMask(vec3 p) {
   for (int i = 0; i < ${MAX}; i++) {
     if (i >= uFlashCount) break;
     vec4 r = uFlashRooms[i];
-    if (p.x >= r.x && p.x <= r.z && p.z >= r.y && p.z <= r.w) return 1.0;
+    vec2 b = uFlashBands[i];
+    if (p.x >= r.x && p.x <= r.z && p.z >= r.y && p.z <= r.w && p.y >= b.x && p.y <= b.y) return 1.0;
   }
   return 0.0;
 }
@@ -38,7 +41,7 @@ float flashMask(vec3 p) {
 function addVarying(shader) {
   Object.assign(shader.uniforms, flashUniforms);
   shader.vertexShader = 'varying vec3 vFlashPos;\n' + shader.vertexShader.replace('#include <project_vertex>',
-    '#include <project_vertex>\n\tvFlashPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
+    '#include <project_vertex>\n#ifdef USE_INSTANCING\n\tvFlashPos = ( modelMatrix * instanceMatrix * vec4( transformed, 1.0 ) ).xyz;\n#else\n\tvFlashPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;\n#endif');
   shader.fragmentShader = glsl() + shader.fragmentShader;
 }
 
@@ -83,12 +86,13 @@ export function maskScene(scene, lv) {
 // swung more than ~15°).
 export function updateFlashMask(x, z, doors, y = 0) {
   const here = level.roomAt(x, z, y);
+  const floor = level.floorIndex ? level.floorIndex(y) : 0;
   const rooms = new Set([here]);
   for (const [a, b, dx, dz] of level.links) {
     if (a !== here && b !== here) continue;
     let open = dx === null || dx === undefined;
     if (!open) {
-      const d = doors.find((dd) => Math.hypot(dd.cx - dx, dd.cz - dz) < 0.4);
+      const d = doors.find((dd) => (dd.floor || 0) === floor && Math.hypot(dd.cx - dx, dd.cz - dz) < 0.4);
       open = !!d && Math.abs(d.angle) > 0.25;
     }
     if (open) rooms.add(a === here ? b : a);
@@ -99,6 +103,7 @@ export function updateFlashMask(x, z, doors, y = 0) {
   for (const name of rooms) {
     const r = byName[name];
     if (!r || n >= MAX) continue;
+    U.uFlashBands.value[n].set(r.yMin == null ? -1 : r.yMin, r.yMax == null ? 50 : r.yMax);
     U.uFlashRooms.value[n++].set(r.minX, r.minZ, r.maxX, r.maxZ);
   }
   U.uFlashCount.value = n;

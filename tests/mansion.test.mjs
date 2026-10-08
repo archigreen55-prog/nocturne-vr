@@ -173,3 +173,71 @@ test('mansion (M1): VR emulator (IWER Quest 3) — the stick walks the rig up th
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// ---------- M2: furniture, instanced doors, the other floor hidden, the mask by height, the lamp pool ----------
+test('mansion (M2): the rooms of the other floor are not drawn, the doors are one instanced mesh; triangles and draw calls at the gallery, the garden and the hall stay within the budget', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  const measure = async (x, z, yaw, y, pitch = 0) => {
+    await page.evaluate(([x, z, yaw, y, pitch]) => { const g = window.__game; g.player.teleport(x, z, yaw, y); g.player.lookPitch = pitch; g.sim(0.3); }, [x, z, yaw, y, pitch]);
+    // real frames: the frame hooks (floor visibility, lamps) and the renderer's counters; the busiest frame counts
+    const all = await keepFor(page, 1500, () => [window.__game.perf.calls, window.__game.perf.tris]);
+    const samples = all.slice(Math.floor(all.length / 2));   // the later frames: the first ones may still show the previous spot
+    const calls = Math.max(...samples.map((s) => s[0])), tris = Math.max(...samples.map((s) => s[1]));
+    return { calls, tris, ...(await page.evaluate(() => { const g = window.__game, L = g.level; return { floors: L.floorMeshes.map((m) => m.visible), doors: g.scene.getObjectByName('doors').count }; })) };
+  };
+  const gallery = await measure(4, -8.5, Math.PI / 2, 3, -0.5);   // looking west and down into the well
+  const garden = await measure(15, 3, Math.PI / 2, 0);              // by the garage, facing the house
+  const hall = await measure(0, -8.5, Math.PI / 2, 0);              // the hall, towards the stairs
+  assert.deepEqual(gallery.floors, [false, true], 'upstairs: the ground-floor rooms are not drawn');
+  assert.deepEqual(hall.floors, [true, false], 'downstairs: the upstairs rooms are not drawn');
+  assert.equal(hall.doors, 21, 'one instanced mesh holds every door');
+  for (const [name, m] of [['gallery', gallery], ['garden', garden], ['hall', hall]]) {
+    assert.ok(m.tris > 1000 && m.tris <= 45000, `${name}: ${m.tris} triangles drawn (budget 45 000)`);
+    assert.ok(m.calls <= 40, `${name}: ${m.calls} draw calls`);
+  }
+  // the first map, for comparison (the plan: mansion <= first map + 8 draw calls)
+  const d = (await open(ctx, preview + '?map=dacha')).page;
+  await d.click('#start'); await d.waitForFunction(() => window.__game.playing);
+  await d.evaluate(() => { const g = window.__game; g.player.teleport(0, -2.5, 0, 0); g.sim(0.3); });
+  const da = await keepFor(d, 1500, () => [window.__game.perf.calls, window.__game.perf.tris]), ds = da.slice(Math.floor(da.length / 2));
+  const dacha = { calls: Math.max(...ds.map((s) => s[0])), tris: Math.max(...ds.map((s) => s[1])) };
+  console.log(`    draw calls / triangles: gallery ${gallery.calls} / ${gallery.tris}, garden ${garden.calls} / ${garden.tris}, hall ${hall.calls} / ${hall.tris}; first map ${dacha.calls} / ${dacha.tris}`);
+  // in the headless renderer most objects are culled, so the first map's count is a reference, not a gate
+  assert.ok(dacha.calls > 0 && dacha.tris > 1000, 'the first map drew its frame');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('mansion (M2): the flashlight mask lights the guard\'s floor only (the stair well both); the point lights move to the lamps of the player\'s floor', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  const bands = (x, z, y) => page.evaluate(([x, z, y]) => {
+    const g = window.__game, U = g.flashUniforms;
+    g.patrol.x = x; g.patrol.z = z; g.patrol.y = y; g.player.teleport(18, 10, 0); g.sim(0.2);
+    return Array.from({ length: U.uFlashCount.value }, (_, i) => [U.uFlashRooms.value[i].x, U.uFlashBands.value[i].x, U.uFlashBands.value[i].y]);
+  }, [x, z, y]);
+  const down = await bands(0, -8.5, 0);
+  assert.ok(down.length >= 2, 'the hall and its neighbours');
+  assert.ok(down.every(([, y0, y1]) => (y0 < 0 && y1 < 3.2) || (y0 < 0 && y1 > 5)), `downstairs: rooms of the ground floor plus the well: ${JSON.stringify(down)}`);
+  assert.ok(down.some(([, , y1]) => y1 > 5), 'the stair well is lit through');
+  const up = await bands(4, -8.5, 3);
+  assert.ok(up.every(([, y0, y1]) => (y0 > 2.5 && y1 > 5) || (y0 < 0 && y1 > 5)), `upstairs: rooms of the second floor plus the well: ${JSON.stringify(up)}`);
+  assert.ok(up.some(([, y0]) => y0 > 2.5), 'the gallery is in the mask');
+  // the lamp pool follows the player's floor
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, -8.5, 0, 3); g.sim(0.2); });
+  await keepFor(page, 1500);
+  const upLights = await page.evaluate(() => window.__game.points.map((p) => +p.position.y.toFixed(1)));
+  assert.ok(upLights.every((y) => y > 4), `upstairs: every point light sits at an upstairs lamp: ${upLights}`);
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, -8.5, 0, 0); g.sim(0.2); });
+  await keepFor(page, 1500);
+  const downLights = await page.evaluate(() => window.__game.points.map((p) => [+p.position.y.toFixed(1), +p.intensity.toFixed(2)]));
+  assert.ok(downLights.every(([y]) => y < 3), `downstairs: every point light sits at a ground-floor lamp: ${JSON.stringify(downLights)}`);
+  assert.ok(downLights.some(([, i]) => i > 0), 'the moved lights have faded in');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

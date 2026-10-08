@@ -35,6 +35,7 @@ import { panel } from './panel.js';
 import { startScreen } from './startScreen.js';
 import { flashlight } from './flashlight.js';
 import { progressCode } from './progressCode.js';
+import { mapView } from './mapView.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -57,6 +58,7 @@ export const SYSTEMS = [
   startScreen,   // the start screen, report, PWA
   flashlight,    // the flashlight's room mask (after everything is in the scene)
   progressCode,  // start screen: progress as a code, «Навчання ще раз»
+  mapView,       // W6: the player's floor decides which rooms are drawn; the point lights follow the nearest lamps
 ];
 
 export const PHASES = ['pre', 'input', 'act', 'world', 'result', 'present'];
