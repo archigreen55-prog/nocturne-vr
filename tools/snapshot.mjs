@@ -102,7 +102,10 @@ const dom = (p, sel) => p.evaluate((s) => {
   const e = document.querySelector(s);
   if (!e) return null;
   const c = e.cloneNode(true);
-  for (const n of [c, ...c.querySelectorAll('*')]) { n.removeAttribute('data-t'); n.removeAttribute('data-t-html'); n.removeAttribute('data-t-attr'); }
+  // a <span data-t> with no other attribute only carries a text from the language file: compare its text
+  for (const sp of c.querySelectorAll('span[data-t]')) if (sp.attributes.length === 1) sp.replaceWith(...sp.childNodes);
+  for (const n of [c, ...c.querySelectorAll('*')]) { n.removeAttribute('data-t'); n.removeAttribute('data-t-html'); n.removeAttribute('data-t-attr'); n.removeAttribute('data-game-name'); }
+  c.normalize();
   return c.outerHTML;
 }, sel);
 

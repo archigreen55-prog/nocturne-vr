@@ -7,6 +7,7 @@ import { progress } from '../game/contracts.js';
 import { stealthState } from '../game/stealth.js';
 import { G } from './state.js';
 import { fx } from './messages.js';
+import { S } from '../i18n/index.js';
 
 export const panel = {
   id: 'panel',
@@ -24,19 +25,19 @@ export const panel = {
       if (st.hidden && !G.wasHidden && !G.paused) fx('hidden');
       G.wasHidden = st.hidden;
       G.guardLineT -= 0.1;
-      const guardText = G.guardLineT > 0 ? `Сторож: «${G.guardLine}»` : CFG.run.showGuard && round.phase !== 'result' ? `Сторож: ${patrol.activity}` : '';
+      const guardText = G.guardLineT > 0 ? S.hud.guardSays(G.guardLine) : CFG.run.showGuard && round.phase !== 'result' ? S.hud.guardDoes(patrol.activity) : '';
       const pnl = {
         stealth: st, goal: round.phase === 'result' ? null : progress(G.contract, T, loot), guardText,
         vanSum: T.sum, vanCount: T.inVan, speaking: G.speakT >= CFG.mic.normalAfter && !breath.holding,
         door: dragging ? { creak: dragging.door.creak } : null,
         mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
         room: roomAt(player.head.x, player.head.z),
-        holding: held ? `${held.name}${held.damaged ? ' (пошкодж.)' : ''}` : '',
+        holding: held ? `${held.name}${held.damaged ? S.hud.damagedMark : ''}` : '',
         clock: round.clock, phase: round.phase, alertLevel: alert.level,
         fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
         gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),
         msg: G.flashT > 0 ? G.flashText : '', msgColor: G.flashColor,
-        guardSpeech: G.guardLineT > 0, stance: player.crouched || player.virtualCrouch ? 'Присів' : 'Стоїш',
+        guardSpeech: G.guardLineT > 0, stance: player.crouched || player.virtualCrouch ? S.hud.crouched : S.hud.standing,
       };
       if (hud) hud.update(pnl, now); else wrist.draw(pnl);
       debugEl.style.display = wrist.showFps && !G.inVR ? 'block' : 'none';

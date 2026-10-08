@@ -9,9 +9,10 @@
 // and the clock; the rest shows for 2.5 s when it changes (alarm, goal) or while it matters (loud steps).
 import { LEVELS } from '../audio/mic.js';
 import { fmtTime } from './board.js';
+import { S } from '../i18n/index.js';
 
 const REVEAL_MS = 2500;
-const ALARM_WORDS = ['спокій', 'перевірка', 'ТРИВОГА'];
+const ALARM_WORDS = [S.board.alert.calm, S.board.alert.check, S.board.alert.alarm];
 const ALARM_COLORS = ['#5fd38d', '#ffb347', '#ff4d4d'];
 
 const EYE_SVG = `<svg viewBox="0 0 48 32" aria-hidden="true">
@@ -75,37 +76,37 @@ export class Hud {
     const st = s.stealth;
     this.attr('eye', e.eye, 'data-eye', st.eye);
     this.style('eye', e.eye, 'color', st.eye === 'closed' ? '#5fd38d' : st.eye === 'half' ? '#ffd166' : st.lit ? '#ff5c5c' : '#ffb347');
-    this.text('stance', e.stance, st.eye === 'closed' ? 'Сховався' : `${s.stance} · ${st.range.toFixed(1)} м`);
+    this.text('stance', e.stance, st.eye === 'closed' ? S.hud.hidden : S.hud.stanceRange(s.stance, st.range.toFixed(1)));
     // steps / hands / room
-    const steps = s.stepsAudible ? 'Кроки: чутно' : 'Кроки: тихо';
+    const steps = s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet;
     this.text('steps', e.steps, steps);
     this.style('steps', e.steps, 'color', s.stepsAudible ? '#ffb347' : '#5fd38d');
     this.shown('steps', e.steps, steps, now, s.stepsAudible);
-    this.text('hold', e.hold, s.holding ? `У руках: ${s.holding}` : '');
+    this.text('hold', e.hold, s.holding ? S.hud.holding(s.holding) : '');
     this.shown('hold', e.hold, s.holding, now);
     this.text('room', e.room, s.room);
     this.shown('room', e.room, s.room, now);
     // clock + alarm + goal
     this.text('time', e.time, s.phase === 'result' ? '—:—' : fmtTime(s.clock));
     this.style('time', e.time, 'color', s.phase === 'escape' ? '#ff4d4d' : s.clock < 60 && s.phase !== 'ready' ? '#ffb347' : s.phase === 'ready' ? '#93a1b8' : '#e6ecf5');
-    const word = s.phase === 'escape' ? 'ДО ФУРГОНА!' : ALARM_WORDS[s.alertLevel || 0];
+    const word = s.phase === 'escape' ? S.board.toVan : ALARM_WORDS[s.alertLevel || 0];
     this.text('alarm', e.alarm, word);
     this.style('alarm', e.alarm, 'color', s.phase === 'escape' ? '#ff4d4d' : ALARM_COLORS[s.alertLevel || 0]);
     this.shown('alarm', e.alarm, word, now, s.phase === 'escape' || s.alertLevel > 0);
-    const goal = s.goal ? `Мета: ${s.goal.text}${s.goal.done ? ' ✓' : ''}` : '';
+    const goal = s.goal ? S.hud.goal(s.goal.text, s.goal.done) : '';
     this.text('goal', e.goal, goal);
     this.style('goal', e.goal, 'color', s.goal && s.goal.done ? '#5fd38d' : '#c9d3e3');
     this.shown('goal', e.goal, goal, now);
     // microphone
     if (holding) {
-      this.text('miclabel', e.miclabel, `ЗАТАМУВАВ ${s.breath.left.toFixed(1)}`);
+      this.text('miclabel', e.miclabel, S.hud.breathHeld(s.breath.left.toFixed(1)));
       this.style('miclabel', e.miclabel, 'color', '#4fb3ff');
     } else if (mic.state === 'on' && !mic.noMic) {
       const lv = LEVELS[mic.level];
       this.text('miclabel', e.miclabel, lv.label);
       this.style('miclabel', e.miclabel, 'color', lv.color);
     } else {
-      this.text('miclabel', e.miclabel, mic.noMic ? 'БЕЗ МІКРОФОНА' : 'МІК ВИМКНЕНО');
+      this.text('miclabel', e.miclabel, mic.noMic ? S.hud.noMic : S.hud.micOff);
       this.style('miclabel', e.miclabel, 'color', '#8a93a3');
     }
     const live = mic.state === 'on' && !mic.noMic;
@@ -120,7 +121,7 @@ export class Hud {
       this.style('fill', e.fill, 'width', pct(mic.barPos(mic.env)));
       this.style('fill', e.fill, 'background', holding ? '#2e6aa0' : LEVELS[mic.level].color);
     }
-    const db = !live ? '' : mic.problem ? mic.problem : mic.masking >= 3 ? `звуки гри: межі +${mic.masking.toFixed(0)} дБ` : `${mic.env.toFixed(0)} дБ${s.speaking ? ' · тебе чути' : ''}`;
+    const db = !live ? '' : mic.problem ? mic.problem : mic.masking >= 3 ? S.hud.masking(mic.masking.toFixed(0)) : S.hud.micDb(mic.env.toFixed(0), s.speaking);
     this.text('micdb', e.micdb, db);
     this.style('micdb', e.micdb, 'color', mic.problem ? '#ff5c5c' : '#6f8396');
     // message line: the latest message, else the guard

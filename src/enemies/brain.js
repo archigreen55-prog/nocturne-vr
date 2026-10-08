@@ -7,6 +7,7 @@
 // doors it keeps closed standing open. Both raise suspicion and make it search / close / look.
 import { CFG } from '../config/index.js';
 import { roomAt } from '../world/level.js';
+import { S } from '../i18n/index.js';
 
 const EYE = 1.62;
 const angleDiff = (a, b) => { const d = a - b; return Math.atan2(Math.sin(d), Math.cos(d)); };
@@ -66,17 +67,17 @@ export class Brain {
     }
     const to = pick(G.rooms[best]);
     const q = g.queue;
-    q.push({ type: 'walk', to, label: `обходить: ${best}`, room: best });
-    q.push({ type: 'wait', t: G.lookTime, sweep: true, label: `оглядає: ${best}` });
+    q.push({ type: 'walk', to, label: S.guard.act.walksTo(best), room: best });
+    q.push({ type: 'wait', t: G.lookTime, sweep: true, label: S.guard.act.looksAround(best) });
     const spots = G.spots.filter((s) => roomAt(s.at[0], s.at[1]) === best);
     if (spots.length && Math.random() < G.spotChance) this.queueSpot(pick(spots), false);
-    if (Math.random() < G.yawnChance) q.push({ type: 'wait', t: 3, label: 'позіхає', mods: { fovK: 0.3 }, onStart: () => this.env.sound('yawn') });
+    if (Math.random() < G.yawnChance) q.push({ type: 'wait', t: 3, label: S.guard.act.yawns, mods: { fovK: 0.3 }, onStart: () => this.env.sound('yawn') });
   }
 
   queueSpot(s, search, front = false) {
     const steps = [
-      { type: 'walk', to: s.from, label: `перевіряє: ${s.name}`, search },
-      { type: 'wait', t: 1.6, face: s.at, label: `перевіряє: ${s.name}`, search },
+      { type: 'walk', to: s.from, label: S.guard.act.checks(s.name), search },
+      { type: 'wait', t: 1.6, face: s.at, label: S.guard.act.checks(s.name), search },
     ];
     if (front) this.g.queue.unshift(...steps); else this.g.queue.push(...steps);
   }
@@ -86,30 +87,30 @@ export class Brain {
     const mods = { hearK: h.hearK || 1, sightK: h.sightK || 1, fovK: h.fovK || 1 };
     switch (h.id) {
       case 'tea': case 'tea2': case 'tea0':
-        q.push({ type: 'walk', to: h.stand, label: 'іде ставити чайник', onStart: say('Піду чаю зроблю…') });
+        q.push({ type: 'walk', to: h.stand, label: S.guard.act.kettle, onStart: say(S.guard.say.tea) });
         q.push({ type: 'wait', t: h.dur, face: h.face, label: h.label, mods, mask: h.mask,
           onStart: () => this.env.sound('kettle', h.stand[0], h.stand[1], { dur: h.dur, whistleAt: h.whistleAt, whistleFor: h.whistleFor }) });
         break;
       case 'toilet':
-        q.push({ type: 'walk', to: [6, -2], label: 'іде в туалет', onStart: say('Так, я на хвилинку…') });
-        q.push({ type: 'close', door: this.doorAt(h.closeDoor), label: 'зачиняється' });
+        q.push({ type: 'walk', to: [6, -2], label: S.guard.act.toilet, onStart: say(S.guard.say.toilet) });
+        q.push({ type: 'close', door: this.doorAt(h.closeDoor), label: S.guard.act.locksIn });
         q.push({ type: 'walk', to: h.stand, label: h.label });
         q.push({ type: 'wait', t: h.dur, face: h.face, label: h.label, mods, onEnd: () => this.env.sound('flush', h.stand[0], h.stand[1]) });
         break;
       case 'phone': {
-        q.push({ type: 'wait', t: 2.5, label: 'дзвонить телефон', mods, onStart: () => { this.env.sound('ring'); } });
-        q.push({ type: 'wait', t: 1, label: h.label, mods, talk: true, onStart: say('Алло? Так, я на об\'єкті…') });
+        q.push({ type: 'wait', t: 2.5, label: S.guard.act.phoneRings, mods, onStart: () => { this.env.sound('ring'); } });
+        q.push({ type: 'wait', t: 1, label: h.label, mods, talk: true, onStart: say(S.guard.say.phoneHello) });
         let left = h.dur;
         for (let i = 0; left > 0; i = (i + 1) % h.walk.length) {
           q.push({ type: 'walk', to: h.walk[i], slow: true, label: h.label, mods, talk: true });
           q.push({ type: 'wait', t: 3, label: h.label, mods, talk: true });
           left -= 8;
         }
-        q.push({ type: 'wait', t: 1, label: h.label, onStart: say('…Добре, давай, бувай.') });
+        q.push({ type: 'wait', t: 1, label: h.label, onStart: say(S.guard.say.phoneBye) });
         break;
       }
       case 'armchair':
-        q.push({ type: 'walk', to: [-0.9, -12.6], label: 'іде до крісла', onStart: say('Присяду на хвильку…') });
+        q.push({ type: 'walk', to: [-0.9, -12.6], label: S.guard.act.armchair, onStart: say(S.guard.say.armchair) });
         q.push({ type: 'wait', t: h.dur, face: h.face, sit: h.stand, label: h.label, mods });
         break;
     }
@@ -148,16 +149,16 @@ export class Brain {
         const there = !it.delivered && it.state === 'rest' && Math.hypot(p.x - hx, p.z - hz) < 0.5 && Math.abs(p.y - hy) < 0.3;
         if (there || !this.canSee(hx, hy + 0.2, hz)) continue;
         this.missing.add(it);
-        this.env.say(`Де ${it.name.toLowerCase()}?!`);
+        this.env.say(S.guard.say.whereIsItem(it.name.toLowerCase()));
         this.env.sound('grunt');
         this.env.alert.add(G.missingPoints, hx, hz);
         if (this.missing.size >= 2) this.agitated = true;
-        if (this.missing.size >= run.missingToAlarm) { this.env.alert.setFull('зник лут', hx, hz); return; }
+        if (this.missing.size >= run.missingToAlarm) { this.env.alert.setFull(S.cause.missingLoot, hx, hz); return; }
         // search the room where it stood
         const room = roomAt(hx, hz);
         g.queue.length = 0;
-        g.queue.push({ type: 'walk', to: [hx + (g.x - hx) * 0.3, hz + (g.z - hz) * 0.3], label: 'шукає, куди все поділось', search: true });
-        g.queue.push({ type: 'wait', t: 3, sweep: true, label: 'шукає', search: true });
+        g.queue.push({ type: 'walk', to: [hx + (g.x - hx) * 0.3, hz + (g.z - hz) * 0.3], label: S.guard.act.searchesLoot, search: true });
+        g.queue.push({ type: 'wait', t: 3, sweep: true, label: S.guard.act.searches, search: true });
         for (const s of G.spots.filter((sp) => roomAt(sp.at[0], sp.at[1]) === room).slice(0, 2)) this.queueSpot(s, true);
         return;
       }
@@ -167,14 +168,14 @@ export class Brain {
       if (d.locked || this.noticedDoors.has(d) || d.lastUser !== 'player' || Math.abs(d.angle) < 0.3) continue;
       if (!this.canSee(d.cx, 1.0, d.cz)) continue;
       this.noticedDoors.add(d);
-      this.env.say('Хто відчинив двері?');
+      this.env.say(S.guard.say.whoOpened);
       this.env.alert.add(G.doorPoints, d.cx, d.cz);
       const sx = Math.sign((g.x - d.cx) * -Math.sin(d.base) + (g.z - d.cz) * -Math.cos(d.base)) || 1;
       const nx = -Math.sin(d.base) * sx, nz = -Math.cos(d.base) * sx;   // stand on its own side of the doorway
       g.queue.unshift(
-        { type: 'walk', to: [d.cx + nx * 0.9, d.cz + nz * 0.9], label: 'іде до відчинених дверей' },
-        { type: 'wait', t: 2, face: [d.cx - nx * 2, d.cz - nz * 2], label: 'зазирає в кімнату', search: true },
-        { type: 'close', door: d, label: 'зачиняє двері' },
+        { type: 'walk', to: [d.cx + nx * 0.9, d.cz + nz * 0.9], label: S.guard.act.toOpenDoor },
+        { type: 'wait', t: 2, face: [d.cx - nx * 2, d.cz - nz * 2], label: S.guard.act.peeks, search: true },
+        { type: 'close', door: d, label: S.guard.act.closesDoor },
       );
       return;
     }

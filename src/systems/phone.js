@@ -19,6 +19,7 @@ import { phoneLayout } from './flatScreen.js';
 import { pause2D } from './desktop.js';
 import { newRound, setContract, setDifficulty, pressBoard, goHome } from './contract.js';
 import { reportText } from './startScreen.js';
+import { S } from '../i18n/index.js';
 
 export const pauseLog = [];                 // for the report: { reason, t (s of game time) }
 export const optVal = {};
@@ -33,9 +34,9 @@ export function setOpt(key, v) {
 }
 export const optLabel = (key) => {
   const o = OPTS[key], v = optVal[key];
-  if (key === 'fx' && v === 'auto') return `${o.title}: ${G.feedback.canVibrate ? 'вібрація' : 'спалахи (вібрації в цьому браузері немає)'}`;
-  if (key === 'quality' && v === 'auto') return `${o.title}: авто (зараз ${PRESETS[G.quality.preset].name})`;
-  if (key === 'gyro' && v === 'on' && G.gyro.state !== 'on' && G.gyro.state !== 'off') return `${o.title}: ${G.gyro.state === 'denied' ? 'немає дозволу' : 'недоступний'}`;
+  if (key === 'fx' && v === 'auto') return `${o.title}: ${G.feedback.canVibrate ? S.settings.fx.vibrationNow : S.settings.fx.flashNow}`;
+  if (key === 'quality' && v === 'auto') return `${o.title}: ${S.settings.quality.autoNow(PRESETS[G.quality.preset].name)}`;
+  if (key === 'gyro' && v === 'on' && G.gyro.state !== 'on' && G.gyro.state !== 'off') return `${o.title}: ${G.gyro.state === 'denied' ? S.settings.gyro.denied : S.settings.gyro.none}`;
   return `${o.title}: ${o.names[v]}`;
 };
 export function pauseOpen(reason = 'user') {
@@ -66,9 +67,9 @@ export function pauseResume() {
   // the microphone after a call / a minimised page: re-opened right inside this tap if the system
   // stopped it (iPhone allows that only from a user gesture); muted = still held by the system
   mic.recover().then((r) => {
-    if (r === 'reacquired') flash('Мікрофон знову працює', 2.5, '#5fd38d');
-    else if (r === 'failed') flash('Мікрофон не відновився: меню → «Мікрофон і калібрування»', 6, '#ff9f43');
-    else if (r === 'muted') flash('Мікрофон ще зайнятий системою (дзвінок?). Повернеться сам', 4, '#ffb347');
+    if (r === 'reacquired') flash(S.messages.micBack, 2.5, '#5fd38d');
+    else if (r === 'failed') flash(S.messages.micFailed, 6, '#ff9f43');
+    else if (r === 'muted') flash(S.messages.micBusy, 4, '#ffb347');
   });
 }
 function pauseAuto(reason) { if (G.touch && G.playingDesktop && !G.inVR && !G.paused) pauseOpen(reason); }
@@ -85,15 +86,15 @@ export const phone = {
     const { touch, hud, quality, gyro, mic, round, loot } = G;
     G.paused = false; G.lastRender = 0; G.graceUntil = 0;
     OPTS = touch ? {
-      look: { id: 'lookspeed', save: 'lookSpeed', def: 'normal', values: ['slow', 'normal', 'fast'], title: 'Огляд пальцем', names: { slow: 'повільно', normal: 'звичайно', fast: 'швидко' }, apply: (v) => { touch.lookSpeed = LOOK_SPEEDS[v]; } },
-      breath: { id: 'breathmode', save: 'breathMode', def: 'hold', values: ['hold', 'toggle'], title: 'Подих', names: { hold: 'утримувати кнопку', toggle: 'тап — почати, тап — закінчити' }, apply: (v) => { touch.breathToggle = v === 'toggle'; } },
-      hud: { id: 'hudmode', save: 'hudMode', def: 'full', values: ['full', 'min'], title: 'Індикатори', names: { full: 'повні', min: 'мінімальні' }, apply: (v) => hud.setMinimal(v === 'min') },
-      fx: { id: 'feedback', save: 'feedback', def: 'auto', values: ['auto', 'flash', 'off'], title: 'Вібрація', names: { auto: 'вібрація, а без неї спалахи', flash: 'лише спалахи', off: 'вимкнено' }, apply: (v) => { G.feedback.mode = v; } },
+      look: { id: 'lookspeed', save: 'lookSpeed', def: 'normal', values: ['slow', 'normal', 'fast'], title: S.settings.look.title, names: { slow: S.settings.look.slow, normal: S.settings.look.normal, fast: S.settings.look.fast }, apply: (v) => { touch.lookSpeed = LOOK_SPEEDS[v]; } },
+      breath: { id: 'breathmode', save: 'breathMode', def: 'hold', values: ['hold', 'toggle'], title: S.settings.breath.title, names: { hold: S.settings.breath.hold, toggle: S.settings.breath.toggle }, apply: (v) => { touch.breathToggle = v === 'toggle'; } },
+      hud: { id: 'hudmode', save: 'hudMode', def: 'full', values: ['full', 'min'], title: S.settings.hud.title, names: { full: S.settings.hud.full, min: S.settings.hud.min }, apply: (v) => hud.setMinimal(v === 'min') },
+      fx: { id: 'feedback', save: 'feedback', def: 'auto', values: ['auto', 'flash', 'off'], title: S.settings.fx.title, names: { auto: S.settings.fx.auto, flash: S.settings.fx.flash, off: S.settings.fx.off }, apply: (v) => { G.feedback.mode = v; } },
       // T4: quality preset, frame cap, gyroscope
-      quality: { id: 'quality', save: 'quality', def: 'auto', values: ['auto', 'low', 'medium', 'high'], title: 'Якість', names: { auto: 'авто', low: 'низька', medium: 'середня', high: 'висока' },
-        apply: (v) => { quality.setSetting(v); setPanning(quality.p.panning); $('qualitynote').textContent = quality.needsReload ? 'Згладжування країв зміниться після перезавантаження сторінки.' : ''; } },
-      fps: { id: 'fpscap', save: 'fpsCap', def: '60', values: ['60', '30'], title: 'Частота', names: { 60: '60 кадрів/с', 30: '30 кадрів/с (економія батареї)' }, apply: (v) => quality.setCap(+v) },
-      gyro: { id: 'gyrobtn', save: 'gyro', def: 'off', values: ['off', 'on'], title: 'Гіроскоп', names: { off: 'вимкнено', on: 'увімкнено' },
+      quality: { id: 'quality', save: 'quality', def: 'auto', values: ['auto', 'low', 'medium', 'high'], title: S.settings.quality.title, names: { auto: S.settings.quality.auto, low: S.quality.low, medium: S.quality.medium, high: S.quality.high },
+        apply: (v) => { quality.setSetting(v); setPanning(quality.p.panning); $('qualitynote').textContent = quality.needsReload ? S.settings.quality.aaReload : ''; } },
+      fps: { id: 'fpscap', save: 'fpsCap', def: '60', values: ['60', '30'], title: S.settings.fps.title, names: { 60: S.settings.fps.fps60, 30: S.settings.fps.fps30 }, apply: (v) => quality.setCap(+v) },
+      gyro: { id: 'gyrobtn', save: 'gyro', def: 'off', values: ['off', 'on'], title: S.settings.gyro.title, names: { off: S.settings.gyro.off, on: S.settings.gyro.on },
         apply: (v) => { if (v === 'off') gyro.disable(); else if (G.gyroReady) gyro.enable().then(() => { if (G.menu) G.menu.refresh(); G.start.refresh(); $('gyrobtn').textContent = optLabel('gyro'); }); } },
     } : null;
     G.gyroReady = false;   // the saved "on" is applied with the first tap (iPhone asks for the motion permission only from a tap)
@@ -101,7 +102,7 @@ export const phone = {
       info: () => ({
         contractName: G.contract.name, diffName: CFG.difficulties[G.difficulty].name, phase: round.phase, clock: round.clock, vanSum: loot.tally().sum,
         canChange: round.phase === 'ready', brief: G.contract.brief, goalText: goalText(G.contract, loot.items), bonusText: bonusText(G.contract),
-        micText: mic.noMic ? 'Мікрофон: гра без мікрофона' : mic.state === 'on' ? `Мікрофон: увімкнено, ${mic.calibrated ? 'калібровано' : 'не калібровано'}${mic.bleedMeasured ? '' : ' (без кроку «Звуки гри»)'}${mic.deviceChanged ? ', змінився пристрій — перекалібруй' : ''}` : mic.state === 'denied' ? 'Мікрофон: дозвіл не надано' : 'Мікрофон: вимкнено',
+        micText: S.menu.micText(mic),
       }),
       label: optLabel,
       cycle: (key) => { G.gyroReady = true; const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },

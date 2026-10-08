@@ -19,21 +19,21 @@ import { playGame, phoneLayout } from './flatScreen.js';
 import { optVal, pauseLog } from './phone.js';
 import { lockPointer } from './desktop.js';
 import { setContract, setDifficulty, goHome, newRound } from './contract.js';
+import { S } from '../i18n/index.js';
 
 export function syncStartScreen() {
   const { contract, difficulty } = G;
   $('contract').value = contract.id;
   $('difficulty').value = difficulty;
   const b = bestStars(contract.id);
-  $('contractinfo').textContent = `${contract.brief} ★ ${goalText(contract, G.loot.items)} · ★★ ${bonusText(contract)} · ★★★ на важкому. `
-    + `Рекорди: ${['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', ')}.`;
+  $('contractinfo').textContent = S.start.contractInfo(contract.brief, goalText(contract, G.loot.items), bonusText(contract),
+    ['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', '));
 }
 function showMode() {
   const MODE = G.MODE;
   const other = Object.keys(MODE_NAMES).filter((m) => m !== MODE.mode).map((m) => `<a href="?mode=${m}">${MODE_NAMES[m]}</a>`);
-  if (!MODE.auto) other.push('<a href="?mode=auto">визначати автоматично</a>');
-  $('modeline').innerHTML = `Режим: <b>${MODE_NAMES[MODE.mode]}</b> (${MODE.os && !MODE.os.startsWith(MODE.device) ? `${MODE.device}, ${MODE.os}` : MODE.os || MODE.device}${MODE.auto ? ', визначено автоматично' : `, вибрано вручну; автоматично було б «${MODE_NAMES[MODE.detected]}»`}). Інший режим: ${other.join(' · ')}.`
-    + (MODE.mode === 'phone' ? '<br>Тримай телефон горизонтально. Ліва частина екрана — ходьба (легкий рух — тихо), права — огляд, кнопки — справа. Табло біля фургона натискається пальцем.' : '');
+  if (!MODE.auto) other.push(S.start.modeAuto);
+  $('modeline').innerHTML = S.start.modeLine(MODE_NAMES[MODE.mode], MODE.os && !MODE.os.startsWith(MODE.device) ? `${MODE.device}, ${MODE.os}` : MODE.os || MODE.device, MODE.auto, MODE_NAMES[MODE.detected], other.join(' · '), MODE.mode === 'phone');
 }
 export const reportText = () => {
   const { touch, renderer, mic, frameStats, perf, round, quality, gyro, battery } = G;
@@ -92,7 +92,7 @@ export const startScreen = {
         if (G.menu) G.menu.refresh();
         if (touch && mic.events.deviceChanges > devSeen) {
           devSeen = mic.events.deviceChanges;
-          if (G.playingDesktop) flash('Змінився мікрофон або навушники: перекалібруй (меню → «Мікрофон і калібрування»)', 5, '#ffb347');
+          if (G.playingDesktop) flash(S.messages.micDeviceChanged, 5, '#ffb347');
         }
       };
     }
@@ -102,7 +102,7 @@ export const startScreen = {
     // phones: no "Enter VR" (Android may offer Cardboard) and no laptop play (it needs a mouse)
     if (G.MODE.mode !== 'phone') $('buttons').appendChild(vrButton);
     else {
-      $('start').textContent = 'Грати';
+      $('start').textContent = S.start.play;
       // the settings (look speed, breath, HUD, vibration) are wired with the pause menu (systems/phone.js)
       $('phonehome').addEventListener('click', () => { goHome(); start.play(); });
       $('phonenew').addEventListener('click', () => { newRound(); start.play(); });

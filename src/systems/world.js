@@ -19,6 +19,7 @@ import { Round } from '../game/round.js';
 import { DropZone } from '../game/dropzone.js';
 import { G } from './state.js';
 import { flash, fx } from './messages.js';
+import { S } from '../i18n/index.js';
 
 export const world = {
   id: 'world',
@@ -43,7 +44,7 @@ export const world = {
         const delay = Math.max(0, G.lastPop + 0.35 - G.simT);   // several items: the labels rise one after another
         G.lastPop = G.simT + delay;
         G.zone.pop('+' + money(it.value), delay);
-        flash(`${it.name}${it.damaged ? ' (пошкодж.)' : ''} у фургоні: ${money(it.value)}`, 2.5, it.damaged ? '#ffb347' : '#5fd38d');
+        flash(S.messages.delivered(it.name, it.damaged, money(it.value)), 2.5, it.damaged ? '#ffb347' : '#5fd38d');
         G.boardDirty = true;
       },
     });

@@ -7,6 +7,7 @@ import { updateFlashMask } from '../enemies/flashMask.js';
 import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { caught } from './contract.js';
+import { S } from '../i18n/index.js';
 
 export const heist = {
   id: 'heist',
@@ -26,8 +27,8 @@ export const heist = {
         fx('shout');
         scream.onShout(round.t);
         noise.emit(player.head.x, player.head.z, 40, 'shout');
-        if (CFG.run.shoutFull) { alert.setFull('крик', player.head.x, player.head.z); flash('КРИК! Тебе почув весь будинок', 3, '#ff4d4d'); }
-        else { alert.add(70, player.head.x, player.head.z); flash('КРИК! Сторож іде перевірити', 3, '#ff4d4d'); }   // easy
+        if (CFG.run.shoutFull) { alert.setFull(S.cause.shout, player.head.x, player.head.z); flash(S.messages.shoutFull, 3, '#ff4d4d'); }
+        else { alert.add(70, player.head.x, player.head.z); flash(S.messages.shoutEasy, 3, '#ff4d4d'); }   // easy
       }
       // talking: heard only after CFG.mic.normalAfter s of continuous speech (short pauses allowed)
       if (micLive && mic.level !== 'quiet') { G.speakT += dt; G.quietT = 0; }

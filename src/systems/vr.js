@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { unlockAudio } from '../audio/audio.js';
 import { G, $, params } from './state.js';
 import { flash } from './messages.js';
+import { S } from '../i18n/index.js';
 
 const fpsWindow = { frames: 0, since: 0 };
 
@@ -19,7 +20,7 @@ export function autoFrameRate(now) {
   if (!s || !s.updateTargetFrameRate || !rates || !Array.from(rates).includes(72) || !(s.frameRate > 73)) return;
   if (fps < 86) {
     G.autoHzDone = true;
-    s.updateTargetFrameRate(72).then(() => flash(`Частота 72 Гц (було ${fps.toFixed(0)} FPS)`, 4)).catch(() => {});
+    s.updateTargetFrameRate(72).then(() => flash(S.messages.hz72(fps.toFixed(0)), 4)).catch(() => {});
   }
 }
 
@@ -71,8 +72,8 @@ export const vr = {
     const { player, comfort } = G;
     if (player.updatePose(xrFrame) === 'recentred') {
       comfort.fadeIn(G.firstRecenter ? 0.5 : 0.25);
-      if (G.firstRecenter) flash('Подивись на ліве зап\'ястя', 5);
-      else if (G.heightMsg) flash(`Зріст: ${player.standingHeight.toFixed(2)} м`);
+      if (G.firstRecenter) flash(S.messages.lookAtWrist, 5);
+      else if (G.heightMsg) flash(S.messages.height(player.standingHeight.toFixed(2)));
       G.heightMsg = false;
       G.firstRecenter = false;
     }

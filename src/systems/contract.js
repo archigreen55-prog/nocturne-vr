@@ -12,6 +12,7 @@ import { flash, fx } from './messages.js';
 import { playGame } from './flatScreen.js';
 import { syncStartScreen } from './startScreen.js';
 import { summaryState } from './phone.js';
+import { S } from '../i18n/index.js';
 
 export function newRound() {
   const { drags, summary, board, loot, hands, level, patrol, lurker, round, scream, breath, noise, siren, player, comfort } = G;
@@ -27,7 +28,7 @@ export function newRound() {
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
   G.boardDirty = true;
-  flash('Новий раунд. Годинник піде, щойно рушиш до будинку', 4);
+  flash(S.messages.newRound, 4);
 }
 // Contract / difficulty can change only before the clock starts (at the van, or on the start screen).
 export function setContract(id) {
@@ -49,14 +50,14 @@ async function calibrateInVR() {
   const res = await runCalibration(mic, (st) => { G.calib = st; G.boardDirty = true; }, touch ? { phone: true, playGame } : undefined);
   G.calib = null;
   if (res.ok) mic.setCalibration(res.cal);
-  G.calibNotes = (res.ok ? 'Готово. ' : '') + res.notes.join(' ');
+  G.calibNotes = (res.ok ? S.calib.done : '') + res.notes.join(' ');
   G.start.refresh(); G.boardDirty = true;
 }
 async function micOnInVR() {
   const { mic, touch } = G;
   await mic.enable();
-  if (mic.state === 'on') { G.scream.start(); G.calibNotes = `Мікрофон увімкнено. Відкалібруй його (${touch ? '5 кроків' : '4 кроки'}).`; }
-  else G.calibNotes = touch ? `Мікрофон не ввімкнувся (${mic.error || mic.state}). Меню ❚❚ → «Мікрофон і калібрування» — там написано, як дозволити.` : `Мікрофон не ввімкнувся (${mic.error || mic.state}). Зніми шолом і дозволь його на стартовому екрані.`;
+  if (mic.state === 'on') { G.scream.start(); G.calibNotes = S.board.micOn(!!touch); }
+  else G.calibNotes = touch ? S.board.micFailPhone(mic.error || mic.state) : S.board.micFailVr(mic.error || mic.state);
   G.start.refresh(); G.boardDirty = true;
 }
 export function pressBoard(id) {
@@ -85,14 +86,14 @@ export function caught() {
   G.caughtT = 0;
   G.comfort.blackout();
   G.xrIn.pulse('both', 1, 400);
-  flash('СПІЙМАЛИ', 3, '#ff5c5c');
+  flash(S.result.caught, 3, '#ff5c5c');
   fx('caught');
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
 }
 export function goHome() {
   G.player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   G.comfort.fadeIn(0.4);
-  flash('Біля фургона');
+  flash(S.messages.atVan);
 }
 
 export const contract = {

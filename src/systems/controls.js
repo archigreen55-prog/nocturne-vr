@@ -8,6 +8,7 @@ import { goHome, newRound, pressBoard } from './contract.js';
 import { toggleStats, cycleVignette } from './stats.js';
 import { triggerDown } from './doors.js';
 import { autoFrameRate } from './vr.js';
+import { S } from '../i18n/index.js';
 
 // (VR reads its controllers in the input step below, unchanged.)
 export const ctl = { move: { x: 0, y: 0 }, look: { x: 0, y: 0 } };
@@ -61,7 +62,7 @@ export const controls = {
       if (act.turn) { player.snapTurn(act.turn * G.snapDeg * Math.PI / 180); comfort.fadeIn(0.08); comfort.pulse(); }
       if (act.fps) toggleStats();
       if (act.vignette) cycleVignette();
-      if (act.crouch) { player.virtualCrouch = !player.virtualCrouch; flash(player.virtualCrouch ? 'Присів (B — встати)' : 'Встав'); }
+      if (act.crouch) { player.virtualCrouch = !player.virtualCrouch; flash(player.virtualCrouch ? S.messages.crouchedVr : S.messages.stoodVr); }
       if (act.recenter) { player.recenterTo(player.head.x, player.head.z, player.yaw, true); G.heightMsg = true; }
       if (act.home) goHome();
       for (const [hand, used] of [['left', act.useLeft], ['right', act.useRight]]) {

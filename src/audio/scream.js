@@ -11,9 +11,10 @@
 import { audioContext } from './audio.js';
 import { VERSION } from '../version.js';
 import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 const SEG_MS = 2000;
-const MODE_NAMES = { worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder', none: 'не працює' };
+const MODE_NAMES = { worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder', none: S.scream.none };
 
 export class ScreamRecorder {
   constructor(mic) {

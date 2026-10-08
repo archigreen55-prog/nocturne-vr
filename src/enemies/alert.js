@@ -4,6 +4,7 @@
 // police blue/red in the windows. The last minute of the timer makes the lights flicker.
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 const AMBER = new THREE.Color(0x8a6a40), RED = new THREE.Color(0xa01818), RED_PT = new THREE.Color(0xff3030);
 const POLICE_R = new THREE.Color(0xff2020), POLICE_B = new THREE.Color(0x2040ff);
@@ -37,7 +38,7 @@ export class Alert {
     this.lastKnown = { x, z };
     if (this.full) return;
     this.suspicion += points;
-    if (this.suspicion >= CFG.alert.full) this.setFull('шум', x, z);
+    if (this.suspicion >= CFG.alert.full) this.setFull(S.cause.noise, x, z);
   }
 
   setFull(cause, x, z) {

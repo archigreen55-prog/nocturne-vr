@@ -152,6 +152,9 @@
     "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9.w0.1",
     "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9.w0.1",
     "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9.w0.1",
+    "./src/i18n/index.js": "./src/i18n/index.js?v=0.6.0-pre.9.w0.1",
+    "./src/i18n/name.js": "./src/i18n/name.js?v=0.6.0-pre.9.w0.1",
+    "./src/i18n/uk.js": "./src/i18n/uk.js?v=0.6.0-pre.9.w0.1",
     "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9.w0.1",
     "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9.w0.1",
     "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9.w0.1",
@@ -221,26 +224,25 @@
 </head>
 <body>
 <div id="overlay"><div class="card">
-  <h1>Nocturne</h1>
-  <p class="muted">Прототип для Meta Quest 3. Нічний будинок, у якому треба рухатись тихо — і говорити теж.<br>
-  Забери цінне за 7 хвилин: зайди з лутом у бурштинове кільце за фургоном — і він сам полетить у кузов. Сторож із ліхтариком чує кроки, двері, падіння — і твій голос. У шафі спальні хтось сидить.</p>
+  <h1 data-game-name></h1>
+  <p class="muted" data-t-html="start.intro"></p>
 
   <p id="modeline" class="muted"></p>
 
-  <h2>1. Мікрофон</h2>
+  <h2 data-t="start.h.mic"></h2>
   <div id="micbox">
     <p id="michold" class="phone-only muted" style="margin-top:0"></p>
     <div class="row">
-      <button id="micbtn">Дозволити мікрофон</button>
-      <button id="calbtn" disabled>Калібрувати</button>
-      <label><input type="checkbox" id="nomic"> Грати без мікрофона</label>
+      <button id="micbtn" data-t="start.allowMic"></button>
+      <button id="calbtn" disabled data-t="start.calibrateButton"></button>
+      <label><input type="checkbox" id="nomic"><span data-t="start.noMicCheck"></span></label>
       <span id="micstate" class="muted"></span>
     </div>
     <div id="michelp" class="muted"></div>
     <div id="micnote" style="font-size:13px;color:var(--warn)"></div>
     <div id="recstate" class="muted"></div>
     <div id="calstep"></div>
-    <div class="row phone-only"><button id="verifybtn" disabled>Перевірити: шепіт, голос, крик</button><button id="soundtest">Перевірити звук</button></div>
+    <div class="row phone-only"><button id="verifybtn" disabled data-t="start.verifyButton"></button><button id="soundtest" data-t="start.soundTest"></button></div>
     <div id="verifyres" style="font-size:14px"></div>
     <p id="iosnote" class="muted" hidden></p>
     <div class="row">
@@ -249,103 +251,99 @@
     </div>
     <div id="shoutrow" style="display:none">
       <!-- ± buttons, not sliders: on a phone a page swipe that starts on a slider moves it -->
-      <div class="row"><label style="min-width:230px">Межа шепіт / голос: <b id="whisperdb"></b></label>
-        <button class="adj" id="wdn" aria-label="межа шепоту нижче">−</button><button class="adj" id="wup" aria-label="межа шепоту вище">+</button>
-        <span class="muted">шепіт стає «НОРМАЛЬНО»? — «+»</span></div>
-      <div class="row"><label style="min-width:230px">Межа голос / крик: <b id="shoutdb"></b></label>
-        <button class="adj" id="sdn" aria-label="межа крику нижче">−</button><button class="adj" id="sup" aria-label="межа крику вище">+</button>
-        <span class="muted">звичайна мова стає «КРИК!»? — «+»</span></div>
-      <div class="row"><button id="adjreset">Скинути зсуви</button><span id="adjnote" class="muted"></span></div>
+      <div class="row"><label style="min-width:230px"><span data-t="start.whisperLimit"></span><b id="whisperdb"></b></label>
+        <button class="adj" id="wdn" aria-label="" data-t-attr="aria-label:start.aria.whisperDown">−</button><button class="adj" id="wup" aria-label="" data-t-attr="aria-label:start.aria.whisperUp">+</button>
+        <span class="muted" data-t="start.whisperHint"></span></div>
+      <div class="row"><label style="min-width:230px"><span data-t="start.shoutLimit"></span><b id="shoutdb"></b></label>
+        <button class="adj" id="sdn" aria-label="" data-t-attr="aria-label:start.aria.shoutDown">−</button><button class="adj" id="sup" aria-label="" data-t-attr="aria-label:start.aria.shoutUp">+</button>
+        <span class="muted" data-t="start.shoutHint"></span></div>
+      <div class="row"><button id="adjreset" data-t="start.adjReset"></button><span id="adjnote" class="muted"></span></div>
     </div>
-    <p class="muted">Калібрування: тиша 3 с → шепіт 3 с → звичайний голос 3.5 с → крик 2.5 с (можна промовчати); на телефоні після тиші ще «звуки гри» 3 с (мовчи, гра зіграє свої звуки). Роби його там, де гратимеш, і так, як гратимеш (у шоломі; телефон — у руці на звичній відстані); у VR те саме є на табло (кнопка «Мікрофон»). Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
-    Звук аналізується лише на цьому пристрої й нікуди не передається. Щоб табло могло програти твій крик, гра тримає останні 4 с мікрофона в пам'яті; на диск нічого не пишеться, запис зникає з новим раундом.</p>
+    <p class="muted" data-t-html="start.calibInfo"></p>
   </div>
 
-  <h2>2. Контракт</h2>
+  <h2 data-t="start.h.contract"></h2>
   <div id="settings" style="margin-top:4px">
-    <label>Контракт:<select id="contract"></select></label>
-    <label>Складність:<select id="difficulty"><option value="easy">легкий</option><option value="medium">середній</option><option value="hard">важкий</option></select></label>
+    <label><span data-t="start.label.contract"></span><select id="contract"></select></label>
+    <label><span data-t="start.label.difficulty"></span><select id="difficulty"><option value="easy" data-t="difficulty.easy"></option><option value="medium" data-t="difficulty.medium"></option><option value="hard" data-t="difficulty.hard"></option></select></label>
   </div>
   <p class="muted" id="contractinfo"></p>
 
-  <h2>3. Грати</h2>
+  <h2 data-t="start.h.play"></h2>
   <div id="buttons"><button id="start" class="primary" disabled>Завантаження…</button></div>
   <div id="settings">
-    <label class="pc-only">Віньєтка під час руху:<select id="vignette"></select></label>
-    <label class="pc-only">Поворот ривком:<select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
-    <label class="phone-only">Огляд пальцем:<select id="lookspeed"><option value="slow">повільно</option><option value="normal">звичайно</option><option value="fast">швидко</option></select></label>
-    <label class="phone-only">Індикатори:<select id="hudmode"><option value="full">повні</option><option value="min">мінімальні</option></select></label>
-    <label class="phone-only">Вібрація:<select id="feedback"><option value="auto">вібрація, а без неї спалахи</option><option value="flash">лише спалахи</option><option value="off">вимкнено</option></select></label>
-    <label class="phone-only">Якість:<select id="quality"><option value="auto">авто</option><option value="low">низька</option><option value="medium">середня</option><option value="high">висока</option></select></label>
-    <label class="phone-only">Частота:<select id="fpscap"><option value="60">60 кадрів/с</option><option value="30">30 кадрів/с (економія батареї)</option></select></label>
-    <label class="phone-only">Подих:<select id="breathmode"><option value="hold">утримувати кнопку</option><option value="toggle">тап — почати, тап — закінчити</option></select></label>
+    <label class="pc-only"><span data-t="start.label.vignette"></span><select id="vignette"></select></label>
+    <label class="pc-only"><span data-t="start.label.snap"></span><select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
+    <label class="phone-only"><span data-t="start.label.look"></span><select id="lookspeed"><option value="slow" data-t="settings.look.slow"></option><option value="normal" data-t="settings.look.normal"></option><option value="fast" data-t="settings.look.fast"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.hud"></span><select id="hudmode"><option value="full" data-t="settings.hud.full"></option><option value="min" data-t="settings.hud.min"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.fx"></span><select id="feedback"><option value="auto" data-t="settings.fx.auto"></option><option value="flash" data-t="settings.fx.flash"></option><option value="off" data-t="settings.fx.off"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.quality"></span><select id="quality"><option value="auto" data-t="settings.quality.auto"></option><option value="low" data-t="quality.low"></option><option value="medium" data-t="quality.medium"></option><option value="high" data-t="quality.high"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.fps"></span><select id="fpscap"><option value="60" data-t="settings.fps.fps60"></option><option value="30" data-t="settings.fps.fps30"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.breath"></span><select id="breathmode"><option value="hold" data-t="settings.breath.hold"></option><option value="toggle" data-t="settings.breath.toggle"></option></select></label>
   </div>
-  <div class="row phone-only"><button id="gyrobtn">Гіроскоп: вимкнено</button><span id="qualitynote" class="muted"></span></div>
-  <div class="row phone-only"><button id="phonehome">До фургона</button><button id="phonenew">Новий раунд</button></div>
-  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden>Встановити на головний екран</button><span id="installnote" class="muted"></span></div>
-  <p class="muted">Грай стоячи на вільному місці. Уся ходьба можлива стіком, реальні кроки й присідання теж працюють.</p>
+  <div class="row phone-only"><button id="gyrobtn" data-t="start.gyroOff"></button><span id="qualitynote" class="muted"></span></div>
+  <div class="row phone-only"><button id="phonehome" data-t="menu.home"></button><button id="phonenew" data-t="menu.newRound"></button></div>
+  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden data-t="start.install"></button><span id="installnote" class="muted"></span></div>
+  <p class="muted" data-t="start.standing"></p>
 
-  <h2>Як ховатись</h2>
-  <p class="muted" style="font-size:14px; color:#c9d3e3">
-  1. Присядь (по-справжньому або кнопкою B): стоячи сторож бачить тебе за 5 м, присівши — лише за 2.5 м.<br>
-  2. Ховайся за меблями до рівня очей (диван, стійка, комод, шафа): око на зап'ясті закриється — «Сховався».<br>
-  3. Тримайся темряви: у промені ліхтаря й біля ламп тебе видно в 1.6 раза далі. Смужка над сторожем показує, скільки лишилось до погоні.</p>
+  <h2 data-t="start.h.hide"></h2>
+  <p class="muted" style="font-size:14px; color:#c9d3e3" data-t-html="start.hideHow"></p>
 
   <div class="phone-only">
-  <h2>Телефон</h2>
+  <h2 data-t="start.h.phone"></h2>
   <table>
-    <tr><td>Ліва частина екрана</td><td>ходьба: торкнись і веди. Усередині пунктирного кола — тихо, за ним — кроки чути (коло жовтіє)</td></tr>
-    <tr><td>Права частина екрана</td><td>огляд: веди пальцем</td></tr>
-    <tr><td>Тап по табло</td><td>кнопки табло (контракт, складність, мікрофон, «Поїхати»)</td></tr>
-    <tr><td>Взяти / Покласти</td><td>з'являється, коли предмет у центрі екрана (біля прицілу)</td></tr>
-    <tr><td>Двері</td><td>тап — швидко (скрипить); утримати — повільно й тихо, відпустив — зупинились</td></tr>
-    <tr><td>Присісти</td><td>присісти / встати</td></tr>
-    <tr><td>Подих</td><td>утримати — мікрофон не чути до 6 с (або тап / тап — у налаштуваннях)</td></tr>
-    <tr><td>❚❚</td><td>меню паузи: продовжити, до фургона, новий раунд, контракт, налаштування. Гра сама стає на паузу, коли згортаєш сторінку чи приходить дзвінок</td></tr>
+    <tr><td data-t="controls.phone.k1"></td><td data-t="controls.phone.v1"></td></tr>
+    <tr><td data-t="controls.phone.k2"></td><td data-t="controls.phone.v2"></td></tr>
+    <tr><td data-t="controls.phone.k3"></td><td data-t="controls.phone.v3"></td></tr>
+    <tr><td data-t="controls.phone.k4"></td><td data-t="controls.phone.v4"></td></tr>
+    <tr><td data-t="controls.phone.k5"></td><td data-t="controls.phone.v5"></td></tr>
+    <tr><td data-t="controls.phone.k6"></td><td data-t="controls.phone.v6"></td></tr>
+    <tr><td data-t="controls.phone.k7"></td><td data-t="controls.phone.v7"></td></tr>
+    <tr><td data-t="controls.phone.k8"></td><td data-t="controls.phone.v8"></td></tr>
   </table>
   </div>
   <div class="controls pc-only"><div>
-  <h2>Quest 3</h2>
+  <h2 data-t="start.h.quest"></h2>
   <table>
-    <tr><td>Лівий стік</td><td>ходьба туди, куди дивишся; не до упору — кроки тихі</td></tr>
-    <tr><td>Правий стік ← →</td><td>поворот ривком</td></tr>
-    <tr><td>Grip біля предмета</td><td>взяти / відпустити; великі — двома руками</td></tr>
-    <tr><td>Кільце за фургоном</td><td>зайди туди з лутом у руках — він сам полетить у кузов</td></tr>
-    <tr><td>Тригер на ручці дверей</td><td>тягни двері рукою: повільно — тихо, різко — скрип (підказка на зап'ясті)</td></tr>
-    <tr><td>Тригер біля дверей</td><td>швидко відчинити / зачинити (скрипить)</td></tr>
-    <tr><td>Тригер на табло</td><td>кнопки табло: контракт ◀ ▶, складність, «Мікрофон…» (калібрування у VR)</td></tr>
-    <tr><td>A (утримати)</td><td>затамувати подих: мікрофон не чути до 6 с; відпочинок — пропорційно (до 20 с)</td></tr>
-    <tr><td>B</td><td>присісти / встати (для гри сидячи)</td></tr>
-    <tr><td>X</td><td>FPS на зап'ястку</td></tr>
-    <tr><td>Натиск лівого стіка</td><td>сила віньєтки</td></tr>
-    <tr><td>Y (утримати 1 с)</td><td>перецентрувати й виміряти зріст (стань рівно)</td></tr>
-    <tr><td>Натиск правого стіка 1 с</td><td>повернутися до фургона</td></tr>
+    <tr><td data-t="controls.vr.k1"></td><td data-t="controls.vr.v1"></td></tr>
+    <tr><td data-t="controls.vr.k2"></td><td data-t="controls.vr.v2"></td></tr>
+    <tr><td data-t="controls.vr.k3"></td><td data-t="controls.vr.v3"></td></tr>
+    <tr><td data-t="controls.vr.k4"></td><td data-t="controls.vr.v4"></td></tr>
+    <tr><td data-t="controls.vr.k5"></td><td data-t="controls.vr.v5"></td></tr>
+    <tr><td data-t="controls.vr.k6"></td><td data-t="controls.vr.v6"></td></tr>
+    <tr><td data-t="controls.vr.k7"></td><td data-t="controls.vr.v7"></td></tr>
+    <tr><td data-t="controls.vr.k8"></td><td data-t="controls.vr.v8"></td></tr>
+    <tr><td data-t="controls.vr.k9"></td><td data-t="controls.vr.v9"></td></tr>
+    <tr><td data-t="controls.vr.k10"></td><td data-t="controls.vr.v10"></td></tr>
+    <tr><td data-t="controls.vr.k11"></td><td data-t="controls.vr.v11"></td></tr>
+    <tr><td data-t="controls.vr.k12"></td><td data-t="controls.vr.v12"></td></tr>
+    <tr><td data-t="controls.vr.k13"></td><td data-t="controls.vr.v13"></td></tr>
   </table>
   </div><div>
-  <h2>Клавіатура</h2>
+  <h2 data-t="start.h.keyboard"></h2>
   <table>
-    <tr><td>Клік по сцені</td><td>захопити мишу; клік на табло — кнопка; Esc — меню</td></tr>
-    <tr><td>W A S D</td><td>ходьба (тихо), з пробілом — швидко</td></tr>
-    <tr><td>E</td><td>взяти / покласти предмет; з лутом у кільце за фургоном — летить у кузов</td></tr>
-    <tr><td>Q / T</td><td>двері тихо (повільно) / різко</td></tr>
-    <tr><td>Shift (утримати)</td><td>затамувати подих</td></tr>
-    <tr><td>C</td><td>присісти / встати</td></tr>
-    <tr><td>F</td><td>FPS</td></tr>
-    <tr><td>R / N</td><td>до фургона / новий раунд</td></tr>
+    <tr><td data-t="controls.pc.k1"></td><td data-t="controls.pc.v1"></td></tr>
+    <tr><td data-t="controls.pc.k2"></td><td data-t="controls.pc.v2"></td></tr>
+    <tr><td data-t="controls.pc.k3"></td><td data-t="controls.pc.v3"></td></tr>
+    <tr><td data-t="controls.pc.k4"></td><td data-t="controls.pc.v4"></td></tr>
+    <tr><td data-t="controls.pc.k5"></td><td data-t="controls.pc.v5"></td></tr>
+    <tr><td data-t="controls.pc.k6"></td><td data-t="controls.pc.v6"></td></tr>
+    <tr><td data-t="controls.pc.k7"></td><td data-t="controls.pc.v7"></td></tr>
+    <tr><td data-t="controls.pc.k8"></td><td data-t="controls.pc.v8"></td></tr>
   </table>
   </div></div>
-  <div class="row" style="margin-top:12px"><button id="report">Скопіювати звіт</button><span class="muted">пристрій, версія, FPS, мікрофон, помилки — встав у чат із Claude</span></div>
+  <div class="row" style="margin-top:12px"><button id="report" data-t="menu.report"></button><span class="muted" data-t="start.reportHint"></span></div>
   <div id="version"></div>
 </div></div>
 <div id="debug"></div>
-<div id="hint">WASD · E взяти/покласти · Q/T двері · Shift подих · C присід · клік на табло · Esc — меню</div>
+<div id="hint" data-t="start.pcHint"></div>
 <div id="crosshair"></div>
 <div id="touch" hidden></div>
 <div id="hud" hidden></div>
 <div id="edgeflash"></div>
 <div id="summary" hidden></div>
 <div id="pausemenu" hidden></div>
-<div id="rotate">Поверни телефон горизонтально.<br><span class="muted" style="font-size:15px">Не повертається? Вимкни блокування орієнтації: на iPhone — у Пункті керування, на Android — «Автоповорот» у верхній шторці.</span></div>
+<div id="rotate" data-t-html="rotate"></div>
 <script type="module" src="src/main.js?v=0.6.0-pre.9.w0.1"></script>
 </body>
 </html>

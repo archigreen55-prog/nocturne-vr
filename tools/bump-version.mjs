@@ -1,13 +1,17 @@
 // Sets the build version: cache-busting ?v=<version> on every module (index.html import map),
 // on main.js, the stylesheets under src/ and the stale-page guard, version.json, and sw.js (its
-// version and offline file list). Run before every deploy:
+// version and offline file list). Also writes the game's name (src/i18n/name.js) and its texts
+// (src/i18n/uk.js) into the files that cannot import them: index.html <title> and
+// apple-mobile-web-app-title, manifest.webmanifest, privacy.html. Run before every deploy:
 //   node tools/bump-version.mjs          # 0.1.0 -> 0.1.1
 //   node tools/bump-version.mjs 0.2.0    # explicit
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const { GAME_NAME } = await import(pathToFileURL(join(root, 'src/i18n/name.js')));
+const uk = (await import(pathToFileURL(join(root, 'src/i18n/uk.js')))).default;
 const versionFile = join(root, 'version.json');
 const htmlFile = join(root, 'index.html');
 const swFile = join(root, 'sw.js');
@@ -42,6 +46,23 @@ html = html.replace(/<script type="importmap">([\s\S]*?)<\/script>/, (m, json) =
 html = html.replace(/const PAGE_VERSION = '[^']*'/, () => { checks.push('guard'); return `const PAGE_VERSION = '${next}'`; });
 html = html.replace(/<script type="module" src="src\/main\.js\?v=[^"]*">/, () => { checks.push('main'); return `<script type="module" src="src/main.js?v=${next}">`; });
 if (checks.length !== 3) throw new Error('index.html: expected import map, guard and main.js script, found ' + checks.join(', '));
+// the game's name where nothing can import it
+const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+html = html.replace(/<title>[^<]*<\/title>/, `<title>${esc(uk.app.pageTitle(GAME_NAME))}</title>`);
+html = html.replace(/<meta name="apple-mobile-web-app-title" content="[^"]*">/, `<meta name="apple-mobile-web-app-title" content="${esc(GAME_NAME)}">`);
+const manifestFile = join(root, 'manifest.webmanifest');
+let manifest = readFileSync(manifestFile, 'utf8');
+for (const [k, v] of [['name', GAME_NAME], ['short_name', GAME_NAME], ['description', uk.app.description]]) {
+  manifest = manifest.replace(new RegExp(`"${k}": "(?:[^"\\\\]|\\\\.)*"`), () => `"${k}": ${JSON.stringify(v)}`);
+}
+JSON.parse(manifest);   // still valid
+writeFileSync(manifestFile, manifest);
+const privacyFile = join(root, 'privacy.html');
+try {
+  const privacy = readFileSync(privacyFile, 'utf8').replace(/(<span data-game-name>)[^<]*(<\/span>)/g, `$1${esc(GAME_NAME)}$2`).replace(/<title>[^<]*<\/title>/, (t) => t.replace(/<title>[^:<]*/, `<title>${esc(GAME_NAME)}`));
+  writeFileSync(privacyFile, privacy);
+} catch (e) { if (e.code !== 'ENOENT') throw e; }
+
 // stylesheets under src/ (a new deploy = a new URL, like the modules)
 for (const f of styles) {
   const re = new RegExp(`<link rel="stylesheet" href="${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\?v=[^"]*)?">`);

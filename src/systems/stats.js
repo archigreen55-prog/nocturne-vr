@@ -4,12 +4,13 @@ import { FrameStats } from '../debug/report.js';
 import { GpuTimer } from '../perf/gpuTimer.js';
 import { G, $, params } from './state.js';
 import { flash } from './messages.js';
+import { S } from '../i18n/index.js';
 
 export function toggleStats() { G.wrist.showFps = !G.wrist.showFps; G.wristTimer = 0; }
 export function cycleVignette() {
   const l = G.comfort.cycleLevel();
   $('vignette').value = l.id;
-  flash(`Віньєтка: ${l.label}`);
+  flash(S.messages.vignette(l.label));
 }
 
 export const stats = {

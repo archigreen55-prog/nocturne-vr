@@ -4,7 +4,9 @@ import { SYSTEMS, PHASES } from './systems/index.js';
 import { G, params } from './systems/state.js';
 import { rotateBlocked } from './systems/flatScreen.js';
 import { exposeDebugApi } from './systems/debugApi.js';
+import { applyTexts } from './i18n/index.js';
 
+applyTexts();   // the start screen's static texts (index.html data-t) from the language file
 for (const s of SYSTEMS) if (s.init) s.init();
 const hooks = (phase) => SYSTEMS.filter((s) => s[phase]).map((s) => s[phase].bind(s));
 const steps = PHASES.map(hooks);

@@ -1,5 +1,6 @@
 // The guard and what it notices: sight and hearing, the suspicion, the lurker in the wardrobe, its rounds and habits.
 // Units: metres, seconds, m/s (see src/config/index.js).
+import { S } from '../i18n/index.js';
 
 export const patrol = {
   walk: 1.1, investigate: 1.4, hunt: 1.9, chase: 2.1,   // speeds
@@ -50,14 +51,14 @@ export const guard = {
   // rooms it walks through: a few points of open floor each; it picks the next room by weight
   // (seconds since its last visit / 60 + lootWeight x items there, x random 0.7..1.3)
   rooms: {
-    'Кухня': [[-3.6, -3.9], [-7.6, -0.9], [-7.8, -3.6]],
-    'Хол': [[0, -2.5], [1.5, -1.2]],
-    'Комора': [[6, -2], [8.6, -2]],
-    'Коридор': [[-7, -6], [0, -6], [6.5, -6]],
-    'Бібліотека': [[-7.4, -10.4], [-6, -12.6]],
-    'Передпокій': [[-3, -10.5]],
-    'Вітальня': [[1.5, -8], [-0.9, -12.6], [3.9, -9]],
-    'Спальня': [[7.5, -10.2], [6.2, -12.8]],
+    [S.rooms.kitchen]: [[-3.6, -3.9], [-7.6, -0.9], [-7.8, -3.6]],
+    [S.rooms.hall]: [[0, -2.5], [1.5, -1.2]],
+    [S.rooms.pantry]: [[6, -2], [8.6, -2]],
+    [S.rooms.corridor]: [[-7, -6], [0, -6], [6.5, -6]],
+    [S.rooms.library]: [[-7.4, -10.4], [-6, -12.6]],
+    [S.rooms.anteroom]: [[-3, -10.5]],
+    [S.rooms.living]: [[1.5, -8], [-0.9, -12.6], [3.9, -9]],
+    [S.rooms.bedroom]: [[7.5, -10.2], [6.2, -12.8]],
   },
   lootWeight: 0.5,
   lookTime: 2.5,         // s it looks around in a room
@@ -65,13 +66,13 @@ export const guard = {
   yawnChance: 0.15,      // between rooms: a 3 s yawn (a micro-window)
   // Hiding spots: where a crouching thief hides; `from` is where the guard stands to look there.
   spots: [
-    { name: 'за диваном', at: [1.5, -9.25], from: [1.5, -8.0] },
-    { name: 'біля холодильника', at: [-8.8, -1.3], from: [-7.6, -0.9] },
-    { name: 'за ящиками в коморі', at: [5.4, -2.6], from: [6.1, -1.7] },
-    { name: 'за комодом', at: [5.95, -8.9], from: [7.3, -9.3] },
-    { name: 'за кріслом у бібліотеці', at: [-8.2, -12.2], from: [-6.2, -12.6] },
-    { name: 'за столом у бібліотеці', at: [-6.2, -10.0], from: [-7.4, -10.4] },
-    { name: 'за лавкою в холі', at: [2.1, -2.25], from: [0, -2.5] },
+    { name: S.guard.spots.sofa, at: [1.5, -9.25], from: [1.5, -8.0] },
+    { name: S.guard.spots.fridge, at: [-8.8, -1.3], from: [-7.6, -0.9] },
+    { name: S.guard.spots.crates, at: [5.4, -2.6], from: [6.1, -1.7] },
+    { name: S.guard.spots.dresser, at: [5.95, -8.9], from: [7.3, -9.3] },
+    { name: S.guard.spots.libChair, at: [-8.2, -12.2], from: [-6.2, -12.6] },
+    { name: S.guard.spots.libTable, at: [-6.2, -10.0], from: [-7.4, -10.4] },
+    { name: S.guard.spots.hallBench, at: [2.1, -2.25], from: [0, -2.5] },
   ],
   closeDoorTime: 1.2,    // s: it closes doors behind itself, slowly (quieter than a shove)
   // things it notices on its rounds (difficulty decides whether it notices missing loot)
@@ -82,10 +83,10 @@ export const guard = {
   // hearK (noise radius x), sightK (sight x), fovK (cone x). Which ones run depends on difficulty.
   jitter: 20,
   habits: {
-    tea: { at: 120, dur: 35, label: 'п\'є чай на кухні', stand: [-8.7, -3.1], face: [-9.6, -3.1], hearK: 0.6, mask: 6, whistleAt: 8, whistleFor: 10 },
-    tea2: { at: 300, dur: 35, label: 'п\'є чай на кухні', stand: [-8.7, -3.1], face: [-9.6, -3.1], hearK: 0.6, mask: 6, whistleAt: 8, whistleFor: 10 },
-    toilet: { at: 210, dur: 25, label: 'у туалеті (комора)', stand: [8.6, -2], face: [9.6, -2], hearK: 0.3, sightK: 0.3, closeDoor: [6.5, -5] },
-    phone: { at: 75, dur: 40, label: 'говорить по телефону', walk: [[0, -2.5], [0, -6], [3, -6], [0, -6]], hearK: 0.5, fovK: 0.6 },
-    armchair: { at: 360, dur: 20, label: 'сидить у кріслі', stand: [-0.55, -11.6], face: [1.5, -11.6], sit: true, hearK: 0.6, sightK: 0.6 },
+    tea: { at: 120, dur: 35, label: S.guard.habits.tea, stand: [-8.7, -3.1], face: [-9.6, -3.1], hearK: 0.6, mask: 6, whistleAt: 8, whistleFor: 10 },
+    tea2: { at: 300, dur: 35, label: S.guard.habits.tea, stand: [-8.7, -3.1], face: [-9.6, -3.1], hearK: 0.6, mask: 6, whistleAt: 8, whistleFor: 10 },
+    toilet: { at: 210, dur: 25, label: S.guard.habits.toilet, stand: [8.6, -2], face: [9.6, -2], hearK: 0.3, sightK: 0.3, closeDoor: [6.5, -5] },
+    phone: { at: 75, dur: 40, label: S.guard.habits.phone, walk: [[0, -2.5], [0, -6], [3, -6], [0, -6]], hearK: 0.5, fovK: 0.6 },
+    armchair: { at: 360, dur: 20, label: S.guard.habits.armchair, stand: [-0.55, -11.6], face: [1.5, -11.6], sit: true, hearK: 0.6, sightK: 0.6 },
   },
 };

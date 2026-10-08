@@ -9,6 +9,7 @@ import { Gyro } from '../input/gyro.js';
 import { setPanning } from '../audio/audio.js';
 import { G, $, params } from './state.js';
 import { phoneLayout } from './flatScreen.js';
+import { S } from '../i18n/index.js';
 
 const NIGHT = 0x0a0f1c;
 
@@ -25,7 +26,7 @@ function onResize() {
 export const render = {
   id: 'render',
   init() {
-    $('version').textContent = `версія ${VERSION}${PREVIEW ? ' · тестова (превʼю)' : ''}`;
+    $('version').textContent = S.start.version(VERSION, PREVIEW);
     // vr / phone / pc (src/platform/mode.js)
     G.MODE = currentMode();
 

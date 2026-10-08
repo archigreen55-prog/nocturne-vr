@@ -3,6 +3,7 @@
 // model, VR support, microphone permission) are gathered once at start by prepareReport(), so the
 // copy itself runs right inside the tap: Safari lets a page write to the clipboard only there.
 import { allSettings, PREVIEW } from '../settings.js';
+import { S } from '../i18n/index.js';
 
 const RING = 7200;          // frame times kept (~60 s at 120 Hz)
 const MINUTES = 30;         // per-minute FPS kept
@@ -121,10 +122,10 @@ export function buildReport(ctx) {
 // Copy inside the tap; a sheet with the text either way (select it by hand if the copy failed).
 export function copyReport(text) {
   const sheet = showSheet(text);
-  const fail = () => sheet.status('Автоматично скопіювати не вдалося. Натисни на текст і утримуй → «Виділити все» → «Скопіювати».', '#ffd166');
+  const fail = () => sheet.status(S.report.copyFailed, '#ffd166');
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => sheet.status(`Скопійовано (${text.length} символів). Встав у чат із Claude.`, '#5fd38d'), fail);
+      navigator.clipboard.writeText(text).then(() => sheet.status(S.report.copied(text.length), '#5fd38d'), fail);
     } else fail();
   } catch { fail(); }
 }
@@ -139,12 +140,12 @@ function showSheet(text) {
   card.style.cssText = 'width:100%;max-width:720px;max-height:100%;display:flex;flex-direction:column;gap:10px;background:#101624;border:1px solid #26314a;border-radius:12px;padding:14px;box-sizing:border-box';
   const status = document.createElement('div');
   status.style.cssText = 'font:600 15px system-ui,sans-serif';
-  status.textContent = 'Копіюю…';
+  status.textContent = S.report.copying;
   const ta = document.createElement('textarea');
   ta.readOnly = true; ta.value = text;
   ta.style.cssText = 'flex:1;min-height:200px;width:100%;box-sizing:border-box;background:#0a0f1c;color:#c9d3e3;border:1px solid #26314a;border-radius:8px;font:12px/1.35 ui-monospace,monospace;padding:8px';
   const close = document.createElement('button');
-  close.textContent = 'Закрити';
+  close.textContent = S.report.close;
   close.addEventListener('click', () => wrap.remove());
   card.append(status, ta, close);
   wrap.append(card);

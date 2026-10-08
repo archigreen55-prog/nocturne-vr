@@ -8,6 +8,7 @@ import { ctl } from './controls.js';
 import { boardAim } from './phone.js';
 import { pressBoard } from './contract.js';
 import { nearestDoor, useDoor } from './doors.js';
+import { S } from '../i18n/index.js';
 
 export const player = {
   id: 'player',
@@ -16,9 +17,9 @@ export const player = {
     const active = G.active;
     // breath (A / Shift)
     const b = breath.update(dt, active && G.breathDown);
-    if (b === 'start') { flash('Затамував подих: мікрофон не чути', 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); G.wristTimer = 0; }
-    else if (b === 'end') { flash(`Видих. Відпочинок ${breath.cool.toFixed(0)} с`, 2, '#93a1b8'); G.wristTimer = 0; }
-    else if (b === 'busy') flash(`Ще не віддихався: ${breath.left.toFixed(0)} с`, 1.5, '#93a1b8');
+    if (b === 'start') { flash(S.messages.breathHold, 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); G.wristTimer = 0; }
+    else if (b === 'end') { flash(S.messages.breathOut(breath.cool.toFixed(0)), 2, '#93a1b8'); G.wristTimer = 0; }
+    else if (b === 'busy') flash(S.messages.breathBusy(breath.left.toFixed(0)), 1.5, '#93a1b8');
 
     // player + hands
     player.update(dt, move, G.level, hands.carrying === 'medium' ? CFG.player.carryMediumK : 1);
@@ -45,7 +46,7 @@ export const player = {
     if (touch && G.playingDesktop) {
       const atVan = round.atVan(player.head);
       touch.setContext({
-        interact: hands.desk ? (atVan ? 'У фургон' : 'Покласти') : hands.deskAim ? 'Взяти' : boardAim() ? 'Натиснути' : null,
+        interact: hands.desk ? (atVan ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : boardAim() ? S.touch.press : null,
         door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
       });
     }

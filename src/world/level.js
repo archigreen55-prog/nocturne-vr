@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CollisionWorld } from './collision.js';
 import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;
@@ -29,18 +30,18 @@ export const C = {
 const GLOW = { window: 0x2b3f6b, ember: 0xff6a2a, lamp: 0xffd9a0, moon: 0xdfe8ff };
 
 export const ROOMS = [
-  { name: 'Кухня', minX: -10, maxX: -2, minZ: -5, maxZ: 0 },
-  { name: 'Хол', minX: -2, maxX: 3, minZ: -5, maxZ: 0 },
-  { name: 'Комора', minX: 3, maxX: 10, minZ: -5, maxZ: 0 },
-  { name: 'Коридор', minX: -10, maxX: 10, minZ: -7, maxZ: -5 },
-  { name: 'Бібліотека', minX: -10, maxX: -4, minZ: -14, maxZ: -7 },
-  { name: 'Передпокій', minX: -4, maxX: -2, minZ: -14, maxZ: -7 },
-  { name: 'Вітальня', minX: -2, maxX: 5, minZ: -14, maxZ: -7 },
-  { name: 'Спальня', minX: 5, maxX: 10, minZ: -14, maxZ: -7 },
+  { name: S.rooms.kitchen, minX: -10, maxX: -2, minZ: -5, maxZ: 0 },
+  { name: S.rooms.hall, minX: -2, maxX: 3, minZ: -5, maxZ: 0 },
+  { name: S.rooms.pantry, minX: 3, maxX: 10, minZ: -5, maxZ: 0 },
+  { name: S.rooms.corridor, minX: -10, maxX: 10, minZ: -7, maxZ: -5 },
+  { name: S.rooms.library, minX: -10, maxX: -4, minZ: -14, maxZ: -7 },
+  { name: S.rooms.anteroom, minX: -4, maxX: -2, minZ: -14, maxZ: -7 },
+  { name: S.rooms.living, minX: -2, maxX: 5, minZ: -14, maxZ: -7 },
+  { name: S.rooms.bedroom, minX: 5, maxX: 10, minZ: -14, maxZ: -7 },
 ];
 export function roomAt(x, z) {
   for (const r of ROOMS) if (x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ) return r.name;
-  return 'Двір';
+  return S.rooms.yard;
 }
 
 export const SPAWN = { x: 2.2, z: 6.8, yaw: 2.92 };  // beside the van, facing the board (contract menu); the house is behind
@@ -52,18 +53,18 @@ export const HOUSE = { minX: -10.14, maxX: 10.14, minZ: -14.14, maxZ: 0.14 };   
 // Openings between rooms: [roomA, roomB, door centre x, z] (null = an arch, always open).
 // The flashlight only lights the patrol's room and rooms it can see into through these.
 export const ROOM_LINKS = [
-  ['Двір', 'Хол', 0, 0],
-  ['Кухня', 'Хол', -2, -2.5],
-  ['Кухня', 'Коридор', -6, -5],
-  ['Хол', 'Коридор', null],
-  ['Комора', 'Коридор', 6.5, -5],
-  ['Коридор', 'Бібліотека', -7, -7],
-  ['Коридор', 'Передпокій', null],
-  ['Коридор', 'Вітальня', null],
-  ['Коридор', 'Спальня', 7.5, -7],
-  ['Бібліотека', 'Передпокій', null],
-  ['Передпокій', 'Вітальня', null],
-  ['Вітальня', 'Спальня', 5, -11],
+  [S.rooms.yard, S.rooms.hall, 0, 0],
+  [S.rooms.kitchen, S.rooms.hall, -2, -2.5],
+  [S.rooms.kitchen, S.rooms.corridor, -6, -5],
+  [S.rooms.hall, S.rooms.corridor, null],
+  [S.rooms.pantry, S.rooms.corridor, 6.5, -5],
+  [S.rooms.corridor, S.rooms.library, -7, -7],
+  [S.rooms.corridor, S.rooms.anteroom, null],
+  [S.rooms.corridor, S.rooms.living, null],
+  [S.rooms.corridor, S.rooms.bedroom, 7.5, -7],
+  [S.rooms.library, S.rooms.anteroom, null],
+  [S.rooms.anteroom, S.rooms.living, null],
+  [S.rooms.living, S.rooms.bedroom, 5, -11],
 ];
 const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 16 };
 

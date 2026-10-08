@@ -5,12 +5,13 @@
 // The wording of the options lives in main.js (h.label), the same settings are on the start screen.
 import { bindPress } from './press.js';
 import { fmtTime, money } from './board.js';
+import { S } from '../i18n/index.js';
 
 const REASONS = {
   user: '',
-  hidden: 'Ти згорнув сторінку, і гра стала на паузу.',
-  blur: 'Гра втратила фокус (дзвінок, сповіщення чи системне вікно) і стала на паузу.',
-  audio: 'Систему перервала звук (дзвінок чи сповіщення), гра стала на паузу.',
+  hidden: S.menu.reason.hidden,
+  blur: S.menu.reason.blur,
+  audio: S.menu.reason.audio,
 };
 
 export class PauseMenu {
@@ -50,7 +51,7 @@ export class PauseMenu {
     const head = document.createElement('div');
     head.className = 'pm-head';
     const title = document.createElement('h2');
-    title.textContent = this.page === 'main' ? 'Пауза' : this.page === 'contract' ? 'Контракт і складність' : 'Налаштування';
+    title.textContent = this.page === 'main' ? S.menu.title.main : this.page === 'contract' ? S.menu.title.contract : S.menu.title.settings;
     head.append(title);
     const grid = document.createElement('div');
     grid.className = 'pm-grid scroll';
@@ -61,21 +62,21 @@ export class PauseMenu {
       if (note.textContent) head.append(note);
       const info = document.createElement('p');
       info.className = 'pm-info';
-      info.textContent = `${I.contractName} · ${I.diffName} · ${I.phase === 'ready' ? 'до початку' : I.phase === 'result' ? 'раунд закінчено' : fmtTime(I.clock)} · у фургоні ${money(I.vanSum)}`;
+      info.textContent = S.menu.info(I.contractName, I.diffName, I.phase === 'ready' ? S.menu.beforeStart : I.phase === 'result' ? S.menu.roundOver : fmtTime(I.clock), money(I.vanSum));
       head.append(info);
       const mic = document.createElement('p');
       mic.className = 'pm-info';
       mic.textContent = I.micText;
       head.append(mic);
       grid.append(
-        this.btn('Продовжити', () => h.resume(), 'primary wide'),
-        this.btn('До фургона', () => h.home()),
-        this.btn('Новий раунд', () => h.newRound()),
-        this.btn('Контракт і складність', () => this.go('contract')),
-        this.btn('Налаштування', () => this.go('settings')),
-        this.btn('Мікрофон і калібрування', () => h.toMic()),
-        this.btn('Скопіювати звіт', () => h.report()),
-        this.btn('На стартовий екран', () => h.toStart(), 'quiet wide'),
+        this.btn(S.menu.resume, () => h.resume(), 'primary wide'),
+        this.btn(S.menu.home, () => h.home()),
+        this.btn(S.menu.newRound, () => h.newRound()),
+        this.btn(S.menu.title.contract, () => this.go('contract')),
+        this.btn(S.menu.title.settings, () => this.go('settings')),
+        this.btn(S.menu.mic, () => h.toMic()),
+        this.btn(S.menu.report, () => h.report()),
+        this.btn(S.menu.toStart, () => h.toStart(), 'quiet wide'),
       );
     } else if (this.page === 'contract') {
       const can = I.canChange;
@@ -87,21 +88,21 @@ export class PauseMenu {
       row.append(this.btn('◀', () => { h.contractStep(-1); this.render(); }, 'step', !can), name, this.btn('▶', () => { h.contractStep(1); this.render(); }, 'step', !can));
       const brief = document.createElement('p');
       brief.className = 'pm-info wide';
-      brief.textContent = `${I.brief} ★ ${I.goalText} · ★★ ${I.bonusText} · ★★★ те саме на важкому.`;
+      brief.textContent = S.menu.brief(I.brief, I.goalText, I.bonusText);
       grid.append(row, brief,
-        this.btn(`Складність: ${I.diffName}`, () => { h.difficultyNext(); this.render(); }, 'wide', !can));
+        this.btn(S.board.difficulty(I.diffName), () => { h.difficultyNext(); this.render(); }, 'wide', !can));
       if (!can) {
         const why = document.createElement('p');
         why.className = 'pm-note wide';
-        why.textContent = 'Контракт і складність змінюються біля фургона до початку раунду (або після нього, у «Новий раунд»).';
+        why.textContent = S.menu.changeWhen;
         grid.append(why);
       }
-      grid.append(this.btn('Назад', () => this.go('main'), 'quiet wide'));
+      grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
     } else {
       for (const key of ['look', 'breath', 'hud', 'fx', 'quality', 'fps', 'gyro']) {
         grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'small'));
       }
-      grid.append(this.btn('Назад', () => this.go('main'), 'quiet wide'));
+      grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
     }
     card.append(head, grid);
     this.root.replaceChildren(card);

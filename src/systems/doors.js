@@ -5,6 +5,7 @@ import { CFG } from '../config/index.js';
 import { playKnock, CreakVoice } from '../audio/audio.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
+import { S } from '../i18n/index.js';
 
 const _hand = new THREE.Vector3(), _handle = new THREE.Vector3();
 // Door nearest to (x, z) within maxDist of its doorway centre; if dirYaw is given, only in front.
@@ -22,16 +23,16 @@ export function nearestDoor(x, z, maxDist, dirYaw) {
 // Quick swing (creaks) or slow (quiet).
 export function useDoor(door, hand, time = CFG.doors.fastTime) {
   if (!door) return;
-  if (G.hands.busy) { flash('Руки зайняті'); return; }
+  if (G.hands.busy) { flash(S.messages.handsBusy); return; }
   door.lastUser = 'player';
   const r = door.toggle(G.player.head.x, G.player.head.z, time);
-  if (r === 'locked') { playKnock({ x: door.cx, y: 1, z: door.cz }); flash('Замкнено'); if (hand) G.xrIn.pulse(hand, 0.6, 60); }
+  if (r === 'locked') { playKnock({ x: door.cx, y: 1, z: door.cz }); flash(S.messages.locked); if (hand) G.xrIn.pulse(hand, 0.6, 60); }
   else if (hand) G.xrIn.pulse(hand, 0.3, 30);
 }
 // VR trigger: hand on the handle = drag the door (slow = quiet); elsewhere near a door = quick swing.
 export function triggerDown(hand) {
   const { hands, grips, level, drags, xrIn, player } = G;
-  if (hands.busy) { flash('Руки зайняті'); return; }
+  if (hands.busy) { flash(S.messages.handsBusy); return; }
   const g = grips[hand];
   if (!g) return;
   g.getWorldPosition(_hand);

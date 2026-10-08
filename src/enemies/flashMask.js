@@ -5,6 +5,7 @@
 // same mask. Cost: one extra varying and up to MAX rectangle tests per lit fragment; no extra passes.
 import * as THREE from 'three';
 import { ROOMS, ROOM_LINKS, HOUSE, roomAt } from '../world/level.js';
+import { S } from '../i18n/index.js';
 
 const MAX = 8;
 
@@ -90,7 +91,7 @@ export function updateFlashMask(x, z, doors) {
   }
   const U = flashUniforms;
   let n = 0;
-  U.uFlashOutside.value = rooms.has('Двір') ? 1 : 0;
+  U.uFlashOutside.value = rooms.has(S.rooms.yard) ? 1 : 0;
   for (const name of rooms) {
     const r = byName[name];
     if (!r || n >= MAX) continue;
