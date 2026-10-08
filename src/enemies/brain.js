@@ -5,7 +5,7 @@
 //     sometimes check a hiding spot there, sometimes yawn;
 // What it notices on its rounds (10 Hz, only what it can see): loot missing from its place,
 // doors it keeps closed standing open. Both raise suspicion and make it search / close / look.
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { roomAt } from '../world/level.js';
 
 const EYE = 1.62;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { VERSION } from './version.js';
-import { CFG } from './game/config.js';
+import { CFG } from './config/index.js';
 import { buildLevel, roomAt, SPAWN } from './world/level.js';
 import { Player } from './xr/player.js';
 import { ComfortOverlay, VIGNETTE_LEVELS } from './comfort/vignette.js';

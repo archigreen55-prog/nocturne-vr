@@ -3,7 +3,7 @@
 // The level is shown by the light: cold blue at rest -> amber slow pulse -> red fast pulse,
 // police blue/red in the windows. The last minute of the timer makes the lights flicker.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const AMBER = new THREE.Color(0x8a6a40), RED = new THREE.Color(0xa01818), RED_PT = new THREE.Color(0xff3030);
 const POLICE_R = new THREE.Color(0xff2020), POLICE_B = new THREE.Color(0x2040ff);

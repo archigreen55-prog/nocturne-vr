@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CollisionWorld } from './collision.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;

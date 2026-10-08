@@ -3,7 +3,7 @@
 // into your face with a screech. The lunge only scares: the real danger is your own
 // scream in the microphone. Back away during the telegraph and it calms down.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { Builder, WARDROBE } from '../world/level.js';
 import { Voice3D, playScratch, playStinger, playThud } from '../audio/audio.js';
 

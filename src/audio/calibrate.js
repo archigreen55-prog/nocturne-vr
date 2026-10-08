@@ -2,7 +2,7 @@
 // silence -> whisper -> normal voice -> shout (optional). Each step records the raw level for a few
 // seconds and keeps a percentile. From that: the whisper/voice boundary sits between your whisper
 // and your voice, the voice/shout boundary between your voice and your shout.
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 export const STEPS = [
   { id: 'floor', title: 'Тиша', say: 'Мовчи й не рухайся', secs: 3, pct: 0.5 },

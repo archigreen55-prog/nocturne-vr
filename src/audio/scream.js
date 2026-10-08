@@ -10,7 +10,7 @@
 // ?rec=script / ?rec=recorder in the address forces a mode (for testing).
 import { audioContext } from './audio.js';
 import { VERSION } from '../version.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const SEG_MS = 2000;
 const MODE_NAMES = { worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder', none: 'не працює' };

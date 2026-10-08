@@ -3,7 +3,7 @@
 // against a per-player calibration into quiet (whisper) / normal / shout.
 import { audioContext, unlockAudio, setAudioSession } from './audio.js';
 import { loadSetting, saveSetting } from '../settings.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const RATE = 30;               // analyses per second
 const ATTACK = 0.05, RELEASE = 0.3;

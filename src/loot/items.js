@@ -4,7 +4,7 @@
 // crystal vase, whether it shatters.
 import * as THREE from 'three';
 import { Builder, CARGO } from '../world/level.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { playThud, playGlass } from '../audio/audio.js';
 
 const G = 9.8;

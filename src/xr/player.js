@@ -4,7 +4,7 @@
 // height and turns with the mouse.
 import * as THREE from 'three';
 import { loadSetting, saveSetting } from '../settings.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const MAX_SPEED = CFG.player.maxSpeed;       // m/s at full stick (plan §4.2)
 const QUIET_SPEED = CFG.player.quietSpeed;   // up to this, steps are silent

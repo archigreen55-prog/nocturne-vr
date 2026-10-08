@@ -3,7 +3,7 @@
 // readable with the sound off. The ring is only a hint: CFG.ripple.radiusK of the hearing radius,
 // at most CFG.ripple.maxRadius; the hearing radius itself is what the enemies use.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const MAX = 24;
 const COLORS = {

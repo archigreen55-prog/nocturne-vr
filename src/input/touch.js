@@ -6,7 +6,7 @@
 // the button fires when the finger is lifted over it, however long it was held (set hitBoard).
 // Pointer Events: one pointer per role, so the joystick and the look work at the same time.
 import { shapeStick } from './xrInput.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const JOY_ZONE = 0.45;     // left part of the screen that starts the joystick
 const JOY_R = 64;          // px, joystick travel

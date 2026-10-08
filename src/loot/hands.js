@@ -5,7 +5,7 @@
 // hand that moves too fast and tips over if you reach for it too fast.
 // On a laptop, E picks the item in front up / puts it down (two-handed items too).
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { playTick } from '../audio/audio.js';
 
 const HANDS = ['left', 'right'];

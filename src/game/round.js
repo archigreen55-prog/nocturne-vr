@@ -2,7 +2,7 @@
 // flickering; full alarm or the end of the clock gives escapeTime s to get back to the van.
 // Results: escaped (reached the van during the escape), left (drove off from the board before any
 // alarm), caught, late (the escape time ran out).
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 
 export const RESULT_TITLES = {
   left: 'ПОЇХАЛИ', escaped: 'УТЕКЛИ', caught: 'СПІЙМАЛИ', late: 'НЕ ВСТИГЛИ',

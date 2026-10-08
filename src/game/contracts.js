@@ -2,7 +2,7 @@
 //   ★1 goal met and you got away (drove off or escaped to the van)
 //   ★2 + the bonus condition (clean: no full alarm, no shout; intact: nothing damaged or broken)
 //   ★3 + both on the hard difficulty
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { money } from '../ui/board.js';
 

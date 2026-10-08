@@ -146,7 +146,7 @@ clock starts when you walk 4.5 m away from the van. Stars: ★ goal, ★★ bonu
 ## Tuning
 
 All gameplay numbers (radii, thresholds, speeds, timer, item values and positions) are in
-[src/game/config.js](src/game/config.js).
+[src/config/](src/config/): one file per topic, gathered into one `CFG` by `src/config/index.js`.
 
 ## Deploy
 

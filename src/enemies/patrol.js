@@ -6,7 +6,7 @@
 // Ladder: calm -> react (0.6 s) -> investigate -> look around -> search hiding spots -> calm;
 // seen -> chase -> caught. In full alarm it radios for help and hunts.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { Builder } from '../world/level.js';
 import { Brain } from './brain.js';
 import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
