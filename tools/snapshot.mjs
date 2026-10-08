@@ -109,7 +109,8 @@ const dom = (p, sel) => p.evaluate((s) => {
 const snap = { texts: {}, config: {}, trace: {}, dom: {}, shots: {} };
 if (shotsDir) await mkdir(shotsDir, { recursive: true });
 async function shot(p, name) {
-  await p.evaluate(() => { window.__game.renderer.domElement.style.visibility = 'hidden'; });
+  // the version line differs between the two builds by design: a fixed text in its place
+  await p.evaluate(() => { window.__game.renderer.domElement.style.visibility = 'hidden'; const v = document.getElementById('version'); if (v) v.textContent = 'VERSION'; });
   await p.waitForTimeout(700);   // edge flashes and CSS transitions settle
   const png = await p.screenshot();
   await p.evaluate(() => { window.__game.renderer.domElement.style.visibility = ''; });
@@ -250,7 +251,9 @@ snap.trace['android.medium'] = await trace('android', 'medium');
 
 await browser.close();
 server.close();
-await writeFile(out, JSON.stringify(snap, null, 1));
-const hash = (o) => createHash('sha256').update(JSON.stringify(o)).digest('hex').slice(0, 16);
+// the build version is not behaviour: written as {VERSION} so two builds compare
+const version = JSON.parse(await readFile(join(root, 'version.json'), 'utf8')).version;
+await writeFile(out, JSON.stringify(snap, null, 1).replaceAll(version, '{VERSION}'));
+const hash = (o) => createHash('sha256').update(JSON.stringify(o).replaceAll(version, '{VERSION}')).digest('hex').slice(0, 16);
 console.log(`snapshot -> ${out}: ${Object.entries(snap).map(([k, v]) => `${k} ${hash(v)}`).join(', ')}`);
 console.log(`trace samples: ${Object.entries(snap.trace).map(([k, v]) => `${k} ${v.samples.length}`).join(', ')}`);

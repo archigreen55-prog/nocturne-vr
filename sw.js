@@ -19,6 +19,7 @@ const FILES = [
   "./icons/icon-maskable-512.png",
   "./vendor/three-0.186.1.min.js",
   "./vendor/three-addons.js?v=0.186.1",
+  "./src/ui/phone.css?v=0.6.0-pre.9.w0.1",
   "./src/audio/audio.js?v=0.6.0-pre.9.w0.1",
   "./src/audio/calibrate.js?v=0.6.0-pre.9.w0.1",
   "./src/audio/mic.js?v=0.6.0-pre.9.w0.1",

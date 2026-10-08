@@ -1,5 +1,6 @@
 // Sets the build version: cache-busting ?v=<version> on every module (index.html import map),
-// on main.js and the stale-page guard, version.json, and sw.js (its version and offline file list). Run before every deploy:
+// on main.js, the stylesheets under src/ and the stale-page guard, version.json, and sw.js (its
+// version and offline file list). Run before every deploy:
 //   node tools/bump-version.mjs          # 0.1.0 -> 0.1.1
 //   node tools/bump-version.mjs 0.2.0    # explicit
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
@@ -15,15 +16,16 @@ const old = JSON.parse(readFileSync(versionFile, 'utf8')).version;
 const next = process.argv[2] || old.replace(/(\d+)$/, (n) => String(+n + 1));
 if (!/^[\w.-]+$/.test(next)) throw new Error(`bad version "${next}"`);
 
-const modules = [];
+const modules = [], styles = [];
 (function walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) walk(p);
     else if (e.name.endsWith('.js')) modules.push(relative(root, p).split('\\').join('/'));
+    else if (e.name.endsWith('.css')) styles.push(relative(root, p).split('\\').join('/'));
   }
 })(join(root, 'src'));
-modules.sort();
+modules.sort(); styles.sort();
 
 let html = readFileSync(htmlFile, 'utf8');
 const checks = [];
@@ -40,10 +42,16 @@ html = html.replace(/<script type="importmap">([\s\S]*?)<\/script>/, (m, json) =
 html = html.replace(/const PAGE_VERSION = '[^']*'/, () => { checks.push('guard'); return `const PAGE_VERSION = '${next}'`; });
 html = html.replace(/<script type="module" src="src\/main\.js\?v=[^"]*">/, () => { checks.push('main'); return `<script type="module" src="src/main.js?v=${next}">`; });
 if (checks.length !== 3) throw new Error('index.html: expected import map, guard and main.js script, found ' + checks.join(', '));
+// stylesheets under src/ (a new deploy = a new URL, like the modules)
+for (const f of styles) {
+  const re = new RegExp(`<link rel="stylesheet" href="${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\?v=[^"]*)?">`);
+  if (!re.test(html)) throw new Error(`index.html: no <link rel="stylesheet" href="${f}?v=…"> for ${f}`);
+  html = html.replace(re, `<link rel="stylesheet" href="${f}?v=${next}">`);
+}
 
 // the service worker: its version (a new sw.js on every deploy) and the files it keeps for offline play
 const icons = readdirSync(join(root, 'icons')).filter((f) => f.endsWith('.png')).sort().map((f) => `./icons/${f}`);
-const files = ['./', './index.html', './manifest.webmanifest', ...icons, ...vendor, ...modules.map((f) => `./${f}?v=${next}`)];
+const files = ['./', './index.html', './manifest.webmanifest', ...icons, ...vendor, ...styles.map((f) => `./${f}?v=${next}`), ...modules.map((f) => `./${f}?v=${next}`)];
 let sw = readFileSync(swFile, 'utf8');
 const swChecks = [];
 sw = sw.replace(/const VERSION = '[^']*';/, () => { swChecks.push('version'); return `const VERSION = '${next}';`; });
@@ -53,4 +61,4 @@ if (swChecks.length !== 2) throw new Error('sw.js: expected VERSION and FILES, f
 writeFileSync(htmlFile, html);
 writeFileSync(swFile, sw);
 writeFileSync(versionFile, JSON.stringify({ version: next }) + '\n');
-console.log(`version ${old} -> ${next}; ${modules.length} modules in the import map, ${files.length} files for the service worker`);
+console.log(`version ${old} -> ${next}; ${modules.length} modules in the import map, ${styles.length} stylesheet(s), ${files.length} files for the service worker`);
