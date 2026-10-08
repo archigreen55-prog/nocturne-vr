@@ -12,8 +12,11 @@ import { hearing, ripple } from './noise.js';
 import { patrol, stealth, alert, lurker, guard } from './guard.js';
 import { difficulties } from './difficulty.js';
 import { contracts } from './contracts.js';
+import { maps } from './maps.js';
+import { mansion } from './mansion.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
   difficulties, contracts,
+  maps, mansion,
 };

@@ -2,7 +2,6 @@
 // the van), the microphone from the board (VR). Act: the 1 s of black after being caught.
 // Result: the result board, the summary screen (phone), the scream replay.
 import { CFG } from '../config/index.js';
-import { SPAWN } from '../world/level.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty, DIFFS } from '../game/difficulty.js';
 import { contractById } from '../game/contracts.js';
@@ -25,6 +24,7 @@ export function newRound() {
   G.caughtT = -1; G.resultT = -1;
   board.placeAtStand();
   player.virtualCrouch = false;
+  const SPAWN = level.spawn;
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
   G.boardDirty = true;
@@ -91,6 +91,7 @@ export function caught() {
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
 }
 export function goHome() {
+  const SPAWN = G.level.spawn;
   G.player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   G.comfort.fadeIn(0.4);
   flash(S.messages.atVan);

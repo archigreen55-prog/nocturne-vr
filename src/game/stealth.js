@@ -43,7 +43,7 @@ export function stealthState(player, level, patrol) {
   let hidden = false;
   if (cover) {
     const d = Math.hypot(h.x - patrol.x, h.z - patrol.z);
-    hidden = d > range * 1.25 || level.losBlocked(patrol.x, EYE, patrol.z, h.x, targetY(player), h.z);
+    hidden = d > range * 1.25 || level.losBlocked(patrol.x, (patrol.y || 0) + EYE, patrol.z, h.x, targetY(player), h.z);
   }
   return { eye: hidden ? 'closed' : player.crouched ? 'half' : 'open', range, lit, cover, hidden };
 }

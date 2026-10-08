@@ -178,6 +178,25 @@ export default {
     clock: 'Годинник',
     crystal: 'Кришталева ваза',
   },
+  // ---------- map 2: the mansion (W6) ----------
+  mansion: {
+    name: 'Маєток',
+    mapDacha: 'Дача',
+    rooms: {
+      dining: 'Їдальня', study: 'Кабінет', laundry: 'Пральня', boiler: 'Котельня', garage: 'Гараж',
+      bedroom: 'Спальня господарів', wardrobe: 'Гардероб', bath: 'Ванна', kids: 'Дитяча', attic: 'Горище-комора',
+      guardroom: 'Кімната сторожа', corridor2: 'Коридор нагорі', gallery: 'Галерея', guest: 'Гостьова', billiard: 'Більярдна',
+      music: 'Музична', balcony: 'Балкон', alley: 'Провулок', garden: 'Сад',
+    },
+    guard: {
+      toilet: 'у туалеті (пральня)',
+    },
+    items: {
+      chest: 'Скриня з інструментами',
+      vase: 'Ваза з холу',
+      candelabrum: 'Канделябр',
+    },
+  },
   difficulty: {
     easy: 'легкий',
     medium: 'середній',

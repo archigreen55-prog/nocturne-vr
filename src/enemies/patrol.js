@@ -101,8 +101,8 @@ export class Patrol {
   }
 
   reset() {
-    const x = -7.4, z = -10.4;             // starts in the library
-    this.x = x; this.z = z;
+    const [x, z, y] = (this.env.guard && this.env.guard.start) || [-7.4, -10.4, 0];   // starts in the library
+    this.x = x; this.z = z; this.y = y || 0;   // y: the floor it stands on (W6: maps with stairs)
     this.heading = Math.PI;
     this.headYaw = 0;
     this.state = 'task';
@@ -165,7 +165,9 @@ export class Patrol {
   }
 
   // ---------- goals ----------
-  goTo(x, z) { this.path = this.env.nav.path(this.x, this.z, x, z); this.goal = [x, z]; }
+  // toFloor: the floor index of the target (W6); by default the one it is on
+  goTo(x, z, toFloor) { this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z]; }
+  get floor() { return this.env.level.floorIndex ? this.env.level.floorIndex(this.y) : 0; }
 
   investigate(x, z) {
     if (this.state !== 'investigate' && this.state !== 'look') playGrunt(this.voice, 'curious');
@@ -196,8 +198,9 @@ export class Patrol {
     if (this.state === 'chase') return;
     this.interrupt();
     this.state = 'hunt';
-    if (x === undefined) [x, z] = this.env.nav.randomIndoor();
-    this.goTo(x, z);
+    let f;
+    if (x === undefined) [x, z, f] = this.env.nav.randomIndoor();
+    this.goTo(x, z, f);
   }
 
   startChase(player) {
@@ -244,7 +247,7 @@ export class Patrol {
     this.aiT += dt;
     if (this.aiT >= AI_DT) { this.see(player, this.aiT); this.aiT = 0; }
 
-    const dPlayer = Math.hypot(player.head.x - this.x, player.head.z - this.z);
+    const dPlayer = Math.hypot(player.head.x - this.x, player.head.z - this.z, (player.floorY || 0) - this.y);
     if (dPlayer < P.catchDist && (this.state === 'chase' || this.state === 'hunt' || (this.visible && dPlayer < 0.6))) return 'caught';
 
     let speed = P.walk, look = false;
@@ -313,7 +316,7 @@ export class Patrol {
       const L = this.env.listener();
       this.voice.setOccluded(this.env.level.soundOccluded(L.x, L.z, this.x, this.z));
     }
-    this.voice.setPos(this.x, 1.0, this.z);
+    this.voice.setPos(this.x, this.y + 1.0, this.z);
 
     if (this.state === 'chase') this.setMark('!');
     else if ((this.state !== 'task' && this.state !== 'react') || (step && step.search)) this.setMark('?');
@@ -401,8 +404,9 @@ export class Patrol {
     const v = speed * Math.max(0.15, Math.cos(diff));
     const px = this.x, pz = this.z;
     let nx = this.x + (-Math.sin(this.heading)) * v * dt, nz = this.z + (-Math.cos(this.heading)) * v * dt;
-    [nx, nz] = this.env.level.world.resolveCircle(nx, nz, RADIUS);
+    [nx, nz] = this.env.level.resolveBody(nx, nz, RADIUS, this.y);
     this.x = nx; this.z = nz;
+    this.y = this.env.level.floorY(nx, nz, this.y);
     this.speed = dt > 0 ? Math.hypot(nx - px, nz - pz) / dt : 0;
     this.phase += this.speed * dt * 6;
     // stuck (furniture corner, a door): try a fresh path
@@ -421,7 +425,7 @@ export class Patrol {
   // Opens a closed door between it and the next point (a creak the player can hear).
   openDoors(tx, tz) {
     for (const door of this.env.level.doors) {
-      if (door.locked || door.open) continue;
+      if (door.locked || door.open || door.floor !== this.floor) continue;
       if (Math.hypot(door.cx - this.x, door.cz - this.z) > 1.3) continue;
       const nx = -Math.sin(door.base), nz = -Math.cos(door.base);   // normal of the closed leaf
       const s1 = (this.x - door.hx) * nx + (this.z - door.hz) * nz, s2 = (tx - door.hx) * nx + (tz - door.hz) * nz;
@@ -438,7 +442,7 @@ export class Patrol {
   see(player, dt) {
     const P = CFG.patrol, alert = this.env.alert;
     const hx = player.head.x, hz = player.head.z;
-    const dx = hx - this.x, dz = hz - this.z, d = Math.hypot(dx, dz);
+    const dx = hx - this.x, dz = hz - this.z, d = Math.hypot(dx, dz, (player.floorY || 0) - this.y);   // a floor above is far
     const gaze = this.heading + this.headYaw;
     const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), gaze));
     // light: in the flashlight beam or next to a lamp you are seen further
@@ -447,7 +451,7 @@ export class Patrol {
     const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1);
     this.visible = false;
     // crouched, it has to see your face, not just the top of your head behind the furniture
-    if (d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, EYE, this.z, hx, targetY(player), hz)) this.visible = true;
+    if (d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz)) this.visible = true;
     const feel = d < P.feelDist && !this.env.level.soundOccluded(this.x, this.z, hx, hz);
     if (this.visible || feel) {
       const rate = this.visible ? P.meterBase + P.meterNear * (1 - d / range) : P.feelRate;
@@ -462,7 +466,7 @@ export class Patrol {
 
   place() {
     const bob = Math.abs(Math.sin(this.phase)) * 0.035;
-    this.group.position.set(this.x, bob - (this.sitting ? 0.45 : 0), this.z);
+    this.group.position.set(this.x, this.y + bob - (this.sitting ? 0.45 : 0), this.z);
     this.group.rotation.y = this.heading;
     this.upper.rotation.y = this.headYaw;
   }

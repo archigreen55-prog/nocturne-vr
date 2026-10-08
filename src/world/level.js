@@ -39,6 +39,7 @@ export const ROOMS = [
   { name: S.rooms.living, minX: -2, maxX: 5, minZ: -14, maxZ: -7 },
   { name: S.rooms.bedroom, minX: 5, maxX: 10, minZ: -14, maxZ: -7 },
 ];
+const ROOMS_OUTSIDE = S.rooms.yard;
 export function roomAt(x, z) {
   for (const r of ROOMS) if (x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ) return r.name;
   return S.rooms.yard;
@@ -494,6 +495,12 @@ export function buildLevel() {
   return {
     group, world, walls, doors, furniture, moon, glowMaterial: glowMesh.material,
     triangles: staticMesh.geometry.index.count / 3 + glowMesh.geometry.index.count / 3,
+    // the map descriptor (W6): what the other systems need to know about this map
+    id: 'dacha', rooms: ROOMS, links: ROOM_LINKS, outside: [ROOMS_OUTSIDE], house: HOUSE,
+    spawn: SPAWN, board: BOARD, cargo: CARGO, wardrobe: WARDROBE,
+    roomAt: (x, z) => roomAt(x, z),
+    floorY: () => 0, floorIndex: () => 0, onRamp: () => false, worldAt: () => world,
+    resolveBody: (x, z, r) => world.resolveCircle(x, z, r),
 
     // Push a circle out of the static world and all door leaves (the player). Returns [x, z].
     resolve(x, z, r) {
@@ -583,6 +590,8 @@ export class Door {
   constructor(spec, material) {
     this.locked = spec.locked;
     this.w = spec.w;
+    this.y0 = spec.y0 || 0;         // the floor it stands on (W6: maps with stairs)
+    this.floor = spec.floor || 0;
     this.hx = spec.hx; this.hz = spec.hz;
     this.base = spec.axis === 'x' ? 0 : -Math.PI / 2;  // leaf direction when closed: +X or +Z
     this.angle = 0;          // current swing, rad (sign = side)
@@ -600,7 +609,7 @@ export class Door {
     for (const s of [-1, 1]) B.box(this.w - 0.12, 0.98, s * (LEAF_T / 2), this.w - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
     this.mesh = B.mesh(material);
     this.mesh.name = spec.locked ? 'door (locked)' : 'door';
-    this.mesh.position.set(this.hx, 0, this.hz);
+    this.mesh.position.set(this.hx, this.y0, this.hz);
     this.mesh.rotation.y = this.base;
     // centre of the doorway, for picking the door to use
     this.cx = this.hx + (spec.axis === 'x' ? this.w / 2 : 0);
@@ -637,7 +646,7 @@ export class Door {
   // Handle position (both sides share it in XZ), at 1 m height.
   handle(out) {
     const a = this.base + this.angle, d = this.w - 0.1;
-    return out.set(this.hx + Math.cos(a) * d, 1.0, this.hz - Math.sin(a) * d);
+    return out.set(this.hx + Math.cos(a) * d, this.y0 + 1.0, this.hz - Math.sin(a) * d);
   }
 
   handAngle(x, z) {

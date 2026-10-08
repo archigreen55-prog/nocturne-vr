@@ -4,7 +4,6 @@
 // played once by itself, then "Ще раз послухати"). Buttons: controller ray + trigger; laptop:
 // crosshair + click.
 import * as THREE from 'three';
-import { BOARD } from '../world/level.js';
 import { S } from '../i18n/index.js';
 
 const W = 1024, H = 640;
@@ -15,7 +14,8 @@ export const fmtTime = (s, down = false) => { s = Math.max(0, down ? Math.floor(
 export const money = (v) => '$' + v.toLocaleString('en-US');
 
 export class Board {
-  constructor() {
+  constructor(stand) {
+    this.stand = stand;
     this.canvas = document.createElement('canvas');
     this.canvas.width = W; this.canvas.height = H;
     this.g = this.canvas.getContext('2d');
@@ -30,8 +30,8 @@ export class Board {
   }
 
   placeAtStand() {
-    this.mesh.position.set(BOARD.x, 1.1 + SIZE_H / 2, BOARD.z);
-    this.mesh.rotation.set(0, BOARD.yaw, 0);
+    this.mesh.position.set(this.stand.x, 1.1 + SIZE_H / 2, this.stand.z);
+    this.mesh.rotation.set(0, this.stand.yaw, 0);
     this.mesh.material.depthTest = true;
     this.mesh.renderOrder = 0;
     this.floating = false;

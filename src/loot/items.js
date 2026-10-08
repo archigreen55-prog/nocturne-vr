@@ -74,8 +74,9 @@ function buildItem(id, B) {
   throw new Error('unknown item ' + id);
 }
 
+let cargo = CARGO;   // the van's cargo floor of the map (set by Loot)
 export function inCargo(x, z) {
-  return x > CARGO.minX && x < CARGO.maxX && z > CARGO.minZ && z < CARGO.maxZ;
+  return x > cargo.minX && x < cargo.maxX && z > cargo.minZ && z < cargo.maxZ;
 }
 
 // Places in the van for delivered loot (2 columns, front to back).
@@ -90,7 +91,7 @@ class Item {
     this.twoHanded = def.kind === 'medium';
     this.crystal = def.kind === 'crystal';
     const B = new Builder();
-    const { h, r } = buildItem(def.id, B);
+    const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
     this.baseEmissive = this.crystal ? 0x16324a : 0x000000;
     this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: this.baseEmissive });
@@ -159,7 +160,8 @@ export class Loot {
   // env: { level, noise, listener() -> {x, z}, onMessage(text, color), onDeliver(item) }
   constructor(env) {
     this.env = env;
-    this.items = CFG.items.map((d) => new Item(d));
+    if (env.level && env.level.cargo) cargo = env.level.cargo;
+    this.items = ((env.level && env.level.items) || CFG.items).map((d) => new Item(d));
     this.group = new THREE.Group();
     this.group.name = 'loot';
     for (const it of this.items) { this.group.add(it.mesh); if (it.shards) this.group.add(it.shards); }
@@ -200,7 +202,7 @@ export class Loot {
     it.state = 'fly';
     it.fly = {
       t: 0, from: it.mesh.position.clone(), q0: it.mesh.quaternion.clone(),
-      to: new THREE.Vector3(x, CARGO.y, z), q1: new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y),
+      to: new THREE.Vector3(x, cargo.y, z), q1: new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y),
     };
     return true;
   }
@@ -210,7 +212,7 @@ export class Loot {
     if (it.delivered || it.broken) return;
     const [x, z] = this.nextSlot();
     it.holders.length = 0;
-    it.mesh.position.set(x, CARGO.y, z);
+    it.mesh.position.set(x, cargo.y, z);
     this.e.setFromQuaternion(it.mesh.quaternion); it.mesh.quaternion.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y);
     it.state = 'rest'; it.landed = true; it.vel.set(0, 0, 0); it.fly = null;
     this.markDelivered(it, true);

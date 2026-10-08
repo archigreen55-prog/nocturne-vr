@@ -14,6 +14,8 @@ const CROUCH_DROP = 0.55;    // virtual crouch lowers the rig by this, m
 const CROUCH_TIME = 0.3;
 const CROUCH_K = 0.72;       // head below 72 % of standing height = crouched
 const DESKTOP_EYE = 1.65;
+const FLOOR_TAU = 0.15;      // s, smoothing of the ground height under the head (no jolt at a ramp's edge)
+const RAMP_K = 0.6;          // VR only: speed on a ramp x this (vertical speed <= 0.6 m/s; plan-W6 §2.2)
 
 const _q = new THREE.Quaternion(), _v = new THREE.Vector3();
 
@@ -40,6 +42,8 @@ export class Player {
     this.turnedThisFrame = 0;
     this.stepAcc = 0;
     this.stepNoise = 0;       // radius of a step noise made this frame (0 = none); real steps are silent
+    this.floorY = 0;          // height of the ground under the head (W6: the floor the player is on)
+    this.onRamp = false;
   }
 
   get crouched() { return this.head.y < CROUCH_K * this.standingHeight; }
@@ -62,7 +66,8 @@ export class Player {
   // Place the head at (x, z) looking along yaw, once the next XR pose is known.
   recenterTo(x, z, yaw, measureHeight = false) { this.pendingRecenter = { x, z, yaw, measureHeight }; }
 
-  teleport(x, z, yaw) {
+  teleport(x, z, yaw, y = 0) {
+    this.floorY = y;
     if (this.inVR) { this.recenterTo(x, z, yaw); return; }
     this.rig.position.x = x; this.rig.position.z = z;
     this.lookYaw = yaw; this.lookPitch = 0;
@@ -117,6 +122,9 @@ export class Player {
 
   // move: stick vector (x right, y forward), each -1..1, already shaped; speedK: carrying penalty
   update(dt, move, level, speedK = 1) {
+    // VR: slower on a ramp (the stairs), so the rig rises at most ~0.6 m/s
+    this.onRamp = !!(level.onRamp && level.onRamp(this.head.x, this.head.z));
+    if (this.onRamp && this.inVR) speedK *= RAMP_K;
     // velocity relative to where the head looks
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
     const tx = (move.x * cos - move.y * sin) * MAX_SPEED * speedK;
@@ -131,11 +139,15 @@ export class Player {
     const target = this.virtualCrouch ? 1 : 0;
     const step = dt / CROUCH_TIME;
     this.crouchT += Math.max(-step, Math.min(step, target - this.crouchT));
-    this.rig.position.y = -CROUCH_DROP * this.crouchT;
+    // the ground under the head: a ramp (the stairs) changes it smoothly; the rig rides on it
+    const hx = this.head.x, hz = this.head.z;
+    const fy = level.floorY ? level.floorY(hx, hz, this.floorY) : 0;
+    this.floorY += (fy - this.floorY) * (1 - Math.exp(-dt / FLOOR_TAU));
+    if (Math.abs(fy - this.floorY) < 1e-4) this.floorY = fy;
+    this.rig.position.y = this.floorY - CROUCH_DROP * this.crouchT;
 
     // move the head circle and push it out of walls, furniture and doors; the rig follows the head
-    const hx = this.head.x, hz = this.head.z;
-    const [nx, nz] = level.resolve(hx + this.vel.x * dt, hz + this.vel.y * dt, RADIUS);
+    const [nx, nz] = level.resolve(hx + this.vel.x * dt, hz + this.vel.y * dt, RADIUS, this.floorY);
     this.rig.position.x += nx - hx;
     this.rig.position.z += nz - hz;
     // actual speed after collisions (sliding along a wall is slower)

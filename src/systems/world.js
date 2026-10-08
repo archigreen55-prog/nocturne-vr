@@ -2,7 +2,8 @@
 // board, the microphone, the scream replay, the breath, the siren, the round. Who hears a noise; the
 // full alarm. Pre: the microphone and the scream recorder take this frame's audio.
 import { CFG } from '../config/index.js';
-import { buildLevel, SPAWN } from '../world/level.js';
+import { buildCurrentLevel } from '../world/maps.js';
+import { setMapBase } from '../game/difficulty.js';
 import { Player } from '../xr/player.js';
 import { Board, money } from '../ui/board.js';
 import { Mic, Breath } from '../audio/mic.js';
@@ -26,8 +27,17 @@ export const world = {
   init() {
     const { renderer, camera, scene } = G;
     const t0 = performance.now();
-    const level = G.level = buildLevel();
+    const level = G.level = buildCurrentLevel();
     scene.add(level.group);
+    const SPAWN = level.spawn;
+    // the map's own van: the drop-off ring and the "at the van" zone (kept across difficulty resets)
+    if (level.dropZone) setMapBase({ dropZone: level.dropZone, round: { vanZone: level.vanZone } });
+    if (level.lamps) CFG.stealth.lamps = level.lamps;
+    // the three point lights go where this map's lamps are
+    if (level.lights) G.points.forEach((l, i) => {
+      const [x, y, z, color, intensity, dist] = level.lights[i] || level.lights[0];
+      l.position.set(x, y, z); l.color.setHex(color); l.intensity = intensity; l.distance = dist; l.userData.base = intensity;
+    });
 
     const player = G.player = new Player(renderer, camera);
     scene.add(player.rig);
@@ -55,7 +65,7 @@ export const world = {
     const nav = G.nav = new Nav(level);
     const alert = G.alert = new Alert({ hemi: G.hemi, moon: G.moonLight, points: G.points, glow: level.glowMaterial });
     const patrol = G.patrol = new Patrol({
-      level, nav, alert, listener, loot,
+      level, nav, alert, listener, loot, guard: level.guard,
       roundTime: () => (G.round.phase === 'heist' ? G.round.t : null),
       say: (text) => { G.guardLine = text; G.guardLineT = 3.5; G.wristTimer = 0; },
       sound: (kind, x, z, o) => {
@@ -73,7 +83,7 @@ export const world = {
     scene.add(patrol.group);
     const lurker = G.lurker = new Lurker({ level, onScare: () => { G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); } });
     scene.add(lurker.group);
-    const board = G.board = new Board();
+    const board = G.board = new Board(level.board);
     scene.add(board.mesh);
     const mic = G.mic = new Mic();
     const scream = G.scream = new ScreamRecorder(mic);

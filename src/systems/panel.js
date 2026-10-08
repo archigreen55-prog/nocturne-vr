@@ -2,7 +2,6 @@
 // guard's line, the microphone, the breath, steps, the room, what you hold, the clock, messages; and
 // the debug overlay (F).
 import { CFG } from '../config/index.js';
-import { roomAt } from '../world/level.js';
 import { progress } from '../game/contracts.js';
 import { stealthState } from '../game/stealth.js';
 import { G } from './state.js';
@@ -31,7 +30,7 @@ export const panel = {
         vanSum: T.sum, vanCount: T.inVan, speaking: G.speakT >= CFG.mic.normalAfter && !breath.holding,
         door: dragging ? { creak: dragging.door.creak } : null,
         mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
-        room: roomAt(player.head.x, player.head.z),
+        room: level.roomAt(player.head.x, player.head.z, player.floorY),
         holding: held ? `${held.name}${held.damaged ? S.hud.damagedMark : ''}` : '',
         clock: round.clock, phase: round.phase, alertLevel: alert.level,
         fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
