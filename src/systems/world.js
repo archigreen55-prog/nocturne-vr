@@ -64,23 +64,36 @@ export const world = {
     G.simT = 0; G.lastPop = -1;
     const nav = G.nav = new Nav(level);
     const alert = G.alert = new Alert({ hemi: G.hemi, moon: G.moonLight, points: G.points, glow: level.glowMaterial });
-    const patrol = G.patrol = new Patrol({
-      level, nav, alert, listener, loot, guard: level.guard,
-      roundTime: () => (G.round.phase === 'heist' ? G.round.t : null),
-      say: (text) => { G.guardLine = text; G.guardLineT = 3.5; G.wristTimer = 0; },
-      sound: (kind, x, z, o) => {
-        const L = player.head, v = patrol.voice;
-        const at = (px, pz) => ({ pos: { x: px, y: 1, z: pz }, occ: level.soundOccluded(L.x, L.z, px, pz) });
-        if (kind === 'kettle') { const a = at(x, z); playKettle(a.pos, a.occ, o.dur, o.whistleAt, o.whistleFor); }
-        else if (kind === 'flush') { const a = at(x, z); playFlush(a.pos, a.occ); }
-        else if (kind === 'ring') playRing(v);
-        else if (kind === 'murmur') playMurmur(v);
-        else if (kind === 'yawn') playYawn(v);
-        else if (kind === 'radio') playRadio(v);
-        else if (kind === 'grunt') playGrunt(v, 'alarm');
-      },
-    });
+    const guardEnv = (guard, secondary) => {
+      const env = {
+        level, nav, alert, listener, loot, guard, secondary,
+        roundTime: () => (G.round.phase === 'heist' ? G.round.t : null),
+        say: (text) => { G.guardLine = guard && guard.name ? `${guard.name}: ${text}` : text; G.guardLineT = 3.5; G.wristTimer = 0; },
+        sound: (kind, x, z, o) => {
+          const L = player.head, v = env.self.voice;
+          const at = (px, pz) => ({ pos: { x: px, y: 1, z: pz }, occ: level.soundOccluded(L.x, L.z, px, pz) });
+          if (kind === 'kettle') { const a = at(x, z); playKettle(a.pos, a.occ, o.dur, o.whistleAt, o.whistleFor); }
+          else if (kind === 'flush') { const a = at(x, z); playFlush(a.pos, a.occ); }
+          else if (kind === 'ring') playRing(v);
+          else if (kind === 'murmur') playMurmur(v);
+          else if (kind === 'yawn') playYawn(v);
+          else if (kind === 'radio') playRadio(v);
+          else if (kind === 'grunt') playGrunt(v, 'alarm');
+        },
+      };
+      return env;
+    };
+    const env1 = guardEnv(level.guard, false);
+    const patrol = G.patrol = env1.self = new Patrol(env1);
     scene.add(patrol.group);
+    // the second guard of a map that has one (W6: the mansion)
+    G.patrol2 = null;
+    if (level.guard2) {
+      const env2 = guardEnv(level.guard2, true);
+      G.patrol2 = env2.self = new Patrol(env2);
+      scene.add(G.patrol2.group);
+    }
+    const guards = G.guards = [patrol, G.patrol2].filter(Boolean);
     const lurker = G.lurker = new Lurker({ level, onScare: () => { G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); } });
     scene.add(lurker.group);
     const board = G.board = new Board(level.board);
@@ -98,7 +111,8 @@ export const world = {
         G.boardDirty = true;
         if (phase === 'result') {
           siren.set(false);
-          patrol.reset(); lurker.reset(); alert.reset();
+          for (const g of guards) g.reset();
+          lurker.reset(); alert.reset();
           const R = round.result;
           if (R.kind === 'caught' || R.kind === 'late') {   // back at the van, facing it
             player.teleport(SPAWN.x, SPAWN.z, Math.atan2(-(CFG.dropZone.x - SPAWN.x), -(CFG.dropZone.z - SPAWN.z)));
@@ -113,15 +127,30 @@ export const world = {
     });
     console.log(`Level built in ${(performance.now() - t0).toFixed(0)} ms, ${level.triangles} triangles, ${level.world.edgeCount} collision edges, ${level.doors.length} doors`);
 
-    // noise -> who hears it
+    // noise -> who hears it: with two guards, the one it is louder to (plan-W6 §3.2)
     noise.on((e) => {
       if (round.phase === 'result') return;
-      if (patrol.hear(e)) alert.add(CFG.alert.points[e.kind] || 20, e.x, e.z);
+      const ey = e.floorY == null ? player.floorY : e.floorY;   // a noise's y is the ripple's; its floor is the player's unless said otherwise
+      let best = null, bestK = 0;
+      for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
+      if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] || 20, e.x, e.z); }
       lurker.hear(e);
     });
     alert.onFull = (cause, x, z) => {
       if (round.phase === 'result') return;
-      patrol.onAlarm(x, z);
+      const f = x === undefined ? undefined : level.floorIndex(player.floorY);
+      const chaser = guards.find((g) => g.state === 'chase');
+      const posts = level.alarmPosts;
+      guards.forEach((g, i) => {
+        // two guards: the one who saw you (or the first) hunts; the other stands at the exit nearest
+        // to the alarm and watches it (plan-W6 §3.2)
+        if (guards.length > 1 && posts && g !== chaser && (chaser || i > 0)) {
+          const px = x === undefined ? g.x : x, pz = z === undefined ? g.z : z;
+          const post = posts.map((p) => ({ p, d: Math.hypot(p[0] - px, p[1] - pz) })).sort((a, b) => a.d - b.d)[0].p;
+          g.env.sound('radio'); g.env.say(S.mansion.radio.coming);
+          g.post(post[0], post[1], post[2]);
+        } else g.onAlarm(x, z, f);
+      });
       round.startEscape(cause);
       siren.set(true);
       fx('alarm');

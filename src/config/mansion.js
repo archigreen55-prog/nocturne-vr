@@ -6,8 +6,9 @@ import { S } from '../i18n/index.js';
 const R = S.rooms, M = S.mansion.rooms;
 
 export const mansion = {
-  // Valera: the ground floor and the garden (M1: the ground floor; the garden and the second guard come with M3)
+  // Valera: the ground floor and the garden; a flashlight (as on the first map)
   guard: {
+    id: 'valera', name: S.mansion.names.valera,
     start: [10, -8.5, 0],   // the study
     rooms: {
       [R.hall]: [[0, -8.5], [3, -7], [-1, -10.5]],
@@ -19,6 +20,8 @@ export const mansion = {
       [M.garage]: [[9.5, -2], [5.0, -1.5]],
       [R.anteroom]: [[-4.5, -2.5]],
       [R.corridor]: [[-8, -8.5]],
+      [M.garden]: [[-3, 3], [3, 9], [-9, 9]],
+      [M.alley]: [[15, -6], [15, -12]],
     },
     // Hiding spots: where a crouching thief hides; `from` is where the guard stands to look there.
     spots: [
@@ -42,6 +45,48 @@ export const mansion = {
       armchair: { at: 360, dur: 20, label: S.guard.habits.armchair, go: [-3.0, -16.8], stand: [-5.4, -17.0], face: [-3, -17.0], sit: true, hearK: 0.6, sightK: 0.6 },
     },
   },
+
+  // Zhora: upstairs, a hand lamp instead of the flashlight (a point light around it, seen from behind a
+  // corner; it sees a little worse in the dark); comes down for coffee now and then. Habit ids are the
+  // first map's so the difficulty's habit list applies (tea = coffee in the kitchen downstairs).
+  guard2: {
+    id: 'zhora', name: S.mansion.names.zhora, coat: 0x4a3b2f, cap: 0x3a2a22,
+    lamp: { intensity: 2.2, distance: 7, lit: 3 },   // lit: you are "in the light" this close to it
+    sightK: 0.85,
+    start: [-10.3, -9, 1],   // the guard room
+    rooms: {
+      [M.gallery]: [[0, -8.5, 1], [4, -10.5, 1], [9, -8.5, 1]],
+      [M.corridor2]: [[-8, -8.5, 1]],
+      [M.guardroom]: [[-10.3, -9, 1]],
+      [M.bedroom]: [[-9, -14.3, 1], [-11.5, -13.5, 1]],
+      [M.kids]: [[5, -15, 1]],
+      [M.bath]: [[-0.5, -15, 1]],
+      [M.guest]: [[-9, -2.5, 1], [-7, -1, 1]],
+      [M.billiard]: [[-3, -2.5, 1]],
+      [M.music]: [[9, -2.5, 1], [11, -1, 1]],
+    },
+    spots: [
+      { name: S.mansion.spots.bed, at: [-11, -14.6], from: [-9, -14.3] },
+      { name: S.mansion.spots.wardrobe, at: [-4.5, -15], from: [-5.0, -15] },
+      { name: S.mansion.spots.billiard, at: [1.0, -1.0], from: [2.5, -4.2] },
+      { name: S.mansion.spots.piano, at: [7.0, -4.3], from: [9, -2.5] },
+      { name: S.mansion.spots.atticCrates, at: [9.5, -14.5], from: [10.5, -15] },
+      { name: S.mansion.spots.cot, at: [-12, -5.8], from: [-10.3, -9] },
+    ],
+    habits: {
+      tea: { at: 90, dur: 25, label: S.mansion.guard.coffee, say: S.mansion.guard.sayCoffee, go: [9.5, -16.6, 0], stand: [9.5, -16.6, 0], face: [9.5, -17.6], hearK: 0.6, mask: 5, whistleAt: 6, whistleFor: 8 },
+      tea2: { at: 330, dur: 25, label: S.mansion.guard.coffee, say: S.mansion.guard.sayCoffee, go: [9.5, -16.6, 0], stand: [9.5, -16.6, 0], face: [9.5, -17.6], hearK: 0.6, mask: 5, whistleAt: 6, whistleFor: 8 },
+      toilet: { at: 240, dur: 20, label: S.mansion.guard.bath, go: [-0.5, -13.0, 1], stand: [-0.5, -16.0, 1], face: [1.5, -16.0], hearK: 0.3, sightK: 0.3, closeDoor: [-0.5, -12] },
+      phone: { at: 150, dur: 40, label: S.guard.habits.phone, walk: [[0, -8.5, 1], [4, -7, 1], [9, -8.5, 1], [0, -8.5, 1]], hearK: 0.5, fovK: 0.6 },
+      armchair: { at: 420, dur: 20, label: S.mansion.guard.cot, go: [-10.3, -7.0, 1], stand: [-12.0, -6.2, 1], face: [-11, -6.2], sit: true, hearK: 0.6, sightK: 0.6 },
+    },
+  },
+  // the exits one guard watches during a full alarm (plan-W6 §3.2): inside the garage gate, the back door
+  alarmPosts: [[11.8, -1.5, 0], [11.8, -15, 0]],
+  // the radio between the two guards: a telegraph of where both are (s)
+  radio: { every: 60, jitter: 15, answerAfter: 1.8 },
+  // a noise on the other floor carries this part of its radius through the slab (through the stair well: as a wall)
+  hearing: { floorK: 0.3 },
 
   // M1: three items on the ground floor to test carrying; the 14 of the plan come with M4.
   items: [

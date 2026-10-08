@@ -14,6 +14,9 @@ import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T } from '../kit.js';
 import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
 import { mansion as MCFG } from '../../config/mansion.js';
 import { furnish } from './furniture.js';
+import { CFG } from '../../config/index.js';
+
+const CFG_HEARING = CFG.hearing;
 import { S as TEXT } from '../../i18n/index.js';
 
 const GLOW = { window: 0x2b3f6b, lamp: 0xffd9a0, moon: 0xdfe8ff };
@@ -292,8 +295,8 @@ export function buildMansion() {
     floorMeshes: [mesh0, mesh1],
     // draw the rooms of floor f only (the hall band, the stairs and the outside are always drawn)
     setFloorVisible(f) { mesh0.visible = f === 0; mesh1.visible = f === 1; },
-    wardrobe: WARDROBE, nav: { nodes: NAV_NODES, stairs: NAV_STAIRS, indoor: (n) => n[2] === 0 && n[0] > H.minX && n[0] < H.maxX && n[1] > H.minZ && n[1] < H.maxZ },
-    guard: MCFG.guard, items: MCFG.items,
+    wardrobe: WARDROBE, nav: { nodes: NAV_NODES, stairs: NAV_STAIRS, indoor: (n) => n[0] > H.minX && n[0] < H.maxX && n[1] > H.minZ && n[1] < H.maxZ },
+    guard: MCFG.guard, guard2: MCFG.guard2, alarmPosts: MCFG.alarmPosts, items: MCFG.items,
     roomAt, floorIndex,
     floorY: (x, z, yHint = 0) => floors.floorY(x, z, yHint),
     onRamp: (x, z) => floors.onRamp(x, z),
@@ -326,6 +329,20 @@ export function buildMansion() {
         if (x >= b.minX + margin && x <= b.maxX - margin && z >= b.minZ + margin && z <= b.maxZ - margin) best = b.top;
       }
       return best;
+    },
+    // How much of a noise's radius reaches from a to b: 1 in the open, occludedK through a wall or a
+    // closed door, floorK through the slab (through the stair well: as through a wall).
+    soundK(ax, az, bx, bz, ay = 0, by = ay) {
+      const fa = floorIndex(ay), fb = floorIndex(by);
+      if (fa !== fb) {
+        // the straight line between them crosses the well, or both are next to it: the sound goes round the slab
+        const t = 0.5, mx = ax + (bx - ax) * t, mz = az + (bz - az) * t;
+        const nearWell = (x, z) => x >= W.minX - 1.5 && x <= W.maxX + 1.5 && z >= W.minZ - 1.5 && z <= W.maxZ + 1.5;
+        return inWell(mx, mz) || (nearWell(ax, az) && nearWell(bx, bz)) ? CFG_HEARING.occludedK : MCFG.hearing.floorK;
+      }
+      if (walls[fa].segmentBlocked(ax, az, bx, bz)) return CFG_HEARING.occludedK;
+      for (const d of doors) if (d.floor === fa && d.blocksSegment(ax, az, bx, bz)) return CFG_HEARING.occludedK;
+      return 1;
     },
     // Sound between two points goes through a wall or a closed door (of the floor the points are on).
     soundOccluded(ax, az, bx, bz, ay = 0, by = ay) {

@@ -19,7 +19,7 @@ export function newRound() {
   applyDifficulty(G.difficulty, G.contract);
   G.verdict = null; G.boardPage = 'contract';
   if (summary) { summary.hide(); board.mesh.visible = true; }
-  loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); G.alert.reset();
+  loot.reset(); hands.reset(); level.reset(); for (const g of G.guards || [patrol]) g.reset(); lurker.reset(); G.alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
   G.caughtT = -1; G.resultT = -1;
   board.placeAtStand();
@@ -34,13 +34,13 @@ export function newRound() {
 export function setContract(id) {
   if (G.round.phase !== 'ready') return;
   G.contract = contractById(id); G.contractId = G.contract.id; saveSetting('contract', G.contractId);
-  applyDifficulty(G.difficulty, G.contract); G.patrol.reset(); G.lurker.reset(); G.round.reset();
+  applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); G.lurker.reset(); G.round.reset();
   syncStartScreen(); G.boardDirty = true;
 }
 export function setDifficulty(id) {
   if (G.round.phase !== 'ready') return;
   G.difficulty = id; saveSetting('difficulty', id);
-  applyDifficulty(G.difficulty, G.contract); G.patrol.reset(); G.lurker.reset(); G.round.reset();
+  applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); G.lurker.reset(); G.round.reset();
   syncStartScreen(); G.boardDirty = true;
 }
 async function calibrateInVR() {

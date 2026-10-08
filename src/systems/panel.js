@@ -19,7 +19,7 @@ export const panel = {
       const held = hands.heldItems()[0];
       const T = loot.tally();
       const dragging = drags.left || drags.right;
-      const st = stealthState(player, level, patrol);
+      const st = stealthState(player, level, G.guards || patrol);
       if (st.hidden && !G.wasHidden && G.inVR) xrIn.pulse('left', 0.15, 20);   // a small tick: you are hidden
       if (st.hidden && !G.wasHidden && !G.paused) fx('hidden');
       G.wasHidden = st.hidden;

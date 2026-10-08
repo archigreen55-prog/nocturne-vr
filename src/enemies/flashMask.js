@@ -12,6 +12,12 @@ export const flashUniforms = {
   uFlashBands: { value: Array.from({ length: MAX }, () => new THREE.Vector2(-1, 50)) },   // y range of each room (W6: floors)
   uFlashCount: { value: 0 },
   uFlashOutside: { value: 0 },
+  // the second guard's hand lamp (W6): its own rooms, applied to the point light with this index
+  uLampRooms: { value: Array.from({ length: MAX }, () => new THREE.Vector4()) },
+  uLampBands: { value: Array.from({ length: MAX }, () => new THREE.Vector2(-1, 50)) },
+  uLampCount: { value: 0 },
+  uLampOutside: { value: 0 },
+  uLampIndex: { value: -1 },
 };
 
 // the map this page runs (its rooms, the openings between them, the house's outline): setLevel()
@@ -25,13 +31,31 @@ uniform vec4 uFlashRooms[${MAX}];
 uniform vec2 uFlashBands[${MAX}];
 uniform int uFlashCount;
 uniform float uFlashOutside;
+uniform vec4 uLampRooms[${MAX}];
+uniform vec2 uLampBands[${MAX}];
+uniform int uLampCount;
+uniform float uLampOutside;
+uniform int uLampIndex;
 varying vec3 vFlashPos;
+bool flashOutside(vec3 p) {
+  return p.x < ${level.house.minX.toFixed(2)} || p.x > ${level.house.maxX.toFixed(2)} || p.z < ${level.house.minZ.toFixed(2)} || p.z > ${level.house.maxZ.toFixed(2)};
+}
 float flashMask(vec3 p) {
-  if (uFlashOutside > 0.5 && (p.x < ${level.house.minX.toFixed(2)} || p.x > ${level.house.maxX.toFixed(2)} || p.z < ${level.house.minZ.toFixed(2)} || p.z > ${level.house.maxZ.toFixed(2)})) return 1.0;
+  if (uFlashOutside > 0.5 && flashOutside(p)) return 1.0;
   for (int i = 0; i < ${MAX}; i++) {
     if (i >= uFlashCount) break;
     vec4 r = uFlashRooms[i];
     vec2 b = uFlashBands[i];
+    if (p.x >= r.x && p.x <= r.z && p.z >= r.y && p.z <= r.w && p.y >= b.x && p.y <= b.y) return 1.0;
+  }
+  return 0.0;
+}
+float lampMask(vec3 p) {
+  if (uLampOutside > 0.5 && flashOutside(p)) return 1.0;
+  for (int i = 0; i < ${MAX}; i++) {
+    if (i >= uLampCount) break;
+    vec4 r = uLampRooms[i];
+    vec2 b = uLampBands[i];
     if (p.x >= r.x && p.x <= r.z && p.z >= r.y && p.z <= r.w && p.y >= b.x && p.y <= b.y) return 1.0;
   }
   return 0.0;
@@ -53,7 +77,9 @@ export function maskLit(material) {
     addVarying(shader);
     const chunk = THREE.ShaderChunk.lights_fragment_begin.replace(
       'getSpotLightInfo( spotLight, geometryPosition, directLight );',
-      'getSpotLightInfo( spotLight, geometryPosition, directLight );\n\t\tdirectLight.color *= flashMask( vFlashPos );');
+      'getSpotLightInfo( spotLight, geometryPosition, directLight );\n\t\tdirectLight.color *= flashMask( vFlashPos );')
+      .replace('getPointLightInfo( pointLight, geometryPosition, directLight );',
+        'getPointLightInfo( pointLight, geometryPosition, directLight );\n\t\tif ( UNROLLED_LOOP_INDEX == uLampIndex ) directLight.color *= lampMask( vFlashPos );');
     shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', chunk);
   };
   material.customProgramCacheKey = () => 'flashmask-lit';
@@ -83,8 +109,8 @@ export function maskScene(scene, lv) {
 }
 
 // Update the mask for the patrol at (x, z) on the floor at height y; doors: level.doors (open =
-// swung more than ~15°).
-export function updateFlashMask(x, z, doors, y = 0) {
+// swung more than ~15°). set 1 = the second guard's hand lamp (W6).
+export function updateFlashMask(x, z, doors, y = 0, set = 0) {
   const here = level.roomAt(x, z, y);
   const floor = level.floorIndex ? level.floorIndex(y) : 0;
   const rooms = new Set([here]);
@@ -98,14 +124,15 @@ export function updateFlashMask(x, z, doors, y = 0) {
     if (open) rooms.add(a === here ? b : a);
   }
   const U = flashUniforms;
+  const R = set ? U.uLampRooms.value : U.uFlashRooms.value, Bd = set ? U.uLampBands.value : U.uFlashBands.value;
   let n = 0;
-  U.uFlashOutside.value = level.outside.some((name) => rooms.has(name)) ? 1 : 0;
+  (set ? U.uLampOutside : U.uFlashOutside).value = level.outside.some((name) => rooms.has(name)) ? 1 : 0;
   for (const name of rooms) {
     const r = byName[name];
     if (!r || n >= MAX) continue;
-    U.uFlashBands.value[n].set(r.yMin == null ? -1 : r.yMin, r.yMax == null ? 50 : r.yMax);
-    U.uFlashRooms.value[n++].set(r.minX, r.minZ, r.maxX, r.maxZ);
+    Bd[n].set(r.yMin == null ? -1 : r.yMin, r.yMax == null ? 50 : r.yMax);
+    R[n++].set(r.minX, r.minZ, r.maxX, r.maxZ);
   }
-  U.uFlashCount.value = n;
+  (set ? U.uLampCount : U.uFlashCount).value = n;
   return rooms;
 }

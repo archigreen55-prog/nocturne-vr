@@ -88,7 +88,7 @@ export class Brain {
     const mods = { hearK: h.hearK || 1, sightK: h.sightK || 1, fovK: h.fovK || 1 };
     switch (h.id) {
       case 'tea': case 'tea2': case 'tea0':
-        q.push({ type: 'walk', to: h.stand, label: S.guard.act.kettle, onStart: say(S.guard.say.tea) });
+        q.push({ type: 'walk', to: h.stand, label: S.guard.act.kettle, onStart: say(h.say || S.guard.say.tea) });
         q.push({ type: 'wait', t: h.dur, face: h.face, label: h.label, mods, mask: h.mask,
           onStart: () => this.env.sound('kettle', h.stand[0], h.stand[1], { dur: h.dur, whistleAt: h.whistleAt, whistleFor: h.whistleFor }) });
         break;

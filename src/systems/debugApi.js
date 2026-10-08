@@ -20,8 +20,8 @@ export function exposeDebugApi(simulate) {
   const g = G;
   window.__game = {
     THREE, CFG, renderer: g.renderer, scene: g.scene, camera: g.camera, player: g.player, level: g.level, mic: g.mic, comfort: g.comfort, xrIn: g.xrIn, wrist: g.wrist, perf: g.perf, VERSION, flash, goHome, useDoor, nearestDoor,
-    loot: g.loot, hands: g.hands, noise: g.noise, nav: g.nav, alert: g.alert, patrol: g.patrol, lurker: g.lurker, board: g.board, round: g.round, scream: g.scream, breath: g.breath, pointer: g.pointer, newRound, pressBoard, zone: g.zone, flashUniforms,
-    get speakT() { return g.speakT; }, get drags() { return g.drags; }, stealthState, setContract, setDifficulty,
+    loot: g.loot, hands: g.hands, noise: g.noise, nav: g.nav, alert: g.alert, patrol: g.patrol, patrol2: g.patrol2, guards: g.guards, lurker: g.lurker, board: g.board, round: g.round, scream: g.scream, breath: g.breath, pointer: g.pointer, newRound, pressBoard, zone: g.zone, flashUniforms,
+    get speakT() { return g.speakT; }, get guardLine() { return g.guardLine; }, get guardLineT() { return g.guardLineT; }, get drags() { return g.drags; }, stealthState, setContract, setDifficulty,
     get verdict() { return g.verdict; }, get contract() { return g.contract; }, get difficulty() { return g.difficulty; }, get calib() { return g.calib; }, get calibNotes() { return g.calibNotes; },
     get inVR() { return g.inVR; }, get playing() { return g.playingDesktop; }, set playing(v) { g.playingDesktop = v; },
     get MODE() { return g.MODE; }, frameStats: g.frameStats, reportText, touch: g.touch, pause2D, rotateBlocked, hud: g.hud, menu: g.menu, summary: g.summary, feedback: g.feedback, pauseOpen, pauseResume, get paused() { return g.paused; }, get audio() { return existingAudioContext(); }, playGame, siren: g.siren, start: g.start, quality: g.quality, gyro: g.gyro, points: g.points, get simT() { return g.simT; }, caught, get caughtT() { return g.caughtT; },

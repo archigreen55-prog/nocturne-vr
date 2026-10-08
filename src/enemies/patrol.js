@@ -24,44 +24,66 @@ export class Patrol {
   // env: { level, nav, alert, listener() -> { x, z } }
   constructor(env) {
     this.env = env;
+    const GC = env.guard || {};            // the map's description of this guard (W6): colours, a lamp instead of the flashlight
+    const COAT = GC.coat || 0x2f3b52, CAP = GC.cap || 0x1d2433;
     this.group = new THREE.Group();
-    this.group.name = 'patrol';
+    this.group.name = GC.id ? `patrol ${GC.id}` : 'patrol';
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
     // body: legs, coat, one arm hanging
     const B = new Builder();
     for (const x of [-0.11, 0.11]) B.box(x - 0.07, 0, -0.08, x + 0.07, 0.82, 0.08, 0x23262e);
     for (const x of [-0.11, 0.11]) B.box(x - 0.08, 0, -0.14, x + 0.08, 0.07, 0.08, 0x121316);
-    B.box(-0.24, 0.8, -0.15, 0.24, 1.44, 0.15, 0x2f3b52);
+    B.box(-0.24, 0.8, -0.15, 0.24, 1.44, 0.15, COAT);
     B.box(-0.245, 0.86, -0.155, 0.245, 0.92, 0.155, 0x111318);
-    B.box(-0.34, 0.86, -0.06, -0.24, 1.42, 0.06, 0x2f3b52);
+    B.box(-0.34, 0.86, -0.06, -0.24, 1.42, 0.06, COAT);
     B.box(-0.33, 0.78, -0.05, -0.25, 0.86, 0.05, 0xd9c9b0);
     this.body = B.mesh(mat);
     // upper: big head, cap, face, flashlight arm (turns with the gaze)
     const U = new Builder();
     U.add(new THREE.SphereGeometry(0.21, 14, 10).translate(0, 1.66, 0), 0xd9c9b0);
-    U.cyl(0.215, 0.215, 0.09, 0, 1.78, 0, 0x1d2433, 14);
-    U.box(-0.14, 1.78, -0.33, 0.14, 1.8, -0.18, 0x1d2433);
+    U.cyl(0.215, 0.215, 0.09, 0, 1.78, 0, CAP, 14);
+    U.box(-0.14, 1.78, -0.33, 0.14, 1.8, -0.18, CAP);
     for (const x of [-0.075, 0.075]) U.add(new THREE.SphereGeometry(0.028, 8, 6).translate(x, 1.7, -0.19), 0x0b0b0d);
     U.add(new THREE.ConeGeometry(0.045, 0.12, 8).rotateX(-Math.PI / 2).translate(0, 1.64, -0.24), 0xc9a890);
     U.box(-0.08, 1.54, -0.2, 0.08, 1.56, -0.18, 0x5a2a2a);
-    U.box(0.24, 1.26, -0.45, 0.34, 1.36, 0.05, 0x2f3b52);
-    U.add(new THREE.CylinderGeometry(0.035, 0.03, 0.2, 10).rotateX(Math.PI / 2).translate(0.29, 1.31, -0.52), 0x16181c);
+    U.box(0.24, 1.26, -0.45, 0.34, 1.36, 0.05, COAT);
+    if (!GC.lamp) U.add(new THREE.CylinderGeometry(0.035, 0.03, 0.2, 10).rotateX(Math.PI / 2).translate(0.29, 1.31, -0.52), 0x16181c);
+    else U.add(new THREE.CylinderGeometry(0.06, 0.07, 0.22, 8).translate(0.29, 1.2, -0.5), 0x2a2a30);   // a hand lamp
     this.upper = U.mesh(mat);
     this.group.add(this.body, this.upper);
-    // flashlight: a real spot light + a faint visible beam
-    this.spot = new THREE.SpotLight(0xfff0d0, 30, 14, 0.36, 0.45, 1.4);
-    this.spot.position.set(0.29, 1.31, -0.62);
-    this.spotTarget = new THREE.Object3D();
-    this.spotTarget.position.set(0.29, 0.1, -6);
-    this.spot.target = this.spotTarget;
-    this.upper.add(this.spot, this.spotTarget);
-    const cone = new THREE.ConeGeometry(1.25, 5, 20, 1, true);
-    cone.translate(0, -2.5, 0);
-    cone.rotateX(Math.PI / 2 - 0.23);
-    cone.translate(0.29, 1.31, -0.62);
-    this.beam = new THREE.Mesh(cone, new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    this.beam.name = 'flashlight beam';
-    this.upper.add(this.beam);
+    this.lampR = 0;
+    this.sightK = GC.sightK || 1;   // W6: the second guard sees a little worse in the dark
+    if (GC.lamp) {
+      // a hand lamp: a point light around it (masked by its rooms, see enemies/flashMask.js) and a halo
+      // you can see from behind a corner; no spot light, no beam (plan-W6 §3.2, §6)
+      this.lamp = new THREE.PointLight(0xffd9a0, GC.lamp.intensity || 2.2, GC.lamp.distance || 7, 1.6);
+      this.lamp.position.set(0.29, 1.25, -0.5);
+      this.lampR = GC.lamp.lit || 3;
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,225,170,0.9)'); grad.addColorStop(0.4, 'rgba(255,200,120,0.35)'); grad.addColorStop(1, 'rgba(255,180,90,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+      this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }));
+      this.halo.scale.set(0.9, 0.9, 1);
+      this.halo.position.set(0.29, 1.25, -0.5);
+      this.upper.add(this.lamp, this.halo);
+      this.spot = null; this.beam = null;
+    } else {
+      // flashlight: a real spot light + a faint visible beam
+      this.spot = new THREE.SpotLight(0xfff0d0, 30, 14, 0.36, 0.45, 1.4);
+      this.spot.position.set(0.29, 1.31, -0.62);
+      this.spotTarget = new THREE.Object3D();
+      this.spotTarget.position.set(0.29, 0.1, -6);
+      this.spot.target = this.spotTarget;
+      this.upper.add(this.spot, this.spotTarget);
+      const cone = new THREE.ConeGeometry(1.25, 5, 20, 1, true);
+      cone.translate(0, -2.5, 0);
+      cone.rotateX(Math.PI / 2 - 0.23);
+      cone.translate(0.29, 1.31, -0.62);
+      this.beam = new THREE.Mesh(cone, new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      this.beam.name = 'flashlight beam';
+      this.upper.add(this.beam);
+    }
     // "?" / "!" above the head
     this.markCanvas = document.createElement('canvas');
     this.markCanvas.width = this.markCanvas.height = 128;
@@ -125,10 +147,12 @@ export class Patrol {
     this.speed = 0;
     this.doorWait = 0;
     this.stuckT = 0; this.stuckX = x; this.stuckZ = z;
+    this.stay = false;
     this.occT = 0;
     this.repathT = 0;
     this.seenCount = 0;
     this.reactAt = null;
+    this.stay = false;        // posted at an exit during a full alarm (W6: the second guard)
     this.setMark(null);
     this.drawBar(0);
     this.place();
@@ -169,20 +193,20 @@ export class Patrol {
   goTo(x, z, toFloor) { this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z]; }
   get floor() { return this.env.level.floorIndex ? this.env.level.floorIndex(this.y) : 0; }
 
-  investigate(x, z) {
+  investigate(x, z, f) {
     if (this.state !== 'investigate' && this.state !== 'look') playGrunt(this.voice, 'curious');
     this.state = this.env.alert.full ? 'hunt' : 'investigate';
-    this.goTo(x, z);
+    this.goTo(x, z, f);
   }
 
   // Noticed something at (x, z): stop, turn the head towards it for CFG.patrol.reactDelay s,
   // then "?" and come to look. Already curious: go straight there.
-  react(x, z) {
+  react(x, z, f) {
     this.interrupt();
-    if (this.state === 'investigate' || this.state === 'look') { this.investigate(x, z); return; }
+    if (this.state === 'investigate' || this.state === 'look') { this.investigate(x, z, f); return; }
     if (this.state !== 'react') this.timer = 0;
     this.state = 'react';
-    this.reactAt = [x, z];
+    this.reactAt = [x, z, f];
   }
 
   // Drop the calm plan (stand up from the armchair, forget the doors to close).
@@ -194,12 +218,20 @@ export class Patrol {
     this.maskR = 0;
   }
 
-  hunt(x, z) {
+  hunt(x, z, f) {
     if (this.state === 'chase') return;
     this.interrupt();
     this.state = 'hunt';
-    let f;
     if (x === undefined) [x, z, f] = this.env.nav.randomIndoor();
+    this.goTo(x, z, f);
+  }
+
+  // Full alarm with two guards (W6): stand at an exit and watch it until the alarm is over.
+  post(x, z, f) {
+    if (this.state === 'chase') return;
+    this.interrupt();
+    this.stay = true;
+    this.state = 'hunt';
     this.goTo(x, z, f);
   }
 
@@ -207,6 +239,7 @@ export class Patrol {
     this.interrupt();
     if (this.state !== 'chase') { playGrunt(this.voice, 'alarm'); this.seenCount++; }
     this.state = 'chase';
+    this.stay = false;
     this.lostT = 0;
     this.lastSeen = { x: player.head.x, z: player.head.z };
     this.env.alert.setFull(S.cause.seen, player.head.x, player.head.z);
@@ -214,27 +247,39 @@ export class Patrol {
   }
 
   // Full alarm raised elsewhere (a shout, the timer): run to where it came from.
-  onAlarm(x, z) {
+  onAlarm(x, z, f) {
     this.env.sound('radio');
     this.env.say(S.guard.say.radio);
     if (this.state === 'chase') return;
-    this.hunt(x, z);
+    this.hunt(x, z, f);
   }
 
-  // A noise event; returns true if heard.
-  hear(e) {
-    if (e.source === 'patrol') return false;
-    const d = Math.hypot(e.x - this.x, e.z - this.z);
+  // A noise event; returns true if heard (and reacts to it).
+  hear(e, ey) {
+    if (!this.audible(e, ey)) return false;
+    this.reactTo(e, ey);
+    return true;
+  }
+  // How loud a noise is to it: 0 = not heard, up to 1 right next to it. ey: the height of the noise
+  // (W6: floors; a noise on another floor is muffled by the slab, except through the stair well).
+  audible(e, ey = 0) {
+    if (e.source === 'patrol') return 0;
+    const d = Math.hypot(e.x - this.x, e.z - this.z, ey - this.y);
     // difficulty, habits (tea, toilet, phone: hears worse), a whistling kettle next to it
     let r = e.radius * CFG.hearing.radiusK * (this.mods && this.mods.hearK ? this.mods.hearK : 1);
     if (this.maskR && d < this.maskR) r *= CFG.hearing.maskK;
-    if (d > r) return false;
-    const occluded = this.env.level.soundOccluded(this.x, this.z, e.x, e.z);
-    if (d > r * (occluded ? CFG.hearing.occludedK : 1)) return false;
-    if (this.state === 'chase') return true;
-    if (this.env.alert.full) this.hunt(e.x, e.z);
-    else this.react(e.x, e.z);
-    return true;
+    if (d > r) return 0;
+    const L = this.env.level;
+    const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? CFG.hearing.occludedK : 1);
+    if (d > r * k) return 0;
+    return Math.max(0.01, 1 - d / (r * k));
+  }
+  // React to a noise it heard: come to look, or hunt there during a full alarm.
+  reactTo(e, ey = 0) {
+    if (this.state === 'chase') return;
+    const f = this.env.level.floorIndex ? this.env.level.floorIndex(ey) : undefined;
+    if (this.env.alert.full) this.hunt(e.x, e.z, f);
+    else this.react(e.x, e.z, f);
   }
 
   // ---------- per frame ----------
@@ -257,7 +302,7 @@ export class Patrol {
         break;
       case 'react':
         speed = 0; this.speed = 0;
-        if (this.timer >= P.reactDelay) this.investigate(...this.reactAt);
+        if (this.timer >= P.reactDelay) this.investigate(this.reactAt[0], this.reactAt[1], this.reactAt[2]);
         break;
       case 'investigate':
         speed = P.investigate;
@@ -270,7 +315,8 @@ export class Patrol {
       case 'look':
         speed = 0; look = true;
         if (this.timer > (alert.full ? 2 : P.lookAround)) {
-          if (alert.full) this.hunt();
+          if (alert.full && this.stay) this.timer = 0;   // posted at an exit: keeps looking around there
+          else if (alert.full) this.hunt();
           else {   // nobody there: check the hiding spots nearby, then back to its own plans
             this.state = 'task'; this.queue.length = 0; this.timer = 0;
             if (this.goal) this.brain.afterInvestigate(this.goal[0], this.goal[1]);
@@ -292,7 +338,8 @@ export class Patrol {
       }
     }
     const step = this.state === 'task' ? this.queue[0] : null;
-    alert.checking = this.state !== 'task' || !!(step && step.search);
+    const checking = this.state !== 'task' || !!(step && step.search);
+    alert.checking = this.env.secondary ? alert.checking || checking : checking;   // W6: two guards share the flag
     // on the phone: murmur now and then
     if (step && step.talk) { this.talkT -= dt; if (this.talkT <= 0) { this.talkT = 2 + Math.random(); this.env.sound('murmur'); } }
 
@@ -345,7 +392,7 @@ export class Patrol {
     if (!st.started) {
       st.started = true; this.timer = 0;
       if (st.onStart) st.onStart();
-      if (st.type === 'walk') this.goTo(st.to[0], st.to[1]);
+      if (st.type === 'walk') this.goTo(st.to[0], st.to[1], st.to[2]);
       if (st.sit) { this.standBack = [this.x, this.z]; this.x = st.sit[0]; this.z = st.sit[1]; this.sitting = true; }
     }
     this.mods = st.mods || null;
@@ -445,10 +492,10 @@ export class Patrol {
     const dx = hx - this.x, dz = hz - this.z, d = Math.hypot(dx, dz, (player.floorY || 0) - this.y);   // a floor above is far
     const gaze = this.heading + this.headYaw;
     const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), gaze));
-    // light: in the flashlight beam or next to a lamp you are seen further
-    const lit = ang < P.beamHalf || nearLamp(hx, hz);
+    // light: in the flashlight beam (or by its hand lamp) or next to a lamp you are seen further
+    const lit = (this.lampR ? d < this.lampR : ang < P.beamHalf) || nearLamp(hx, hz);
     const M = this.mods || {};
-    const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1);
+    const range = P.sight * this.sightK * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1);
     this.visible = false;
     // crouched, it has to see your face, not just the top of your head behind the furniture
     if (d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz)) this.visible = true;

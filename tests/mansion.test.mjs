@@ -241,3 +241,70 @@ test('mansion (M2): the flashlight mask lights the guard\'s floor only (the stai
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// ---------- M3: two guards, the radio, hearing between floors ----------
+test('mansion (M3): two guards — Zhora walks his upstairs rounds, comes down for coffee and goes back up, Valera keeps downstairs; the radio names both', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  const r = await page.evaluate(() => {
+    const g = window.__game, trace = [], lines = new Set();
+    g.player.teleport(18, 10, 0);   // far away in the garden
+    for (let i = 0; i < 330; i++) {
+      g.sim(1);
+      if (g.guardLineT > 0) lines.add(g.guardLine);
+      if (i % 10 === 0) trace.push({ v: [+g.patrol.x.toFixed(1), +g.patrol.z.toFixed(1), g.patrol.y], z: [+g.patrol2.x.toFixed(1), +g.patrol2.z.toFixed(1), +g.patrol2.y.toFixed(2), g.patrol2.state, g.patrol2.activity] });
+    }
+    return { trace, lines: [...lines], lamp: g.flashUniforms.uLampIndex.value, lampLight: !!g.patrol2.lamp, spot: !!g.patrol2.spot, phase: g.round.phase };
+  });
+  assert.equal(r.phase, 'heist');
+  assert.ok(r.lampLight && !r.spot && r.lamp === 3, `Zhora carries a lamp, not a flashlight; its point light is masked by index 3: ${JSON.stringify([r.lampLight, r.spot, r.lamp])}`);
+  for (const s of r.trace) assert.equal(s.v[2], 0, `Valera stays on the ground floor: ${JSON.stringify(s.v)}`);
+  const ys = r.trace.map((s) => s.z[2]), up = ys.filter((y) => y === 3).length, firstDown = ys.findIndex((y) => y < 1);
+  assert.ok(up >= 12, `Zhora is upstairs most of the time (${up} of ${ys.length} samples): ${JSON.stringify(r.trace.map((s) => s.z))}`);
+  assert.ok(firstDown >= 0, `Zhora came down for coffee at least once: ${JSON.stringify(r.trace.map((s) => s.z))}`);
+  assert.ok(ys.slice(firstDown).some((y) => y === 3), `and went back up afterwards: ${JSON.stringify(r.trace.map((s) => s.z))}`);
+  assert.ok(r.lines.some((l) => l.startsWith('Валера:')) && r.lines.some((l) => l.startsWith('Жора:')), `the radio chatter names both: ${JSON.stringify(r.lines)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('mansion (M3): a noise upstairs reaches Zhora, not Valera through the slab; a noise downstairs reaches the nearer one; a full alarm sends the other guard to the nearest exit; the lamp mask follows Zhora', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  const place = (v, z) => page.evaluate(([v, z]) => {
+    const g = window.__game;
+    for (const [p, at] of [[g.patrol, v], [g.patrol2, z]]) { p.interrupt(); p.state = 'task'; p.x = at[0]; p.z = at[1]; p.y = at[2]; p.path = []; p.meter = 0; p.timer = 0; p.queue.length = 0; p.queue.push({ type: 'wait', t: 30 }); }
+    g.alert.reset();
+  }, [v, z]);
+  // Valera in the hall, Zhora on the gallery right above; the player upstairs makes a step noise
+  await place([0, -8.5, 0], [4, -8.5, 3]);
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(4, -10.5, 0, 3); g.sim(0.1); g.noise.emit(4, -10.5, 5, 'step'); g.sim(0.2); });
+  let st = await page.evaluate(() => { const g = window.__game, s = [g.patrol.state, g.patrol2.state]; g.player.teleport(18, 25, 0); g.sim(0.5); return s; });
+  assert.deepEqual(st, ['task', 'react'], `upstairs noise: Zhora reacts, Valera does not hear it through the slab: ${st}`);
+  // the same noise downstairs, next to Valera
+  await place([0, -8.5, 0], [4, -8.5, 3]);
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, -10.5, 0, 0); g.sim(0.1); g.noise.emit(0, -10.5, 5, 'step'); g.sim(0.2); });
+  st = await page.evaluate(() => { const g = window.__game, s = [g.patrol.state, g.patrol2.state]; g.player.teleport(18, 25, 0); g.sim(0.5); return s; });
+  assert.deepEqual(st, ['react', 'task'], `downstairs noise: Valera reacts, Zhora not: ${st}`);
+  // the lamp mask: Zhora on the gallery -> upstairs rooms (+ the well); the flashlight mask: Valera's floor
+  const masks = await page.evaluate(() => { const g = window.__game, U = g.flashUniforms; g.sim(0.2); return { lamp: Array.from({ length: U.uLampCount.value }, (_, i) => [U.uLampBands.value[i].x, U.uLampBands.value[i].y]), flash: Array.from({ length: U.uFlashCount.value }, (_, i) => [U.uFlashBands.value[i].x, U.uFlashBands.value[i].y]) }; });
+  assert.ok(masks.lamp.length >= 1 && masks.lamp.every(([y0, y1]) => (y0 > 2.5 && y1 > 5) || (y0 < 0 && y1 > 5)), `the lamp lights upstairs rooms: ${JSON.stringify(masks.lamp)}`);
+  assert.ok(masks.flash.every(([y0, y1]) => y0 < 0), `the flashlight lights ground-floor rooms: ${JSON.stringify(masks.flash)}`);
+  // full alarm: Valera sees the player in the hall and chases; Zhora leaves the gallery for the exit nearest to the alarm
+  await page.evaluate(() => { const g = window.__game; if (g.round.phase === 'result') g.newRound(); g.player.teleport(18, 25, 0); g.sim(0.5); });
+  await place([0, -8.5, 0], [4, -8.5, 3]);
+  await page.evaluate(() => { const g = window.__game; g.patrol.heading = Math.PI; g.player.teleport(0, -6.5, 0, 0); g.player.virtualCrouch = false; for (let i = 0; i < 40 && !g.alert.full; i++) g.sim(0.1); });
+  const al = await page.evaluate(() => { const g = window.__game; return { full: g.alert.full, v: g.patrol.state, z: g.patrol2.state, stay: g.patrol2.stay, goal: g.patrol2.goal, posts: g.level.alarmPosts, meter: g.patrol.meter, visible: g.patrol.visible, head: [g.player.head.x, g.player.head.y, g.player.head.z], heading: g.patrol.heading, at: [g.patrol.x, g.patrol.z, g.patrol.y], phase: g.round.phase, caughtT: g.caughtT }; });
+  assert.ok(al.full && al.v === 'chase', `Valera saw and chases: ${JSON.stringify(al)}`);
+  assert.ok(al.z === 'hunt' && al.stay && al.posts.some((p) => Math.abs(p[0] - al.goal[0]) < 0.01 && Math.abs(p[1] - al.goal[1]) < 0.01), `Zhora is posted at an exit: ${JSON.stringify(al)}`);
+  // he gets there (down the stairs) and keeps watching it
+  await page.evaluate(() => { window.__game.player.teleport(18, 25, 0); window.__game.sim(40); });
+  const at = await page.evaluate(() => { const g = window.__game; return { x: g.patrol2.x, z: g.patrol2.z, y: g.patrol2.y, state: g.patrol2.state, stay: g.patrol2.stay, goal: g.patrol2.goal }; });
+  assert.ok(at.y === 0 && Math.hypot(at.x - at.goal[0], at.z - at.goal[1]) < 1.2 && at.stay, `Zhora stands at the exit downstairs: ${JSON.stringify(at)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
