@@ -1,4 +1,5 @@
-// Performance: quality presets, dynamic resolution, the frame cap, board redraws.
+// Performance: quality presets, dynamic resolution, the frame cap, board redraws; the cost of the
+// flashlight's wall test (frame time with the beam on screen, phone).
 import assert from 'node:assert/strict';
 import { devices } from 'playwright';
 import { newContext } from './harness.mjs';
@@ -81,4 +82,35 @@ test('board redraws only when its content changes and it is in view (phone)', as
   await page.waitForFunction((d0) => (window.__game.perf.boardDraws || 0) > d0, d0, { timeout: 8000 });
   assert.deepEqual(errors, []);
   await ctx.close();
+});
+
+// The flashlight stopping at walls (enemies/flashWalls.js) on the phone: a frame with the guard's beam
+// filling the screen, the page with the wall test and the page without it (?flashwalls=off), median of
+// 40 frames each (the test machine draws in software: the times are slow, the ratio is what counts).
+// FLASH_FPS=1 prints the numbers.
+async function beamFrame(query) {
+  const ctx = await newContext(browser, { ...devices['Pixel 7 landscape'] });
+  await ctx.addInitScript(() => localStorage.setItem('nocturne.tutorial', JSON.stringify({ done: true })));
+  const { page, errors } = await open(ctx, base + query);
+  const ms = await page.evaluate(() => {
+    const g = window.__game, gl = g.renderer.getContext(), px = new Uint8Array(4), S = new g.THREE.Vector3(), T = new g.THREE.Vector3();
+    g.renderer.setAnimationLoop(null);
+    g.patrol.spot.getWorldPosition(S); g.patrol.spotTarget.getWorldPosition(T);
+    const fx = T.x - S.x, fz = T.z - S.z, fl = Math.hypot(fx, fz) || 1;
+    g.player.teleport(S.x - fx / fl * 1.2, S.z - fz / fl * 1.2, Math.atan2(-fx, -fz)); g.player.lookPitch = -0.3;
+    g.sim(1 / 72); g.scene.updateMatrixWorld(true);
+    const frame = () => { const t0 = performance.now(); g.renderer.render(g.scene, g.camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return performance.now() - t0; };
+    for (let i = 0; i < 8; i++) frame();
+    const t = Array.from({ length: 40 }, frame).sort((a, b) => a - b);
+    return t[20];
+  });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  return ms;
+}
+test('flashlight wall test: a frame with the beam on screen costs at most 15 % more than without it (phone)', async () => {
+  const off = await beamFrame('?flashwalls=off'), on = await beamFrame('');
+  const info = `without ${off.toFixed(1)} ms (${(1000 / off).toFixed(1)} FPS), with ${on.toFixed(1)} ms (${(1000 / on).toFixed(1)} FPS), +${((on / off - 1) * 100).toFixed(1)} %`;
+  if (process.env.FLASH_FPS) console.log('  flashlight wall test: ' + info);
+  assert.ok(on <= off * 1.15, info);
 });
