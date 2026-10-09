@@ -3,7 +3,8 @@
 // against a per-player calibration into quiet (whisper) / normal / shout.
 import { audioContext, unlockAudio, setAudioSession } from './audio.js';
 import { loadSetting, saveSetting } from '../settings.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 const RATE = 30;               // analyses per second
 const ATTACK = 0.05, RELEASE = 0.3;
@@ -11,9 +12,9 @@ const SHOUT_HOLD = 0.8;        // s the shout label stays after the peak
 const DEFAULT_CAL = { floor: -62, normal: -32 };
 const CONSTRAINTS = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false };
 // readable reasons for a microphone that did not open
-const why = (e) => (e && e.name === 'NotAllowedError' ? 'дозвіл не надано'
-  : e && e.name === 'NotFoundError' ? 'мікрофон не знайдено'
-    : e && e.name === 'NotReadableError' ? 'мікрофон зайнятий іншим застосунком (дзвінок, диктофон) — закрий його й спробуй ще раз'
+const why = (e) => (e && e.name === 'NotAllowedError' ? S.mic.err.denied
+  : e && e.name === 'NotFoundError' ? S.mic.err.notFound
+    : e && e.name === 'NotReadableError' ? S.mic.err.busy
       : String(e && (e.message || e.name) || e));
 // The game's loudness used for the boundaries rises at once, is held GAME_HOLD s after the game was
 // last loud (speaker -> air -> microphone lag, the analyser windows), then falls by at most GAME_FALL
@@ -23,9 +24,9 @@ const why = (e) => (e && e.name === 'NotAllowedError' ? 'дозвіл не на�
 const GAME_HOLD = 0.25, GAME_FALL = 40;
 
 export const LEVELS = {
-  quiet: { label: 'ШЕПІТ', color: '#5fd38d' },
-  normal: { label: 'НОРМАЛЬНО', color: '#ffd166' },
-  shout: { label: 'КРИК!', color: '#ff4d4d' },
+  quiet: { label: S.mic.level.quiet, color: '#5fd38d' },
+  normal: { label: S.mic.level.normal, color: '#ffd166' },
+  shout: { label: S.mic.level.shout, color: '#ff4d4d' },
 };
 
 export class Mic {
@@ -125,7 +126,7 @@ export class Mic {
     if (this.state === 'on' || this.state === 'pending') return this.state;
     const ctx = unlockAudio();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !ctx) {
-      this.state = 'none'; this.error = 'браузер не дає доступу до мікрофона';
+      this.state = 'none'; this.error = S.mic.err.noAccess;
       return this.state;
     }
     this.state = 'pending';
@@ -179,7 +180,7 @@ export class Mic {
       return true;
     } catch (e) {
       this.events.recoverFailed++;
-      if (e && e.name === 'NotAllowedError') { this.state = 'denied'; this.error = 'дозвіл не надано'; }
+      if (e && e.name === 'NotAllowedError') { this.state = 'denied'; this.error = S.mic.err.denied; }
       else this.error = why(e);
       return false;
     } finally { if (this.onChange) this.onChange(); }
@@ -228,10 +229,10 @@ export class Mic {
   get problem() {
     if (this.state !== 'on') return '';
     const ctx = audioContext();
-    if (ctx.state !== 'running') return `аудіо: ${ctx.state}`;
-    if (this.track && this.track.readyState === 'ended') return 'потік мікрофона зупинено';
-    if (this.track && this.track.muted) return 'мікрофон приглушено системою';
-    if (this.covered) return 'Мікрофон закритий? Прибери палець з нижнього краю';
+    if (ctx.state !== 'running') return S.mic.problem.audio(ctx.state);
+    if (this.track && this.track.readyState === 'ended') return S.mic.problem.ended;
+    if (this.track && this.track.muted) return S.mic.problem.muted;
+    if (this.covered) return S.mic.problem.covered;
     return '';
   }
 

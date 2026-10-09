@@ -2,10 +2,11 @@
 // flickering; full alarm or the end of the clock gives escapeTime s to get back to the van.
 // Results: escaped (reached the van during the escape), left (drove off from the board before any
 // alarm), caught, late (the escape time ran out).
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 export const RESULT_TITLES = {
-  left: 'ПОЇХАЛИ', escaped: 'УТЕКЛИ', caught: 'СПІЙМАЛИ', late: 'НЕ ВСТИГЛИ',
+  left: S.result.left, escaped: S.result.escaped, caught: S.result.caught, late: S.result.late,
 };
 
 export class Round {
@@ -46,7 +47,7 @@ export class Round {
     this.cause = cause;
     this.alarmed = true;
     this.escapeLeft = CFG.round.escapeTime;
-    this.env.onMessage(`ТРИВОГА! ${CFG.round.escapeTime} с до фургона`, '#ff5c5c', 4);
+    this.env.onMessage(S.round.alarm(CFG.round.escapeTime), '#ff5c5c', 4);
     this.env.onPhase('escape');
   }
 
@@ -55,7 +56,7 @@ export class Round {
     if (this.phase === 'ready') {
       if (Math.hypot(player.head.x - R.vanZone.x, player.head.z - R.vanZone.z) > R.startDist) {
         this.phase = 'heist';
-        this.env.onMessage('Годинник пішов: 7 хвилин', '#ffd166', 3);
+        this.env.onMessage(S.round.clockStarts, '#ffd166', 3);
         this.env.onPhase('heist');
       }
     } else if (this.phase === 'heist') {
@@ -63,9 +64,9 @@ export class Round {
       if (this.t >= R.warnAt && !this.warned) {
         this.warned = true;
         this.env.alert.flicker = true;
-        this.env.onMessage('Сусіди щось помітили. Лишилась хвилина', '#ffb347', 4);
+        this.env.onMessage(S.round.warn, '#ffb347', 4);
       }
-      if (this.t >= R.time) this.env.alert.setFull('час');   // no position: the patrol searches the rooms
+      if (this.t >= R.time) this.env.alert.setFull(S.cause.time);   // no position: the patrol searches the rooms
     } else if (this.phase === 'escape') {
       this.t += dt;
       this.escapeLeft -= dt;

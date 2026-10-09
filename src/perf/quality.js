@@ -6,10 +6,12 @@
 // 5 s of play: under 40 FPS it steps one preset down and remembers it. While playing, the dynamic
 // resolution steps the pixel ratio down by 0.125 (to 0.75) after 3 s under 83 % of the target FPS and
 // back up after 10 s at 95 % or more. MSAA is chosen when the page starts (WebGL cannot switch it later).
+import { S } from '../i18n/index.js';
+
 export const PRESETS = {
-  low: { pr: 1.0, aa: false, farLights: false, panning: 'equalpower', name: 'низька' },
-  medium: { pr: 1.25, aa: true, farLights: true, panning: 'HRTF', name: 'середня' },
-  high: { pr: 1.5, aa: true, farLights: true, panning: 'HRTF', name: 'висока' },
+  low: { pr: 1.0, aa: false, farLights: false, panning: 'equalpower', name: S.quality.low },
+  medium: { pr: 1.25, aa: true, farLights: true, panning: 'HRTF', name: S.quality.medium },
+  high: { pr: 1.5, aa: true, farLights: true, panning: 'HRTF', name: S.quality.high },
 };
 export const ORDER = ['low', 'medium', 'high'];
 const STEP = 0.125, FLOOR = 0.75;

@@ -1,7 +1,7 @@
 // Difficulty and contract modifiers over the base numbers in config.js. apply() restores the base
 // values first, so switching back and forth is safe. CFG.run holds the settings of the current round
 // that are not plain numbers elsewhere (habits, missing-loot rules, shout rule, guard read-out).
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 
 const BASE = JSON.parse(JSON.stringify({ patrol: CFG.patrol, hearing: CFG.hearing, round: CFG.round, lurker: CFG.lurker, mic: CFG.mic, loot: CFG.loot }));
 export const DIFFS = ['easy', 'medium', 'hard'];

@@ -111,161 +111,107 @@
   td:first-child { color: var(--warn); white-space: nowrap; font-weight: 600; }
   #modeline a { color: var(--accent); }
   button.adj { min-width: 48px; padding: 6px 0; font-size: 20px; }
-  /* ---------- phone (src/input/touch.js) ---------- */
-  body:not(.phone-mode) .phone-only, body.phone-mode .pc-only { display: none !important; }
-  body.phone-playing { overscroll-behavior: none; }
-  #touch { position: fixed; inset: 0; z-index: 8; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
-  #touch[hidden] { display: none; }
-  #touch .joy { position: absolute; width: calc(2 * var(--r)); height: calc(2 * var(--r)); margin: calc(-1 * var(--r)) 0 0 calc(-1 * var(--r)); border-radius: 50%; border: 2px solid rgba(201, 211, 227, .35); background: rgba(10, 15, 28, .25); pointer-events: none; }
-  #touch .joy[hidden] { display: none; }
-  #touch .joy-quiet { position: absolute; left: 50%; top: 50%; width: calc(2 * var(--q)); height: calc(2 * var(--q)); margin: calc(-1 * var(--q)) 0 0 calc(-1 * var(--q)); border-radius: 50%; border: 2px dashed rgba(95, 211, 141, .55); }
-  #touch .joy-knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(95, 211, 141, .55); }
-  #touch .joy.loud { border-color: rgba(255, 209, 102, .6); }
-  #touch .joy.loud .joy-knob { background: rgba(255, 209, 102, .75); }
-  #touch .tbtn { position: absolute; font: 700 15px system-ui, sans-serif; color: #e6ecf5; background: rgba(16, 22, 36, .55); border: 2px solid rgba(201, 211, 227, .45); border-radius: 50%; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-  #touch .tbtn[hidden] { display: none; }
-  #touch .tbtn.on { background: rgba(127, 200, 255, .35); }
-  /* right-hand cluster, clear of the iPhone home bar and the notch (safe areas) */
-  #touch { --sr: max(16px, env(safe-area-inset-right)); --sb: max(14px, env(safe-area-inset-bottom)); --st: max(10px, env(safe-area-inset-top)); }
-  #touch .breath { right: var(--sr); bottom: var(--sb); width: 84px; height: 84px; }
-  #touch .breath i { position: absolute; inset: -6px; border-radius: 50%; background: conic-gradient(#c9d3e3 calc(var(--p, 1) * 360deg), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); pointer-events: none; }
-  #touch .breath.holding { border-color: #4fb3ff; color: #9fd4ff; } #touch .breath.holding i { background: conic-gradient(#4fb3ff calc(var(--p, 1) * 360deg), transparent 0); }
-  #touch .breath.cooldown { color: #6a7385; } #touch .breath.cooldown i { background: conic-gradient(#6a7385 calc(var(--p, 1) * 360deg), transparent 0); }
-  #touch .crouch { right: calc(var(--sr) + 100px); bottom: var(--sb); width: 72px; height: 72px; font-size: 13px; }
-  #touch .crouch.active { background: rgba(255, 209, 102, .3); border-color: #ffd166; }
-  #touch .act { right: var(--sr); bottom: calc(var(--sb) + 100px); width: 84px; height: 84px; border-color: #5fd38d; }
-  #touch .door { right: calc(var(--sr) + 100px); bottom: calc(var(--sb) + 88px); width: 72px; height: 72px; border-color: #7fc8ff; }
-  #touch .pause { right: var(--sr); top: var(--st); width: 46px; height: 46px; font-size: 14px; letter-spacing: -2px; }
-  /* ---------- phone HUD, pause menu, round summary (T2) ---------- */
-  #hud, #pausemenu, #summary, #edgeflash { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
-  #hud { position: fixed; inset: 0; z-index: 6; pointer-events: none; color: #e6ecf5; text-shadow: 0 1px 3px #000, 0 0 7px #000;
-    --sl: max(12px, env(safe-area-inset-left)); --sr: max(16px, env(safe-area-inset-right)); --st: max(8px, env(safe-area-inset-top)); --sb: max(16px, env(safe-area-inset-bottom)); }
-  #hud[hidden] { display: none; }
-  #hud .gone, #hud .hud-sub span:empty, #hud .alarm:empty, #hud .goal:empty, #hud .micdb:empty, #hud .hud-msg:empty { display: none; }
-  #hud .hud-tl { position: absolute; left: var(--sl); top: var(--st); display: flex; flex-direction: column; gap: 3px; max-width: 30vw; }
-  #hud .hud-eye { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 700; color: #ffb347; }
-  #hud .hud-eye svg { width: 38px; height: 25px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; filter: drop-shadow(0 1px 2px #000); }
-  #hud .hud-eye .pupil { fill: currentColor; stroke: none; }
-  #hud .hud-eye .lid, #hud .hud-eye .shut { display: none; }
-  #hud .hud-eye[data-eye=half] .lid { display: block; }
-  #hud .hud-eye[data-eye=closed] .almond, #hud .hud-eye[data-eye=closed] .pupil { display: none; }
-  #hud .hud-eye[data-eye=closed] .shut { display: block; }
-  #hud .hud-sub { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; font-weight: 600; color: #b9c4d6; }
-  #hud .hud-tc { position: absolute; left: 50%; top: var(--st); transform: translateX(-50%); text-align: center; max-width: 34vw; line-height: 1.2; }
-  #hud .time { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
-  #hud .alarm { font-size: 13px; font-weight: 800; letter-spacing: .4px; }
-  #hud .goal { font-size: 12.5px; font-weight: 600; }
-  #hud .hud-tr { position: absolute; right: calc(var(--sr) + 58px); top: var(--st); width: clamp(120px, 22vw, 200px); display: flex; flex-direction: column; gap: 3px; text-align: right; }
-  #hud .miclabel { font-size: 15px; font-weight: 800; letter-spacing: .3px; }
-  #hud .bar { position: relative; height: 12px; border-radius: 4px; overflow: hidden; background: #1a2130; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
-  #hud .bar.off { opacity: .35; }
-  #hud .bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; }
-  #hud .bar .zq { background: #1f3b2b; } #hud .bar .zn { background: #3f3a1c; } #hud .bar .zs { background: #4a1c1c; }
-  #hud .bar .fill { top: 3px; bottom: 3px; background: #5fd38d; }
-  #hud .bar .tick { width: 2px; margin-left: -1px; background: #fff; opacity: .85; }
-  #hud .micdb { font-size: 12px; font-weight: 600; color: #6f8396; }
-  #hud .hud-msg { position: absolute; left: 50%; bottom: calc(var(--sb) + 2px); transform: translateX(-50%); max-width: 38vw; text-align: center; font-size: 16px; font-weight: 700; line-height: 1.25; padding: 4px 12px; border-radius: 10px; background: rgba(5, 8, 16, .45); }
-  #edgeflash { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; }
-  #pausemenu, #summary { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; touch-action: none;
-    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
-  #pausemenu { z-index: 12; background: rgba(5, 8, 16, .8); }
-  #summary { z-index: 11; background: rgba(5, 8, 16, .9); }
-  #pausemenu[hidden], #summary[hidden] { display: none; }
-  .scroll { overflow-y: auto; overscroll-behavior: contain; }
-  .pm-card, .sm-card { box-sizing: border-box; max-height: 100%; background: var(--card); border: 1px solid #26314a; border-radius: 14px; padding: 8px 14px; }
-  .pm-card { width: min(640px, 100%); display: flex; flex-direction: column; }
-  .pm-head h2 { margin: 0; font-size: 17px; line-height: 1.25; color: var(--ink); }
-  .pm-note { margin: 1px 0; font-size: 12.5px; color: var(--warn); }
-  .pm-info { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.35; }
-  .pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 5px; touch-action: pan-y; min-height: 0; }
-  .pm-grid .wide, .pm-row.wide { grid-column: 1 / -1; }
-  .pm-btn, .sm-btn { min-height: 42px; padding: 4px 12px; font: 700 15.5px system-ui, sans-serif; border-radius: 12px; border: 2px solid var(--accent); background: transparent; color: var(--accent); touch-action: none; user-select: none; -webkit-user-select: none; }
-  .pm-btn.primary, .sm-btn.primary { background: var(--accent); color: #0a0f1c; }
-  .pm-btn.quiet, .sm-btn.quiet { border-color: #3a4560; color: var(--muted); }
-  .pm-btn.down, .sm-btn.down { background: rgba(127, 200, 255, .35); color: #fff; }
-  .pm-btn.primary.down, .sm-btn.primary.down { background: #cfe9ff; color: #0a0f1c; }
-  .pm-btn:disabled, .sm-btn:disabled { opacity: .4; }
-  .pm-row { display: flex; align-items: stretch; gap: 8px; }
-  .pm-row .step { width: 72px; flex: none; font-size: 22px; }
-  .pm-contract { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 18px; font-weight: 800; color: var(--warn); }
-  .sm-card { overflow-y: auto; display: grid; grid-template-columns: 1.15fr 1fr; gap: 6px 18px; width: min(820px, 100%); border-width: 2px; }
-  .sm-card.good { border-color: #5fd38d; } .sm-card.bad { border-color: #ff5c5c; }
-  .sm-left, .sm-right { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .sm-title { margin: 0; font-size: 32px; letter-spacing: .5px; } .good .sm-title { color: #5fd38d; } .bad .sm-title { color: #ff4d4d; }
-  .sm-money { font-size: 32px; font-weight: 800; } .bad .sm-money { color: #ff9f43; }
-  .sm-sub { font-size: 13px; color: var(--muted); line-height: 1.35; }
-  .sm-list { max-height: 34vh; margin-top: 4px; touch-action: pan-y; }
-  .sm-item { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; line-height: 1.5; color: #c9d3e3; }
-  .sm-item b { color: #5fd38d; } .sm-item.dmg, .sm-item.dmg b { color: #ffb347; }
-  .sm-empty { color: #5a6680; font-size: 14px; }
-  .sm-extra { font-size: 13px; color: var(--muted); }
-  .sm-contract { font-size: 17px; font-weight: 800; color: var(--warn); }
-  .sm-stars { font-size: 40px; line-height: 1.1; color: #ffd166; letter-spacing: 3px; } .sm-stars.none { color: #ff9f43; }
-  .sm-record { font-size: 14px; font-weight: 800; color: #5fd38d; }
-  .sm-scream { font-size: 15px; font-weight: 700; margin: 4px 0; min-height: 20px; }
-  .sm-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
-  .sm-buttons .primary, .sm-buttons .sm-btn:nth-child(2) { grid-column: 1 / -1; }
-  .sm-buttons .quiet { min-height: 42px; font-size: 14px; }
-  #rotate { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; background: #0a0f1c; color: #e6ecf5; font-size: 18px; line-height: 1.5; }
-  body.portrait-block #rotate { display: flex; }
   #version { font-size: 12px; opacity: .55; margin-top: 6px; }
   #debug { position: fixed; left: 8px; top: 8px; font: 12px/1.35 ui-monospace, monospace; color: #fff; background: rgba(0, 0, 0, .55); padding: 4px 8px; border-radius: 4px; white-space: pre; display: none; z-index: 5; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 209, 102, .8); z-index: 5; display: none; pointer-events: none; }
+  #progress textarea { width: 100%; max-width: 560px; box-sizing: border-box; font: 12px/1.35 ui-monospace, monospace; color: var(--ink); background: #10182a; border: 1px solid #26314a; border-radius: 8px; padding: 6px 8px; margin: 6px 0; word-break: break-all; }
+  #privacylink { color: var(--accent); }
   #hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 13px; color: var(--muted); background: rgba(0, 0, 0, .5); padding: 4px 10px; border-radius: 6px; z-index: 5; display: none; }
 </style>
+<link rel="stylesheet" href="src/ui/phone.css?v=0.6.0-pre.9.t5.3">
+<link rel="stylesheet" href="src/ui/tutorial.css?v=0.6.0-pre.9.t5.3">
 <script type="importmap">
 {
   "imports": {
     "three": "./vendor/three-0.186.1.min.js",
     "three/addons/webxr/VRButton.js": "./vendor/three-addons.js?v=0.186.1",
     "three/addons/utils/BufferGeometryUtils.js": "./vendor/three-addons.js?v=0.186.1",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.9",
-    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.9",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.9",
-    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.9",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.9",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.9",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.9",
-    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.9",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.9",
-    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.9",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.9",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.9",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.9",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.9",
-    "./src/game/config.js": "./src/game/config.js?v=0.6.0-pre.9",
-    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.9",
-    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.9",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9",
-    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9",
-    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9",
-    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9",
-    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.9",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.9",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.9",
-    "./src/main.js": "./src/main.js?v=0.6.0-pre.9",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.9",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.9",
-    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.9",
-    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.9",
-    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.9",
-    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.9",
-    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.9",
-    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.9",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.9",
-    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.9",
-    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.9",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.9",
-    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.9",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.9",
-    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.9",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.9",
-    "./src/version.js": "./src/version.js?v=0.6.0-pre.9",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.9",
-    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.9",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.9"
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.9.t5.3",
+    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.9.t5.3",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.9.t5.3",
+    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.9.t5.3",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.9.t5.3",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.9.t5.3",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/contracts.js": "./src/config/contracts.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/difficulty.js": "./src/config/difficulty.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/doors.js": "./src/config/doors.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/guard.js": "./src/config/guard.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/index.js": "./src/config/index.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/items.js": "./src/config/items.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/mic.js": "./src/config/mic.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/noise.js": "./src/config/noise.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/player.js": "./src/config/player.js?v=0.6.0-pre.9.t5.3",
+    "./src/config/round.js": "./src/config/round.js?v=0.6.0-pre.9.t5.3",
+    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/flashWalls.js": "./src/enemies/flashWalls.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.9.t5.3",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.9.t5.3",
+    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.9.t5.3",
+    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.9.t5.3",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9.t5.3",
+    "./src/game/progress.js": "./src/game/progress.js?v=0.6.0-pre.9.t5.3",
+    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9.t5.3",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9.t5.3",
+    "./src/i18n/index.js": "./src/i18n/index.js?v=0.6.0-pre.9.t5.3",
+    "./src/i18n/name.js": "./src/i18n/name.js?v=0.6.0-pre.9.t5.3",
+    "./src/i18n/uk.js": "./src/i18n/uk.js?v=0.6.0-pre.9.t5.3",
+    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9.t5.3",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9.t5.3",
+    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9.t5.3",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.9.t5.3",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.9.t5.3",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.9.t5.3",
+    "./src/main.js": "./src/main.js?v=0.6.0-pre.9.t5.3",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.9.t5.3",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.9.t5.3",
+    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.9.t5.3",
+    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.9.t5.3",
+    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.9.t5.3",
+    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.9.t5.3",
+    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.9.t5.3",
+    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/board.js": "./src/systems/board.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/brightness.js": "./src/systems/brightness.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/contract.js": "./src/systems/contract.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/controls.js": "./src/systems/controls.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/debugApi.js": "./src/systems/debugApi.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/desktop.js": "./src/systems/desktop.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/doors.js": "./src/systems/doors.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/flashlight.js": "./src/systems/flashlight.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/flatScreen.js": "./src/systems/flatScreen.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/heist.js": "./src/systems/heist.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/index.js": "./src/systems/index.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/messages.js": "./src/systems/messages.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/panel.js": "./src/systems/panel.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/phone.js": "./src/systems/phone.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/player.js": "./src/systems/player.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/progressCode.js": "./src/systems/progressCode.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/render.js": "./src/systems/render.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/rig.js": "./src/systems/rig.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/startScreen.js": "./src/systems/startScreen.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/state.js": "./src/systems/state.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/stats.js": "./src/systems/stats.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/tutorial.js": "./src/systems/tutorial.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/vr.js": "./src/systems/vr.js?v=0.6.0-pre.9.t5.3",
+    "./src/systems/world.js": "./src/systems/world.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/tutorial.js": "./src/ui/tutorial.js?v=0.6.0-pre.9.t5.3",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.9.t5.3",
+    "./src/version.js": "./src/version.js?v=0.6.0-pre.9.t5.3",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.9.t5.3",
+    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.9.t5.3",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.9.t5.3"
   }
 }
 </script>
@@ -274,7 +220,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.6.0-pre.9';
+    const PAGE_VERSION = '0.6.0-pre.9.t5.3';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -287,26 +233,25 @@
 </head>
 <body>
 <div id="overlay"><div class="card">
-  <h1>Nocturne</h1>
-  <p class="muted">Прототип для Meta Quest 3. Нічний будинок, у якому треба рухатись тихо — і говорити теж.<br>
-  Забери цінне за 7 хвилин: зайди з лутом у бурштинове кільце за фургоном — і він сам полетить у кузов. Сторож із ліхтариком чує кроки, двері, падіння — і твій голос. У шафі спальні хтось сидить.</p>
+  <h1 data-game-name></h1>
+  <p class="muted" data-t-html="start.intro"></p>
 
   <p id="modeline" class="muted"></p>
 
-  <h2>1. Мікрофон</h2>
+  <h2 data-t="start.h.mic"></h2>
   <div id="micbox">
     <p id="michold" class="phone-only muted" style="margin-top:0"></p>
     <div class="row">
-      <button id="micbtn">Дозволити мікрофон</button>
-      <button id="calbtn" disabled>Калібрувати</button>
-      <label><input type="checkbox" id="nomic"> Грати без мікрофона</label>
+      <button id="micbtn" data-t="start.allowMic"></button>
+      <button id="calbtn" disabled data-t="start.calibrateButton"></button>
+      <label><input type="checkbox" id="nomic"><span data-t="start.noMicCheck"></span></label>
       <span id="micstate" class="muted"></span>
     </div>
     <div id="michelp" class="muted"></div>
     <div id="micnote" style="font-size:13px;color:var(--warn)"></div>
     <div id="recstate" class="muted"></div>
     <div id="calstep"></div>
-    <div class="row phone-only"><button id="verifybtn" disabled>Перевірити: шепіт, голос, крик</button><button id="soundtest">Перевірити звук</button></div>
+    <div class="row phone-only"><button id="verifybtn" disabled data-t="start.verifyButton"></button><button id="soundtest" data-t="start.soundTest"></button></div>
     <div id="verifyres" style="font-size:14px"></div>
     <p id="iosnote" class="muted" hidden></p>
     <div class="row">
@@ -315,103 +260,111 @@
     </div>
     <div id="shoutrow" style="display:none">
       <!-- ± buttons, not sliders: on a phone a page swipe that starts on a slider moves it -->
-      <div class="row"><label style="min-width:230px">Межа шепіт / голос: <b id="whisperdb"></b></label>
-        <button class="adj" id="wdn" aria-label="межа шепоту нижче">−</button><button class="adj" id="wup" aria-label="межа шепоту вище">+</button>
-        <span class="muted">шепіт стає «НОРМАЛЬНО»? — «+»</span></div>
-      <div class="row"><label style="min-width:230px">Межа голос / крик: <b id="shoutdb"></b></label>
-        <button class="adj" id="sdn" aria-label="межа крику нижче">−</button><button class="adj" id="sup" aria-label="межа крику вище">+</button>
-        <span class="muted">звичайна мова стає «КРИК!»? — «+»</span></div>
-      <div class="row"><button id="adjreset">Скинути зсуви</button><span id="adjnote" class="muted"></span></div>
+      <div class="row"><label style="min-width:230px"><span data-t="start.whisperLimit"></span><b id="whisperdb"></b></label>
+        <button class="adj" id="wdn" aria-label="" data-t-attr="aria-label:start.aria.whisperDown">−</button><button class="adj" id="wup" aria-label="" data-t-attr="aria-label:start.aria.whisperUp">+</button>
+        <span class="muted" data-t="start.whisperHint"></span></div>
+      <div class="row"><label style="min-width:230px"><span data-t="start.shoutLimit"></span><b id="shoutdb"></b></label>
+        <button class="adj" id="sdn" aria-label="" data-t-attr="aria-label:start.aria.shoutDown">−</button><button class="adj" id="sup" aria-label="" data-t-attr="aria-label:start.aria.shoutUp">+</button>
+        <span class="muted" data-t="start.shoutHint"></span></div>
+      <div class="row"><button id="adjreset" data-t="start.adjReset"></button><span id="adjnote" class="muted"></span></div>
     </div>
-    <p class="muted">Калібрування: тиша 3 с → шепіт 3 с → звичайний голос 3.5 с → крик 2.5 с (можна промовчати); на телефоні після тиші ще «звуки гри» 3 с (мовчи, гра зіграє свої звуки). Роби його там, де гратимеш, і так, як гратимеш (у шоломі; телефон — у руці на звичній відстані); у VR те саме є на табло (кнопка «Мікрофон»). Після нього перевір: шепни, скажи, крикни — шкала має показати ШЕПІТ, НОРМАЛЬНО, КРИК!<br>
-    Звук аналізується лише на цьому пристрої й нікуди не передається. Щоб табло могло програти твій крик, гра тримає останні 4 с мікрофона в пам'яті; на диск нічого не пишеться, запис зникає з новим раундом.</p>
+    <p class="muted" data-t-html="start.calibInfo"></p>
   </div>
 
-  <h2>2. Контракт</h2>
+  <h2 data-t="start.h.contract"></h2>
   <div id="settings" style="margin-top:4px">
-    <label>Контракт:<select id="contract"></select></label>
-    <label>Складність:<select id="difficulty"><option value="easy">легкий</option><option value="medium">середній</option><option value="hard">важкий</option></select></label>
+    <label><span data-t="start.label.contract"></span><select id="contract"></select></label>
+    <label><span data-t="start.label.difficulty"></span><select id="difficulty"><option value="easy" data-t="difficulty.easy"></option><option value="medium" data-t="difficulty.medium"></option><option value="hard" data-t="difficulty.hard"></option></select></label>
   </div>
   <p class="muted" id="contractinfo"></p>
 
-  <h2>3. Грати</h2>
+  <h2 data-t="start.h.play"></h2>
   <div id="buttons"><button id="start" class="primary" disabled>Завантаження…</button></div>
   <div id="settings">
-    <label class="pc-only">Віньєтка під час руху:<select id="vignette"></select></label>
-    <label class="pc-only">Поворот ривком:<select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
-    <label class="phone-only">Огляд пальцем:<select id="lookspeed"><option value="slow">повільно</option><option value="normal">звичайно</option><option value="fast">швидко</option></select></label>
-    <label class="phone-only">Індикатори:<select id="hudmode"><option value="full">повні</option><option value="min">мінімальні</option></select></label>
-    <label class="phone-only">Вібрація:<select id="feedback"><option value="auto">вібрація, а без неї спалахи</option><option value="flash">лише спалахи</option><option value="off">вимкнено</option></select></label>
-    <label class="phone-only">Якість:<select id="quality"><option value="auto">авто</option><option value="low">низька</option><option value="medium">середня</option><option value="high">висока</option></select></label>
-    <label class="phone-only">Частота:<select id="fpscap"><option value="60">60 кадрів/с</option><option value="30">30 кадрів/с (економія батареї)</option></select></label>
-    <label class="phone-only">Подих:<select id="breathmode"><option value="hold">утримувати кнопку</option><option value="toggle">тап — почати, тап — закінчити</option></select></label>
+    <label class="pc-only"><span data-t="start.label.vignette"></span><select id="vignette"></select></label>
+    <label class="pc-only"><span data-t="start.label.snap"></span><select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
+    <label class="phone-only"><span data-t="start.label.look"></span><select id="lookspeed"><option value="slow" data-t="settings.look.slow"></option><option value="normal" data-t="settings.look.normal"></option><option value="fast" data-t="settings.look.fast"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.hud"></span><select id="hudmode"><option value="full" data-t="settings.hud.full"></option><option value="min" data-t="settings.hud.min"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.fx"></span><select id="feedback"><option value="auto" data-t="settings.fx.auto"></option><option value="flash" data-t="settings.fx.flash"></option><option value="off" data-t="settings.fx.off"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.quality"></span><select id="quality"><option value="auto" data-t="settings.quality.auto"></option><option value="low" data-t="quality.low"></option><option value="medium" data-t="quality.medium"></option><option value="high" data-t="quality.high"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.fps"></span><select id="fpscap"><option value="60" data-t="settings.fps.fps60"></option><option value="30" data-t="settings.fps.fps30"></option></select></label>
+    <label class="phone-only"><span data-t="start.label.breath"></span><select id="breathmode"><option value="hold" data-t="settings.breath.hold"></option><option value="toggle" data-t="settings.breath.toggle"></option></select></label>
   </div>
-  <div class="row phone-only"><button id="gyrobtn">Гіроскоп: вимкнено</button><span id="qualitynote" class="muted"></span></div>
-  <div class="row phone-only"><button id="phonehome">До фургона</button><button id="phonenew">Новий раунд</button></div>
-  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden>Встановити на головний екран</button><span id="installnote" class="muted"></span></div>
-  <p class="muted">Грай стоячи на вільному місці. Уся ходьба можлива стіком, реальні кроки й присідання теж працюють.</p>
+  <div class="row phone-only"><button id="gyrobtn" data-t="start.gyroOff"></button><span id="qualitynote" class="muted"></span></div>
+  <div class="row phone-only"><button id="phonehome" data-t="menu.home"></button><button id="phonenew" data-t="menu.newRound"></button></div>
+  <div class="row" id="brightrow"><span data-t="bright.label"></span> <b id="brightval"></b>
+    <button class="adj" id="brightdn" aria-label="" data-t-attr="aria-label:bright.down">−</button><button class="adj" id="brightup" aria-label="" data-t-attr="aria-label:bright.up">+</button>
+    <button id="outdoorbtn"></button></div>
+  <p class="muted" id="brighthint"></p>
+  <div class="row" id="extrarow"><button id="tutorialbtn" data-t="tutorial.again"></button><button id="progbtn" data-t="progress.button"></button></div>
+  <div id="progress" hidden>
+    <p class="muted" data-t="progress.about"></p>
+    <div class="row"><button id="progexport" data-t="progress.export"></button><button id="progimport" data-t="progress.import"></button></div>
+    <textarea id="progcode" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" hidden></textarea>
+    <div class="row"><button id="progapply" data-t="progress.apply" hidden></button><span id="prognote" class="muted"></span></div>
+  </div>
+  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden data-t="start.install"></button><span id="installnote" class="muted"></span></div>
+  <p class="muted" data-t="start.standing"></p>
 
-  <h2>Як ховатись</h2>
-  <p class="muted" style="font-size:14px; color:#c9d3e3">
-  1. Присядь (по-справжньому або кнопкою B): стоячи сторож бачить тебе за 5 м, присівши — лише за 2.5 м.<br>
-  2. Ховайся за меблями до рівня очей (диван, стійка, комод, шафа): око на зап'ясті закриється — «Сховався».<br>
-  3. Тримайся темряви: у промені ліхтаря й біля ламп тебе видно в 1.6 раза далі. Смужка над сторожем показує, скільки лишилось до погоні.</p>
+  <h2 data-t="start.h.hide"></h2>
+  <p class="muted" style="font-size:14px; color:#c9d3e3" data-t-html="start.hideHow"></p>
 
   <div class="phone-only">
-  <h2>Телефон</h2>
+  <h2 data-t="start.h.phone"></h2>
   <table>
-    <tr><td>Ліва частина екрана</td><td>ходьба: торкнись і веди. Усередині пунктирного кола — тихо, за ним — кроки чути (коло жовтіє)</td></tr>
-    <tr><td>Права частина екрана</td><td>огляд: веди пальцем</td></tr>
-    <tr><td>Тап по табло</td><td>кнопки табло (контракт, складність, мікрофон, «Поїхати»)</td></tr>
-    <tr><td>Взяти / Покласти</td><td>з'являється, коли предмет у центрі екрана (біля прицілу)</td></tr>
-    <tr><td>Двері</td><td>тап — швидко (скрипить); утримати — повільно й тихо, відпустив — зупинились</td></tr>
-    <tr><td>Присісти</td><td>присісти / встати</td></tr>
-    <tr><td>Подих</td><td>утримати — мікрофон не чути до 6 с (або тап / тап — у налаштуваннях)</td></tr>
-    <tr><td>❚❚</td><td>меню паузи: продовжити, до фургона, новий раунд, контракт, налаштування. Гра сама стає на паузу, коли згортаєш сторінку чи приходить дзвінок</td></tr>
+    <tr><td data-t="controls.phone.k1"></td><td data-t="controls.phone.v1"></td></tr>
+    <tr><td data-t="controls.phone.k2"></td><td data-t="controls.phone.v2"></td></tr>
+    <tr><td data-t="controls.phone.k3"></td><td data-t="controls.phone.v3"></td></tr>
+    <tr><td data-t="controls.phone.k4"></td><td data-t="controls.phone.v4"></td></tr>
+    <tr><td data-t="controls.phone.k5"></td><td data-t="controls.phone.v5"></td></tr>
+    <tr><td data-t="controls.phone.k6"></td><td data-t="controls.phone.v6"></td></tr>
+    <tr><td data-t="controls.phone.k7"></td><td data-t="controls.phone.v7"></td></tr>
+    <tr><td data-t="controls.phone.k8"></td><td data-t="controls.phone.v8"></td></tr>
   </table>
   </div>
   <div class="controls pc-only"><div>
-  <h2>Quest 3</h2>
+  <h2 data-t="start.h.quest"></h2>
   <table>
-    <tr><td>Лівий стік</td><td>ходьба туди, куди дивишся; не до упору — кроки тихі</td></tr>
-    <tr><td>Правий стік ← →</td><td>поворот ривком</td></tr>
-    <tr><td>Grip біля предмета</td><td>взяти / відпустити; великі — двома руками</td></tr>
-    <tr><td>Кільце за фургоном</td><td>зайди туди з лутом у руках — він сам полетить у кузов</td></tr>
-    <tr><td>Тригер на ручці дверей</td><td>тягни двері рукою: повільно — тихо, різко — скрип (підказка на зап'ясті)</td></tr>
-    <tr><td>Тригер біля дверей</td><td>швидко відчинити / зачинити (скрипить)</td></tr>
-    <tr><td>Тригер на табло</td><td>кнопки табло: контракт ◀ ▶, складність, «Мікрофон…» (калібрування у VR)</td></tr>
-    <tr><td>A (утримати)</td><td>затамувати подих: мікрофон не чути до 6 с; відпочинок — пропорційно (до 20 с)</td></tr>
-    <tr><td>B</td><td>присісти / встати (для гри сидячи)</td></tr>
-    <tr><td>X</td><td>FPS на зап'ястку</td></tr>
-    <tr><td>Натиск лівого стіка</td><td>сила віньєтки</td></tr>
-    <tr><td>Y (утримати 1 с)</td><td>перецентрувати й виміряти зріст (стань рівно)</td></tr>
-    <tr><td>Натиск правого стіка 1 с</td><td>повернутися до фургона</td></tr>
+    <tr><td data-t="controls.vr.k1"></td><td data-t="controls.vr.v1"></td></tr>
+    <tr><td data-t="controls.vr.k2"></td><td data-t="controls.vr.v2"></td></tr>
+    <tr><td data-t="controls.vr.k3"></td><td data-t="controls.vr.v3"></td></tr>
+    <tr><td data-t="controls.vr.k4"></td><td data-t="controls.vr.v4"></td></tr>
+    <tr><td data-t="controls.vr.k5"></td><td data-t="controls.vr.v5"></td></tr>
+    <tr><td data-t="controls.vr.k6"></td><td data-t="controls.vr.v6"></td></tr>
+    <tr><td data-t="controls.vr.k7"></td><td data-t="controls.vr.v7"></td></tr>
+    <tr><td data-t="controls.vr.k8"></td><td data-t="controls.vr.v8"></td></tr>
+    <tr><td data-t="controls.vr.k9"></td><td data-t="controls.vr.v9"></td></tr>
+    <tr><td data-t="controls.vr.k10"></td><td data-t="controls.vr.v10"></td></tr>
+    <tr><td data-t="controls.vr.k11"></td><td data-t="controls.vr.v11"></td></tr>
+    <tr><td data-t="controls.vr.k12"></td><td data-t="controls.vr.v12"></td></tr>
+    <tr><td data-t="controls.vr.k13"></td><td data-t="controls.vr.v13"></td></tr>
   </table>
   </div><div>
-  <h2>Клавіатура</h2>
+  <h2 data-t="start.h.keyboard"></h2>
   <table>
-    <tr><td>Клік по сцені</td><td>захопити мишу; клік на табло — кнопка; Esc — меню</td></tr>
-    <tr><td>W A S D</td><td>ходьба (тихо), з пробілом — швидко</td></tr>
-    <tr><td>E</td><td>взяти / покласти предмет; з лутом у кільце за фургоном — летить у кузов</td></tr>
-    <tr><td>Q / T</td><td>двері тихо (повільно) / різко</td></tr>
-    <tr><td>Shift (утримати)</td><td>затамувати подих</td></tr>
-    <tr><td>C</td><td>присісти / встати</td></tr>
-    <tr><td>F</td><td>FPS</td></tr>
-    <tr><td>R / N</td><td>до фургона / новий раунд</td></tr>
+    <tr><td data-t="controls.pc.k1"></td><td data-t="controls.pc.v1"></td></tr>
+    <tr><td data-t="controls.pc.k2"></td><td data-t="controls.pc.v2"></td></tr>
+    <tr><td data-t="controls.pc.k3"></td><td data-t="controls.pc.v3"></td></tr>
+    <tr><td data-t="controls.pc.k4"></td><td data-t="controls.pc.v4"></td></tr>
+    <tr><td data-t="controls.pc.k5"></td><td data-t="controls.pc.v5"></td></tr>
+    <tr><td data-t="controls.pc.k6"></td><td data-t="controls.pc.v6"></td></tr>
+    <tr><td data-t="controls.pc.k7"></td><td data-t="controls.pc.v7"></td></tr>
+    <tr><td data-t="controls.pc.k8"></td><td data-t="controls.pc.v8"></td></tr>
   </table>
   </div></div>
-  <div class="row" style="margin-top:12px"><button id="report">Скопіювати звіт</button><span class="muted">пристрій, версія, FPS, мікрофон, помилки — встав у чат із Claude</span></div>
+  <div class="row" style="margin-top:12px"><button id="report" data-t="menu.report"></button><span class="muted" data-t="start.reportHint"></span></div>
+  <p class="muted"><a id="privacylink" href="privacy.html" target="_blank" rel="noopener" data-t="privacy.link"></a></p>
   <div id="version"></div>
 </div></div>
 <div id="debug"></div>
-<div id="hint">WASD · E взяти/покласти · Q/T двері · Shift подих · C присід · клік на табло · Esc — меню</div>
+<div id="hint" data-t="start.pcHint"></div>
 <div id="crosshair"></div>
 <div id="touch" hidden></div>
 <div id="hud" hidden></div>
 <div id="edgeflash"></div>
 <div id="summary" hidden></div>
 <div id="pausemenu" hidden></div>
-<div id="rotate">Поверни телефон горизонтально.<br><span class="muted" style="font-size:15px">Не повертається? Вимкни блокування орієнтації: на iPhone — у Пункті керування, на Android — «Автоповорот» у верхній шторці.</span></div>
-<script type="module" src="src/main.js?v=0.6.0-pre.9"></script>
+<div id="rotate" data-t-html="rotate"></div>
+<script type="module" src="src/main.js?v=0.6.0-pre.9.t5.3"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@
 // crosshair + click.
 import * as THREE from 'three';
 import { BOARD } from '../world/level.js';
+import { S } from '../i18n/index.js';
 
 const W = 1024, H = 640;
 const SIZE_W = 1.1, SIZE_H = SIZE_W * H / W;
@@ -84,14 +85,14 @@ export class Board {
     g.font = step < 38 ? '25px system-ui, sans-serif' : '28px system-ui, sans-serif';
     if (!list.length) {
       g.textAlign = 'left'; g.fillStyle = '#5a6680';
-      g.fillText('Поки порожньо: зайди з лутом у бурштинове кільце за фургоном.', 50, y0 + 30);
+      g.fillText(S.board.emptyVan, 50, y0 + 30);
       return;
     }
     list.forEach((it, i) => {
       const col = Math.floor(i / rows), row = i % rows;
       const x = 50 + col * 470, y = y0 + 30 + row * step;
       g.textAlign = 'left'; g.fillStyle = it.damaged ? '#ffb347' : '#c9d3e3';
-      g.fillText(`${it.damaged ? '✗' : '✓'} ${it.name}${it.damaged ? ' (пошкодж.)' : ''}`, x, y);
+      g.fillText(`${it.damaged ? '✗' : '✓'} ${it.name}${it.damaged ? S.hud.damagedMark : ''}`, x, y);
       g.textAlign = 'right'; g.fillStyle = it.damaged ? '#ffb347' : '#5fd38d';
       g.fillText(money(it.value), x + 420, y);
     });
@@ -101,28 +102,28 @@ export class Board {
     const g = this.g, T = s.tally;
     g.textAlign = 'left';
     g.fillStyle = '#93a1b8'; g.font = 'bold 30px system-ui, sans-serif';
-    g.fillText(s.phase === 'escape' ? 'ДО ФУРГОНА!' : s.phase === 'ready' ? 'КОНТРАКТ' : 'ЧАС', 50, 70);
+    g.fillText(s.phase === 'escape' ? S.board.toVan : s.phase === 'ready' ? S.board.contract : S.board.time, 50, 70);
     g.font = 'bold 120px system-ui, sans-serif';
     g.fillStyle = s.phase === 'escape' ? '#ff4d4d' : s.clock < 60 ? '#ffb347' : '#e6ecf5';
     g.fillText(fmtTime(s.clock), 44, 180);
     g.textAlign = 'right';
     g.font = 'bold 30px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
-    g.fillText('У ФУРГОНІ', W - 50, 70);
+    g.fillText(S.board.inVan, W - 50, 70);
     g.font = 'bold 84px system-ui, sans-serif'; g.fillStyle = '#5fd38d';
     g.fillText(money(T.sum), W - 50, 160);
     g.font = '28px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
-    g.fillText(`${T.inVan} з ${T.total} предметів`, W - 50, 200);
+    g.fillText(S.board.items(T.inVan, T.total), W - 50, 200);
     this.drawList(T.list, 215, 4);
-    const al = ['спокій', 'перевірка', 'ТРИВОГА'][s.alertLevel];
+    const al = [S.board.alert.calm, S.board.alert.check, S.board.alert.alarm][s.alertLevel];
     g.textAlign = 'left'; g.font = 'bold 30px system-ui, sans-serif';
     g.fillStyle = ['#5fd38d', '#ffb347', '#ff4d4d'][s.alertLevel];
-    g.fillText(`Будинок: ${al}`, 50, 420);
+    g.fillText(S.board.house(al), 50, 420);
     g.fillStyle = s.progress && s.progress.done ? '#5fd38d' : '#c9d3e3'; g.font = 'bold 26px system-ui, sans-serif';
     g.fillText(`${s.contract.name}: ${s.progress ? s.progress.text : ''}${s.progress && s.progress.done ? ' ✓' : ''}`, 50, 462);
     g.textAlign = 'right'; g.fillStyle = '#93a1b8'; g.font = '24px system-ui, sans-serif';
-    g.fillText(s.phase === 'escape' ? 'Добіжи до фургона!' : `${s.diffName}`, W - 50, 420);
-    this.buttons.push({ id: 'leave', label: 'Поїхати', x: 50, y: 500, w: 330, h: 100, enabled: s.phase !== 'escape' });
-    this.buttons.push({ id: 'play', label: s.playing ? 'Грає…' : 'Послухати свій крик', x: 410, y: 500, w: 564, h: 100, enabled: !!s.clip && !s.playing });
+    g.fillText(s.phase === 'escape' ? S.board.runToVan : `${s.diffName}`, W - 50, 420);
+    this.buttons.push({ id: 'leave', label: S.board.leave, x: 50, y: 500, w: 330, h: 100, enabled: s.phase !== 'escape' });
+    this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 410, y: 500, w: 564, h: 100, enabled: !!s.clip && !s.playing });
   }
 
   // Before the round (at the van): pick the contract and the difficulty; the microphone page.
@@ -130,41 +131,41 @@ export class Board {
     const g = this.g, C = s.contract;
     g.textAlign = 'left';
     g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
-    g.fillText(`КОНТРАКТ ${s.contractIndex + 1} / ${s.contractCount}`, 50, 62);
-    g.textAlign = 'right'; g.fillText(`час ${fmtTime(s.clock)}`, W - 50, 62);
+    g.fillText(S.board.contractN(s.contractIndex + 1, s.contractCount), 50, 62);
+    g.textAlign = 'right'; g.fillText(S.board.timeLeft(fmtTime(s.clock)), W - 50, 62);
     g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = '#ffd166';
     g.fillText(C.name, 50, 128);
     g.font = '27px system-ui, sans-serif'; g.fillStyle = '#e6ecf5';
     wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
-    g.fillText(`★ мета: ${s.goalText}`, 50, 262);
-    g.fillText(`★★ бонус: ${s.bonusText}`, 50, 296);
-    g.fillText('★★★ те саме на важкому', 50, 330);
+    g.fillText(S.board.goal(s.goalText), 50, 262);
+    g.fillText(S.board.bonus(s.bonusText), 50, 296);
+    g.fillText(S.board.hard, 50, 330);
     const B = s.best || {};
     g.fillStyle = '#93a1b8'; g.font = '24px system-ui, sans-serif';
-    g.fillText(`Рекорди:  легкий ${'★'.repeat(B.easy || 0)}${'☆'.repeat(3 - (B.easy || 0))}   середній ${'★'.repeat(B.medium || 0)}${'☆'.repeat(3 - (B.medium || 0))}   важкий ${'★'.repeat(B.hard || 0)}${'☆'.repeat(3 - (B.hard || 0))}`, 50, 374);
-    if (C.needsMic && s.noMic) { g.fillStyle = '#ff9f43'; g.fillText('Цей контракт потребує мікрофона.', 50, 408); }
+    g.fillText(S.board.records(B), 50, 374);
+    if (C.needsMic && s.noMic) { g.fillStyle = '#ff9f43'; g.fillText(S.board.needsMic, 50, 408); }
     g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif';
-    g.fillText('Обери тут контракт. Годинник піде, щойно рушиш до будинку.', 50, 440);
+    g.fillText(S.board.pickHere, 50, 440);
     this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 110, h: 120, font: 48 });
     this.buttons.push({ id: 'cnext', label: '▶', x: 175, y: 470, w: 110, h: 120, font: 48 });
-    this.buttons.push({ id: 'diff', label: `Складність: ${s.diffName}`, x: 300, y: 470, w: 380, h: 120, font: 32 });
-    this.buttons.push({ id: 'micpage', label: 'Мікрофон…', x: 695, y: 470, w: 279, h: 120, font: 32 });
+    this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 300, y: 470, w: 380, h: 120, font: 32 });
+    this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 695, y: 470, w: 279, h: 120, font: 32 });
   }
 
   drawMic(s) {
     const g = this.g, M = s.mic;
     g.textAlign = 'left';
     g.font = 'bold 44px system-ui, sans-serif'; g.fillStyle = '#ffd166';
-    g.fillText('Мікрофон', 50, 80);
+    g.fillText(S.board.micTitle, 50, 80);
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
-    const status = M.noMic ? 'Гра без мікрофона.' : M.state !== 'on' ? 'Мікрофон вимкнено.' : M.calibrated ? 'Калібровано.' : 'Ще не калібровано.';
+    const status = M.noMic ? S.board.mic.noMic : M.state !== 'on' ? S.board.mic.off : M.calibrated ? S.board.mic.calibrated : S.board.mic.notCalibrated;
     g.fillText(status, 320, 78);
     if (s.calib) {   // the wizard is running
       g.font = 'bold 40px system-ui, sans-serif'; g.fillStyle = s.calib.phase === 'rec' ? '#ff9f43' : '#93a1b8';
-      g.fillText(`${s.calib.i + 1}/${s.calib.total || 4}  ${s.calib.step.title.toUpperCase()}  ${s.calib.left.toFixed(1)} с`, 50, 150);
+      g.fillText(S.board.calibStep(s.calib.i + 1, s.calib.total || 4, s.calib.step.title.toUpperCase(), s.calib.left.toFixed(1)), 50, 150);
       g.font = '28px system-ui, sans-serif'; g.fillStyle = '#e6ecf5';
-      wrap(g, s.calib.phase === 'rec' ? s.calib.step.say : 'Приготуйся…', 50, 196, W - 100, 34);
+      wrap(g, s.calib.phase === 'rec' ? s.calib.step.say : S.board.getReady, 50, 196, W - 100, 34);
     } else if (s.calibNotes) {
       g.font = '24px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
       wrap(g, s.calibNotes, 50, 140, W - 100, 30);
@@ -179,19 +180,19 @@ export class Board {
       g.fillStyle = s.levelColor; g.fillRect(x0, y + 10, bw * M.barPos(M.env), h - 20);
       g.fillStyle = '#fff'; g.fillRect(x0 + bw * pw - 2, y - 6, 4, h + 12); g.fillRect(x0 + bw * ps - 2, y - 6, 4, h + 12);
       g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
-      g.fillText(`шепіт / голос: ${M.whisperDb.toFixed(0)} дБ`, 50, 346);
-      g.textAlign = 'right'; g.fillText(`голос / крик: ${M.shoutDb.toFixed(0)} дБ`, W - 50, 346);
+      g.fillText(S.board.whisperDb(M.whisperDb.toFixed(0)), 50, 346);
+      g.textAlign = 'right'; g.fillText(S.board.shoutDb(M.shoutDb.toFixed(0)), W - 50, 346);
       g.textAlign = 'left'; g.font = 'bold 28px system-ui, sans-serif'; g.fillStyle = s.levelColor;
-      g.fillText(`${s.levelLabel}  ${M.env.toFixed(0)} дБ`, 50, 386);
+      g.fillText(S.board.levelDb(s.levelLabel, M.env.toFixed(0)), 50, 386);
     }
     const on = M.state === 'on' && !M.noMic, busy = !!s.calib;
-    if (!on && !M.noMic) this.buttons.push({ id: 'micon', label: 'Увімкнути мікрофон', x: 50, y: 410, w: 420, h: 80, font: 30 });
-    else this.buttons.push({ id: 'cal', label: s.calSteps === 5 ? 'Калібрувати (5 кроків)' : 'Калібрувати (4 кроки)', x: 50, y: 410, w: 420, h: 80, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'nomic', label: M.noMic ? 'Без мікрофона: так' : 'Без мікрофона: ні', x: 490, y: 410, w: 484, h: 80, font: 30, enabled: !busy });
-    this.buttons.push({ id: 'wdn', label: 'шепіт −', x: 50, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'wup', label: 'шепіт +', x: 262, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'sdn', label: 'крик −', x: 474, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'sup', label: 'крик +', x: 666, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
+    if (!on && !M.noMic) this.buttons.push({ id: 'micon', label: S.board.micOnButton, x: 50, y: 410, w: 420, h: 80, font: 30 });
+    else this.buttons.push({ id: 'cal', label: s.calSteps === 5 ? S.board.calibrate5 : S.board.calibrate4, x: 50, y: 410, w: 420, h: 80, font: 30, enabled: on && !busy });
+    this.buttons.push({ id: 'nomic', label: M.noMic ? S.board.noMicYes : S.board.noMicNo, x: 490, y: 410, w: 484, h: 80, font: 30, enabled: !busy });
+    this.buttons.push({ id: 'wdn', label: S.board.whisperDown, x: 50, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
+    this.buttons.push({ id: 'wup', label: S.board.whisperUp, x: 262, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
+    this.buttons.push({ id: 'sdn', label: S.board.shoutDown, x: 474, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
+    this.buttons.push({ id: 'sup', label: S.board.shoutUp, x: 666, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
     this.buttons.push({ id: 'back', label: '◀', x: 858, y: 510, w: 116, h: 90, font: 44, enabled: !busy });
   }
 
@@ -204,34 +205,34 @@ export class Board {
     g.textAlign = 'right'; g.font = 'bold 56px system-ui, sans-serif'; g.fillStyle = good ? '#e6ecf5' : '#ff9f43';
     g.fillText(good ? money(R.sum) : `−${money(R.lostLoot)}`, W - 50, 90);
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
-    g.fillText(good ? `у фургоні ${R.inVan} з ${R.total} · час ${fmtTime(R.time, true)}` : `лут у фургоні втрачено · час ${fmtTime(R.time, true)}`, W - 50, 126);
+    g.fillText(good ? S.board.res.kept(R.inVan, R.total, fmtTime(R.time, true)) : S.board.res.lost(fmtTime(R.time, true)), W - 50, 126);
     this.drawList(R.list, 140, 4, 34);
     g.textAlign = 'center';
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
     const extra = [];
-    if (R.broken) extra.push(`розбито ${R.broken}`);
-    if (R.seen) extra.push(`помітили ${R.seen}×`);
-    if (R.scares) extra.push(`налякали ${R.scares}×`);
+    if (R.broken) extra.push(S.board.res.broken(R.broken));
+    if (R.seen) extra.push(S.board.res.seen(R.seen));
+    if (R.scares) extra.push(S.board.res.scared(R.scares));
     if (extra.length) g.fillText(extra.join(' · '), W / 2, 330);
     // the contract
     if (s.verdict) {
       const V = s.verdict;
       g.font = 'bold 34px system-ui, sans-serif'; g.fillStyle = V.stars ? '#ffd166' : '#ff9f43';
-      g.fillText(`${s.contract.name}: ${'★'.repeat(V.stars)}${'☆'.repeat(3 - V.stars)}${V.newBest ? '  новий рекорд!' : ''}`, W / 2, 368);
+      g.fillText(`${s.contract.name}: ${'★'.repeat(V.stars)}${'☆'.repeat(3 - V.stars)}${V.newBest ? S.board.res.newBest : ''}`, W / 2, 368);
       g.font = '22px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
-      g.fillText(V.goal ? `мета ✓ · бонус (${s.bonusText}) ${V.bonus ? '✓' : '✗'}${V.bonus && s.difficulty !== 'hard' ? ' · ★★★ — на важкому' : ''}` : `мета ✗: ${V.why.join(', ')}`, W / 2, 396);
+      g.fillText(V.goal ? S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard') : S.board.res.goalFail(V.why.join(', ')), W / 2, 396);
     }
     // the scream
     g.font = 'bold 32px system-ui, sans-serif';
-    if (s.playing && s.clip) { g.fillStyle = '#ff9f43'; g.fillText(`Ось як ти кричав о ${fmtTime(s.clip.t, true)}`, W / 2, 440); }
+    if (s.playing && s.clip) { g.fillStyle = '#ff9f43'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 440); }
     else if (R.shouts > 0) {
       g.fillStyle = '#ffb347';
-      g.fillText(s.clip ? `Кричав: ${R.shouts}× · найгучніше о ${fmtTime(s.clip.t, true)}` : `Кричав: ${R.shouts}× (запис не вдався: ${s.recMode || '—'})`, W / 2, 440);
-    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? 'Гра без мікрофона.' : 'Жодного крику. Професіонал.', W / 2, 440); }
+      g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 440);
+    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 440); }
     g.font = '20px system-ui, sans-serif'; g.fillStyle = '#6f8396';
-    g.fillText('Запис крику живе лише в пам\'яті гри й зникне з новим раундом.', W / 2, 474);
-    this.buttons.push({ id: 'play', label: s.playing ? 'Грає…' : 'Ще раз послухати', x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });
-    this.buttons.push({ id: 'again', label: 'Новий раунд', x: 640, y: 495, w: 334, h: 105, enabled: true });
+    g.fillText(S.board.res.memoryOnly, W / 2, 474);
+    this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });
+    this.buttons.push({ id: 'again', label: S.board.res.newRound, x: 640, y: 495, w: 334, h: 105, enabled: true });
   }
 }
 

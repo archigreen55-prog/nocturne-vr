@@ -2,7 +2,7 @@
 // light (flashlight beam or next to a lamp: seen 1.6x further), stance (crouched: 0.5x) and cover
 // (crouched with furniture close by that reaches within CFG.stealth.coverBelowEyes of your eyes,
 // and the patrol's line of sight to your face actually blocked).
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 
 const EYE = 1.62;
 

@@ -4,8 +4,9 @@
 // crystal vase, whether it shatters.
 import * as THREE from 'three';
 import { Builder, CARGO } from '../world/level.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { playThud, playGlass } from '../audio/audio.js';
+import { S } from '../i18n/index.js';
 
 const G = 9.8;
 const _up = new THREE.Vector3();
@@ -228,7 +229,7 @@ export class Loot {
   knock(it, vx, vz) {
     if (it.state !== 'rest') return;
     it.drop(this.v.set(vx, 0.6, vz));
-    this.env.onMessage('Зачепив кришталь!', '#7fc8ff');
+    this.env.onMessage(S.loot.crystalBumped, '#7fc8ff');
   }
 
   update(dt, player) {
@@ -308,13 +309,13 @@ export class Loot {
       it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true;
       playGlass(pos, occ);
       env.noise.emit(p.x, p.z, CFG.loot.noiseRadius.glass, 'glass', { y: p.y + 0.02, source: 'world' });
-      env.onMessage('Кришталь розбився!', '#ff5c5c');
+      env.onMessage(S.loot.crystalBroke, '#ff5c5c');
       return;
     }
     if (speed > (wall ? CFG.loot.wallDamageSpeed : CFG.loot.damageSpeed) && !it.damaged) {
       it.damaged = true;
       it.mat.color.setHex(0x9a8a80);
-      env.onMessage(`${it.name}: пошкоджено`, '#ff9f43');
+      env.onMessage(S.loot.damaged(it.name), '#ff9f43');
     }
     if (speed < CFG.loot.quietLanding) return;
     const base = it.twoHanded ? CFG.loot.noiseRadius.medium : CFG.loot.noiseRadius.light;

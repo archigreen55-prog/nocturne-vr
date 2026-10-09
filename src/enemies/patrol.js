@@ -6,11 +6,12 @@
 // Ladder: calm -> react (0.6 s) -> investigate -> look around -> search hiding spots -> calm;
 // seen -> chase -> caught. In full alarm it radios for help and hunts.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { Builder } from '../world/level.js';
 import { Brain } from './brain.js';
 import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
 import { nearLamp, targetY } from '../game/stealth.js';
+import { S } from '../i18n/index.js';
 
 const EYE = 1.62;
 const RADIUS = 0.28;
@@ -90,12 +91,12 @@ export class Patrol {
   // What it is doing, in words (the wrist shows it on the easy difficulty).
   get activity() {
     switch (this.state) {
-      case 'chase': return 'женеться за тобою!';
-      case 'hunt': return 'шукає тебе';
-      case 'react': return 'щось почув…';
-      case 'investigate': return 'іде перевірити шум';
-      case 'look': return 'роззирається';
-      default: return (this.queue[0] && this.queue[0].label) || 'думає, куди йти';
+      case 'chase': return S.guard.state.chase;
+      case 'hunt': return S.guard.state.hunt;
+      case 'react': return S.guard.state.react;
+      case 'investigate': return S.guard.state.investigate;
+      case 'look': return S.guard.state.look;
+      default: return (this.queue[0] && this.queue[0].label) || S.guard.state.thinks;
     }
   }
 
@@ -205,14 +206,14 @@ export class Patrol {
     this.state = 'chase';
     this.lostT = 0;
     this.lastSeen = { x: player.head.x, z: player.head.z };
-    this.env.alert.setFull('побачили', player.head.x, player.head.z);
+    this.env.alert.setFull(S.cause.seen, player.head.x, player.head.z);
     this.goTo(player.head.x, player.head.z);
   }
 
   // Full alarm raised elsewhere (a shout, the timer): run to where it came from.
   onAlarm(x, z) {
     this.env.sound('radio');
-    this.env.say('Центральна, у будинку злодій! Потрібна підмога!');
+    this.env.say(S.guard.say.radio);
     if (this.state === 'chase') return;
     this.hunt(x, z);
   }
@@ -332,7 +333,7 @@ export class Patrol {
       if (!d.open) { this.toClose.splice(k, 1); continue; }
       if (side !== c.side && Math.hypot(d.cx - this.x, d.cz - this.z) > 1.0) {
         this.toClose.splice(k, 1);
-        this.queue.unshift({ type: 'close', door: d, label: 'зачиняє за собою двері' });
+        this.queue.unshift({ type: 'close', door: d, label: S.guard.act.closesBehind });
       }
     }
     if (!this.queue.length) this.brain.plan();

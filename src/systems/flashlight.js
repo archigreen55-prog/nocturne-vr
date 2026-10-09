@@ -1,0 +1,30 @@
+// Flashlight through walls: the room mask + the wall test (enemies/flashWalls.js) by default.
+// ?flash=nomask / shadow / off and ?flashwalls=off are for measuring the cost of the alternatives
+// (shadow = one 256² shadow map for the flashlight only). Runs after every other system has added
+// its objects (the mask is applied to the lit materials in the scene).
+import * as THREE from 'three';
+import { maskScene, maskBeam } from '../enemies/flashMask.js';
+import { wallsOnScene } from '../enemies/flashWalls.js';
+import { G, params } from './state.js';
+
+export const flashlight = {
+  id: 'flashlight',
+  init() {
+    const { renderer, scene, patrol } = G;
+    const flashMode = params.get('flash') || 'mask';
+    if (flashMode === 'mask') {
+      const masked = maskScene(scene);
+      maskBeam(patrol.beam.material);
+      if (params.get('flashwalls') !== 'off') wallsOnScene(scene, patrol.beam.material);   // ...and it stops at walls (?flashwalls=off: to measure the cost)
+      console.log(`flashlight room mask on ${masked} lit materials`);
+    } else if (flashMode === 'shadow') {
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
+      patrol.spot.castShadow = true;
+      patrol.spot.shadow.mapSize.set(256, 256);
+      patrol.spot.shadow.camera.near = 0.2;
+      patrol.spot.shadow.camera.far = 14;
+      scene.traverse((o) => { if (o.isMesh && o.material && o.material.isMeshLambertMaterial) { o.castShadow = true; o.receiveShadow = true; } });
+    } else if (flashMode === 'off') patrol.spot.visible = false;
+  },
+};

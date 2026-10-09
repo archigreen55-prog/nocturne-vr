@@ -5,8 +5,9 @@
 // hand that moves too fast and tips over if you reach for it too fast.
 // On a laptop, E picks the item in front up / puts it down (two-handed items too).
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { playTick } from '../audio/audio.js';
+import { S } from '../i18n/index.js';
 
 const HANDS = ['left', 'right'];
 const _m = new THREE.Matrix4(), _v = new THREE.Vector3(), _c = new THREE.Vector3(), _q = new THREE.Quaternion();
@@ -136,7 +137,7 @@ export class Hands {
       const o = this.h[n === 'left' ? 'right' : 'left'];
       if (o.item === it) o.item = null;
       this.dropItem(it, _s.addVectors(h.vel, o.vel).multiplyScalar(0.5));
-      if (!silent) this.env.onMessage(`${it.name}: впустив`, '#ff9f43');
+      if (!silent) this.env.onMessage(S.loot.dropped(it.name), '#ff9f43');
       return;
     }
     if (it.twoHanded) { if (it.state === 'held') this.dropItem(it, h.vel); return; }
@@ -166,7 +167,7 @@ export class Hands {
       if (L.distanceTo(R) > CFG.loot.twoHandMaxSpan) {
         this.two = null; this.h.left.item = null; this.h.right.item = null;
         this.dropItem(it, _s.addVectors(this.h.left.vel, this.h.right.vel).multiplyScalar(0.5));
-        onMessage('Розвів руки — впустив!', '#ff9f43');
+        onMessage(S.loot.handsApart, '#ff9f43');
         this.env.pulse('left', 0.6, 60); this.env.pulse('right', 0.6, 60);
       } else {
         const yaw = Math.atan2(-(R.z - L.z), R.x - L.x);
@@ -180,7 +181,7 @@ export class Hands {
       if (it.twoHanded) {
         if (!this.two) {   // one hand on a two-handed item: it does not move
           h.aloneT += dt;
-          if (h.aloneT > 0.5 && h.aloneT - dt <= 0.5) onMessage('Це двома руками!', '#ffd166');
+          if (h.aloneT > 0.5 && h.aloneT - dt <= 0.5) onMessage(S.loot.twoHands, '#ffd166');
         }
         continue;
       }
@@ -190,7 +191,7 @@ export class Hands {
       if (it.crystal && h.vel.length() > CFG.loot.crystal.handSpeed) {
         h.item = null;
         this.dropItem(it, h.vel);
-        onMessage('Кришталь вислизнув!', '#7fc8ff');
+        onMessage(S.loot.crystalSlipped, '#7fc8ff');
         this.env.pulse(n, 0.8, 80);
       }
     }

@@ -6,7 +6,8 @@
 // the button fires when the finger is lifted over it, however long it was held (set hitBoard).
 // Pointer Events: one pointer per role, so the joystick and the look work at the same time.
 import { shapeStick } from './xrInput.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 const JOY_ZONE = 0.45;     // left part of the screen that starts the joystick
 const JOY_R = 64;          // px, joystick travel
@@ -49,11 +50,11 @@ export class TouchControls {
     const r = this.root;
     r.innerHTML = `
       <div class="joy" hidden><div class="joy-quiet"></div><div class="joy-knob"></div></div>
-      <button class="tbtn pause" data-btn="pause" aria-label="меню">❚❚</button>
-      <button class="tbtn act" data-btn="interact" hidden>Взяти</button>
-      <button class="tbtn door" data-btn="door" hidden>Двері</button>
-      <button class="tbtn crouch" data-btn="crouch">Присісти</button>
-      <button class="tbtn breath" data-btn="breath"><span>Подих</span><i></i></button>`;
+      <button class="tbtn pause" data-btn="pause" aria-label="${S.touch.menu}">❚❚</button>
+      <button class="tbtn act" data-btn="interact" hidden>${S.touch.take}</button>
+      <button class="tbtn door" data-btn="door" hidden>${S.touch.door}</button>
+      <button class="tbtn crouch" data-btn="crouch">${S.touch.crouch}</button>
+      <button class="tbtn breath" data-btn="breath"><span>${S.touch.breath}</span><i></i></button>`;
     this.el = {
       joy: r.querySelector('.joy'), knob: r.querySelector('.joy-knob'), quiet: r.querySelector('.joy-quiet'),
       interact: r.querySelector('[data-btn=interact]'), door: r.querySelector('[data-btn=door]'),
@@ -187,7 +188,7 @@ export class TouchControls {
     if (interact) { if (el.interact.textContent !== interact) el.interact.textContent = interact; el.interact.hidden = false; }
     else if (!el.interact.hidden) el.interact.hidden = true;
     if (el.door.hidden === !!door && !this.door) el.door.hidden = !door;
-    const cl = crouched ? 'Встати' : 'Присісти';
+    const cl = crouched ? S.touch.stand : S.touch.crouch;
     if (el.crouch.textContent !== cl) el.crouch.textContent = cl;
     el.crouch.classList.toggle('active', !!crouched);
     // breath: the button is the ring (blue = holding, grey = resting)

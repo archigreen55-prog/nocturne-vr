@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { LEVELS } from '../audio/mic.js';
 import { fmtTime, money } from './board.js';
+import { S } from '../i18n/index.js';
 
 const W = 512, H = 512;
 const SIZE = 0.12;   // m
@@ -84,9 +85,9 @@ export class WristPanel {
     g.textAlign = 'center';
     if (holding) {
       // holding the breath: the game does not hear the mic at all
-      g.fillStyle = '#4fb3ff'; g.font = 'bold 50px system-ui, sans-serif'; g.fillText('ЗАТАМУВАВ', 300, 80);
+      g.fillStyle = '#4fb3ff'; g.font = 'bold 50px system-ui, sans-serif'; g.fillText(S.wrist.breathHeld, 300, 80);
       g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#9fd4ff';
-      g.fillText(`мікрофон не чути ще ${b.left.toFixed(1)} с`, 300, 120);
+      g.fillText(S.wrist.breathLeft(b.left.toFixed(1)), 300, 120);
       if (mic.state === 'on') {
         const x0 = 30, bw = W - 60, y = 142;
         g.fillStyle = '#16324f'; g.fillRect(x0, y, bw, 24);
@@ -109,12 +110,12 @@ export class WristPanel {
       g.font = problem ? 'bold 22px system-ui, sans-serif' : '22px system-ui, sans-serif';
       g.fillStyle = problem ? '#ff5c5c' : '#6f8396';
       g.textAlign = problem ? 'center' : 'left';
-      g.fillText(problem || `${mic.env.toFixed(0)} дБ${s.speaking ? ' · тебе чути' : ''}`, problem ? W / 2 : x0, y + h + 26);
+      g.fillText(problem || S.hud.micDb(mic.env.toFixed(0), s.speaking), problem ? W / 2 : x0, y + h + 26);
     } else {
       g.fillStyle = '#8a93a3'; g.font = 'bold 44px system-ui, sans-serif';
-      g.fillText('МІК ВИМКНЕНО', 300, 88);
+      g.fillText(S.hud.micOff, 300, 88);
       g.font = '22px system-ui, sans-serif';
-      g.fillText(mic.state === 'denied' ? 'дозвіл не надано' : 'дозволь його на стартовому екрані', W / 2, 150);
+      g.fillText(mic.state === 'denied' ? S.mic.err.denied : S.wrist.allowOnStart, W / 2, 150);
     }
 
     // --- clock and alarm ---
@@ -123,27 +124,27 @@ export class WristPanel {
     g.fillText(s.phase === 'result' ? '—:—' : fmtTime(s.clock), 30, 244);
     g.textAlign = 'right'; g.font = 'bold 30px system-ui, sans-serif';
     g.fillStyle = ['#5fd38d', '#ffb347', '#ff4d4d'][s.alertLevel || 0];
-    g.fillText(s.phase === 'escape' ? 'ДО ФУРГОНА!' : ['спокій', 'перевірка', 'ТРИВОГА'][s.alertLevel || 0], W - 30, 238);
+    g.fillText(s.phase === 'escape' ? S.board.toVan : [S.board.alert.calm, S.board.alert.check, S.board.alert.alarm][s.alertLevel || 0], W - 30, 238);
 
     // --- body: steps, crouch; hands; the van ---
     g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
     g.fillStyle = s.stepsAudible ? '#ffb347' : '#5fd38d';
-    g.fillText(s.stepsAudible ? 'Кроки: чутно' : 'Кроки: тихо', 30, 284);
+    g.fillText(s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet, 30, 284);
     // visibility: eye open (seen from afar) / half (crouched) / closed (hidden behind cover)
     const st = s.stealth;
     if (st) {
       const color = st.eye === 'closed' ? '#5fd38d' : st.eye === 'half' ? '#ffd166' : st.lit ? '#ff5c5c' : '#ffb347';
-      const text = st.eye === 'closed' ? 'Сховався' : `${s.virtualCrouch ? 'Присів (B)' : s.crouched ? 'Присів' : 'Стоїш'} · ${st.range.toFixed(1)} м`;
+      const text = st.eye === 'closed' ? S.hud.hidden : S.hud.stanceRange(s.virtualCrouch ? S.wrist.crouchedB : s.crouched ? S.hud.crouched : S.hud.standing, st.range.toFixed(1));
       g.textAlign = 'right'; g.fillStyle = color; g.font = 'bold 24px system-ui, sans-serif';
       g.fillText(text, W - 30, 284);
       drawEye(g, W - 30 - g.measureText(text).width - 32, 276, st.eye, color);
     }
     g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
-    g.fillText(s.holding ? `У руках: ${s.holding}` : s.room, 30, 320);
+    g.fillText(s.holding ? S.hud.holding(s.holding) : s.room, 30, 320);
     if (s.holding) { g.textAlign = 'right'; g.fillStyle = '#6f8396'; g.fillText(s.room, W - 30, 320); }
     g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
-    if (s.goal) { g.fillStyle = s.goal.done ? '#5fd38d' : '#c9d3e3'; g.fillText(`Мета: ${s.goal.text}${s.goal.done ? ' ✓' : ''}`, 30, 360); }
-    else { g.fillStyle = '#5fd38d'; g.fillText(`У фургоні: ${money(s.vanSum || 0)} · ${s.vanCount || 0} предм.`, 30, 360); }
+    if (s.goal) { g.fillStyle = s.goal.done ? '#5fd38d' : '#c9d3e3'; g.fillText(S.hud.goal(s.goal.text, s.goal.done), 30, 360); }
+    else { g.fillStyle = '#5fd38d'; g.fillText(S.wrist.van(money(s.vanSum || 0), s.vanCount || 0), 30, 360); }
 
     // --- FPS block ---
     if (this.showFps) {
@@ -153,9 +154,9 @@ export class WristPanel {
       g.font = 'bold 30px system-ui, sans-serif';
       g.fillText(`${Math.round(s.fps)} FPS`, 30, 400);
       g.font = '18px system-ui, sans-serif'; g.fillStyle = '#9fb3c8';
-      const ms = (v) => (v == null ? 'н/д' : v.toFixed(1));
+      const ms = (v) => (v == null ? S.wrist.na : v.toFixed(1));
       g.textAlign = 'right';
-      g.fillText(`${s.hz ? s.hz + ' Гц · ' : ''}CPU ${ms(s.cpuMs)} · GPU ${ms(s.gpuMs)} мс`, W - 30, 388);
+      g.fillText(S.wrist.timing(s.hz, ms(s.cpuMs), ms(s.gpuMs)), W - 30, 388);
       g.fillText(`${s.calls} calls · ${(s.tris / 1000).toFixed(0)}k tris`, W - 30, 410);
     }
 
@@ -163,7 +164,7 @@ export class WristPanel {
     let msg = s.msg, color = s.msgColor;
     if (!msg && s.guardText) { msg = s.guardText; color = '#9fb3c8'; }
     if (s.door) {
-      msg = s.door.creak > 0 ? `Двері: СКРИПИТЬ${s.door.creak > 0.5 ? '!' : ''}` : 'Двері: тихо';
+      msg = s.door.creak > 0 ? S.wrist.doorCreaks(s.door.creak > 0.5) : S.wrist.doorQuiet;
       color = s.door.creak > 0 ? (s.door.creak > 0.5 ? '#ff5c5c' : '#ffb347') : '#5fd38d';
     }
     if (msg) {

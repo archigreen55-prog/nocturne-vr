@@ -2,12 +2,13 @@
 // snap turns, + fade to black. One quad drawn directly in clip space, so each eye gets it centred on
 // its own optical axis with no stereo offset and no FOV guessing; the radius is an angle from the view axis.
 import * as THREE from 'three';
+import { S } from '../i18n/index.js';
 
 export const VIGNETTE_LEVELS = [
-  { id: 'off', label: 'вимкнено', k: 0 },
-  { id: 'weak', label: 'слабко', k: 0.6 },
-  { id: 'standard', label: 'стандартно', k: 1 },
-  { id: 'strong', label: 'сильно', k: 1.4 },
+  { id: 'off', label: S.vignette.off, k: 0 },
+  { id: 'weak', label: S.vignette.weak, k: 0.6 },
+  { id: 'standard', label: S.vignette.standard, k: 1 },
+  { id: 'strong', label: S.vignette.strong, k: 1.4 },
 ];
 const STORE_KEY = 'nocturne.vignette';
 

@@ -3,7 +3,7 @@
 // readable with the sound off. The ring is only a hint: CFG.ripple.radiusK of the hearing radius,
 // at most CFG.ripple.maxRadius; the hearing radius itself is what the enemies use.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const MAX = 24;
 const COLORS = {
@@ -16,6 +16,7 @@ export class NoiseSystem {
     this.ripples = [];
     const geo = new THREE.RingGeometry(0.965, 1, 48);
     geo.rotateX(-Math.PI / 2);
+    this.gain = 1;   // display brightness (systems/brightness.js): the rings stay as visible on a brighter picture
     this.mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({
       color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     }), MAX);
@@ -62,7 +63,7 @@ export class NoiseSystem {
       const s = r.r * (0.2 + 0.8 * Math.sqrt(t));
       this.m.makeScale(s, 1, s).setPosition(r.x, r.y, r.z);
       this.mesh.setMatrixAt(n, this.m);
-      this.c.setHex(r.color).multiplyScalar((1 - t) * 0.8);
+      this.c.setHex(r.color).multiplyScalar((1 - t) * 0.8 * this.gain);
       this.mesh.setColorAt(n, this.c);
       n++;
     }

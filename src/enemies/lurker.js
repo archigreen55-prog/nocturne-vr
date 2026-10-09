@@ -2,8 +2,10 @@
 // telegraphs - scratching, a growl, the doors rattle and glowing eyes show in the gap - then lunges
 // into your face with a screech. The lunge only scares: the real danger is your own
 // scream in the microphone. Back away during the telegraph and it calms down.
+// It only reacts to a player in its own room with no wall or closed door between (never through a
+// wall from outside), and its lunge stays inside that room.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { Builder, WARDROBE } from '../world/level.js';
 import { Voice3D, playScratch, playStinger, playThud } from '../audio/audio.js';
 
@@ -64,7 +66,16 @@ export class Lurker {
     this.voice.setPos(HOME.x, HOME.y, HOME.z);
     this.target = new THREE.Vector3();
     this.from = new THREE.Vector3();
+    const L = env.level;
+    this.room = L && L.roomAt ? L.roomAt(FRONT.x, FRONT.z) : null;
     this.reset();
+  }
+
+  // (x, z) is in the wardrobe's room and nothing solid stands between it and the wardrobe
+  near(x, z) {
+    const L = this.env.level;
+    if (!L || !L.roomAt) return true;
+    return L.roomAt(x, z) === this.room && !L.soundOccluded(FRONT.x, FRONT.z, x, z);
   }
 
   reset() {
@@ -86,7 +97,7 @@ export class Lurker {
 
   hear(e) {
     if (this.state !== 'dormant' || e.source !== 'player') return;
-    if (Math.hypot(e.x - FRONT.x, e.z - FRONT.z) < CFG.lurker.noiseTrigger) this.wake();
+    if (Math.hypot(e.x - FRONT.x, e.z - FRONT.z) < CFG.lurker.noiseTrigger && this.near(e.x, e.z)) this.wake();
   }
 
   wake() {
@@ -101,14 +112,15 @@ export class Lurker {
     const L = CFG.lurker;
     this.t += dt;
     const d = Math.hypot(player.head.x - FRONT.x, player.head.z - FRONT.z);
+    const near = d < L.cancel && this.near(player.head.x, player.head.z);
     switch (this.state) {
       case 'dormant':
-        if (d < L.trigger) this.wake();
+        if (d < L.trigger && near) this.wake();
         break;
       case 'telegraph': {
         // doors rattle, eyes glow in the gap
         this.setDoors(0.04 + 0.04 * Math.abs(Math.sin(this.t * 38)));
-        if (d > L.cancel) { this.state = 'cooldown'; this.t = L.cooldown - 8; this.setDoors(0); this.creature.visible = false; break; }
+        if (!near) { this.state = 'cooldown'; this.t = L.cooldown - 8; this.setDoors(0); this.creature.visible = false; break; }
         if (this.t >= L.telegraph) this.lunge(player);
         break;
       }
@@ -154,7 +166,9 @@ export class Lurker {
     // 0.5 m in front of the face, but no further than `reach` from the wardrobe
     const h = player.head;
     const dx = h.x - FRONT.x, dz = h.z - FRONT.z, d = Math.max(0.01, Math.hypot(dx, dz));
-    const reach = Math.min(CFG.lurker.reach, Math.max(0.3, d - 0.5));
+    let reach = Math.min(CFG.lurker.reach, Math.max(0.3, d - 0.5));
+    // never through a wall: shorter until the whole lunge stays in the room
+    while (reach > 0.3 && !this.near(FRONT.x + dx / d * reach, FRONT.z + dz / d * reach)) reach -= 0.1;
     this.target.set(FRONT.x + dx / d * reach, Math.max(0.6, h.y - 0.05), FRONT.z + dz / d * reach);
     playStinger();
     if (this.env.onScare) this.env.onScare();
