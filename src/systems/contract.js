@@ -10,6 +10,7 @@ import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { playGame } from './flatScreen.js';
 import { syncStartScreen } from './startScreen.js';
+import { switchMap, applyMapConfig } from '../world/maps.js';
 import { summaryState } from './phone.js';
 import { S } from '../i18n/index.js';
 
@@ -70,6 +71,8 @@ export function pressBoard(id) {
   else if (id === 'cnext') setContract(all[(i + 1) % all.length].id);
   else if (id === 'diff') setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]);
   else if (id === 'micpage') { G.boardPage = 'mic'; G.calibNotes = ''; }
+  else if (id === 'mappage') G.boardPage = 'map';
+  else if (id.startsWith('map:')) { if (round.phase === 'ready') switchMap(id.slice(4)); }
   else if (id === 'back') G.boardPage = 'contract';
   else if (id === 'cal') calibrateInVR();
   else if (id === 'micon') micOnInVR();
@@ -101,6 +104,7 @@ export const contract = {
   id: 'contract',
   // applied before the guard is built
   init() {
+    applyMapConfig();   // W6: the map's contracts and timers
     G.contractId = loadSetting('contract', 'first'); G.difficulty = loadSetting('difficulty', 'medium');
     if (!DIFFS.includes(G.difficulty)) G.difficulty = 'medium';
     G.contract = contractById(G.contractId);

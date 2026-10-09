@@ -122,7 +122,7 @@ export const world = {
             G.comfort.fadeIn(0.8);
           }
           G.resultT = 0; G.autoPlayed = false;
-          const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty: G.difficulty, loot });
+          const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
           verdict.newBest = recordStars(G.contract.id, G.difficulty, verdict.stars, G.MODE.mode);
           flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
         }

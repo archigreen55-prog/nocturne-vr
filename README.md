@@ -156,6 +156,11 @@ variants for measuring).
 Choose them on the board next to the van (it faces you at the start) or on the start screen. The
 clock starts when you walk 4.5 m away from the van. Stars: ★ goal, ★★ bonus, ★★★ goal + bonus on hard.
 
+**Maps.** Two houses: the dacha (one floor, one watchman: the tutorial house) and the mansion (two floors,
+two watchmen with a radio, 14 items, contracts 8–14). The board's «Карта…» page switches between them
+(the page reloads with `?map=mansion` / `?map=dacha`; the choice is remembered). The mansion is open on
+previews; on the main site it waits behind `CFG.maps.mansion.open` in `src/config/maps.js`.
+
 ## Code layout
 
 - `src/main.js` — the game loop only. The game is **systems** in `src/systems/`, listed in order in

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newContext, ROOT } from './harness.mjs';
-import { browser, UA, open, test, base, preview, keepFor, LAND, tp } from './runner.mjs';
+import { browser, UA, open, test, base, preview, keepFor, LAND, tp, standFacing } from './runner.mjs';
 
 const mansion = preview + '?map=mansion';
 // walk with W + Space (2 m/s) for `secs` of game time (the keyboard state is read every simulated frame)
@@ -517,4 +517,117 @@ test('mansion (stairs + run): on a PC and a phone running up the stairs is x0.8 
   assert.deepEqual(verr, []);
   assert.deepEqual(errors, []);
   await vctx.close();
+});
+
+// ---------- M5: contracts, timers, the «Карта» page ----------
+test('mansion (M5): the map has its own contracts 8–14 (9 and 11 locked, grey) and timers 12/10/8 min by difficulty; contract 10 counts upstairs items; contract 12 needs the fake in the painting\'s place and no guard noticing', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  const r = await page.evaluate(() => {
+    const g = window.__game, out = {};
+    g.playing = true; g.sim(0.1);
+    out.ids = g.CFG.contracts.map((c) => c.id);
+    out.current = g.contract ? g.contract.id : null;
+    out.locked = g.CFG.contracts.filter((c) => c.locked).map((c) => c.id);
+    const timers = {};
+    for (const d of ['easy', 'medium', 'hard']) { g.setDifficulty(d); timers[d] = [g.CFG.round.time, g.CFG.round.warnAt, g.CFG.round.escapeTime, g.CFG.lurker.cooldown]; }
+    out.timers = timers;
+    g.setDifficulty('medium');
+    g.setContract('m14'); out.m14 = [g.CFG.round.time, g.CFG.run.teaAtStart];
+    // contract 10: four upstairs items
+    g.setContract('m10');
+    const by = (id) => g.loot.items.find((i) => i.id === id);
+    for (const id of ['m_jewelbox', 'm_trophy', 'm_robot', 'm_chest']) g.loot.stow(by(id));
+    out.deliveredUp = g.loot.items.filter((i) => i.delivered && i.def.floor === 1).length;
+    return out;
+  });
+  assert.deepEqual(r.ids, ['m8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14']);
+  assert.equal(r.current, 'm8', 'the first map\'s remembered contract does not exist here: the first of this map');
+  assert.deepEqual(r.locked, ['m9', 'm11']);
+  assert.deepEqual(r.timers, { easy: [720, 660, 120, 60], medium: [600, 540, 90, 45], hard: [480, 420, 60, 25] }, `timers by difficulty: ${JSON.stringify(r.timers)}`);
+  assert.deepEqual(r.m14, [300, 60], 'contract 14: 5 minutes, tea at the start');
+  assert.equal(r.deliveredUp, 3);
+  // the rules through the game's own functions (goalText / progress / evaluate), on the page
+  const rules = await page.evaluate(() => {
+    const g = window.__game, L = g.loot, by = (id) => L.items.find((i) => i.id === id);
+    const out = {};
+    const c10 = g.CFG.contracts.find((c) => c.id === 'm10'), c12 = g.CFG.contracts.find((c) => c.id === 'm12'), c9 = g.CFG.contracts.find((c) => c.id === 'm9');
+    out.goal10 = g.goalText(c10, L.items); out.goal12 = g.goalText(c12, L.items); out.goal9 = g.goalText(c9, L.items);
+    out.p10 = g.progress(c10, L.tally(), L);
+    L.stow(by('m_mirror'));
+    out.p10b = g.progress(c10, L.tally(), L);
+    const R = { kind: 'left', sum: L.tally().sum, shouts: 0, damaged: 0, broken: 0 };
+    out.e10 = g.evaluate(c10, R, { alarmed: false, noMic: true, difficulty: 'medium', loot: L, guards: g.guards });
+    out.e9 = g.evaluate(c9, R, { alarmed: false, noMic: true, difficulty: 'medium', loot: L, guards: g.guards });
+    // contract 12: the painting out, the fake in its place
+    g.newRound(); g.setContract('m12');
+    const P = by('m_painting'), F = by('fake');
+    out.p12a = g.progress(c12, L.tally(), L);
+    L.stow(P);
+    out.e12noFake = g.evaluate(c12, { ...R, sum: L.tally().sum }, { alarmed: false, noMic: true, difficulty: 'medium', loot: L, guards: g.guards });
+    F.mesh.position.set(P.def.pos[0], P.def.pos[1], P.def.pos[2]); F.state = 'rest';
+    out.p12b = g.progress(c12, L.tally(), L);
+    // Valera looks at the fireplace from the living room (medium): satisfied
+    g.patrol.x = -3; g.patrol.z = -14; g.patrol.y = 0; g.patrol.heading = 0; g.patrol.headYaw = 0; g.patrol.brain.missing.clear();   // heading 0 faces -Z: the fireplace
+    out.seesPlace = g.patrol.brain.canSee(P.def.pos[0], P.def.pos[1] + 0.2, P.def.pos[2]);
+    for (let i = 0; i < 20; i++) g.patrol.brain.watch(0.1);
+    out.noticedMedium = g.patrol.brain.missing.has(P);
+    out.e12 = g.evaluate(c12, { ...R, sum: L.tally().sum }, { alarmed: false, noMic: true, difficulty: 'medium', loot: L, guards: g.guards });
+    // hard, from 1 m: the difference shows
+    g.setDifficulty('hard');
+    g.patrol.x = -3; g.patrol.z = -16.6; g.patrol.heading = 0; g.patrol.headYaw = 0; g.patrol.brain.missing.clear();
+    for (let i = 0; i < 20; i++) g.patrol.brain.watch(0.1);
+    out.noticedHard = g.patrol.brain.missing.has(P);
+    out.difficulty = g.CFG.run.difficulty;
+    return out;
+  });
+  assert.match(rules.goal10, /4 речі з 2-го поверху/);
+  assert.match(rules.goal12, /підміни/);
+  assert.match(rules.goal9, /недоступно/);
+  assert.deepEqual([rules.p10.done, rules.p10b.done], [false, true], `contract 10 counts upstairs items: ${rules.p10.text} → ${rules.p10b.text}`);
+  assert.equal(rules.e10.goal, true, `contract 10 met: ${JSON.stringify(rules.e10)}`);
+  assert.equal(rules.e9.goal, false, 'a locked contract never passes');
+  assert.equal(rules.p12a.done, false);
+  assert.equal(rules.e12noFake.goal, false, `no fake in place: ${JSON.stringify(rules.e12noFake.why)}`);
+  assert.equal(rules.p12b.done, true, `fake placed + painting out: ${rules.p12b.text}`);
+  assert.equal(rules.seesPlace, true, 'the guard sees the fireplace from the living room');
+  assert.equal(rules.noticedMedium, false, 'medium: the guard takes the fake for the painting');
+  assert.equal(rules.e12.goal, true, `contract 12 met: ${JSON.stringify(rules.e12)}`);
+  assert.equal(rules.noticedHard, true, `hard, from 1 m: the guard sees the difference (${rules.difficulty})`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('mansion (M5): the board\'s «Карта» page lists both maps, the other one reloads the page with ?map=; on the main site the mansion is «скоро» and disabled', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  // the board is drawn in real frames (present) while it is in view: stand in front of it
+  const buttons = () => page.evaluate(() => window.__game.board.buttons.map((x) => ({ id: x.id, enabled: x.enabled, label: x.label })));
+  await standFacing(page, 14.55, -2.25, 1.6, 2.914);
+  await keepFor(page, 700);
+  const b = { contractPage: (await buttons()).map((x) => x.id) };
+  await page.evaluate(() => window.__game.pressBoard('mappage'));
+  await keepFor(page, 700);
+  b.mapPage = await buttons();
+  assert.ok(b.contractPage.includes('mappage'), `the contract page has «Карта…»: ${b.contractPage}`);
+  const dacha = b.mapPage.find((x) => x.id === 'map:dacha'), mans = b.mapPage.find((x) => x.id === 'map:mansion');
+  assert.ok(dacha && dacha.enabled && mans && !mans.enabled && /зараз тут/.test(mans.label), `the map page: ${JSON.stringify(b.mapPage)}`);
+  await Promise.all([page.waitForURL(/map=dacha/), page.evaluate(() => window.__game.pressBoard('map:dacha'))]);
+  await page.waitForFunction(() => window.__game && window.__game.level, null, { timeout: 30000 });
+  assert.equal(await page.evaluate(() => window.__game.level.id), 'dacha', 'the page reloaded on the first map');
+  assert.equal(await page.evaluate(() => window.__game.CFG.contracts[0].id), 'first', 'the first map\'s contracts are back');
+  await page.close();
+  // the main site: the mansion is closed by the flag
+  const p2 = (await open(ctx, base)).page;
+  await p2.click('#start'); await p2.waitForFunction(() => window.__game.playing);
+  await standFacing(p2, 1.75, 8.75, 1.6, 2.92);   // the first map's board stand
+  await p2.evaluate(() => window.__game.pressBoard('mappage'));
+  await keepFor(p2, 700);
+  const main = await p2.evaluate(() => window.__game.board.buttons.map((x) => ({ id: x.id, enabled: x.enabled, label: x.label })));
+  const m2 = main.find((x) => x.id === 'map:mansion');
+  assert.ok(m2 && !m2.enabled && /скоро/.test(m2.label), `main site: ${JSON.stringify(main)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
 });

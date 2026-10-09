@@ -149,6 +149,9 @@ export class Brain {
         const p = it.mesh.position;
         const there = !it.delivered && it.state === 'rest' && Math.hypot(p.x - hx, p.z - hz) < 0.5 && Math.abs(p.y - hy) < 0.3;
         if (there || !this.canSee(hx, hy + 0.2, hz)) continue;
+        // W6 (contract 12): a prop in its place passes for it, unless the guard is close on hard
+        if (this.env.loot.items.some((f) => f.prop && !f.held && Math.hypot(f.mesh.position.x - hx, f.mesh.position.z - hz) < 0.5 && Math.abs(f.mesh.position.y - hy) < 0.4
+          && !(run.difficulty === 'hard' && Math.hypot(this.g.x - hx, this.g.z - hz) < 2))) continue;
         this.missing.add(it);
         this.env.say(S.guard.say.whereIsItem(it.name.toLowerCase()));
         this.env.sound('grunt');

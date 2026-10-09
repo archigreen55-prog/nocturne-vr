@@ -323,7 +323,7 @@ export function buildMansion() {
     // draw the rooms of floor f only (the hall band, the stairs and the outside are always drawn)
     setFloorVisible(f) { mesh0.visible = f === 0; mesh1.visible = f === 1; },
     wardrobe: WARDROBE, lurkers: [WARDROBE, CRATE], pockets: POCKETS, softZones: SOFT, maskZones: MASK, nav: { nodes: NAV_NODES, stairs: NAV_STAIRS, indoor: (n) => n[0] > H.minX && n[0] < H.maxX && n[1] > H.minZ && n[1] < H.maxZ },
-    guard: MCFG.guard, guard2: MCFG.guard2, alarmPosts: MCFG.alarmPosts, items: MCFG.items,
+    guard: MCFG.guard, guard2: MCFG.guard2, alarmPosts: MCFG.alarmPosts, items: MCFG.items, contracts: MCFG.contracts, difficulty: MCFG.difficulty,
     roomAt, floorIndex,
     floorY: (x, z, yHint = 0) => floors.floorY(x, z, yHint),
     onRamp: (x, z) => floors.onRamp(x, z),

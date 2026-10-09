@@ -85,7 +85,7 @@ export const mansion = {
   // the exits one guard watches during a full alarm (plan-W6 §3.2): inside the garage gate, the back door
   alarmPosts: [[11.8, -1.5, 0], [11.8, -15, 0]],
   // the radio between the two guards: a telegraph of where both are (s)
-  radio: { every: 60, jitter: 15, answerAfter: 1.8 },
+  radio: { every: 60, jitter: 15, answerAfter: 1.8, easyEvery: 45 },   // easy: heard more often
   // a noise on the other floor carries this part of its radius through the slab (through the stair well: as a wall)
   hearing: { floorK: 0.3 },
   // loot dropped off the balcony onto the hedge under it: lands at softK of its speed (no damage), rustles this far
@@ -99,17 +99,37 @@ export const mansion = {
     { id: 'm_statuette', name: S.mansion.items.statuette, kind: 'light', mesh: 'statuette', value: 350, pos: [-11.0, 0.76, -16.3], yaw: 0.4 },     // library table
     { id: 'm_candelabrum', name: S.mansion.items.candelabrum, kind: 'light', mesh: 'candelabrum', value: 300, pos: [3.0, 0.76, -15.3], yaw: 0 },   // dining table
     { id: 'm_laptop', name: S.mansion.items.laptop, kind: 'light', mesh: 'laptop', value: 800, pos: [9.5, 0.76, -10.5], yaw: Math.PI },           // study desk
-    { id: 'm_jewelbox', name: S.mansion.items.jewelbox, kind: 'light', mesh: 'jewelbox', value: 600, pos: [-9.5, 3.55, -15.2], yaw: -0.3 },      // bedroom nightstand (upstairs)
-    { id: 'm_trophy', name: S.mansion.items.trophy, kind: 'light', mesh: 'trophy', value: 400, pos: [-9.6, 3.84, -11.2], yaw: 0 },              // guard room dresser (upstairs)
-    { id: 'm_robot', name: S.mansion.items.robot, kind: 'light', mesh: 'robot', value: 450, pos: [6.4, 3.72, -17.2], yaw: 0.3 },                // kids' table (upstairs)
+    { id: 'm_jewelbox', name: S.mansion.items.jewelbox, kind: 'light', mesh: 'jewelbox', value: 600, pos: [-9.5, 3.55, -15.2], yaw: -0.3, floor: 1 },      // bedroom nightstand (upstairs)
+    { id: 'm_trophy', name: S.mansion.items.trophy, kind: 'light', mesh: 'trophy', value: 400, pos: [-9.6, 3.84, -11.2], yaw: 0, floor: 1 },              // guard room dresser (upstairs)
+    { id: 'm_robot', name: S.mansion.items.robot, kind: 'light', mesh: 'robot', value: 450, pos: [6.4, 3.72, -17.2], yaw: 0.3, floor: 1 },                // kids' table (upstairs)
     { id: 'm_painting', name: S.mansion.items.painting, kind: 'medium', mesh: 'painting2', value: 1500, pos: [-3.0, 1.3, -17.5], yaw: 0 },      // over the fireplace
     { id: 'm_vase', name: S.mansion.items.vase, kind: 'medium', mesh: 'vase', value: 1200, pos: [-0.3, 0, -11.6], yaw: 0 },                     // hall, by the north wall
     { id: 'm_chest', name: S.mansion.items.chest, kind: 'medium', mesh: 'chest', value: 1300, pos: [9.5, 0, -3.0], yaw: 0.2 },                  // garage
     { id: 'm_wine', name: S.mansion.items.wine, kind: 'medium', mesh: 'wine', value: 1400, pos: [10.5, 0, 0.4], yaw: 0 },                       // garage, by the shelves
     { id: 'm_crystal', name: S.mansion.items.crystal, kind: 'crystal', mesh: 'crystal', value: 2500, pos: [0.45, 0.94, -16.6], yaw: 0 },        // dining sideboard
-    { id: 'm_mirror', name: S.mansion.items.mirror, kind: 'medium', mesh: 'mirror', fragile: true, value: 2000, pos: [-12.7, 3, -1.3], yaw: Math.PI / 2 },   // guest room (upstairs), against the west wall
+    { id: 'm_mirror', name: S.mansion.items.mirror, kind: 'medium', mesh: 'mirror', fragile: true, value: 2000, pos: [-12.7, 3, -1.3], yaw: Math.PI / 2, floor: 1 },   // guest room (upstairs), against the west wall
     { id: 'm_statue', name: S.mansion.items.statue, kind: 'medium', mesh: 'statue', heavy: true, value: 3000, pos: [14, 0, 20], yaw: 0 },          // gazebo: "two to carry" (W5)
     { id: 'm_clock', name: S.mansion.items.floorclock, kind: 'medium', mesh: 'floorclock', heavy: true, value: 2500, pos: [6.68, 0, -7.3], yaw: -Math.PI / 2 },   // hall: "two to carry" (W5)
-    { id: 'fake', name: S.mansion.items.fake, kind: 'medium', mesh: 'painting2', prop: true, value: 0, pos: [16.5, 0.4, -9.7], yaw: Math.PI },   // in the van, for contract 12 (M5)
+    { id: 'fake', name: S.mansion.items.fake, kind: 'medium', mesh: 'painting2', prop: true, value: 0, pos: [16.5, 0.4, -9.7], yaw: Math.PI },   // in the van, for contract 12
+  ],
+
+  // The round on this map by difficulty (plan-W6 §5.2, decision P2): the timer, the flicker, the
+  // escape; the lurkers' shared cooldown. Everything else as on the first map (config/difficulty.js).
+  difficulty: {
+    easy: { time: 720, warnAt: 660, escapeTime: 120, lurkerCooldown: 60 },
+    medium: { time: 600, warnAt: 540, escapeTime: 90, lurkerCooldown: 45 },
+    hard: { time: 480, warnAt: 420, escapeTime: 60, lurkerCooldown: 25 },
+  },
+
+  // Contracts 8–14 (plan-W6 §5.1; game/contracts.js). 9 (the safe) and 11 (the statue) are places:
+  // locked until their waves, shown grey on the board.
+  contracts: [
+    { id: 'm8', name: S.mansion.contracts.m8.name, brief: S.mansion.contracts.m8.brief, goal: { sum: 4000 }, bonus: 'clean' },
+    { id: 'm9', name: S.mansion.contracts.m9.name, brief: S.mansion.contracts.m9.brief, goal: { sum: 1 }, bonus: 'clean', locked: S.mansion.contracts.m9.locked },
+    { id: 'm10', name: S.mansion.contracts.m10.name, brief: S.mansion.contracts.m10.brief, goal: { floorItems: { floor: 1, n: 4 } }, bonus: 'intact' },
+    { id: 'm11', name: S.mansion.contracts.m11.name, brief: S.mansion.contracts.m11.brief, goal: { sum: 1 }, bonus: 'clean', locked: S.mansion.contracts.m11.locked },
+    { id: 'm12', name: S.mansion.contracts.m12.name, brief: S.mansion.contracts.m12.brief, goal: { swap: { item: 'm_painting', prop: 'fake', within: 0.5, seenFrom: 2 } }, bonus: 'clean' },
+    { id: 'm13', name: S.mansion.contracts.m13.name, brief: S.mansion.contracts.m13.brief, goal: { sum: 3000, noAlarm: true }, bonus: 'intact' },
+    { id: 'm14', name: S.mansion.contracts.m14.name, brief: S.mansion.contracts.m14.brief, goal: { sum: 5000 }, bonus: 'clean', mods: { time: 300, warnAt: 240, escapeTime: 45, teaAtStart: 60 } },
   ],
 };

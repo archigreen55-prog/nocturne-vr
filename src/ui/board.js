@@ -64,6 +64,7 @@ export class Board {
     this.buttons = [];
     if (s.phase === 'result') this.drawResult(s);
     else if (s.phase === 'ready' && s.page === 'mic') this.drawMic(s);
+    else if (s.phase === 'ready' && s.page === 'map' && s.maps) this.drawMap(s);
     else if (s.phase === 'ready') this.drawContract(s);
     else this.drawRound(s);
     for (const b of this.buttons) {
@@ -133,9 +134,9 @@ export class Board {
     g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
     g.fillText(S.board.contractN(s.contractIndex + 1, s.contractCount), 50, 62);
     g.textAlign = 'right'; g.fillText(S.board.timeLeft(fmtTime(s.clock)), W - 50, 62);
-    g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = C.locked ? '#6f8396' : '#ffd166';   // W6: a locked placeholder is grey
     g.fillText(C.name, 50, 128);
-    g.font = '27px system-ui, sans-serif'; g.fillStyle = '#e6ecf5';
+    g.font = '27px system-ui, sans-serif'; g.fillStyle = C.locked ? '#93a1b8' : '#e6ecf5';
     wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
     g.fillText(S.board.goal(s.goalText), 50, 262);
@@ -149,8 +150,33 @@ export class Board {
     g.fillText(S.board.pickHere, 50, 440);
     this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 110, h: 120, font: 48 });
     this.buttons.push({ id: 'cnext', label: '▶', x: 175, y: 470, w: 110, h: 120, font: 48 });
-    this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 300, y: 470, w: 380, h: 120, font: 32 });
-    this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 695, y: 470, w: 279, h: 120, font: 32 });
+    if (s.maps) {   // W6: more than one map: a «Карта…» page
+      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 300, y: 470, w: 300, h: 120, font: 30 });
+      this.buttons.push({ id: 'mappage', label: S.board.mapPage, x: 615, y: 470, w: 170, h: 120, font: 30 });
+      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 800, y: 470, w: 174, h: 120, font: 30 });
+    } else {
+      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 300, y: 470, w: 380, h: 120, font: 32 });
+      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 695, y: 470, w: 279, h: 120, font: 32 });
+    }
+  }
+
+  // W6: the maps of the game; picking another one reloads the page with ?map=<id>
+  drawMap(s) {
+    const g = this.g;
+    g.textAlign = 'left';
+    g.font = 'bold 44px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.fillText(S.board.mapTitle, 50, 80);
+    g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
+    wrap(g, S.board.mapHint, 50, 130, W - 100, 32);
+    let y = 230;
+    for (const m of s.maps) {
+      const label = m.current ? S.board.mapCurrent(m.name) : m.open ? m.name : S.board.mapSoon(m.name);
+      this.buttons.push({ id: 'map:' + m.id, label, x: 50, y, w: 640, h: 90, font: 32, enabled: m.open && !m.current });
+      g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8'; g.textAlign = 'left';
+      g.fillText(m.blurb || '', 720, y + 55);
+      y += 110;
+    }
+    this.buttons.push({ id: 'back', label: '◀', x: 858, y: 510, w: 116, h: 90, font: 44 });
   }
 
   drawMic(s) {

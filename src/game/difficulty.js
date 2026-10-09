@@ -16,7 +16,7 @@ export function setMapBase(over) {
 }
 
 export function applyDifficulty(id, contract) {
-  const D = CFG.difficulties[id] || CFG.difficulties.medium;
+  const D = Object.assign({}, CFG.difficulties[id] || CFG.difficulties.medium, (CFG.mapDifficulty && CFG.mapDifficulty[id]) || {});   // W6: a map's own timers
   // restore
   for (const k of Object.keys(BASE)) Object.assign(CFG[k], JSON.parse(JSON.stringify(BASE[k])));
   const P = CFG.patrol;

@@ -5,11 +5,28 @@ import { PREVIEW, loadSetting, saveSetting } from '../settings.js';
 import { buildLevel as buildDacha } from './level.js';
 import { buildMansion } from './mansion/level.js';
 import { S } from '../i18n/index.js';
+import { mansion as MCFG } from '../config/mansion.js';
 
 export const MAPS = {
-  dacha: { build: buildDacha, name: () => S.mansion.mapDacha },
-  mansion: { build: buildMansion, name: () => S.mansion.name },
+  dacha: { build: buildDacha, name: () => S.mansion.mapDacha, blurb: () => S.mansion.mapBlurb.dacha },
+  mansion: { build: buildMansion, name: () => S.mansion.name, blurb: () => S.mansion.mapBlurb.mansion, contracts: MCFG.contracts, difficulty: MCFG.difficulty },
 };
+// Before the contract is loaded (systems/contract.js init): this map's own contracts (ids do not
+// overlap the first map's) and its round numbers by difficulty (game/difficulty.js).
+export function applyMapConfig() {
+  const m = MAPS[currentMapId()];
+  if (m.contracts) CFG.contracts = m.contracts;
+  CFG.mapDifficulty = m.difficulty || null;
+}
+// the board's «Карта» page: every map, which is open and which this page runs
+export const mapsForBoard = (current) => Object.keys(MAPS).map((id) => ({ id, name: MAPS[id].name(), blurb: MAPS[id].blurb(), open: mapOpen(id), current: id === current }));
+// go to another map: remembered, then the page reloads with ?map=<id> (one page = one map)
+export function switchMap(id) {
+  if (!MAPS[id] || !mapOpen(id)) return false;
+  saveSetting('map', id);
+  const u = new URL(location.href); u.searchParams.set('map', id); location.href = u.toString();
+  return true;
+}
 
 export const mapOpen = (id) => id === 'dacha' || PREVIEW || !!(CFG.maps[id] && CFG.maps[id].open);
 

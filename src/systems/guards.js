@@ -53,7 +53,7 @@ export const guards = {
     }
     if ((this.radioT -= dt) > 0) return;
     const R = CFG.mansion.radio, lines = S.mansion.radio.lines;
-    this.radioT = R.every + (Math.random() * 2 - 1) * R.jitter;
+    this.radioT = (CFG.run && CFG.run.difficulty === 'easy' && R.easyEvery ? R.easyEvery : R.every) + (Math.random() * 2 - 1) * R.jitter;
     const pair = lines[this.lineI++ % lines.length];
     const first = Math.random() < 0.5 ? G.patrol : patrol2, second = first === G.patrol ? patrol2 : G.patrol;
     const [q, a] = first === G.patrol ? pair : [pair[1], pair[0]];
