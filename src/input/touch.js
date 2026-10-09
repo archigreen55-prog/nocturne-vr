@@ -57,6 +57,10 @@ export class TouchControls {
     this.lockAt = null;                  // ms since the finger rests on the 🔒
     this.locked = false;                 // auto-run
     this.ghost = false;                  // auto-run with the finger lifted: the joystick stays, faint
+    // throwing (W2a): hold the context button with an item in hand = aim (the finger turns the view),
+    // lift = throw, lift on the ✕ = put back to "holding"
+    this.canAim = null;                  // () => true when a one-hand item is carried (set by systems/distract.js)
+    this.aiming = null;                  // { id, x, y }: the finger aiming
     this.build();
   }
 
@@ -69,12 +73,14 @@ export class TouchControls {
       <button class="tbtn act" data-btn="interact" hidden>${S.touch.take}</button>
       <button class="tbtn door" data-btn="door" hidden>${S.touch.door}</button>
       <button class="tbtn crouch" data-btn="crouch">${S.touch.crouch}</button>
-      <button class="tbtn breath" data-btn="breath"><span>${S.touch.breath}</span><i></i></button>`;
+      <button class="tbtn breath" data-btn="breath"><span>${S.touch.breath}</span><i></i></button>
+      <div class="throw-x" hidden aria-label="${S.throw.cancel}">✕</div>`;
     this.el = {
       joy: r.querySelector('.joy'), knob: r.querySelector('.joy-knob'), quiet: r.querySelector('.joy-quiet'),
       stamina: r.querySelector('.joy-stamina'), lock: r.querySelector('.joy-lock'),
       interact: r.querySelector('[data-btn=interact]'), door: r.querySelector('[data-btn=door]'),
       crouch: r.querySelector('[data-btn=crouch]'), pause: r.querySelector('[data-btn=pause]'), breath: r.querySelector('[data-btn=breath]'), breathRing: r.querySelector('.breath i'),
+      throwX: r.querySelector('.throw-x'),
     };
     this.el.joy.style.setProperty('--r', `${JOY_R}px`);
     this.syncQuiet();
@@ -98,7 +104,7 @@ export class TouchControls {
         else this.breathDown = true;
         this.breathPtr = e.pointerId;
       } else if (b === 'door') this.door = { id: e.pointerId, t0: e.timeStamp, holding: false };
-      else if (b === 'pause' || b === 'interact') this.rel.set(e.pointerId, { b, btn, x0: e.clientX, y0: e.clientY });   // fire on release, like the board buttons
+      else if (b === 'pause' || b === 'interact') this.rel.set(e.pointerId, { b, btn, x0: e.clientX, y0: e.clientY, t0: performance.now(), ts0: e.timeStamp });   // fire on release, like the board buttons
       else this.edges.add(b);
       return;
     }
@@ -123,8 +129,16 @@ export class TouchControls {
   }
 
   moveEv(e) {
+    if (this.aiming && e.pointerId === this.aiming.id) {   // W2a: the aiming finger turns the view; over the ✕ = cancel on lift
+      const A = this.aiming, k = this.lookSpeed * CFG.throw.aim.lookK;
+      this.look.x += (e.clientX - A.x) * k; this.look.y += (e.clientY - A.y) * k;
+      A.x = e.clientX; A.y = e.clientY;
+      this.el.throwX.classList.toggle('on', this.overX(e));
+      return;
+    }
     if (this.rel.has(e.pointerId)) {
       const P = this.rel.get(e.pointerId);
+      P.lastX = e.clientX; P.lastY = e.clientY;
       P.btn.classList.toggle('on', this.overRel(P, e));
     } else if (this.board && e.pointerId === this.board.id) {
       this.pressing = this.overBoardButton(e) ? this.board.btn : null;
@@ -153,6 +167,17 @@ export class TouchControls {
 
   up(e, cancelled = false) {
     if (!cancelled && this.onGesture) this.onGesture();
+    if (this.aiming && e.pointerId === this.aiming.id) {   // W2a: lift = throw; on the ✕ (or a cancelled touch) = not
+      // judged by the events' own times (as the door): a press shorter than the hold was a press, even
+      // if a late frame already showed the arc
+      const P = this.rel.get(e.pointerId), quick = !cancelled && P && e.timeStamp - P.ts0 < CFG.throw.aim.holdS * 1000;
+      if (quick) { this.edges.add('aimQuiet'); if (this.overRel(P, e)) this.edges.add('interact'); }
+      else this.edges.add(cancelled || this.overX(e) ? 'aimCancel' : 'throw');
+      this.stopAim();
+      this.rel.delete(e.pointerId);
+      this.el.interact.classList.remove('on');
+      return;
+    }
     if (this.rel.has(e.pointerId)) {
       // like the board buttons: pressed when the finger is lifted over the button, however long it was held
       const P = this.rel.get(e.pointerId);
@@ -219,9 +244,26 @@ export class TouchControls {
     if (r !== this.quietPx) { this.quietPx = r; this.el.quiet.style.setProperty('--q', `${r}px`); }
   }
 
-  // Once per frame: door hold timing (real time since the finger went down, not game time); running.
+  // W2a: the ✕ beside the context button while aiming
+  overX(e) {
+    const r = this.el.throwX.getBoundingClientRect(), m = 10;
+    return e.clientX >= r.left - m && e.clientX <= r.right + m && e.clientY >= r.top - m && e.clientY <= r.bottom + m;
+  }
+  stopAim() { this.aiming = null; this.el.throwX.hidden = true; this.el.throwX.classList.remove('on'); this.el.interact.classList.remove('aim'); }
+
+  // Once per frame: door hold timing (real time since the finger went down, not game time); running;
+  // the context button held long enough with an item in hand = aiming a throw (W2a).
   update() {
     const now = performance.now();
+    if (!this.aiming && this.canAim) {
+      for (const [id, P] of this.rel) {
+        if (P.b !== 'interact' || now - P.t0 < CFG.throw.aim.holdS * 1000 || !this.canAim()) continue;
+        this.aiming = { id, x: P.lastX ?? P.x0, y: P.lastY ?? P.y0 };
+        this.el.throwX.hidden = false; this.el.interact.classList.add('aim');
+        this.edges.add('aimStart');
+        break;
+      }
+    }
     if (this.door && !this.door.holding && now - this.door.t0 >= HOLD_S * 1000) {
       this.door.holding = true; this.edges.add('doorHoldStart');
     }
@@ -315,6 +357,7 @@ export class TouchControls {
 
   reset() {
     this.joy = null; this.lookPtr = null; this.door = null; this.rel.clear(); this.board = null; this.pressing = null; this.boardPress = null;
+    if (this.aiming) this.stopAim();
     this.breathDown = false; this.breathLatched = false; this.edges.clear();
     this.joyRaw = null; this.runWant = false; this.runSince = null; this.lockAt = null; this.locked = false; this.ghost = false;
     this.el.joy.classList.remove('ghost', 'locked', 'run', 'winded');

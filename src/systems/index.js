@@ -38,6 +38,7 @@ import { startScreen } from './startScreen.js';
 import { flashlight } from './flashlight.js';
 import { progressCode } from './progressCode.js';
 import { brightness } from './brightness.js';
+import { distract } from './distract.js';
 import { mapView } from './mapView.js';
 import { guards } from './guards.js';
 
@@ -58,6 +59,7 @@ export const SYSTEMS = [
   player,        // act: breath, walking, hands, doors, the drop-off ring
   tutorial,      // act: the first-run tutorial (phone, PC)
   economy,       // the wallet and the shop; world: a closed contract is not played; result: the round's money
+  distract,      // W2a: throwing (phone, PC: aim, arc), the devices (radio, phone, breaker), a can on the guard's head
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
   board,         // present: the board
   panel,         // frame: wrist panel / HUD

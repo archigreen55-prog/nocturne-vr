@@ -31,7 +31,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   const { page, errors } = await open(ctx, mansion);
   const info = await page.evaluate(() => {
     const g = window.__game, L = g.level;
-    return { id: L.id, doors: L.doors.length, floors: L.worlds.length, items: g.loot.items.map((i) => i.id), guard: [g.patrol.x, g.patrol.z, g.patrol.y], spawn: [+g.player.head.x.toFixed(1), +g.player.head.z.toFixed(1)], tris: L.triangles, van: g.CFG.round.vanZone, drop: g.CFG.dropZone, board: g.board.mesh.position.x };
+    return { id: L.id, doors: L.doors.length, floors: L.worlds.length, items: g.loot.items.filter((i) => !i.throwable).map((i) => i.id), guard: [g.patrol.x, g.patrol.z, g.patrol.y], spawn: [+g.player.head.x.toFixed(1), +g.player.head.z.toFixed(1)], tris: L.triangles, van: g.CFG.round.vanZone, drop: g.CFG.dropZone, board: g.board.mesh.position.x };
   });
   assert.equal(info.id, 'mansion');
   assert.equal(info.floors, 2, 'one collision world per floor');
@@ -51,7 +51,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   await page2.close();
   // the main site (no preview): the mansion is closed (no stars yet), ?map=mansion is ignored
   const page3 = (await open(ctx, base + '?map=mansion')).page;
-  assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.length].join()), 'dacha,8,8', 'the first map as before');
+  assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.filter((i) => !i.throwable).length].join()), 'dacha,8,8', 'the first map as before');
   await page3.close();
   // back
   const page4 = (await open(ctx, preview + '?map=dacha')).page;
@@ -329,6 +329,7 @@ test('mansion (M4): 12 of the 15 items can be taken and delivered into the van\'
     const g = window.__game, L = g.loot, out = { ids: [], notTakeable: [], delivered: 0, inCargo: 0, slots: new Set() };
     g.playing = true; g.sim(0.1);
     for (const it of L.items) {
+      if (it.throwable) continue;   // W2a: a can or a bottle is not loot
       out.ids.push(it.id);
       if (!it.takeable) { out.notTakeable.push(it.id); continue; }
       if (it.prop) continue;

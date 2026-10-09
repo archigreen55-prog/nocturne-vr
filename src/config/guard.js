@@ -31,7 +31,7 @@ export const stealth = {
 };
 
 export const alert = {
-  points: { step: 12, voice: 18, door: 25, drop: 30, glass: 60 },  // suspicion per heard noise
+  points: { step: 12, voice: 18, door: 25, drop: 30, glass: 60, can: 10, device: 0 },  // suspicion per heard noise (a device: the guard's own count, CFG.devices.points)
   full: 100,             // suspicion that triggers full alarm (a shout or being seen does it at once)
   decay: 4,              // suspicion lost per second
 };

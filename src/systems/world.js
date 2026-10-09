@@ -21,6 +21,7 @@ import { DropZone } from '../game/dropzone.js';
 import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { S } from '../i18n/index.js';
+import { throwablesFor } from '../loot/throw.js';
 
 export const world = {
   id: 'world',
@@ -47,7 +48,7 @@ export const world = {
     const noise = G.noise = new NoiseSystem();
     scene.add(noise.mesh);
     const loot = G.loot = new Loot({
-      level, noise, listener,
+      level, noise, listener, throwables: throwablesFor(level.id),   // W2a: the map's cans and bottles
       onMessage: (t, c) => flash(t, 2, c),
       onDeliver: (it) => {
         playCash(); fx('deliver');
@@ -137,7 +138,7 @@ export const world = {
       const ey = e.source === 'world' ? e.y : player.floorY;   // a dropped item's noise is at its height; the player's noises on the player's floor
       let best = null, bestK = 0;
       for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
-      if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] || 20, e.x, e.z); }
+      if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); }
       for (const l of lurkers) l.hear(e);
     });
     alert.onFull = (cause, x, z) => {

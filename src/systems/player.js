@@ -8,6 +8,7 @@ import { ctl } from './controls.js';
 import { boardAim } from './phone.js';
 import { pressBoard } from './contract.js';
 import { nearestDoor, useDoor } from './doors.js';
+import { aimedDevice, useDevice } from './distract.js';
 import { S } from '../i18n/index.js';
 
 export const player = {
@@ -28,7 +29,9 @@ export const player = {
       hands.aimDesk(player.head, player.yaw);
       // the context button: an item under the crosshair first, else a board button under it («Натиснути»)
       if (ctl.interact) {
-        if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
+        const dev = aimedDevice();   // W2a: a device in front (nothing in hand, no item under the crosshair)
+        if (dev) useDevice(dev);
+        else if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
         else hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
       }
       hands.updateDesk(player.head, player.yaw, player.lookPitch);
@@ -46,12 +49,12 @@ export const player = {
     if (touch && G.playingDesktop) {
       const atVan = round.atVan(player.head);
       touch.setContext({
-        interact: hands.desk ? (atVan ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : boardAim() ? S.touch.press : null,
+        interact: hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null,
         door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
       });
     }
     // drop-off ring: head inside with loot in hand = the loot flies into the van
-    const carried = hands.heldItems().filter((it) => !it.twoHanded || hands.desk === it || (hands.two && hands.two.item === it));
+    const carried = hands.heldItems().filter((it) => !it.throwable && (!it.twoHanded || hands.desk === it || (hands.two && hands.two.item === it)));   // a can is never delivered (W2a)
     const inRing = zone.contains(player.head.x, player.head.z);
     if (active && inRing && carried.length && round.phase !== 'result' && G.caughtT < 0) {
       for (const it of carried) { hands.detach(it); loot.deliver(it); }

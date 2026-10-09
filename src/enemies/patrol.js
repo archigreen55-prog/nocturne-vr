@@ -12,6 +12,7 @@ import { Brain } from './brain.js';
 import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
 import { nearLamp, targetY } from '../game/stealth.js';
 import { S } from '../i18n/index.js';
+import { power } from '../world/devices.js';
 
 const EYE = 1.62;
 const RADIUS = 0.28;
@@ -288,7 +289,7 @@ export class Patrol {
     // difficulty, habits (tea, toilet, phone: hears worse), a whistling kettle next to it
     let r = e.radius * CFG.hearing.radiusK * (this.mods && this.mods.hearK ? this.mods.hearK : 1);
     if (this.maskR && d < this.maskR) r *= CFG.hearing.maskK;
-    for (const m of this.env.level.maskZones || []) if (Math.hypot(m.x - this.x, m.z - this.z) < m.r) { r *= CFG.hearing.maskK; break; }   // W6: a fountain nearby
+    if (e.kind !== 'device') for (const m of this.env.level.maskZones || []) if (Math.hypot(m.x - this.x, m.z - this.z) < m.r) { r *= CFG.hearing.maskK; break; }   // W6: a fountain nearby (W2a: a playing radio too, but not for itself)
     if (d > r) return 0;
     const L = this.env.level;
     const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? CFG.hearing.occludedK : 1);
@@ -299,6 +300,7 @@ export class Patrol {
   reactTo(e, ey = 0) {
     if (e.kind === 'run') this.heardRunT = 2;
     if (this.state === 'chase') return;
+    if (e.device && this.brain.deviceTask(e.device)) return;   // W2a: a device: it goes to switch it off
     const f = this.env.level.floorIndex ? this.env.level.floorIndex(ey) : undefined;
     if (this.env.alert.full) this.hunt(e.x, e.z, f);
     else if (e.kind === 'run' && CFG.sprint.react === 'fast') this.heardRun(e.x, e.z, f);
@@ -428,7 +430,7 @@ export class Patrol {
     let done = false;
     switch (st.type) {
       case 'walk':
-        done = this.follow(dt, (st.slow ? 0.6 : CFG.patrol.walk) * this.brain.speedK);
+        done = this.follow(dt, (st.slow ? 0.6 : CFG.patrol.walk) * this.brain.speedK) || (st.maxT > 0 && this.timer > st.maxT);   // maxT: stuck (W2a)
         break;
       case 'wait':
         this.speed = 0;
@@ -539,7 +541,8 @@ export class Patrol {
     // light: in the flashlight beam (or by its hand lamp) or next to a lamp you are seen further
     const lit = (this.lampR ? d < this.lampR : ang < P.beamHalf) || nearLamp(hx, hz);
     const M = this.mods || {};
-    const range = P.sight * this.sightK * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1);
+    const dark = power.dark && !lit ? CFG.devices.breaker.darkSightK : 1;   // W2a: the breaker is off, outside its beam
+    const range = P.sight * this.sightK * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1) * dark;
     this.visible = false;
     // crouched, it has to see your face, not just the top of your head behind the furniture
     if (d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz)) this.visible = true;

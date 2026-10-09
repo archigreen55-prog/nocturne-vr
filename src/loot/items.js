@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { Builder, CARGO } from '../world/level.js';
 import { CFG } from '../config/index.js';
 import { playThud, playGlass } from '../audio/audio.js';
+import { playCan, playBottle } from '../audio/distractSfx.js';
 import { S } from '../i18n/index.js';
 
 const G = 9.8;
@@ -64,6 +65,17 @@ function buildItem(id, B) {
       B.box(0, 0.176, 0.105, 0.06, 0.184, 0.11, 0x111111);
       for (const x of [-0.17, 0.17]) B.cyl(0.02, 0.025, 0.03, x, 0, 0, GOLD);
       return { h: 0.36, r: 0.23 };
+    case 'can':          // W2a: a tin can to throw (not loot)
+      B.cyl(0.033, 0.033, 0.12, 0, 0, 0, 0xb83a2e, 10);
+      B.cyl(0.034, 0.034, 0.012, 0, 0, 0, 0xc8ccd2, 10); B.cyl(0.034, 0.034, 0.012, 0, 0.108, 0, 0xc8ccd2, 10);
+      B.cyl(0.0335, 0.0335, 0.04, 0, 0.04, 0, 0xe8e0c8, 10);
+      return { h: 0.12, r: 0.04 };
+    case 'bottle':       // W2a: a glass bottle to throw (not loot): breaks when it lands
+      B.cyl(0.038, 0.038, 0.18, 0, 0, 0, 0x2f6a3a, 10);
+      B.cyl(0.016, 0.038, 0.06, 0, 0.18, 0, 0x2f6a3a, 10);
+      B.cyl(0.015, 0.015, 0.07, 0, 0.24, 0, 0x2f6a3a, 8);
+      B.cyl(0.039, 0.039, 0.07, 0, 0.06, 0, 0xd8c890, 10);
+      return { h: 0.31, r: 0.045 };
     case 'crystal':
       B.cyl(0.05, 0.035, 0.05, 0, 0, 0, 0xa8dcff);
       B.cyl(0.07, 0.05, 0.12, 0, 0.05, 0, 0xa8dcff);
@@ -149,6 +161,8 @@ class Item {
     this.fragile = !!def.fragile;       // breaks like the crystal when dropped (W6: the mirror), no shards
     this.heavy = !!def.heavy;           // a two-carrier item (W5): a stand-in nobody can pick up yet
     this.prop = !!def.prop;             // not loot (W6: the fake painting in the van): not counted
+    this.throwable = !!def.throwable;   // a can or a bottle (W2a): not loot, not counted, never in the van
+    this.bottle = def.kind === 'bottle';
     const B = new Builder();
     const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
@@ -159,11 +173,11 @@ class Item {
     this.vel = new THREE.Vector3();
     this.spinAxis = new THREE.Vector3(1, 0, 0);
     this.holders = [];       // hands holding it ('left' / 'right' / 'desk')
-    if (this.crystal) {
+    if (this.crystal || this.bottle) {
       const S = new Builder();
       for (let i = 0; i < 9; i++) {
         const a = i * 2.4, d = 0.05 + (i % 3) * 0.08;
-        S.add(new THREE.TetrahedronGeometry(0.02 + (i % 2) * 0.012).rotateY(a).translate(Math.cos(a) * d, 0.012, Math.sin(a) * d), 0xc8ecff);
+        S.add(new THREE.TetrahedronGeometry(0.02 + (i % 2) * 0.012).rotateY(a).translate(Math.cos(a) * d, 0.012, Math.sin(a) * d), this.bottle ? 0x3f8a4a : 0xc8ecff);
       }
       this.shards = S.mesh(this.mat);
       this.shards.visible = false;
@@ -189,12 +203,15 @@ class Item {
     this.mat.color.setHex(0xffffff);
     this.highlight(false);
     if (this.shards) this.shards.visible = false;
+    // W2a: thrown (from where), found by the guard, carried by it, binned / swept up
+    this.thrown = false; this.thrownFrom = null; this.hitGuard = false; this.landedAt = null;
+    this.found = false; this.carrier = null; this.gone = false;
   }
 
   get value() { return this.broken ? 0 : Math.round(this.def.value * (this.damaged ? CFG.loot.damagedK : 1)); }
   get held() { return this.holders.length > 0; }
   // can a hand pick it up? (not broken, not flying, not already in the van)
-  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered; }
+  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered && !this.carrier && !this.gone; }
 
   centre(out) { return out.copy(this.mesh.position).addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.mesh.quaternion), this.h / 2); }
 
@@ -221,7 +238,7 @@ export class Loot {
     this.env = env;
     if (env.level && env.level.cargo) { cargo = env.level.cargo; SLOTS = cargo.slots || slotsFor(cargo, cargo.rear || 'min'); }
     else SLOTS = SLOTS_DACHA;
-    this.items = ((env.level && env.level.items) || CFG.items).map((d) => new Item(d));
+    this.items = ((env.level && env.level.items) || CFG.items).concat(env.throwables || []).map((d) => new Item(d));
     this.group = new THREE.Group();
     this.group.name = 'loot';
     for (const it of this.items) { this.group.add(it.mesh); if (it.shards) this.group.add(it.shards); }
@@ -236,9 +253,9 @@ export class Loot {
 
   // Summary for the board and the wrist; list = delivered items in delivery order.
   tally() {
-    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.filter((i) => !i.heavy && !i.prop).length, list: [] };
+    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.filter((i) => !i.heavy && !i.prop && !i.throwable).length, list: [] };
     for (const it of this.items) {
-      if (it.prop) continue;
+      if (it.prop || it.throwable) continue;
       if (it.broken) s.broken++;
       if (!it.delivered) continue;
       s.inVan++; s.sum += it.value;
@@ -256,7 +273,7 @@ export class Loot {
 
   // Drop-off ring: the item flies from where it is into its place in the van (CFG.dropZone.flyTime).
   deliver(it) {
-    if (!it.takeable) return false;
+    if (!it.takeable || it.throwable) return false;
     const [x, z] = this.nextSlot();
     this.e.setFromQuaternion(it.mesh.quaternion);
     it.holders.length = 0;
@@ -281,7 +298,7 @@ export class Loot {
 
   // An item resting on the cargo floor (flown in, stowed, or thrown in) counts, once and for good.
   markDelivered(it, force = false) {
-    if (it.delivered || it.broken || it.prop || it.state !== 'rest') return;   // a prop (the fake painting) is never loot
+    if (it.delivered || it.broken || it.prop || it.throwable || it.state !== 'rest') return;   // a prop (the fake painting), a can (W2a) is never loot
     if (!force && !(inCargo(it.mesh.position.x, it.mesh.position.z) && it.mesh.position.y > 0.2)) return;
     it.delivered = true;
     it.order = ++this.orderN;
@@ -374,6 +391,24 @@ export class Loot {
       env.noise.emit(p.x, p.z, soft.noise, 'drop', { y: p.y + 0.02, source: 'world' });
       if (speed < CFG.loot.quietLanding) return;
     }
+    // W2a: a can clatters (its own noise kind, heard further than a dropped item); a bottle breaks
+    if (it.throwable) {
+      it.landedAt = { x: p.x, y: p.y, z: p.z };
+      const T = CFG.throw;
+      if (it.bottle && speed > T.bottle.breakSpeed) {
+        it.broken = true; it.state = 'broken';
+        it.mesh.visible = false;
+        it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true;
+        playBottle(pos, occ);
+        env.noise.emit(p.x, p.z, T.bottle.noise, 'glass', { y: p.y + 0.02, source: 'world' });
+        return;
+      }
+      if (speed < CFG.loot.quietLanding) return;
+      const k = Math.max(0.5, Math.min(1, speed / 4));
+      playCan(pos, occ, k);
+      env.noise.emit(p.x, p.z, T.can.noise * k, 'can', { y: p.y + 0.02, source: 'world' });
+      return;
+    }
     if ((it.crystal || it.fragile) && speed > CFG.loot.crystal.breakSpeed) {
       it.broken = true; it.damaged = true; it.state = 'broken';
       it.mesh.visible = false;
@@ -386,7 +421,7 @@ export class Loot {
     if (speed > (wall ? CFG.loot.wallDamageSpeed : CFG.loot.damageSpeed) && !it.damaged) {
       it.damaged = true;
       it.mat.color.setHex(0x9a8a80);
-      env.onMessage(S.loot.damaged(it.name), '#ff9f43');
+      env.onMessage(it.thrown ? S.throw.damaged(it.name) : S.loot.damaged(it.name), '#ff9f43');   // W2a: «Пошкоджено при кидку»
     }
     if (speed < CFG.loot.quietLanding) return;
     const base = it.twoHanded ? CFG.loot.noiseRadius.medium : CFG.loot.noiseRadius.light;

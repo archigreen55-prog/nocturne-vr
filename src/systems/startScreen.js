@@ -21,6 +21,7 @@ import { lockPointer } from './desktop.js';
 import { setContract, setDifficulty, goHome, newRound } from './contract.js';
 import { syncWallet, lockText } from './economy.js';
 import { wallet, openAll } from '../game/economy.js';
+import { distractReport } from './distract.js';
 import { S } from '../i18n/index.js';
 
 export function syncStartScreen() {
@@ -45,7 +46,8 @@ export const reportText = () => {
     version: VERSION, mode: G.MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
     game: { phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1),
       run: G.runStats && { ...G.runStats, vrRun: G.vrRun },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
-      wallet: { ...wallet(), paid: undefined, openAll: openAll() } },   // W3: cash, earned, spent, owned, the last entries
+      wallet: { ...wallet(), paid: undefined, openAll: openAll() },   // W3: cash, earned, spent, owned, the last entries
+      distract: distractReport() },   // W2a: throws, hits, devices used, the windows they gave
     screen: touch ? {
       ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused: G.paused, pauses: pauseLog.slice(-10),
       feedback: G.feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),

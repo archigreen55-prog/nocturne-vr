@@ -13,6 +13,8 @@ const HANDS = ['left', 'right'];
 const _m = new THREE.Matrix4(), _v = new THREE.Vector3(), _c = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _s = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+// W2a: remember a throw and where it left from (a can on the guard's head: it looks there)
+function markThrown(it) { const p = it.mesh.position; it.thrown = true; it.thrownFrom = { x: p.x, y: p.y, z: p.z }; it.hitGuard = false; it.found = false; }
 
 export class Hands {
   // env: { loot, rig (player rig), grips: { left, right } (Object3D), pulse(hand, s, ms), onMessage(text, color) }
@@ -99,6 +101,7 @@ export class Hands {
       this.env.loot.knock(it, h.vel.x * 0.5, h.vel.z * 0.5);
       return;
     }
+    it.thrown = false;   // picked up again: not a throw any more (W2a)
     if (it.twoHanded) {
       h.item = it; h.aloneT = 0;
       if (!it.holders.includes(n)) it.holders.push(n);
@@ -144,10 +147,25 @@ export class Hands {
     this.dropItem(it, h.vel);
   }
 
+  // Let go with the hand's speed. W2a: a one-hand item is thrown (x CFG.throw.vrK, up to maxSpeed);
+  // a two-handed one only drops (at most 6 m/s, as before).
   dropItem(it, vel) {
     _v.copy(vel);
-    if (_v.length() > 6) _v.setLength(6);
+    if (!it.twoHanded) _v.multiplyScalar(CFG.throw.vrK);
+    const max = it.twoHanded ? 6 : CFG.throw.maxSpeed;
+    if (_v.length() > max) _v.setLength(max);
+    if (!it.twoHanded && _v.length() > CFG.throw.thrownSpeed) markThrown(it);
     it.drop(_v);
+  }
+  // W2a, phone / PC: throw the carried one-hand item with velocity v (systems/distract.js aims it).
+  throwDesk(v) {
+    const it = this.desk;
+    if (!it || it.twoHanded) return null;
+    this.desk = null;
+    it.holders.length = 0;
+    markThrown(it);
+    it.drop(v);
+    return it;
   }
 
   // Take an item out of the hands without dropping it (the drop-off ring takes it); the grip can
@@ -230,7 +248,7 @@ export class Hands {
       const it = this.desk;
       this.desk = null;
       it.holders.length = 0;
-      if (atVan) this.env.loot.deliver(it);   // near the van: it flies in
+      if (atVan && !it.throwable) this.env.loot.deliver(it);   // near the van: it flies in (a can does not: W2a)
       else it.drop(_v.set(0, 0, 0));
       return;
     }
@@ -238,6 +256,7 @@ export class Hands {
     if (!it) return;
     this.desk = it;
     this.deskAim = null;
+    it.thrown = false;
     it.holders.length = 0; it.holders.push('desk');
     it.state = 'held';
     playTick();
