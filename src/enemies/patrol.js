@@ -112,6 +112,7 @@ export class Patrol {
 
   // What it is doing, in words (the wrist shows it on the easy difficulty).
   get activity() {
+    if (CFG.sprint.showRun && this.heardRunT > 0 && this.state !== 'chase') return S.sprint.guardHears;   // easy: it hears someone running
     switch (this.state) {
       case 'chase': return S.guard.state.chase;
       case 'hunt': return S.guard.state.hunt;
@@ -153,6 +154,9 @@ export class Patrol {
     this.seenCount = 0;
     this.reactAt = null;
     this.stay = false;        // posted at an exit during a full alarm (W6: the second guard)
+    // running (CFG.sprint): it goes to look fast and follows the steps; on hard it dashes in a chase
+    this.runFollow = false; this.runRetarget = 0; this.runLineT = 0; this.heardRunT = 0;
+    this.dashLeft = CFG.sprint.guardSprint.time; this.dashWinded = 0; this.dashRest = 0; this.dashing = false;
     this.setMark(null);
     this.drawBar(0);
     this.place();
@@ -196,6 +200,22 @@ export class Patrol {
   investigate(x, z, f) {
     if (this.state !== 'investigate' && this.state !== 'look') playGrunt(this.voice, 'curious');
     this.state = this.env.alert.full ? 'hunt' : 'investigate';
+    this.runFollow = false;
+    this.goTo(x, z, f);
+  }
+
+  // A running step heard in calm time (CFG.sprint.react 'fast'): no pause, «Хто там бігає?!», it goes
+  // at its search speed to the step and, while it keeps hearing them, re-aims at the latest step.
+  heardRun(x, z, f) {
+    if (this.state === 'investigate' && this.runFollow) {
+      if (this.runRetarget <= 0) { this.runRetarget = CFG.sprint.retarget; this.goTo(x, z, f); }
+      return;
+    }
+    this.interrupt();
+    if (this.state !== 'investigate' && this.state !== 'look') playGrunt(this.voice, 'curious');
+    if (this.runLineT <= 0) { this.runLineT = CFG.sprint.lineEvery; this.env.say(S.sprint.guardLine); }
+    this.state = 'investigate'; this.timer = 0;
+    this.runFollow = true; this.runRetarget = CFG.sprint.retarget;
     this.goTo(x, z, f);
   }
 
@@ -277,9 +297,11 @@ export class Patrol {
   }
   // React to a noise it heard: come to look, or hunt there during a full alarm.
   reactTo(e, ey = 0) {
+    if (e.kind === 'run') this.heardRunT = 2;
     if (this.state === 'chase') return;
     const f = this.env.level.floorIndex ? this.env.level.floorIndex(ey) : undefined;
     if (this.env.alert.full) this.hunt(e.x, e.z, f);
+    else if (e.kind === 'run' && CFG.sprint.react === 'fast') this.heardRun(e.x, e.z, f);
     else this.react(e.x, e.z, f);
   }
 
@@ -297,6 +319,10 @@ export class Patrol {
     if (dPlayer < P.catchDist && (this.state === 'chase' || this.state === 'hunt' || (this.visible && dPlayer < 0.6))) return 'caught';
 
     let speed = P.walk, look = false;
+    this.runRetarget -= dt; this.runLineT -= dt; this.heardRunT -= dt;
+    this.dashing = false;
+    if (this.dashWinded > 0 && this.state !== 'chase') this.dashWinded = Math.max(0, this.dashWinded - dt);
+    if (this.state !== 'investigate') this.runFollow = false;
     switch (this.state) {
       case 'task':
         look = this.runTask(dt);
@@ -306,7 +332,7 @@ export class Patrol {
         if (this.timer >= P.reactDelay) this.investigate(this.reactAt[0], this.reactAt[1], this.reactAt[2]);
         break;
       case 'investigate':
-        speed = P.investigate;
+        speed = this.runFollow ? P.hunt : P.investigate;
         if (this.follow(dt, speed)) { this.state = 'look'; this.timer = 0; }
         break;
       case 'hunt':
@@ -325,7 +351,7 @@ export class Patrol {
         }
         break;
       case 'chase': {
-        speed = P.chase;
+        speed = P.chase * this.dash(dt, player);
         if (this.visible) {
           this.lostT = 0;
           this.lastSeen = { x: player.head.x, z: player.head.z };
@@ -338,6 +364,7 @@ export class Patrol {
         break;
       }
     }
+    if (!this.dashing && this.dashLeft < CFG.sprint.guardSprint.time && (this.dashRest += dt) >= CFG.sprint.guardSprint.rest) this.dashLeft = CFG.sprint.guardSprint.time;
     const step = this.state === 'task' ? this.queue[0] : null;
     const checking = this.state !== 'task' || !!(step && step.search);
     alert.checking = this.env.secondary ? alert.checking || checking : checking;   // W6: two guards share the flag
@@ -435,6 +462,22 @@ export class Patrol {
   turnTo(p, dt) {
     const diff = angleDiff(Math.atan2(-(p[0] - this.x), -(p[1] - this.z)), this.heading);
     this.heading += Math.max(-TURN * dt, Math.min(TURN * dt, diff));
+  }
+
+  // Hard (CFG.sprint.sprint): while it sees you running in a chase it dashes (speed x k) for up to
+  // `time` s in total, then it is out of breath for `winded` s (windedSpeed); the dash comes back
+  // after `rest` s without dashing. Returns the chase speed multiplier for this frame.
+  dash(dt, player) {
+    const D = CFG.sprint.guardSprint;
+    if (!CFG.sprint.sprint) return 1;
+    if (this.dashWinded > 0) { this.dashWinded -= dt; return D.windedSpeed / CFG.patrol.chase; }
+    if (this.visible && player.running && this.dashLeft > 0) {
+      this.dashing = true; this.dashRest = 0;
+      this.dashLeft -= dt;
+      if (this.dashLeft <= 0) { this.dashLeft = 0; this.dashWinded = D.winded; }
+      return D.k;
+    }
+    return 1;
   }
 
   // Walks along this.path; returns true when the last point is reached.

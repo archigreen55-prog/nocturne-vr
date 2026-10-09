@@ -27,6 +27,7 @@ import { phone } from './phone.js';
 import { desktop } from './desktop.js';
 import { stats } from './stats.js';
 import { controls } from './controls.js';
+import { sprint } from './sprint.js';
 import { player } from './player.js';
 import { tutorial } from './tutorial.js';
 import { heist } from './heist.js';
@@ -51,6 +52,7 @@ export const SYSTEMS = [
   desktop,       // laptop mouse, back to the start screen
   stats,         // FPS, GPU / CPU time, battery
   controls,      // input: keyboard, touch, VR controllers
+  sprint,        // input: running (stamina, doors, crystal, breath); world: running steps, breathing
   player,        // act: breath, walking, hands, doors, the drop-off ring
   tutorial,      // act: the first-run tutorial (phone, PC)
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples

@@ -5,8 +5,13 @@
 // A finger that lands on a board button presses it like a real button: the view does not turn, and
 // the button fires when the finger is lifted over it, however long it was held (set hitBoard).
 // Pointer Events: one pointer per role, so the joystick and the look work at the same time.
+// Running (game-design §10, like PUBG Mobile): the joystick pushed forward past its circle = running;
+// further up, onto the 🔒 over the joystick = auto-run, the finger may be lifted (the joystick stays as
+// a faint ghost). Only forward (CFG.sprint.sector). Any touch on the joystick side unlocks; so does the
+// game (stamina out, crouching ...: unlock()). The stamina arc runs along the joystick's lower half.
 import { shapeStick } from './xrInput.js';
 import { CFG } from '../config/index.js';
+import { offForward } from '../game/run.js';
 import { S } from '../i18n/index.js';
 
 const JOY_ZONE = 0.45;     // left part of the screen that starts the joystick
@@ -43,13 +48,22 @@ export class TouchControls {
     this.onGesture = null;               // called on every finger lift (a user gesture: full screen)
     this.onLoud = null;                  // called when the stick crosses the "quiet" ring (a vibration / flash cue)
     this.rel = new Map();                // pointerId -> { b, x0, y0 }: pause and the context button fire on release
+    // running
+    this.joyRaw = null;                  // { over: travel / JOY_R, ang: degrees off forward } of the joystick finger
+    this.runWant = false;                // the finger is past the circle, forward, long enough
+    this.runSince = null;                // ms since the finger is in the running zone (before runWant)
+    this.lockPos = null;                 // { x, y } of the 🔒 for this joystick
+    this.lockAt = null;                  // ms since the finger rests on the 🔒
+    this.locked = false;                 // auto-run
+    this.ghost = false;                  // auto-run with the finger lifted: the joystick stays, faint
     this.build();
   }
 
   build() {
     const r = this.root;
     r.innerHTML = `
-      <div class="joy" hidden><div class="joy-quiet"></div><div class="joy-knob"></div></div>
+      <div class="joy" hidden><div class="joy-quiet"></div><div class="joy-stamina"></div><div class="joy-knob"></div></div>
+      <div class="joy-lock" hidden aria-label="${S.sprint.lock}">🔒</div>
       <button class="tbtn pause" data-btn="pause" aria-label="${S.touch.menu}">❚❚</button>
       <button class="tbtn act" data-btn="interact" hidden>${S.touch.take}</button>
       <button class="tbtn door" data-btn="door" hidden>${S.touch.door}</button>
@@ -57,11 +71,13 @@ export class TouchControls {
       <button class="tbtn breath" data-btn="breath"><span>${S.touch.breath}</span><i></i></button>`;
     this.el = {
       joy: r.querySelector('.joy'), knob: r.querySelector('.joy-knob'), quiet: r.querySelector('.joy-quiet'),
+      stamina: r.querySelector('.joy-stamina'), lock: r.querySelector('.joy-lock'),
       interact: r.querySelector('[data-btn=interact]'), door: r.querySelector('[data-btn=door]'),
       crouch: r.querySelector('[data-btn=crouch]'), pause: r.querySelector('[data-btn=pause]'), breath: r.querySelector('[data-btn=breath]'), breathRing: r.querySelector('.breath i'),
     };
     this.el.joy.style.setProperty('--r', `${JOY_R}px`);
     this.el.quiet.style.setProperty('--q', `${QUIET_R}px`);
+    this.el.lock.style.setProperty('--ls', `${CFG.sprint.touch.lockSize}px`);
     r.addEventListener('pointerdown', (e) => this.down(e));
     r.addEventListener('pointermove', (e) => this.moveEv(e));
     r.addEventListener('pointerup', (e) => this.up(e));
@@ -85,6 +101,8 @@ export class TouchControls {
       else this.edges.add(b);
       return;
     }
+    // auto-run: a touch on the joystick side unlocks it (and may start the joystick as usual)
+    if (this.locked && e.clientX < innerWidth * CFG.sprint.touch.unlockZone) this.unlock();
     const onBoard = !this.board && this.hitBoard && this.hitBoard(e.clientX, e.clientY);
     if (onBoard) {
       this.board = { id: e.pointerId, btn: onBoard, x0: e.clientX, y0: e.clientY };
@@ -93,6 +111,9 @@ export class TouchControls {
       this.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY };
       Object.assign(this.el.joy.style, { left: `${e.clientX}px`, top: `${e.clientY}px` });
       this.el.joy.hidden = false;
+      this.joyRaw = { over: 0, ang: 0 }; this.runWant = false; this.runSince = null; this.lockAt = null;
+      this.lockPos = this.placeLock(e.clientX, e.clientY);
+      if (this.lockPos) Object.assign(this.el.lock.style, { left: `${this.lockPos.x}px`, top: `${this.lockPos.y}px` });
       this.setKnob(0, 0);
     } else if (!this.lookPtr) {
       this.lookPtr = { id: e.pointerId, x: e.clientX, y: e.clientY };
@@ -108,9 +129,19 @@ export class TouchControls {
       this.pressing = this.overBoardButton(e) ? this.board.btn : null;
     } else if (this.joy && e.pointerId === this.joy.id) {
       let dx = e.clientX - this.joy.x0, dy = e.clientY - this.joy.y0;
-      const m = Math.hypot(dx, dy);
+      const m = Math.hypot(dx, dy), T = CFG.sprint.touch, A = CFG.sprint.sector;
+      const R = this.joyRaw = { over: m / JOY_R, ang: m > 0 ? offForward(dx, -dy) : 0 };
+      // the knob follows the finger past the circle while it points forward (up to the 🔒)
+      const reach = R.ang <= A.hold ? Math.max(JOY_R, Math.min(m, T.lockDist)) : JOY_R;
+      const kx = m > reach ? dx * reach / m : dx, ky = m > reach ? dy * reach / m : dy;
       if (m > JOY_R) { dx *= JOY_R / m; dy *= JOY_R / m; }
-      this.setKnob(dx, dy);
+      this.setKnob(dx, dy, kx, ky);
+      // the 🔒: the finger rests on it (update() times it) or is lifted on it (up())
+      const onLock = this.lockShown && Math.hypot(e.clientX - this.lockPos.x, e.clientY - this.lockPos.y) <= T.lockHit / 2;
+      if (onLock && this.lockAt === null) this.lockAt = performance.now();
+      else if (!onLock) this.lockAt = null;
+      // locked, and the finger comes back into the circle or turns away: that is touching the joystick
+      if (this.locked && (R.over < T.off || R.ang > A.hold)) this.unlock();
     } else if (this.lookPtr && e.pointerId === this.lookPtr.id) {
       const L = this.lookPtr;
       this.look.x += (e.clientX - L.x) * this.lookSpeed;
@@ -142,7 +173,16 @@ export class TouchControls {
       this.door = null;
       this.el.door.classList.remove('on');
     }
-    if (this.joy && e.pointerId === this.joy.id) { this.joy = null; this.el.joy.hidden = true; this.setKnob(0, 0); }
+    if (this.joy && e.pointerId === this.joy.id) {
+      if (!cancelled && !this.locked && this.lockAt !== null) this.setLock(true);   // lifted on the 🔒
+      this.joy = null; this.joyRaw = null; this.runWant = false; this.runSince = null; this.lockAt = null;
+      if (this.locked) {   // auto-run goes on: the joystick stays as a ghost, knob up, straight ahead
+        this.ghost = true;
+        this.el.joy.classList.add('ghost');
+        this.setKnob(0, -JOY_R);
+      } else { this.el.joy.hidden = true; this.setKnob(0, 0); }
+      this.showLock();
+    }
     if (this.lookPtr && e.pointerId === this.lookPtr.id) this.lookPtr = null;
   }
 
@@ -159,8 +199,9 @@ export class TouchControls {
     return Math.hypot(e.clientX - B.x0, e.clientY - B.y0) <= BOARD_SLOP || this.hitBoard(e.clientX, e.clientY) === B.btn;
   }
 
-  setKnob(dx, dy) {
-    this.el.knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  // dx, dy: the stick (within the circle); kx, ky: where the knob is drawn (past the circle when running)
+  setKnob(dx, dy, kx = dx, ky = dy) {
+    this.el.knob.style.transform = `translate(${kx}px, ${ky}px)`;
     this.raw.x = dx / JOY_R; this.raw.y = -dy / JOY_R;   // up = forward
     shapeStick(this.raw.x, this.raw.y, this.move);
     const loud = Math.hypot(this.move.x, this.move.y) > QUIET_K + 1e-6;
@@ -171,11 +212,77 @@ export class TouchControls {
     }
   }
 
-  // Once per frame: door hold timing (real time since the finger went down, not game time).
+  // Once per frame: door hold timing (real time since the finger went down, not game time); running.
   update() {
-    if (this.door && !this.door.holding && performance.now() - this.door.t0 >= HOLD_S * 1000) {
+    const now = performance.now();
+    if (this.door && !this.door.holding && now - this.door.t0 >= HOLD_S * 1000) {
       this.door.holding = true; this.edges.add('doorHoldStart');
     }
+    // running: past the circle (x over) within the forward sector for `delay` s; it keeps going while
+    // past x off within the wider `hold` sector
+    const R = this.joyRaw, T = CFG.sprint.touch, A = CFG.sprint.sector;
+    if (this.joy && R) {
+      const inZone = this.runWant ? R.over >= T.off && R.ang <= A.hold : R.over >= T.over && R.ang <= A.on;
+      if (!inZone) { this.runWant = false; this.runSince = null; }
+      else if (!this.runWant) {
+        if (this.runSince === null) this.runSince = now;
+        if (now - this.runSince >= T.delay * 1000) this.runWant = true;
+      }
+      if (!this.locked && this.lockAt !== null && now - this.lockAt >= T.lockDwell * 1000) this.setLock(true);
+    }
+    this.showLock();
+  }
+
+  // running asked for: the finger past the circle, or auto-run
+  get run() { return this.runWant || this.locked; }
+
+  // The 🔒 for a joystick that starts at (x0, y0): straight up, lockDist px; with no room above (the
+  // finger landed high), it comes closer (never under lockMin) and leans right (still "forward").
+  // A finger that landed so high that even that does not fit gets no 🔒 this time (running still
+  // works): a 🔒 squeezed next to the circle would lock by accident.
+  placeLock(x0, y0) {
+    const T = CFG.sprint.touch, top = T.topMargin + T.lockSize / 2;
+    for (let a = 0; a <= T.lockTilt; a += 5) {
+      for (let d = T.lockDist; d >= T.lockMin; d -= 5) {
+        const r = a * Math.PI / 180, y = y0 - d * Math.cos(r);
+        if (y >= top) return { x: x0 + d * Math.sin(r), y };
+      }
+    }
+    return null;
+  }
+  // the 🔒 shows once the finger is past the circle going forward, and while locked
+  get lockShown() { return !!this.lockPos && (this.locked || (!!this.joy && this.joyRaw && (this.runWant || this.runSince !== null))); }
+  showLock() {
+    const el = this.el.lock, on = this.lockShown;
+    if (el.hidden === on) el.hidden = !on;
+    el.classList.toggle('on', this.locked || this.lockAt !== null);
+  }
+  setLock(on) {
+    if (on === this.locked) return;
+    this.locked = on;
+    this.edges.add(on ? 'runLock' : 'runUnlock');
+    this.el.joy.classList.toggle('locked', on);
+  }
+  // Auto-run off (a touch on the joystick side, or the game: stamina out, crouching, a locked door ...)
+  unlock() {
+    if (!this.locked) return;
+    this.setLock(false);
+    if (this.ghost) {
+      this.ghost = false;
+      this.el.joy.classList.remove('ghost');
+      if (!this.joy) { this.el.joy.hidden = true; this.setKnob(0, 0); }
+    }
+    this.showLock();
+  }
+  // The running read-out on the joystick (systems/sprint.js, every frame): red circle while running,
+  // the stamina arc (shown while not full), out of breath.
+  setRun({ running, stamina, winded }) {
+    const el = this.el;
+    el.joy.classList.toggle('run', !!running);
+    el.joy.classList.toggle('winded', !!winded);
+    const show = stamina < 0.999 || running;
+    el.stamina.classList.toggle('shown', show);
+    if (show) el.stamina.style.setProperty('--s', stamina.toFixed(3));
   }
   take(edge) { const had = this.edges.has(edge); this.edges.delete(edge); return had; }
   takeLook(out) { out.x = this.look.x; out.y = this.look.y; this.look.x = this.look.y = 0; return out; }
@@ -202,7 +309,10 @@ export class TouchControls {
   reset() {
     this.joy = null; this.lookPtr = null; this.door = null; this.rel.clear(); this.board = null; this.pressing = null; this.boardPress = null;
     this.breathDown = false; this.breathLatched = false; this.edges.clear();
+    this.joyRaw = null; this.runWant = false; this.runSince = null; this.lockAt = null; this.locked = false; this.ghost = false;
+    this.el.joy.classList.remove('ghost', 'locked', 'run', 'winded');
     this.el.joy.hidden = true; this.setKnob(0, 0); this.look.x = this.look.y = 0;
+    this.showLock();
     for (const b of this.root.querySelectorAll('.on')) b.classList.remove('on');
   }
 }

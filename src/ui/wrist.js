@@ -128,8 +128,14 @@ export class WristPanel {
 
     // --- body: steps, crouch; hands; the van ---
     g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
-    g.fillStyle = s.stepsAudible ? '#ffb347' : '#5fd38d';
-    g.fillText(s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet, 30, 284);
+    // running (W1): the word and the stamina bar under it (shown while not full)
+    const R = s.run, running = !!(R && R.running), winded = R && R.winded > 0;
+    g.fillStyle = winded ? '#93a1b8' : running ? '#ff6a3d' : s.stepsAudible ? '#ffb347' : '#5fd38d';
+    g.fillText(winded ? S.sprint.winded(Math.ceil(R.winded)) : running ? S.sprint.stepsRun : s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet, 30, 284);
+    if (R && (running || R.fraction < 0.999)) {
+      g.fillStyle = 'rgba(255, 255, 255, 0.15)'; g.fillRect(30, 292, 180, 6);
+      g.fillStyle = winded ? '#6a7385' : '#ffb347'; g.fillRect(30, 292, 180 * R.fraction, 6);
+    }
     // visibility: eye open (seen from afar) / half (crouched) / closed (hidden behind cover)
     const st = s.stealth;
     if (st) {

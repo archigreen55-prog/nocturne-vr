@@ -8,6 +8,7 @@ import { G } from './state.js';
 import { caught } from './contract.js';
 import { S } from '../i18n/index.js';
 import { flash } from './messages.js';
+import { playStairCreak } from '../audio/stairSfx.js';
 
 export const guards = {
   id: 'guards',
@@ -30,6 +31,8 @@ export const guards = {
     if (!G.active || round.phase === 'result') { if (round.phase === 'result') this.answer = null; return; }
     // the other lurkers of the map (heist.js steps the first one)
     if (G.caughtT < 0) for (const l of (G.lurkers || []).slice(1)) l.update(dt, player);
+    // running on the stairs: every tread creaks (player.js sets stairCreak on the step)
+    if (player.stairCreak) playStairCreak();
     // a heavy item (a two-carrier stand-in, W5): coming up to it says why it cannot be taken
     let heavy = false;
     for (const it of G.loot.items) {

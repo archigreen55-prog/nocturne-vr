@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newContext, ROOT } from './harness.mjs';
-import { browser, UA, open, test, base, preview, keepFor } from './runner.mjs';
+import { browser, UA, open, test, base, preview, keepFor, LAND, tp } from './runner.mjs';
 
 const mansion = preview + '?map=mansion';
 // walk with W + Space (2 m/s) for `secs` of game time (the keyboard state is read every simulated frame)
@@ -441,4 +441,80 @@ test('mansion (M4): a pocket hides you standing while its door is shut (not with
   assert.equal(r.pockets, 5);
   assert.deepEqual(errors, []);
   await ctx.close();
+});
+
+// ---------- the stairs under running (CFG.sprint.stairs, merged from the «Біг» branch) ----------
+test('mansion (stairs + run): on a PC and a phone running up the stairs is x0.8 (2.24 m/s) and every tread creaks; in VR the ramp caps the speed at 1.2 m/s', async () => {
+  const S = { onRamp: 0, creaks: 0, runSteps: 0, speeds: [] };
+  // PC: W + Space twice (the running wish) through the keyboard state, fixed steps
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, mansion);
+  const pc = await page.evaluate(() => {
+    const g = window.__game, out = { onRamp: 0, creaks: 0, runSteps: 0, speeds: [], cfg: g.CFG.sprint.stairs };
+    g.playing = true; g.sim(0.1);
+    g.patrol.update = () => null; g.patrol2.update = () => null;
+    g.player.teleport(-5.6, -6.6, 0, 0); g.player.lookYaw = 0; g.sim(0.2);
+    g.keys.down.add('KeyW'); g.keys.down.add('Space'); g.keys.spaceRun = true;
+    for (let i = 0; i < 72 * 2.5; i++) {
+      g.sim(1 / 72);
+      if (g.player.onRamp) { out.onRamp++; out.speeds.push(+g.player.speed.toFixed(2)); if (g.player.stairCreak) out.creaks++; if (g.player.stepNoise && g.player.stepKind === 'run') out.runSteps++; }
+    }
+    g.keys.down.clear(); g.keys.spaceRun = false;
+    out.max = Math.max(...out.speeds.slice(12)); out.running = g.run.running; out.y = +g.player.floorY.toFixed(2);   // after the first frames: the speed eases from 2.8 to 2.24
+    return out;
+  });
+  assert.deepEqual(pc.cfg, { vrMaxSpeed: 1.2, runK: 0.8, creakEveryStepWhenRunning: true });
+  assert.ok(pc.onRamp > 30, `ran on the ramp (${pc.onRamp} frames, y ${pc.y}, running ${pc.running})`);
+  assert.ok(pc.max > 2.1 && pc.max < 2.35, `PC on the stairs: 2.8 x 0.8 = 2.24, got ${pc.max} (${JSON.stringify(pc.speeds.slice(-8))})`);
+  assert.ok(pc.creaks >= 3 && pc.creaks === pc.runSteps, `every tread creaks: ${pc.creaks} creaks, ${pc.runSteps} running steps on the ramp`);
+  await page.close();
+  await ctx.close();
+  // phone: the joystick forward past its circle
+  const pctx = await newContext(browser, LAND);
+  const { page: ph, errors: perr } = await open(pctx, mansion);
+  await ph.tap('#start'); await ph.waitForFunction(() => window.__game.playing);
+  const cdp = await pctx.newCDPSession(ph);
+  await ph.evaluate(() => { const g = window.__game; g.patrol.update = () => null; g.patrol2.update = () => null; g.player.teleport(-5.6, -6.6, 0, 0); g.player.lookYaw = 0; });
+  await tp(cdp, 'touchStart', [{ x: 170, y: 250 }]);
+  for (const dy of [-30, -60, -90]) await tp(cdp, 'touchMove', [{ x: 170, y: 250 + dy }]);
+  const phone = await keepFor(ph, 2200, () => [window.__game.player.onRamp, +window.__game.player.speed.toFixed(2), window.__game.run.running, window.__game.player.runSpeed]);
+  await tp(cdp, 'touchEnd');
+  const onRamp = phone.filter((s) => s[0]);
+  assert.ok(onRamp.length > 5 && onRamp.some((s) => s[2]), `phone: ran on the ramp (${onRamp.length} samples: ${JSON.stringify(onRamp.slice(0, 4))})`);
+  const pmax = Math.max(...onRamp.slice(-4).map((s) => s[1]));   // settled (real frames: the easing from 2.8 takes a few of them)
+  assert.ok(pmax > 2.0 && pmax < 2.35, `phone on the stairs: ~2.24 once settled, got ${pmax} (${JSON.stringify(onRamp.map((s) => s[1]))})`);
+  assert.deepEqual(perr, []);
+  await pctx.close();
+  // VR: the stick forward + stick press (running), the ramp caps the speed
+  const vctx = await newContext(browser, { userAgent: UA.quest });
+  await vctx.addInitScript({ content: (await readFile(join(ROOT, 'node_modules/iwer/build/iwer.min.js'), 'utf8')) + `
+    window.__xrDevice = new IWER.XRDevice(IWER.metaQuest3);
+    window.__xrDevice.installRuntime({ forceInstall: true });` });
+  const { page: vr, errors: verr } = await open(vctx, mansion);
+  await vr.waitForFunction(() => /ENTER VR/i.test(document.getElementById('vrbutton').textContent));
+  await vr.click('#vrbutton');
+  await vr.waitForFunction(() => window.__game.inVR, null, { timeout: 10000 });
+  await vr.waitForTimeout(500);
+  await vr.evaluate(() => { const g = window.__game; g.patrol.update = () => null; g.patrol2.update = () => null; g.player.teleport(-5.6, -6.6, 0); });
+  await vr.waitForTimeout(400);
+  await vr.evaluate(() => window.__xrDevice.controllers.left.updateAxes('thumbstick', 0, -1));
+  await vr.waitForTimeout(300);
+  await vr.evaluate(() => window.__xrDevice.controllers.left.updateButtonValue('thumbstick', 1));
+  await vr.waitForTimeout(150);
+  await vr.evaluate(() => window.__xrDevice.controllers.left.updateButtonValue('thumbstick', 0));
+  const vs = [];
+  for (let i = 0; i < 24; i++) {
+    await vr.waitForTimeout(250);
+    vs.push(await vr.evaluate(() => { const g = window.__game; return [g.player.onRamp, +g.player.speed.toFixed(2), g.run.running, +g.player.floorY.toFixed(2)]; }));
+    if (vs.at(-1)[3] > 1.4) break;
+  }
+  await vr.evaluate(() => window.__xrDevice.controllers.left.updateAxes('thumbstick', 0, 0));
+  const vRamp = vs.filter((s) => s[0]);
+  assert.ok(vRamp.length >= 3 && vRamp.some((s) => s[2]), `VR: ran on the ramp (${JSON.stringify(vs)})`);
+  assert.ok(Math.max(...vRamp.slice(4).map((s) => s[1])) <= 1.25, `VR on the ramp: at most 1.2 m/s once settled (${JSON.stringify(vRamp)})`);
+  await vr.evaluate(() => window.__game.renderer.xr.getSession().end());
+  await vr.waitForFunction(() => !window.__game.inVR);
+  assert.deepEqual(verr, []);
+  assert.deepEqual(errors, []);
+  await vctx.close();
 });

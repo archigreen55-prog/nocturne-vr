@@ -327,6 +327,7 @@ export function buildMansion() {
     roomAt, floorIndex,
     floorY: (x, z, yHint = 0) => floors.floorY(x, z, yHint),
     onRamp: (x, z) => floors.onRamp(x, z),
+    stairStep: (STAIRS.flight1.maxZ - STAIRS.flight1.minZ) / STAIRS.steps,   // one tread (m): a running step per tread creaks
     worldAt: (y) => worlds[floorIndex(y)],
 
     // Push a circle out of the static world of its floor and that floor's door leaves (the player).

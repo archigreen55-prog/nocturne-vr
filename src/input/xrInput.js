@@ -1,6 +1,10 @@
-// Quest 3 controllers -> movement + one-shot actions (plan §5).
+// Quest 3 controllers -> movement + one-shot actions (plan §5). Left stick press while the stick is
+// pushed forward = running for this push (until the stick comes back); X held 1 s = vignette.
 // WebXR 'xr-standard' gamepad: buttons[0] trigger, [1] grip, [3] stick press, [4] A/X, [5] B/Y;
 // axes[2], [3] thumbstick.
+import { CFG } from '../config/index.js';
+import { offForward } from '../game/run.js';
+
 const STICK_DEAD = 0.15;
 const TURN_ON = 0.6, TURN_OFF = 0.3;   // snap turn: one per deflection
 const HOLD = 1.0;                       // s, for Y (recentre) and right stick press (back to the van)
@@ -28,6 +32,7 @@ export class XRInput {
     this.move = { x: 0, y: 0 };
     this.actions = { turn: 0, fps: false, vignette: false, recenter: false, crouch: false, home: false, useLeft: false, useRight: false };
     this.breath = false;   // A held: hold your breath
+    this.run = false;      // running asked for: left stick pressed while pushed forward, until it comes back
     this.grip = { left: false, right: false };
     this.trigger = { left: false, right: false };
   }
@@ -71,7 +76,12 @@ export class XRInput {
     act.fps = !x && this.prev.x && this.holds.x < TAP;
     this.prev.x = x;
     this.holds.x = x ? this.holds.x + dt : 0;
-    act.vignette = this.edge('ls', pressed(L, 3));    // left stick press: vignette strength
+    act.vignette = x && this.holds.x >= HOLD && this.holds.x - dt < HOLD;   // X held 1 s: vignette strength
+    // running: a left stick press with the stick pushed forward; ends when the stick comes back or
+    // leaves the forward sector (CFG.sprint.vrStick, CFG.sprint.sector)
+    const sx = axis(L, 2), sy = -axis(L, 3), push = Math.hypot(sx, sy), V = CFG.sprint.vrStick, A = CFG.sprint.sector;
+    if (this.edge('ls', pressed(L, 3)) && push > V.on && offForward(sx, sy) <= A.on) this.run = true;
+    else if (this.run && (push < V.off || offForward(sx, sy) > A.hold)) this.run = false;
     act.recenter = this.hold('y', pressed(L, 5), dt); // Y hold: recentre + measure standing height
     act.home = this.hold('rs', pressed(R, 3), dt);    // right stick press hold: back to the van
     return act;

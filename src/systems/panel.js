@@ -29,7 +29,7 @@ export const panel = {
         stealth: st, goal: round.phase === 'result' ? null : progress(G.contract, T, loot), guardText,
         vanSum: T.sum, vanCount: T.inVan, speaking: G.speakT >= CFG.mic.normalAfter && !breath.holding,
         door: dragging ? { creak: dragging.door.creak } : null,
-        mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch,
+        mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch, run: G.run,
         room: level.roomAt(player.head.x, player.head.z, player.floorY),
         holding: held ? `${held.name}${held.damaged ? S.hud.damagedMark : ''}` : '',
         clock: round.clock, phase: round.phase, alertLevel: alert.level,

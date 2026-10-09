@@ -17,6 +17,8 @@ const EVENTS = {
   caught: { vib: [260, 100, 420], flash: '#ff2b2b', ms: 900 },
   scare: { vib: 160, flash: '#ffffff', ms: 350 },
   deliver: { vib: 25, flash: null },                                // loot into the van (cash sound exists)
+  run: { vib: [14, 40, 14], flash: '#ff7a1a', ms: 220, weak: true },  // running started (a double tick)
+  runLock: { vib: 30, flash: '#ff7a1a', ms: 320 },                  // auto-run locked
 };
 const MIN_GAP = 90;   // ms between two vibrations of the same kind (a held button must not buzz non-stop)
 

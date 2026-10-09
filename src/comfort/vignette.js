@@ -2,6 +2,7 @@
 // snap turns, + fade to black. One quad drawn directly in clip space, so each eye gets it centred on
 // its own optical axis with no stereo offset and no FOV guessing; the radius is an angle from the view axis.
 import * as THREE from 'three';
+import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
 
 export const VIGNETTE_LEVELS = [
@@ -83,7 +84,8 @@ export class ComfortOverlay {
 
     let target = 0;
     if (enabled && this.level.k > 0) {
-      const walk = Math.max(0, speed - 0.8) / 1.2 * 0.35;   // 0 up to 0.8 m/s, 0.35 at 2.0 m/s
+      // 0 up to 0.8 m/s, 0.35 at 2.0 m/s; running: CFG.sprint.vignette at 2.8 m/s (the same line, capped)
+      const walk = Math.min(CFG.sprint.vignette, Math.max(0, speed - 0.8) / 1.2 * 0.35);
       const turn = this.impactT > 0 ? 0.5 : 0;
       target = Math.min(1, Math.max(walk, turn) * this.level.k);
     }

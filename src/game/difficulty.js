@@ -37,6 +37,10 @@ export function applyDifficulty(id, contract) {
     difficulty: id, habits: D.habits.slice(), noticeMissing: D.noticeMissing, missingToAlarm: D.missingToAlarm,
     shoutFull: D.shoutFull, showGuard: D.showGuard, teaAtStart: 0,
   };
+  // running (config/sprint.js): the difficulty's row; suspicion for a running step and for a breath
+  Object.assign(CFG.sprint, CFG.sprint.levels[id] || CFG.sprint.levels.medium);
+  CFG.alert.points.run = CFG.sprint.points;
+  CFG.alert.points.breath = CFG.sprint.breathPoints;
   // contract modifiers
   const M = (contract && contract.mods) || {};
   if (M.time) Object.assign(CFG.round, { time: M.time, warnAt: M.warnAt, escapeTime: M.escapeTime });
