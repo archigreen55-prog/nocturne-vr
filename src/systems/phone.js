@@ -21,6 +21,7 @@ import { newRound, setContract, setDifficulty, pressBoard, goHome } from './cont
 import { reportText } from './startScreen.js';
 import { restartTutorial } from './tutorial.js';
 import { openProgress } from './progressCode.js';
+import { brightnessStep, toggleOutdoor, brightnessLabel, outdoorLabel } from './brightness.js';
 import { S } from '../i18n/index.js';
 
 export const pauseLog = [];                 // for the report: { reason, t (s of game time) }
@@ -119,6 +120,7 @@ export const phone = {
       tutorial: () => { restartTutorial(); pauseResume(); },
       toProgress: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); openProgress(); },
       privacy: () => window.open('privacy.html', '_blank', 'noopener'),
+      bright: (d) => brightnessStep(d), brightLabel: brightnessLabel, outdoor: () => toggleOutdoor(), outdoorLabel,
     }) : null;
     G.summary = touch ? new Summary($('summary'), {
       play: () => pressBoard('play'),

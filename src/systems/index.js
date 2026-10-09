@@ -36,6 +36,7 @@ import { panel } from './panel.js';
 import { startScreen } from './startScreen.js';
 import { flashlight } from './flashlight.js';
 import { progressCode } from './progressCode.js';
+import { brightness } from './brightness.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -59,6 +60,7 @@ export const SYSTEMS = [
   startScreen,   // the start screen, report, PWA
   flashlight,    // the flashlight's room mask (after everything is in the scene)
   progressCode,  // start screen: progress as a code, «Навчання ще раз»
+  brightness,    // display brightness and «Надворі» (phone, PC): the picture only
 ];
 
 export const PHASES = ['pre', 'input', 'act', 'world', 'result', 'present'];

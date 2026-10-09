@@ -114,3 +114,14 @@ body.portrait-block #rotate { display: flex; }
   font-size: 20px; line-height: 1; opacity: .4; pointer-events: none; }
 #touch .joy-lock[hidden] { display: none; }
 #touch .joy-lock.on { opacity: 1; background: rgba(255, 122, 26, .45); border-color: #ff7a1a; }
+/* ---------- «Надворі» (systems/brightness.js): a high-contrast HUD for bright daylight ---------- */
+body.outdoor #hud { text-shadow: none; }
+body.outdoor #hud .hud-tl, body.outdoor #hud .hud-tc, body.outdoor #hud .hud-tr, body.outdoor #hud .hud-msg:not(:empty) {
+  background: rgba(0, 0, 0, .78); border-radius: 10px; padding: 4px 8px; }
+body.outdoor #hud .hud-eye, body.outdoor #hud .hud-sub, body.outdoor #hud .goal, body.outdoor #hud .micdb, body.outdoor #hud .hud-msg { font-weight: 800; }
+body.outdoor #hud .hud-sub, body.outdoor #hud .micdb { color: #e6ecf5; }
+body.outdoor #touch .tbtn { background: rgba(5, 8, 16, .88); border-width: 3px; }
+body.outdoor #crosshair { width: 10px; height: 10px; margin: -5px 0 0 -5px; background: #ffd166; box-shadow: 0 0 0 2px #000; }
+body.outdoor #hint { background: rgba(0, 0, 0, .85); color: #e6ecf5; font-weight: 700; }
+body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
+#outdoorbtn.on { background: var(--warn); color: #0a0f1c; border-color: var(--warn); }

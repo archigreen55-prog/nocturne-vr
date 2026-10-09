@@ -16,7 +16,7 @@ const REASONS = {
 
 export class PauseMenu {
   // h: { info(), label(key), cycle(key), resume(), home(), newRound(), toStart(), toMic(), report(), contractStep(±1), difficultyNext(),
-  //      tutorial(), toProgress(), privacy() }
+  //      tutorial(), toProgress(), privacy(), bright(±1), brightLabel(), outdoor(), outdoorLabel() }
   constructor(root, h) {
     this.root = root; this.h = h;
     this.page = 'main'; this.reason = 'user';
@@ -103,6 +103,17 @@ export class PauseMenu {
       for (const key of ['look', 'breath', 'hud', 'fx', 'quality', 'fps', 'gyro']) {
         grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'small'));
       }
+      // brightness: − «Яскравість: n/5» +, «Надворі», and the phone-brightness hint
+      const row = document.createElement('div');
+      row.className = 'pm-row wide';
+      const val = document.createElement('div');
+      val.className = 'pm-contract';
+      val.textContent = h.brightLabel();
+      row.append(this.btn('−', () => { h.bright(-1); this.render(); }, 'step'), val, this.btn('+', () => { h.bright(1); this.render(); }, 'step'));
+      const hint = document.createElement('p');
+      hint.className = 'pm-info wide';
+      hint.textContent = S.bright.hintPhone;
+      grid.append(row, this.btn(h.outdoorLabel(), () => { h.outdoor(); this.render(); }, 'wide'), hint);
       grid.append(this.btn(S.tutorial.again, () => h.tutorial(), 'small'), this.btn(S.progress.button, () => h.toProgress(), 'small'),
         this.btn(S.privacy.menu, () => h.privacy(), 'quiet wide'));
       grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
