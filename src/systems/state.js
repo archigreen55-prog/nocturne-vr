@@ -15,6 +15,7 @@ export const G = {
   resultT: -1, autoPlayed: false, wasHidden: false, heightMsg: false, breathDown: false, active: false,
   boardPage: 'contract', calib: null, calibNotes: '', lastBoardSig: '',
   snapDeg: 45,
+  lightK: 1,               // display brightness: every light x this (systems/brightness.js); the game never reads it
   // VR session (systems/vr.js)
   inVR: false, firstRecenter: false, vrStart: 0, autoHzDone: false,
   // flat screen: playing on a laptop (mouse captured) or a phone (touch)

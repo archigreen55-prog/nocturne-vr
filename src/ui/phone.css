@@ -98,3 +98,14 @@ body.phone-playing { overscroll-behavior: none; }
 .sm-buttons .quiet { min-height: 42px; font-size: 14px; }
 #rotate { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; background: #0a0f1c; color: #e6ecf5; font-size: 18px; line-height: 1.5; }
 body.portrait-block #rotate { display: flex; }
+/* ---------- «Надворі» (systems/brightness.js): a high-contrast HUD for bright daylight ---------- */
+body.outdoor #hud { text-shadow: none; }
+body.outdoor #hud .hud-tl, body.outdoor #hud .hud-tc, body.outdoor #hud .hud-tr, body.outdoor #hud .hud-msg:not(:empty) {
+  background: rgba(0, 0, 0, .78); border-radius: 10px; padding: 4px 8px; }
+body.outdoor #hud .hud-eye, body.outdoor #hud .hud-sub, body.outdoor #hud .goal, body.outdoor #hud .micdb, body.outdoor #hud .hud-msg { font-weight: 800; }
+body.outdoor #hud .hud-sub, body.outdoor #hud .micdb { color: #e6ecf5; }
+body.outdoor #touch .tbtn { background: rgba(5, 8, 16, .88); border-width: 3px; }
+body.outdoor #crosshair { width: 10px; height: 10px; margin: -5px 0 0 -5px; background: #ffd166; box-shadow: 0 0 0 2px #000; }
+body.outdoor #hint { background: rgba(0, 0, 0, .85); color: #e6ecf5; font-weight: 700; }
+body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
+#outdoorbtn.on { background: var(--warn); color: #0a0f1c; border-color: var(--warn); }

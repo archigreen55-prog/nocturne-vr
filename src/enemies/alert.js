@@ -17,6 +17,8 @@ export class Alert {
       hemi: lights.hemi.color.clone(), hemiI: lights.hemi.intensity, moonI: lights.moon.intensity,
       points: lights.points.map((p) => ({ c: p.color.clone(), i: p.intensity })),
     };
+    this.gain = 1;            // display brightness (systems/brightness.js): every light x gain; nothing else reads it
+    this.glowGain = 1;        // ... and the window / lamp glow (a warning: a little more)
     this.onFull = null;
     this.reset();
   }
@@ -76,11 +78,11 @@ export class Alert {
     L.points.forEach((p, i) => {
       p.color.copy(B.points[i].c);
       if (this.k > 1) p.color.lerp(RED_PT, 0.7 * (this.k - 1));
-      p.intensity = B.points[i].i;
+      p.intensity = B.points[i].i * this.gain;
     });
     // windows: police lights outside during full alarm
-    if (this.level === 2) L.glow.color.copy(Math.sin(t * 2 * Math.PI * 2) > 0 ? POLICE_R : POLICE_B).multiplyScalar(2.2);
-    else L.glow.color.setHex(0xffffff);
+    if (this.level === 2) L.glow.color.copy(Math.sin(t * 2 * Math.PI * 2) > 0 ? POLICE_R : POLICE_B).multiplyScalar(2.2 * this.glowGain);
+    else L.glow.color.setHex(0xffffff).multiplyScalar(this.glowGain);
     // last minute: the lights flicker in bursts
     if (this.flicker) {
       this.flickT -= dt;
@@ -91,7 +93,7 @@ export class Alert {
         for (const p of L.points) p.intensity *= k;
       }
     }
-    L.hemi.intensity = hemiI;
-    L.moon.intensity = moonI;
+    L.hemi.intensity = hemiI * this.gain;
+    L.moon.intensity = moonI * this.gain;
   }
 }
