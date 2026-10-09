@@ -14,6 +14,7 @@ const WALL_H = 2.7;
 const DOOR_H = 2.1;
 const EXT_T = 0.3;   // exterior wall thickness
 const INT_T = 0.14;  // interior wall thickness
+const JAMB = 0.01;   // the door frame reaches this far into the opening; the leaf fills the rest
 
 // Cold night palette: muted blues and greys at rest; the lights tint the rest.
 export const C = {
@@ -119,42 +120,45 @@ export function buildLevel() {
   const furniture = [];                    // { minX, minZ, maxX, maxZ, h, top } for cover and landing
   const doors = [];
   const doorSpecs = [];
+  const occluders = [];                    // wall centre lines [x0, z0, x1, z1, y0, y1]: the flashlight stops at them
 
   // ---------- walls with openings ----------
   // Wall along X at z, from x0 to x1; openings: [{ c, w, door?: 'normal' | 'locked' }]
+  // (the occluder line of a piece that ends at x0 / x1 goes on by half the thickness: no gap at corners)
   function wallX(z, x0, x1, t, color, openings = []) {
     let x = x0;
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
-      if (a > x) { S.box(x, 0, z - t / 2, a, WALL_H, z + t / 2, color); both(x, z - t / 2, a, z + t / 2); }
+      if (a > x) { S.box(x, 0, z - t / 2, a, WALL_H, z + t / 2, color); both(x, z - t / 2, a, z + t / 2); occluders.push([x === x0 ? x - t / 2 : x, z, a, z, 0, WALL_H]); }
       S.box(a, DOOR_H, z - t / 2, b, WALL_H, z + t / 2, color);             // lintel
-      S.box(a - 0.05, 0, z - t / 2 - 0.02, a, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);  // jambs
-      S.box(b, 0, z - t / 2 - 0.02, b + 0.05, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
-      if (o.door) doorSpecs.push({ axis: 'x', hx: a + 0.02, hz: z, w: o.w - 0.04, locked: o.door === 'locked', front: o.front });
+      // jambs: 1 cm into the opening, so their faces never lie in the plane of the wall's end (flicker)
+      S.box(a - 0.05, 0, z - t / 2 - 0.02, a + JAMB, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
+      S.box(b - JAMB, 0, z - t / 2 - 0.02, b + 0.05, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
+      if (o.door) doorSpecs.push({ axis: 'x', hx: a + JAMB, hz: z, w: o.w - 2 * JAMB, locked: o.door === 'locked', front: o.front });   // jamb to jamb
       x = b;
     }
-    if (x1 > x) { S.box(x, 0, z - t / 2, x1, WALL_H, z + t / 2, color); both(x, z - t / 2, x1, z + t / 2); }
+    if (x1 > x) { S.box(x, 0, z - t / 2, x1, WALL_H, z + t / 2, color); both(x, z - t / 2, x1, z + t / 2); occluders.push([x === x0 ? x - t / 2 : x, z, x1 + t / 2, z, 0, WALL_H]); }
   }
   // Wall along Z at x, from z0 to z1 (z0 < z1)
   function wallZ(x, z0, z1, t, color, openings = []) {
     let z = z0;
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
-      if (a > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, a, color); both(x - t / 2, z, x + t / 2, a); }
+      if (a > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, a, color); both(x - t / 2, z, x + t / 2, a); occluders.push([x, z === z0 ? z - t / 2 : z, x, a, 0, WALL_H]); }
       S.box(x - t / 2, DOOR_H, a, x + t / 2, WALL_H, b, color);
-      S.box(x - t / 2 - 0.02, 0, a - 0.05, x + t / 2 + 0.02, DOOR_H + 0.05, a, C.trim);
-      S.box(x - t / 2 - 0.02, 0, b, x + t / 2 + 0.02, DOOR_H + 0.05, b + 0.05, C.trim);
-      if (o.door) doorSpecs.push({ axis: 'z', hx: x, hz: a + 0.02, w: o.w - 0.04, locked: o.door === 'locked' });
+      S.box(x - t / 2 - 0.02, 0, a - 0.05, x + t / 2 + 0.02, DOOR_H + 0.05, a + JAMB, C.trim);
+      S.box(x - t / 2 - 0.02, 0, b - JAMB, x + t / 2 + 0.02, DOOR_H + 0.05, b + 0.05, C.trim);
+      if (o.door) doorSpecs.push({ axis: 'z', hx: x, hz: a + JAMB, w: o.w - 2 * JAMB, locked: o.door === 'locked' });
       z = b;
     }
-    if (z1 > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, z1, color); both(x - t / 2, z, x + t / 2, z1); }
+    if (z1 > z) { S.box(x - t / 2, 0, z, x + t / 2, WALL_H, z1, color); both(x - t / 2, z, x + t / 2, z1); occluders.push([x, z === z0 ? z - t / 2 : z, x, z1 + t / 2, 0, WALL_H]); }
   }
 
   // exterior
   wallX(0, -10 - EXT_T / 2, 10 + EXT_T / 2, EXT_T, C.wallExt, [{ c: 0, w: 1.0, door: 'normal' }]);
   wallX(-14, -10 - EXT_T / 2, 10 + EXT_T / 2, EXT_T, C.wallExt, [{ c: -3, w: 1.0, door: 'locked', front: true }]);
-  wallZ(-10, -14, 0, EXT_T, C.wallExt);
-  wallZ(10, -14, 0, EXT_T, C.wallExt);
+  wallZ(-10, -14 + EXT_T / 2, -EXT_T / 2, EXT_T, C.wallExt);   // between the south and north walls: no faces on top of each other at the corners
+  wallZ(10, -14 + EXT_T / 2, -EXT_T / 2, EXT_T, C.wallExt);
   // interior
   wallX(-5, -10, 10, INT_T, C.wallInt, [{ c: -6, w: 1.0, door: 'normal' }, { c: 0, w: 1.4 }, { c: 6.5, w: 1.0, door: 'normal' }]);
   wallX(-7, -10, -4, INT_T, C.wallpaperLib, [{ c: -7, w: 1.0, door: 'normal' }]);
@@ -167,7 +171,7 @@ export function buildLevel() {
 
   // ---------- floors and ceiling ----------
   S.box(-25, -0.1, -30, 25, 0, 25, C.grass);                               // ground
-  S.box(-10.15, 0, -14.15, 10.15, 0.01, 0.15, C.planksB);                     // house base
+  S.box(-10.14, 0, -14.14, 10.14, 0.01, 0.14, C.planksB);                     // house base (its edges inside the walls)
   for (let x = -10; x < -2; x += 0.5) for (let z = -5; z < 0; z += 0.5) {    // kitchen tiles
     if (((x + z) * 2) % 2 === 0) S.box(x, 0.01, z, x + 0.5, 0.015, z + 0.5, C.tileA);
     else S.box(x, 0.01, z, x + 0.5, 0.015, z + 0.5, C.tileB);
@@ -192,7 +196,8 @@ export function buildLevel() {
     south.rotateX(Math.atan2(y1 - y0, zs - zm));
     south.translate((x0 + x1) / 2, (y0 + y1) / 2, (zs + zm) / 2);
     S.add(south, C.roof);
-    const north = new THREE.BoxGeometry(x1 - x0, 0.12, Math.hypot(zm - zn, y1 - y0));
+    // 2 mm shorter at each end: at the ridge its ends are not in the plane of the south slab's
+    const north = new THREE.BoxGeometry(x1 - x0 - 0.004, 0.12, Math.hypot(zm - zn, y1 - y0));
     north.rotateX(-Math.atan2(y1 - y0, zm - zn));
     north.translate((x0 + x1) / 2, (y0 + y1) / 2, (zm + zn) / 2);
     S.add(north, C.roof);
@@ -214,8 +219,8 @@ export function buildLevel() {
       const zz = z + s * (EXT_T / 2 + 0.012);
       G.box(xc - 0.55, 0.95, zz - 0.004, xc + 0.55, 2.0, zz + 0.004, GLOW.window);
       S.box(xc - 0.62, 0.9, zz - 0.02 * s, xc + 0.62, 0.95, zz + 0.03 * s, C.trim);          // sill
-      S.box(xc - 0.025, 0.95, zz - 0.006, xc + 0.025, 2.0, zz + 0.006, C.trim);               // mullion
-      S.box(xc - 0.55, 1.45, zz - 0.006, xc + 0.55, 1.5, zz + 0.006, C.trim);
+      S.box(xc - 0.025, 0.951, zz - 0.006, xc + 0.025, 1.999, zz + 0.006, C.trim);           // mullion (ends inside the pane's)
+      S.box(xc - 0.549, 1.45, zz - 0.005, xc + 0.549, 1.5, zz + 0.005, C.trim);   // transom: behind the mullion's faces, inside the pane's ends
     }
   };
   const windowZ = (x, zc, outward) => {
@@ -223,8 +228,8 @@ export function buildLevel() {
       const xx = x + s * (EXT_T / 2 + 0.012);
       G.box(xx - 0.004, 0.95, zc - 0.55, xx + 0.004, 2.0, zc + 0.55, GLOW.window);
       S.box(xx - 0.02 * s, 0.9, zc - 0.62, xx + 0.03 * s, 0.95, zc + 0.62, C.trim);
-      S.box(xx - 0.006, 0.95, zc - 0.025, xx + 0.006, 2.0, zc + 0.025, C.trim);
-      S.box(xx - 0.006, 1.45, zc - 0.55, xx + 0.006, 1.5, zc + 0.55, C.trim);
+      S.box(xx - 0.006, 0.951, zc - 0.025, xx + 0.006, 1.999, zc + 0.025, C.trim);
+      S.box(xx - 0.005, 1.45, zc - 0.549, xx + 0.005, 1.5, zc + 0.549, C.trim);
     }
   };
   windowX(0, -6, 1); windowX(0, 6.5, 1); windowX(0, -8.8, 1);
@@ -305,7 +310,7 @@ export function buildLevel() {
   // kitchen
   S.box(-9.85, 0, -4.8, -9.25, 0.86, -1.0, C.woodLight); S.box(-9.88, 0.86, -4.83, -9.2, 0.92, -0.97, C.counter); solid(-9.85, -4.8, -9.2, -1.0, 0.92);
   S.box(-9.2, 0, -4.86, -7.2, 0.86, -4.3, C.woodLight); S.box(-9.2, 0.86, -4.88, -7.2, 0.92, -4.25, C.counter); solid(-9.2, -4.88, -7.2, -4.25, 0.92);
-  S.box(-9.85, 0.92, -3.4, -9.3, 0.95, -2.8, C.soot);                               // hob
+  S.box(-9.85, 0.92, -3.4, -9.3, 0.945, -2.8, C.soot);                              // hob (under the window sill's height)
   S.box(-9.85, 1.5, -4.8, -9.5, 2.2, -1.0, C.woodLight);                           // upper cabinets
   for (let z = -4.8; z < -1.2; z += 0.6) S.box(-9.5, 1.55, z + 0.28, -9.48, 2.15, z + 0.3, C.trim);
   S.box(-9.85, 0, -0.9, -9.15, 1.9, -0.3, C.fridge); S.box(-9.16, 1.0, -0.55, -9.13, 1.5, -0.5, C.metal); solid(-9.85, -0.9, -9.15, -0.3, 1.9);
@@ -318,12 +323,13 @@ export function buildLevel() {
   S.box(2.4, 0, -3.0, 2.85, 0.45, -1.5, C.woodDark); S.box(2.8, 0.45, -3.0, 2.86, 0.9, -1.5, C.woodDark); solid(2.4, -3.0, 2.86, -1.5, 0.9, 0.45);
   S.cyl(0.02, 0.02, 1.8, 2.5, 0, -0.55, C.woodDark, 6); S.cyl(0.18, 0.2, 0.03, 2.5, 0, -0.55, C.woodDark, 8); solid(2.35, -0.7, 2.65, -0.4, 1.8, null);
   S.box(-1.93, 0, -4.7, -1.5, 0.8, -3.6, C.wood); solid(-1.93, -4.7, -1.5, -3.6, 0.8);   // console by the arch
-  painting(0.5, -4.93, 's', 1.0, 0.7, 0x3a4a6a);
+  painting(1.85, -4.93, 's', 1.0, 0.7, 0x3a4a6a);   // on the wall east of the arch (x -0.7..0.7)
   ceilingLamp(0.5, -2.5);
   // pantry
   for (const [x0, z0, x1, z1] of [[9.35, -4.8, 9.85, -0.3], [4.0, -0.65, 8.8, -0.15]]) {
-    S.box(x0, 0, z0, x1, 0.04, z1, C.woodDark);
-    for (let i = 1; i <= 4; i++) S.box(x0, i * 0.48, z0, x1, i * 0.48 + 0.03, z1, C.wood);
+    const e = 0.001;   // boards 1 mm inside the corner posts' outer faces
+    S.box(x0 + e, 0, z0 + e, x1 - e, 0.04, z1 - e, C.woodDark);
+    for (let i = 1; i <= 4; i++) S.box(x0 + e, i * 0.48, z0 + e, x1 - e, i * 0.48 + 0.03, z1 - e, C.wood);
     for (const [x, z] of [[x0, z0], [x1 - 0.04, z0], [x0, z1 - 0.04], [x1 - 0.04, z1 - 0.04]]) S.box(x, 0, z, x + 0.04, 2.0, z + 0.04, C.woodDark);
     solid(x0, z0, x1, z1, 2.0, null);
     let r = Math.floor(x0 * 100 + 7);
@@ -343,14 +349,14 @@ export function buildLevel() {
   S.cyl(0.32, 0.3, 0.9, 7.6, 0, -3.1, C.woodDark, 10); S.cyl(0.33, 0.33, 0.04, 7.6, 0.2, -3.1, C.metal, 10); S.cyl(0.33, 0.33, 0.04, 7.6, 0.7, -3.1, C.metal, 10);
   solid(7.28, -3.42, 7.92, -2.78, 0.9);
   // corridor
-  for (let x = -9.4; x < 9.5; x += 4.7) rug(x, -6.45, x + 3.8, -5.55, C.rugBlue);
+  for (let x = -9.4; x < 9; x += 4.7) rug(x, -6.45, x + 3.8, -5.55, C.rugBlue);   // 4 rugs (a 5th lay outside the east wall)
   S.box(3.0, 0, -6.93, 4.2, 0.8, -6.58, C.wood); solid(3.0, -6.93, 4.2, -6.58, 0.8);
   S.box(-9.6, 0, -6.93, -8.6, 0.8, -6.58, C.wood); solid(-9.6, -6.93, -8.6, -6.58, 0.8);
   painting(-3.0, -5.07, 'n', 0.8, 0.6, 0x6a4a3a); painting(4.5, -5.07, 'n', 0.6, 0.8, 0x4a5a3a); painting(-8.0, -5.07, 'n', 0.7, 0.5, 0x3a3a5a);
   painting(9.85, -6.0, 'w', 0.8, 0.6, 0x7a5a3a);
   ceilingLamp(-6, -6); ceilingLamp(0, -6); ceilingLamp(6, -6);
   // library
-  bookcase(-9.85, -13.6, -9.45, -7.4, false, 11);
+  bookcase(-9.85, -13.1, -9.45, -7.4, false, 11);   // ends before the corner: its shelves do not run into the other bookcase's
   bookcase(-9.4, -13.85, -4.3, -13.45, true, 97);
   table(-6.9, -9.6, -5.5, -8.9, 0.76, C.woodDark, C.woodDark);
   S.box(-6.5, 0.76, -9.4, -6.2, 0.8, -9.2, 0xd8d0b0); S.cyl(0.05, 0.08, 0.35, -5.75, 0.76, -9.4, C.frameGold, 8);
@@ -367,7 +373,7 @@ export function buildLevel() {
   // living room
   S.box(0.4, 0, -13.85, 2.6, 1.2, -13.3, C.brick); S.box(0.25, 1.2, -13.9, 2.75, 1.3, -13.2, C.woodDark);
   S.box(0.9, 0.1, -13.32, 2.1, 0.8, -13.28, C.soot); solid(0.25, -13.9, 2.75, -13.2, 1.3);
-  G.box(1.1, 0.1, -13.4, 1.9, 0.22, -13.3, GLOW.ember);
+  G.box(1.1, 0.105, -13.4, 1.9, 0.22, -13.275, GLOW.ember);   // in front of the soot (was in the plane of the bricks)
   painting(1.5, -13.85, 's', 1.2, 0.8, 0x6a5a3a);
   S.box(-0.1, 0, -10.4, 3.1, 0.45, -9.6, C.fabric); S.box(-0.1, 0.45, -9.8, 3.1, 0.95, -9.6, C.fabric);
   S.box(-0.25, 0, -10.4, -0.1, 0.65, -9.6, C.fabric); S.box(3.1, 0, -10.4, 3.25, 0.65, -9.6, C.fabric); solid(-0.25, -10.4, 3.25, -9.6, 0.95, 0.45);
@@ -381,10 +387,10 @@ export function buildLevel() {
   // bedroom
   S.box(6.8, 0, -13.85, 8.8, 0.5, -11.6, C.woodDark); S.box(6.85, 0.5, -13.8, 8.75, 0.62, -11.65, C.bed);
   S.box(6.9, 0.62, -13.75, 8.7, 0.68, -12.1, 0x5a6a8a); S.box(6.95, 0.62, -13.8, 7.75, 0.75, -13.4, 0xe0dcd0); S.box(7.85, 0.62, -13.8, 8.65, 0.75, -13.4, 0xe0dcd0);
-  S.box(6.8, 0, -13.9, 8.8, 1.15, -13.82, C.woodDark); solid(6.8, -13.9, 8.8, -11.6, 0.68);
+  S.box(6.78, 0, -13.9, 8.82, 1.15, -13.82, C.woodDark); solid(6.8, -13.9, 8.8, -11.6, 0.68);
   for (const x of [6.25, 9.35]) { S.box(x - 0.25, 0, -13.85, x + 0.25, 0.55, -13.35, C.wood); solid(x - 0.25, -13.85, x + 0.25, -13.35, 0.55); }
   // wardrobe: open-front shell (the lurker sits inside; its doors are in enemies/lurker.js)
-  S.box(9.8, 0, -10.2, 9.85, 2.1, -8.6, C.woodDark); S.box(9.25, 0, -10.2, 9.8, 0.08, -8.6, C.woodDark);
+  S.box(9.8, 0, -10.2, 9.85, 2.05, -8.6, C.woodDark); S.box(9.25, 0, -10.15, 9.8, 0.08, -8.65, C.woodDark);   // back and floor between the other panels
   S.box(9.25, 2.05, -10.2, 9.85, 2.1, -8.6, C.woodDark);
   S.box(9.25, 0, -10.2, 9.8, 2.05, -10.15, C.woodDark); S.box(9.25, 0, -8.65, 9.8, 2.05, -8.6, C.woodDark);
   S.box(9.3, 1.85, -10.15, 9.78, 1.87, -8.65, C.soot);
@@ -404,10 +410,10 @@ export function buildLevel() {
   // fence around the lot
   const fence = (x0, z0, x1, z1) => {
     const alongX = z0 === z1, len = alongX ? x1 - x0 : z1 - z0;
-    for (let p = 0; p <= len + 0.01; p += 2) S.boxAt(0.1, 1.2, 0.1, alongX ? x0 + p : x0, 0, alongX ? z0 : z0 + p, C.fence);
+    for (let p = alongX ? 0 : 2; p <= len + (alongX ? 0.01 : -1.99); p += 2) S.boxAt(0.1, 1.2, 0.1, alongX ? x0 + p : x0, 0, alongX ? z0 : z0 + p, C.fence);   // corner posts once (by the sides along X)
     for (const y of [0.45, 1.0]) {
       if (alongX) S.box(x0, y, z0 - 0.03, x1, y + 0.1, z0 + 0.03, C.fence);
-      else S.box(x0 - 0.03, y, z0, x0 + 0.03, y + 0.1, z1, C.fence);
+      else S.box(x0 - 0.03, y, z0 + 0.03, x0 + 0.03, y + 0.1, z1 - 0.03, C.fence);   // between the rails along X (not through them at the corners)
     }
     both(Math.min(x0, x1) - 0.05, Math.min(z0, z1) - 0.05, Math.max(x0, x1) + 0.05, Math.max(z0, z1) + 0.05);
   };
@@ -430,10 +436,10 @@ export function buildLevel() {
   {
     const x0 = 3.4, x1 = 5.4, z0 = 7.8, z1 = 12.8;
     // cargo: an open-backed shell (sides, roof, front wall), so you can see the loot inside
-    S.box(x0, 0.35, z0, x0 + 0.05, 2.2, z1 - 1.3, C.van); S.box(x1 - 0.05, 0.35, z0, x1, 2.2, z1 - 1.3, C.van);
-    S.box(x0, 2.15, z0, x1, 2.2, z1 - 1.3, C.van); S.box(x0, 0.35, z1 - 1.36, x1, 2.2, z1 - 1.3, C.van);
+    S.box(x0, 0.35, z0, x0 + 0.05, 2.15, z1 - 1.3, C.van); S.box(x1 - 0.05, 0.35, z0, x1, 2.15, z1 - 1.3, C.van);   // sides and front wall under the roof
+    S.box(x0, 2.15, z0, x1, 2.2, z1 - 1.3, C.van); S.box(x0 + 0.05, 0.35, z1 - 1.36, x1 - 0.05, 2.15, z1 - 1.3, C.van);
     S.box(x0 + 0.05, 0.4, z0 + 0.02, x0 + 0.06, 2.15, z1 - 1.36, 0x2e3036); S.box(x1 - 0.06, 0.4, z0 + 0.02, x1 - 0.05, 2.15, z1 - 1.36, 0x2e3036);
-    S.box(x0, 0.28, z0 - 0.04, x1, 0.36, z0 + 0.02, C.metal);                           // rear sill
+    S.box(x0 + 0.001, 0.28, z0 - 0.04, x1 - 0.001, 0.36, z0 + 0.02, C.metal);           // rear sill
     S.box(x0 + 0.05, 0.35, z1 - 1.3, x1 - 0.05, 1.6, z1, C.van);                    // cab
     S.box(x0 + 0.1, 1.6, z1 - 1.3, x1 - 0.1, 1.95, z1 - 0.5, C.van);
     G.box(x0 + 0.15, 1.2, z1 + 0.001, x1 - 0.15, 1.55, z1 + 0.01, 0x0e1420);
@@ -449,7 +455,7 @@ export function buildLevel() {
     // open rear doors, swung out ~110°
     for (const s of [-1, 1]) {
       const hx = s < 0 ? x0 : x1;
-      const g = new THREE.BoxGeometry(0.98, 1.8, 0.05); g.translate(-s * 0.49, 1.3, 0);
+      const g = new THREE.BoxGeometry(0.98, 1.79, 0.05); g.translate(-s * 0.49, 1.295, 0);   // top under the roof's
       g.rotateY(s * 1.9); g.translate(hx, 0, z0);
       S.add(g, C.van);
     }
@@ -492,7 +498,7 @@ export function buildLevel() {
   surfaces.push({ minX: CARGO.minX, minZ: CARGO.minZ, maxX: CARGO.maxX, maxZ: CARGO.maxZ, top: CARGO.y });
 
   return {
-    group, world, walls, doors, furniture, moon, glowMaterial: glowMesh.material,
+    group, world, walls, doors, furniture, moon, glowMaterial: glowMesh.material, occluders, roomAt: (x, z) => roomAt(x, z),
     triangles: staticMesh.geometry.index.count / 3 + glowMesh.geometry.index.count / 3,
 
     // Push a circle out of the static world and all door leaves (the player). Returns [x, z].
@@ -595,7 +601,7 @@ export class Door {
     this.dragTarget = 0;
     const B = new Builder();
     const col = spec.front ? C.doorFront : C.door;
-    B.box(0, 0.01, -LEAF_T / 2, this.w, DOOR_H - 0.02, LEAF_T / 2, col);
+    B.box(0, 0.016, -LEAF_T / 2, this.w, DOOR_H - 0.003, LEAF_T / 2, col);   // floor to 3 mm under the lintel
     for (const y of [0.25, 1.15]) for (const s of [-1, 1]) B.box(0.12, y, s * LEAF_T / 2, this.w - 0.12, y + 0.75, s * (LEAF_T / 2 + 0.012), 0x57402f);
     for (const s of [-1, 1]) B.box(this.w - 0.12, 0.98, s * (LEAF_T / 2), this.w - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
     this.mesh = B.mesh(material);
