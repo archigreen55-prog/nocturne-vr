@@ -19,6 +19,8 @@ import { playGame, phoneLayout } from './flatScreen.js';
 import { optVal, pauseLog } from './phone.js';
 import { lockPointer } from './desktop.js';
 import { setContract, setDifficulty, goHome, newRound } from './contract.js';
+import { syncWallet, lockText } from './economy.js';
+import { wallet, openAll } from '../game/economy.js';
 import { S } from '../i18n/index.js';
 
 export function syncStartScreen() {
@@ -27,7 +29,9 @@ export function syncStartScreen() {
   $('difficulty').value = difficulty;
   const b = bestStars(contract.id);
   $('contractinfo').textContent = S.start.contractInfo(contract.brief, goalText(contract, G.loot.items), bonusText(contract),
-    ['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', '));
+    ['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', '))
+    + (lockText(contract) ? ` ${lockText(contract)}` : '');
+  syncWallet();   // the wallet line, 🔒 on closed contracts (systems/economy.js)
 }
 function showMode() {
   const MODE = G.MODE;
@@ -40,7 +44,8 @@ export const reportText = () => {
   return buildReport({
     version: VERSION, mode: G.MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
     game: { phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1),
-      run: G.runStats && { ...G.runStats, vrRun: G.vrRun } },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
+      run: G.runStats && { ...G.runStats, vrRun: G.vrRun },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
+      wallet: { ...wallet(), paid: undefined, openAll: openAll() } },   // W3: cash, earned, spent, owned, the last entries
     screen: touch ? {
       ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused: G.paused, pauses: pauseLog.slice(-10),
       feedback: G.feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),

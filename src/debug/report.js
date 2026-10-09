@@ -3,6 +3,7 @@
 // model, VR support, microphone permission) are gathered once at start by prepareReport(), so the
 // copy itself runs right inside the tap: Safari lets a page write to the clipboard only there.
 import { allSettings, PREVIEW } from '../settings.js';
+import { bindPress } from '../ui/press.js';
 import { S } from '../i18n/index.js';
 
 const RING = 7200;          // frame times kept (~60 s at 120 Hz)
@@ -146,7 +147,7 @@ function showSheet(text) {
   ta.style.cssText = 'flex:1;min-height:200px;width:100%;box-sizing:border-box;background:#0a0f1c;color:#c9d3e3;border:1px solid #26314a;border-radius:8px;font:12px/1.35 ui-monospace,monospace;padding:8px';
   const close = document.createElement('button');
   close.textContent = S.report.close;
-  close.addEventListener('click', () => wrap.remove());
+  bindPress(close, () => wrap.remove());   // not 'click': the click that follows the finger lifted from «Скопіювати звіт» would land on it
   card.append(status, ta, close);
   wrap.append(card);
   document.body.append(wrap);

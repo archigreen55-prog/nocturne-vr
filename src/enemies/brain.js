@@ -32,6 +32,7 @@ export class Brain {
     // habits of this round (difficulty picks which; each at its time +- jitter)
     const H = G.habits, run = CFG.run || {};
     this.habits = (run.habits || []).map((id) => ({ id, ...H[id], at: H[id].at + (Math.random() * 2 - 1) * G.jitter, done: false }));
+    for (const h of this.habits) if (h.id.startsWith('tea') && run.teaExtra) h.dur += run.teaExtra;   // the thermos (shop)
     if (run.teaAtStart) this.habits.unshift({ id: 'tea0', ...H.tea, at: 0, dur: run.teaAtStart, done: false });
   }
 

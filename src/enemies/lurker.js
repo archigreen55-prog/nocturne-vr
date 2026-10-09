@@ -156,7 +156,7 @@ export class Lurker {
     const dx = h.x - FRONT.x, dz = h.z - FRONT.z, d = Math.max(0.01, Math.hypot(dx, dz));
     const reach = Math.min(CFG.lurker.reach, Math.max(0.3, d - 0.5));
     this.target.set(FRONT.x + dx / d * reach, Math.max(0.6, h.y - 0.05), FRONT.z + dz / d * reach);
-    playStinger();
+    playStinger((CFG.run && CFG.run.scareK) || 1);   // the mask (shop): quieter
     if (this.env.onScare) this.env.onScare();
   }
 

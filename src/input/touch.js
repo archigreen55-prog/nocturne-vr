@@ -21,8 +21,9 @@ const HOLD_S = 0.25;
 const BOARD_SLOP = 24;     // px a finger may slide on a board button and still press it       // door: longer than this = slow swing while held
 // shaped stick magnitude at which the steps become audible: quietSpeed / maxSpeed (shapeStick is
 // quadratic after the dead zone, so the ring sits at the raw travel that gives that magnitude)
-const QUIET_K = CFG.player.quietSpeed / CFG.player.maxSpeed;
-const QUIET_R = JOY_R * (DEAD + (1 - DEAD) * Math.sqrt(QUIET_K));
+const quietK = () => CFG.player.quietSpeed / CFG.player.maxSpeed;   // live: an upgrade raises quietSpeed
+const quietR = () => JOY_R * (DEAD + (1 - DEAD) * Math.sqrt(quietK()));
+const QUIET_R = quietR();   // the base value
 
 export const LOOK_SPEEDS = { slow: 0.0035, normal: 0.0055, fast: 0.008 };   // rad per CSS px
 
@@ -76,7 +77,7 @@ export class TouchControls {
       crouch: r.querySelector('[data-btn=crouch]'), pause: r.querySelector('[data-btn=pause]'), breath: r.querySelector('[data-btn=breath]'), breathRing: r.querySelector('.breath i'),
     };
     this.el.joy.style.setProperty('--r', `${JOY_R}px`);
-    this.el.quiet.style.setProperty('--q', `${QUIET_R}px`);
+    this.syncQuiet();
     this.el.lock.style.setProperty('--ls', `${CFG.sprint.touch.lockSize}px`);
     r.addEventListener('pointerdown', (e) => this.down(e));
     r.addEventListener('pointermove', (e) => this.moveEv(e));
@@ -204,12 +205,18 @@ export class TouchControls {
     this.el.knob.style.transform = `translate(${kx}px, ${ky}px)`;
     this.raw.x = dx / JOY_R; this.raw.y = -dy / JOY_R;   // up = forward
     shapeStick(this.raw.x, this.raw.y, this.move);
-    const loud = Math.hypot(this.move.x, this.move.y) > QUIET_K + 1e-6;
+    const loud = Math.hypot(this.move.x, this.move.y) > quietK() + 1e-6;
     if (loud !== this.loud) {
       this.loud = loud;
       this.el.joy.classList.toggle('loud', loud);
       if (loud && this.onLoud) this.onLoud();   // main: vibration (Android) or an edge flash (iPhone)
     }
+  }
+
+  // The dashed "quiet" ring where the steps become audible (again at a round start: an upgrade moves it).
+  syncQuiet() {
+    const r = quietR();
+    if (r !== this.quietPx) { this.quietPx = r; this.el.quiet.style.setProperty('--q', `${r}px`); }
   }
 
   // Once per frame: door hold timing (real time since the finger went down, not game time); running.

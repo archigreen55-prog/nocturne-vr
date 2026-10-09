@@ -71,7 +71,7 @@ export const world = {
       },
     });
     scene.add(patrol.group);
-    const lurker = G.lurker = new Lurker({ level, onScare: () => { G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); } });
+    const lurker = G.lurker = new Lurker({ level, onScare: () => { if (!(CFG.run.scareK < 1)) G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); } });
     scene.add(lurker.group);
     const board = G.board = new Board();
     scene.add(board.mesh);

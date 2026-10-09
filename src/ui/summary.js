@@ -19,7 +19,7 @@ export class Summary {
   get isOpen() { return !this.root.hidden; }
   hide() { this.root.hidden = true; this.refs = null; }
 
-  // s: { result, verdict, contractName, difficulty, bonusText, clip, playing, recMode, noMic }
+  // s: { result, verdict, contractName, difficulty, bonusText, clip, playing, recMode, noMic, income }
   show(s) {
     const R = s.result, V = s.verdict, good = R.kind === 'left' || R.kind === 'escaped';
     const card = el('div', 'sm-card scroll ' + (good ? 'good' : 'bad'));
@@ -28,6 +28,7 @@ export class Summary {
     left.append(el('h2', 'sm-title', R.title));
     left.append(el('div', 'sm-money', good ? money(R.sum) : `−${money(R.lostLoot)}`));
     left.append(el('div', 'sm-sub', good ? S.board.res.kept(R.inVan, R.total, fmtTime(R.time, true)) : S.board.res.lost(fmtTime(R.time, true))));
+    if (s.income) left.append(el('div', 'sm-income', s.income));   // the money for the wallet (W3)
     const list = el('div', 'sm-list scroll');
     if (!R.list.length) list.append(el('div', 'sm-empty', S.summary.nothing));
     for (const it of R.list) {
