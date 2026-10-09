@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { devices } from 'playwright';
 import { newContext, watchErrors } from './harness.mjs';
-import { VERSION, preview, browser, open, test, LAND, fingerPressEl, siteCopy, swReady, base } from './runner.mjs';
+import { VERSION, preview, browser, open, test, LAND, fingerPressEl, siteCopy, swReady, swUpdatedTo, base } from './runner.mjs';
 
 test('home-screen app: manifest and icons; Android install button (finger); iPhone "На початковий екран" hint', async () => {
   const ctx = await newContext(browser, LAND);
@@ -65,16 +65,7 @@ test('service worker: offline play after the first visit (also from the icon sta
       await page.goto(url);
       await page.waitForFunction(() => window.__game && /0\.6\.0-test\.2/.test(document.getElementById('version').textContent), null, { timeout: 30000, polling: 200 });
       // the page's worker reports the new version (asked until it does: the new worker takes over by itself)
-      const swVersion = await page.evaluate(async () => {
-        const ask = () => new Promise((res) => {
-          if (!navigator.serviceWorker.controller) return res(null);
-          navigator.serviceWorker.addEventListener('message', (e) => res(e.data && e.data.version), { once: true });
-          navigator.serviceWorker.controller.postMessage('version');
-          setTimeout(() => res(null), 1000);
-        });
-        for (let i = 0; i < 30; i++) { const v = await ask(); if (v === '0.6.0-test.2') return v; await new Promise((r) => setTimeout(r, 500)); }
-        return 'timeout';
-      });
+      const swVersion = await swUpdatedTo(page, '0.6.0-test.2');
       assert.equal(swVersion, '0.6.0-test.2', `${url}: the worker updated`);
       // and offline now gives the new version, not the old one
       await ctx.setOffline(true);
