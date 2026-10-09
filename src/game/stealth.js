@@ -13,11 +13,12 @@ export function nearLamp(x, z) {
 }
 
 // Is (x, z) inside the patrol's flashlight beam (and not behind a wall)?
-export function inBeam(patrol, level, x, z) {
-  const dx = x - patrol.x, dz = z - patrol.z, d = Math.hypot(dx, dz);
+export function inBeam(patrol, level, x, z, y = 0) {
+  const dx = x - patrol.x, dz = z - patrol.z, d = Math.hypot(dx, dz, y - (patrol.y || 0));
   if (d > 14) return false;
+  if (patrol.lampR) return d < patrol.lampR && !level.soundOccluded(patrol.x, patrol.z, x, z, patrol.y || 0, y);   // a hand lamp (W6)
   const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), patrol.heading + patrol.headYaw));
-  return ang < CFG.patrol.beamHalf && !level.soundOccluded(patrol.x, patrol.z, x, z);
+  return ang < CFG.patrol.beamHalf && !level.soundOccluded(patrol.x, patrol.z, x, z, patrol.y || 0, y);
 }
 
 // Furniture close to the head that reaches up to (almost) eye height.
@@ -34,16 +35,20 @@ export function coverNear(level, head) {
 // The point the patrol has to see: your eyes standing, your face (lower) crouched.
 export function targetY(player) { return player.head.y - (player.crouched ? CFG.patrol.coverDrop : 0); }
 
-// Wrist read-out: { eye: 'open' | 'half' | 'closed', range (m it sees you from), lit, cover, hidden }
+// Wrist read-out: { eye: 'open' | 'half' | 'closed', range (m it sees you from), lit, cover, hidden }.
+// patrol: the guard, or every guard of the map (W6): lit by any, hidden from all.
 export function stealthState(player, level, patrol) {
-  const P = CFG.patrol, h = player.head;
-  const lit = inBeam(patrol, level, h.x, h.z) || nearLamp(h.x, h.z);
+  const P = CFG.patrol, h = player.head, guards = Array.isArray(patrol) ? patrol : [patrol];
+  const lit = guards.some((g) => inBeam(g, level, h.x, h.z, player.floorY || 0)) || nearLamp(h.x, h.z);
   const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1);
-  const cover = player.crouched && coverNear(level, h);
+  const inPocket = !!(level.pockets && level.pockets.some((p) => h.x >= p.minX && h.x <= p.maxX && h.z >= p.minZ && h.z <= p.maxZ && (level.floorIndex ? level.floorIndex(player.floorY || 0) : 0) === (p.floor || 0)));
+  const cover = (player.crouched && coverNear(level, h)) || inPocket;   // W6: a small room with a door hides you while its door is shut
   let hidden = false;
   if (cover) {
-    const d = Math.hypot(h.x - patrol.x, h.z - patrol.z);
-    hidden = d > range * 1.25 || level.losBlocked(patrol.x, EYE, patrol.z, h.x, targetY(player), h.z);
+    hidden = guards.every((g) => {
+      const d = Math.hypot(h.x - g.x, h.z - g.z, (player.floorY || 0) - (g.y || 0));
+      return d > range * 1.25 || level.losBlocked(g.x, (g.y || 0) + EYE, g.z, h.x, targetY(player), h.z);
+    });
   }
   return { eye: hidden ? 'closed' : player.crouched ? 'half' : 'open', range, lit, cover, hidden };
 }

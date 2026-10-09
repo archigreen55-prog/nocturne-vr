@@ -11,7 +11,7 @@ export const flashlight = {
     const { renderer, scene, patrol } = G;
     const flashMode = params.get('flash') || 'mask';
     if (flashMode === 'mask') {
-      const masked = maskScene(scene);
+      const masked = maskScene(scene, G.level);
       maskBeam(patrol.beam.material);
       console.log(`flashlight room mask on ${masked} lit materials`);
     } else if (flashMode === 'shadow') {

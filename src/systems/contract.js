@@ -2,7 +2,6 @@
 // the van), the microphone from the board (VR). Act: the 1 s of black after being caught.
 // Result: the result board, the summary screen (phone), the scream replay.
 import { CFG } from '../config/index.js';
-import { SPAWN } from '../world/level.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty, DIFFS } from '../game/difficulty.js';
 import { contractById } from '../game/contracts.js';
@@ -11,6 +10,7 @@ import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { playGame } from './flatScreen.js';
 import { syncStartScreen } from './startScreen.js';
+import { switchMap, applyMapConfig } from '../world/maps.js';
 import { summaryState } from './phone.js';
 import { shopPress } from './economy.js';
 import { S } from '../i18n/index.js';
@@ -21,11 +21,12 @@ export function newRound() {
   applyDifficulty(G.difficulty, G.contract);
   G.verdict = null; G.boardPage = 'contract';
   if (summary) { summary.hide(); board.mesh.visible = true; }
-  loot.reset(); hands.reset(); level.reset(); patrol.reset(); lurker.reset(); G.alert.reset();
+  loot.reset(); hands.reset(); level.reset(); for (const g of G.guards || [patrol]) g.reset(); for (const l of G.lurkers || [lurker]) l.reset(); G.alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
   G.caughtT = -1; G.resultT = -1;
   board.placeAtStand();
   player.virtualCrouch = false;
+  const SPAWN = level.spawn;
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
   G.boardDirty = true;
@@ -35,13 +36,13 @@ export function newRound() {
 export function setContract(id) {
   if (G.round.phase !== 'ready') return;
   G.contract = contractById(id); G.contractId = G.contract.id; saveSetting('contract', G.contractId);
-  applyDifficulty(G.difficulty, G.contract); G.patrol.reset(); G.lurker.reset(); G.round.reset();
+  applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   syncStartScreen(); G.boardDirty = true;
 }
 export function setDifficulty(id) {
   if (G.round.phase !== 'ready') return;
   G.difficulty = id; saveSetting('difficulty', id);
-  applyDifficulty(G.difficulty, G.contract); G.patrol.reset(); G.lurker.reset(); G.round.reset();
+  applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   syncStartScreen(); G.boardDirty = true;
 }
 async function calibrateInVR() {
@@ -71,6 +72,8 @@ export function pressBoard(id) {
   else if (id === 'cnext') setContract(all[(i + 1) % all.length].id);
   else if (id === 'diff') setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]);
   else if (id === 'micpage') { G.boardPage = 'mic'; G.calibNotes = ''; }
+  else if (id === 'mappage') G.boardPage = 'map';
+  else if (id.startsWith('map:')) { if (round.phase === 'ready') switchMap(id.slice(4)); }
   else if (id === 'back') G.boardPage = 'contract';
   else if (shopPress(id)) { /* the shop (systems/economy.js) */ }
   else if (id === 'cal') calibrateInVR();
@@ -93,6 +96,7 @@ export function caught() {
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
 }
 export function goHome() {
+  const SPAWN = G.level.spawn;
   G.player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   G.comfort.fadeIn(0.4);
   flash(S.messages.atVan);
@@ -102,6 +106,7 @@ export const contract = {
   id: 'contract',
   // applied before the guard is built
   init() {
+    applyMapConfig();   // W6: the map's contracts and timers
     G.contractId = loadSetting('contract', 'first'); G.difficulty = loadSetting('difficulty', 'medium');
     if (!DIFFS.includes(G.difficulty)) G.difficulty = 'medium';
     G.contract = contractById(G.contractId);

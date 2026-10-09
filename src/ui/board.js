@@ -4,7 +4,6 @@
 // played once by itself, then "Ще раз послухати"). Buttons: controller ray + trigger; laptop:
 // crosshair + click.
 import * as THREE from 'three';
-import { BOARD } from '../world/level.js';
 import { S } from '../i18n/index.js';
 
 const W = 1024, H = 640;
@@ -15,7 +14,8 @@ export const fmtTime = (s, down = false) => { s = Math.max(0, down ? Math.floor(
 export const money = (v) => '$' + v.toLocaleString('en-US');
 
 export class Board {
-  constructor() {
+  constructor(stand) {
+    this.stand = stand;
     this.canvas = document.createElement('canvas');
     this.canvas.width = W; this.canvas.height = H;
     this.g = this.canvas.getContext('2d');
@@ -30,8 +30,8 @@ export class Board {
   }
 
   placeAtStand() {
-    this.mesh.position.set(BOARD.x, 1.1 + SIZE_H / 2, BOARD.z);
-    this.mesh.rotation.set(0, BOARD.yaw, 0);
+    this.mesh.position.set(this.stand.x, 1.1 + SIZE_H / 2, this.stand.z);
+    this.mesh.rotation.set(0, this.stand.yaw, 0);
     this.mesh.material.depthTest = true;
     this.mesh.renderOrder = 0;
     this.floating = false;
@@ -65,6 +65,7 @@ export class Board {
     if (s.phase === 'result') this.drawResult(s);
     else if (s.phase === 'ready' && s.page === 'mic') this.drawMic(s);
     else if (s.phase === 'ready' && s.page === 'shop') this.drawShop(s);
+    else if (s.phase === 'ready' && s.page === 'map' && s.maps) this.drawMap(s);
     else if (s.phase === 'ready') this.drawContract(s);
     else this.drawRound(s);
     for (const b of this.buttons) {
@@ -134,9 +135,9 @@ export class Board {
     g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
     g.fillText(S.board.contractN(s.contractIndex + 1, s.contractCount), 50, 62);
     g.textAlign = 'right'; g.fillText(S.board.timeLeft(fmtTime(s.clock)), W - 50, 62);
-    g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = C.locked ? '#6f8396' : '#ffd166';   // W6: a locked placeholder is grey
     g.fillText(C.name, 50, 128);
-    g.font = '27px system-ui, sans-serif'; g.fillStyle = '#e6ecf5';
+    g.font = '27px system-ui, sans-serif'; g.fillStyle = C.locked ? '#93a1b8' : '#e6ecf5';
     wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
     g.fillText(S.board.goal(s.goalText), 50, 262);
@@ -150,11 +151,37 @@ export class Board {
     if (s.lock) { g.fillStyle = '#ff9f43'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440); }
     else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.board.pickHere, 50, 440); }
     if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffd166'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
-    this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 100, h: 120, font: 48 });
-    this.buttons.push({ id: 'cnext', label: '▶', x: 160, y: 470, w: 100, h: 120, font: 48 });
-    this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 270, y: 470, w: 300, h: 120, font: 24 });
-    this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 580, y: 470, w: 190, h: 120, font: 28 });
-    this.buttons.push({ id: 'shop', label: S.shop.button, x: 780, y: 470, w: 194, h: 120, font: 28 });
+    this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 90, h: 120, font: 48 });
+    this.buttons.push({ id: 'cnext', label: '▶', x: 150, y: 470, w: 90, h: 120, font: 48 });
+    if (s.maps) {   // W6: more than one map: a «Карта…» page
+      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 250, y: 470, w: 250, h: 120, font: 22 });
+      this.buttons.push({ id: 'mappage', label: S.board.mapPage, x: 510, y: 470, w: 140, h: 120, font: 26 });
+      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 660, y: 470, w: 160, h: 120, font: 26 });
+      this.buttons.push({ id: 'shop', label: S.shop.button, x: 830, y: 470, w: 144, h: 120, font: 26 });
+    } else {
+      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 250, y: 470, w: 320, h: 120, font: 24 });
+      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 580, y: 470, w: 190, h: 120, font: 28 });
+      this.buttons.push({ id: 'shop', label: S.shop.button, x: 780, y: 470, w: 194, h: 120, font: 28 });
+    }
+  }
+
+  // W6: the maps of the game; picking another one reloads the page with ?map=<id>
+  drawMap(s) {
+    const g = this.g;
+    g.textAlign = 'left';
+    g.font = 'bold 44px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.fillText(S.board.mapTitle, 50, 80);
+    g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
+    wrap(g, S.board.mapHint, 50, 130, W - 100, 32);
+    let y = 230;
+    for (const m of s.maps) {
+      const label = m.current ? S.board.mapCurrent(m.name) : m.open ? m.name : m.lock ? `${m.name} — ${m.lock}` : S.board.mapSoon(m.name);
+      this.buttons.push({ id: 'map:' + m.id, label, x: 50, y, w: 640, h: 90, font: 32, enabled: m.open && !m.current });
+      g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8'; g.textAlign = 'left';
+      g.fillText(m.blurb || '', 720, y + 55);
+      y += 110;
+    }
+    this.buttons.push({ id: 'back', label: '◀', x: 858, y: 510, w: 116, h: 90, font: 44 });
   }
 
   drawMic(s) {

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newContext, ROOT } from './harness.mjs';
-import { browser, UA, open, test, LAND, keepFor, frames, playPhone, fingerPressEl, pm, toSummary, aimAt, base, preview } from './runner.mjs';
+import { browser, UA, open, test, LAND, keepFor, frames, playPhone, fingerPressEl, pm, toSummary, aimAt, base, preview, standFacing } from './runner.mjs';
 
 // A page in a round at the van; __round(kind, sum, stars) ends a round as if played: `kind` left /
 // caught, the loot `sum`, the verdict's stars (the real end of a round runs, only its numbers are set).
@@ -160,6 +160,48 @@ test('contracts open by stars: a new player has 2–5 closed (🔒, what opens t
   assert.deepEqual(r.played, { id: 'first', phase: 'heist' }, 'but the round plays the last open one');
   assert.deepEqual(r.after, [true, true, false, false, false]);
   assert.equal(r.mansion7, false); assert.equal(r.mansion8, true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('the mansion (W6 merged): closed on the main site until 8★ on the dacha, then ?map=mansion plays it; its contracts open by stars past the placeholders 9 and 11; the board has the map page and the shop', async () => {
+  const ctx = await newContext(browser);
+  const seven = { first: { hard: 3 }, clock: { medium: 2 }, quiet: { easy: 2 } };
+  const { page, errors } = await open(ctx, base + '?map=mansion');
+  await page.evaluate((st) => { localStorage.setItem('nocturne.stars', JSON.stringify(st)); }, seven);
+  await page.goto(base + '?map=mansion');
+  await page.waitForFunction(() => window.__game && window.__game.level);
+  const at7 = await page.evaluate(() => window.__game.level.id);
+  await page.evaluate((st) => { localStorage.setItem('nocturne.stars', JSON.stringify({ ...st, silent: { easy: 1 } })); }, seven);
+  await page.goto(base + '?map=mansion');
+  await page.waitForFunction(() => window.__game && window.__game.level);
+  const r = await page.evaluate(async () => {
+    const g = window.__game, E = await import('./src/game/economy.js'), C = await import('./src/game/contracts.js'), out = { id: g.level.id };
+    const open = () => Object.fromEntries(g.CFG.contracts.map((c) => [c.id, E.isOpen(c)]));
+    out.before = open();
+    C.recordStars('m8', 'easy', 1, 'pc'); out.afterM8 = open();
+    C.recordStars('m10', 'easy', 1, 'pc'); out.afterM10 = open();
+    return out;
+  });
+  assert.equal(at7, 'dacha', '7★: ?map=mansion is ignored on the main site');
+  assert.equal(r.id, 'mansion', '8★: the mansion opens');
+  assert.deepEqual(r.before, { m8: true, m9: false, m10: false, m11: false, m12: false, m13: false, m14: false });
+  assert.deepEqual(r.afterM8, { m8: true, m9: true, m10: true, m11: false, m12: false, m13: false, m14: false }, 'a star on 8 opens 9 (placeholder) and 10');
+  assert.deepEqual(r.afterM10, { m8: true, m9: true, m10: true, m11: true, m12: true, m13: false, m14: false }, 'a star on 10 opens 11 and 12 (11 gives no stars)');
+  // the board at the van: the contract page has «Карта…» and «Магазин»; buying works here too
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.playing);
+  await standFacing(page, 14.55, -2.25, 1.6, 2.914);
+  await keepFor(page, 700);
+  const ids = await page.evaluate(() => window.__game.board.buttons.map((b) => b.id));
+  assert.ok(ids.includes('mappage') && ids.includes('shop') && ids.includes('micpage') && ids.includes('diff'), `contract page: ${ids}`);
+  const bought = await page.evaluate(() => {
+    const g = window.__game;
+    localStorage.setItem('nocturne.wallet', JSON.stringify({ ...JSON.parse(localStorage.getItem('nocturne.wallet')), cash: 600 }));
+    g.pressBoard('shop'); g.pressBoard('buy:thermos');
+    return JSON.parse(localStorage.getItem('nocturne.wallet')).owned;
+  });
+  assert.deepEqual(bought, ['thermos']);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

@@ -11,7 +11,9 @@ const _hand = new THREE.Vector3(), _handle = new THREE.Vector3();
 // Door nearest to (x, z) within maxDist of its doorway centre; if dirYaw is given, only in front.
 export function nearestDoor(x, z, maxDist, dirYaw) {
   let best = null, bestD = maxDist;
+  const floor = G.level.floorIndex ? G.level.floorIndex(G.player.floorY) : 0;
   for (const d of G.level.doors) {
+    if (d.floor !== floor) continue;
     const dx = d.cx - x, dz = d.cz - z;
     const dist = Math.hypot(dx, dz);
     if (dist >= bestD) continue;

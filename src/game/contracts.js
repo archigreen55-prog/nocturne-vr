@@ -10,9 +10,22 @@ import { S } from '../i18n/index.js';
 export const contracts = () => CFG.contracts;
 export const contractById = (id) => CFG.contracts.find((c) => c.id === id) || CFG.contracts[0];
 
+// W6: goals of the second map. floorItems: n items of that floor delivered; swap: the prop stands where
+// the item stood (within m) and no guard noticed the item gone; locked: a placeholder contract.
+const nameOf = (items, id) => (items.find((i) => i.id === id) || {}).name || id;
+const floorDelivered = (loot, F) => loot.items.filter((i) => i.delivered && (i.def.floor || 0) === F.floor).length;
+function swapState(loot, W) {
+  const it = loot.items.find((i) => i.id === W.item), fake = loot.items.find((i) => i.id === W.prop);
+  const p = fake && fake.mesh.position, [hx, hy, hz] = it ? it.def.pos : [0, 0, 0];
+  const placed = !!(fake && !fake.held && Math.hypot(p.x - hx, p.z - hz) < W.within && Math.abs(p.y - hy) < 0.4);
+  return { it, placed, delivered: !!(it && it.delivered) };
+}
 export function goalText(c, items) {
   const G = c.goal, parts = [];
-  if (G.item) parts.push(S.goal.item((items.find((i) => i.id === G.item) || {}).name || G.item));
+  if (c.locked) return S.goal.locked(c.locked);
+  if (G.item) parts.push(S.goal.item(nameOf(items, G.item)));
+  if (G.floorItems) parts.push(S.goal.floorItems(G.floorItems.n));
+  if (G.swap) parts.push(S.goal.swap(nameOf(items, G.swap.item)));
   if (G.sum) parts.push(S.goal.sum(money(G.sum)));
   if (G.noAlarm) parts.push(S.goal.noAlarm);
   if (G.noShout) parts.push(S.goal.noShout);
@@ -22,6 +35,9 @@ export const bonusText = (c) => (c.bonus === 'intact' ? S.goal.bonusIntact : S.g
 
 // Progress toward the goal during the round, for the wrist and the board.
 export function progress(c, tally, loot) {
+  if (c.locked) return { done: false, text: S.goal.locked(c.locked) };
+  if (c.goal.floorItems) { const n = floorDelivered(loot, c.goal.floorItems); return { done: n >= c.goal.floorItems.n, text: S.goal.floorProgress(n, c.goal.floorItems.n) }; }
+  if (c.goal.swap) { const w = swapState(loot, c.goal.swap); return { done: w.placed && w.delivered, text: S.goal.swapProgress(w.placed, w.delivered) }; }
   if (c.goal.item) {
     const it = loot.items.find((i) => i.id === c.goal.item);
     return { done: !!(it && it.delivered), text: S.goal.itemProgress(it ? it.name : c.goal.item, !!(it && it.delivered)) };
@@ -35,7 +51,15 @@ export function evaluate(c, r, ctx) {
   const G = c.goal;
   let goal = got;
   const why = [];
+  if (c.locked) { goal = false; why.push(S.goal.locked(c.locked)); }
   if (G.item) { const it = ctx.loot.items.find((i) => i.id === G.item); if (!(it && it.delivered)) { goal = false; why.push(S.goal.why.noItem); } }
+  if (G.floorItems && floorDelivered(ctx.loot, G.floorItems) < G.floorItems.n) { goal = false; why.push(S.goal.why.floorItems(floorDelivered(ctx.loot, G.floorItems), G.floorItems.n)); }
+  if (G.swap) {
+    const w = swapState(ctx.loot, G.swap), noticed = (ctx.guards || []).some((g) => g.brain && w.it && g.brain.missing.has(w.it));
+    if (!w.delivered) { goal = false; why.push(S.goal.why.noItem); }
+    else if (!w.placed) { goal = false; why.push(S.goal.why.noSwap); }
+    else if (noticed) { goal = false; why.push(S.goal.why.swapSeen); }
+  }
   if (G.sum && r.sum < G.sum) { goal = false; why.push(S.goal.why.sum(money(r.sum), money(G.sum))); }
   if (G.noAlarm && ctx.alarmed) { goal = false; why.push(S.goal.why.alarm); }
   if (G.noShout && (r.shouts > 0 || ctx.noMic)) { goal = false; why.push(ctx.noMic ? S.goal.why.noMic : S.goal.why.shouted); }

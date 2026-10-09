@@ -6,7 +6,6 @@
 // What it notices on its rounds (10 Hz, only what it can see): loot missing from its place,
 // doors it keeps closed standing open. Both raise suspicion and make it search / close / look.
 import { CFG } from '../config/index.js';
-import { roomAt } from '../world/level.js';
 import { S } from '../i18n/index.js';
 
 const EYE = 1.62;
@@ -22,7 +21,9 @@ export class Brain {
   }
 
   reset() {
-    const G = CFG.guard;
+    // the map's own rounds (rooms, spots, habits, start) over the numbers of CFG.guard (W6)
+    const G = this.cfg = Object.assign({}, CFG.guard, this.env.guard || {});
+    this.roomAt = (x, z, y = 0) => this.env.level.roomAt(x, z, y);
     this.lastVisit = {};
     for (const r of Object.keys(G.rooms)) this.lastVisit[r] = -Math.random() * 60;
     this.clock = 0;                 // own time, for room weights
@@ -52,12 +53,12 @@ export class Brain {
   }
 
   queueRoom() {
-    const G = CFG.guard, g = this.g;
-    const here = roomAt(g.x, g.z);
+    const G = this.cfg, g = this.g;
+    const here = this.roomAt(g.x, g.z, g.y);
     const lootIn = {};
     for (const it of this.env.loot.items) {
       if (this.missing.has(it) || it.delivered) continue;
-      const r = roomAt(it.def.pos[0], it.def.pos[2]);
+      const r = this.roomAt(it.def.pos[0], it.def.pos[2], it.def.pos[1]);
       lootIn[r] = (lootIn[r] || 0) + 1;
     }
     let best = null, bestW = -1;
@@ -70,7 +71,7 @@ export class Brain {
     const q = g.queue;
     q.push({ type: 'walk', to, label: S.guard.act.walksTo(best), room: best });
     q.push({ type: 'wait', t: G.lookTime, sweep: true, label: S.guard.act.looksAround(best) });
-    const spots = G.spots.filter((s) => roomAt(s.at[0], s.at[1]) === best);
+    const spots = G.spots.filter((s) => this.roomAt(s.at[0], s.at[1], g.y) === best);
     if (spots.length && Math.random() < G.spotChance) this.queueSpot(pick(spots), false);
     if (Math.random() < G.yawnChance) q.push({ type: 'wait', t: 3, label: S.guard.act.yawns, mods: { fovK: 0.3 }, onStart: () => this.env.sound('yawn') });
   }
@@ -88,12 +89,12 @@ export class Brain {
     const mods = { hearK: h.hearK || 1, sightK: h.sightK || 1, fovK: h.fovK || 1 };
     switch (h.id) {
       case 'tea': case 'tea2': case 'tea0':
-        q.push({ type: 'walk', to: h.stand, label: S.guard.act.kettle, onStart: say(S.guard.say.tea) });
+        q.push({ type: 'walk', to: h.stand, label: S.guard.act.kettle, onStart: say(h.say || S.guard.say.tea) });
         q.push({ type: 'wait', t: h.dur, face: h.face, label: h.label, mods, mask: h.mask,
           onStart: () => this.env.sound('kettle', h.stand[0], h.stand[1], { dur: h.dur, whistleAt: h.whistleAt, whistleFor: h.whistleFor }) });
         break;
       case 'toilet':
-        q.push({ type: 'walk', to: [6, -2], label: S.guard.act.toilet, onStart: say(S.guard.say.toilet) });
+        q.push({ type: 'walk', to: h.go || [6, -2], label: S.guard.act.toilet, onStart: say(S.guard.say.toilet) });
         q.push({ type: 'close', door: this.doorAt(h.closeDoor), label: S.guard.act.locksIn });
         q.push({ type: 'walk', to: h.stand, label: h.label });
         q.push({ type: 'wait', t: h.dur, face: h.face, label: h.label, mods, onEnd: () => this.env.sound('flush', h.stand[0], h.stand[1]) });
@@ -111,7 +112,7 @@ export class Brain {
         break;
       }
       case 'armchair':
-        q.push({ type: 'walk', to: [-0.9, -12.6], label: S.guard.act.armchair, onStart: say(S.guard.say.armchair) });
+        q.push({ type: 'walk', to: h.go || [-0.9, -12.6], label: S.guard.act.armchair, onStart: say(S.guard.say.armchair) });
         q.push({ type: 'wait', t: h.dur, face: h.face, sit: h.stand, label: h.label, mods });
         break;
     }
@@ -121,7 +122,7 @@ export class Brain {
 
   // After investigating a noise at (x, z) without finding anyone: check up to 2 hiding spots nearby.
   afterInvestigate(x, z) {
-    const near = CFG.guard.spots.map((s) => ({ s, d: Math.hypot(s.at[0] - x, s.at[1] - z) })).filter((o) => o.d < 4)
+    const near = this.cfg.spots.map((s) => ({ s, d: Math.hypot(s.at[0] - x, s.at[1] - z) })).filter((o) => o.d < 4)
       .sort((a, b) => a.d - b.d).slice(0, 2);
     for (let i = near.length - 1; i >= 0; i--) this.queueSpot(near[i].s, true, true);
   }
@@ -135,12 +136,12 @@ export class Brain {
     if (d > CFG.guard.seeChanges) return false;
     const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), g.heading + g.headYaw));
     if (ang > P.fov / 2) return false;
-    return !this.env.level.losBlocked(g.x, EYE, g.z, x, y, z);
+    return !this.env.level.losBlocked(g.x, g.y + EYE, g.z, x, y, z);
   }
 
   watch(dt) {
     this.clock += dt;
-    const G = CFG.guard, run = CFG.run || {}, g = this.g;
+    const G = this.cfg, run = CFG.run || {}, g = this.g;
     // loot missing from its place
     if (run.noticeMissing) {
       for (const it of this.env.loot.items) {
@@ -149,6 +150,9 @@ export class Brain {
         const p = it.mesh.position;
         const there = !it.delivered && it.state === 'rest' && Math.hypot(p.x - hx, p.z - hz) < 0.5 && Math.abs(p.y - hy) < 0.3;
         if (there || !this.canSee(hx, hy + 0.2, hz)) continue;
+        // W6 (contract 12): a prop in its place passes for it, unless the guard is close on hard
+        if (this.env.loot.items.some((f) => f.prop && !f.held && Math.hypot(f.mesh.position.x - hx, f.mesh.position.z - hz) < 0.5 && Math.abs(f.mesh.position.y - hy) < 0.4
+          && !(run.difficulty === 'hard' && Math.hypot(this.g.x - hx, this.g.z - hz) < 2))) continue;
         this.missing.add(it);
         this.env.say(S.guard.say.whereIsItem(it.name.toLowerCase()));
         this.env.sound('grunt');
@@ -156,11 +160,11 @@ export class Brain {
         if (this.missing.size >= 2) this.agitated = true;
         if (this.missing.size >= run.missingToAlarm) { this.env.alert.setFull(S.cause.missingLoot, hx, hz); return; }
         // search the room where it stood
-        const room = roomAt(hx, hz);
+        const room = this.roomAt(hx, hz, hy);
         g.queue.length = 0;
         g.queue.push({ type: 'walk', to: [hx + (g.x - hx) * 0.3, hz + (g.z - hz) * 0.3], label: S.guard.act.searchesLoot, search: true });
         g.queue.push({ type: 'wait', t: 3, sweep: true, label: S.guard.act.searches, search: true });
-        for (const s of G.spots.filter((sp) => roomAt(sp.at[0], sp.at[1]) === room).slice(0, 2)) this.queueSpot(s, true);
+        for (const s of G.spots.filter((sp) => this.roomAt(sp.at[0], sp.at[1], hy) === room).slice(0, 2)) this.queueSpot(s, true);
         return;
       }
     }

@@ -7,8 +7,13 @@
 import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting, PREVIEW } from '../settings.js';
 import { bestStars } from './contracts.js';
+import { contracts as DACHA } from '../config/contracts.js';
+import { mansion as MANSION } from '../config/mansion.js';
 
 const MAPS = ['dacha', 'mansion', 'museum'];
+// every map's contracts (CFG.contracts holds only the current page's map: world/maps.js)
+const LISTS = { dacha: DACHA, mansion: MANSION.contracts, museum: [] };
+const allContracts = () => Object.values(LISTS).flat();
 const DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
 
 // The wallet as saved. A first wallet counts the stars won before the shop existed as already paid
@@ -17,7 +22,7 @@ export function wallet() {
   let w = loadSetting('wallet', null);
   if (!w || typeof w !== 'object') {
     const paid = {};
-    for (const c of CFG.contracts) {
+    for (const c of allContracts()) {
       const b = bestStars(c.id);
       if (b.easy || b.medium || b.hard) paid[c.id] = { ...b };
     }
@@ -81,17 +86,16 @@ export const openAllAllowed = () => PREVIEW || DEBUG;
 export const openAll = () => openAllAllowed() && loadSetting('openAll', false) === true;
 export function setOpenAll(on) { if (openAllAllowed()) saveSetting('openAll', !!on); }
 
-const mapOf = (c) => c.map || 'dacha';
+const mapOf = (c) => c.map || MAPS.find((m) => LISTS[m].some((x) => x.id === c.id)) || 'dacha';
 const bestOf = (id) => { const b = bestStars(id); return Math.max(b.easy || 0, b.medium || 0, b.hard || 0); };
 // stars on a map: the best of each of its contracts (any difficulty)
-export const mapStars = (map) => CFG.contracts.filter((c) => mapOf(c) === map).reduce((n, c) => n + bestOf(c.id), 0);
+export const mapStars = (map) => (LISTS[map] || []).reduce((n, c) => n + bestOf(c.id), 0);
 // A map is open once the stars on the maps before it reach its threshold (CFG.shop.unlock.maps).
+export const starsBefore = (map) => MAPS.slice(0, Math.max(0, MAPS.indexOf(map))).reduce((n, m) => n + mapStars(m), 0);
 export function mapOpen(map) {
   if (openAll() || map === 'dacha') return true;
   const need = CFG.shop.unlock.maps[map];
-  if (need === undefined) return true;
-  const before = MAPS.slice(0, Math.max(0, MAPS.indexOf(map)));
-  return before.reduce((n, m) => n + mapStars(m), 0) >= need;
+  return need === undefined || starsBefore(map) >= need;
 }
 // What a contract waits for: null (open), { map, need } (the map is closed) or { after: contract } (the
 // previous contract of its map needs a star).
@@ -99,12 +103,12 @@ export function lockOf(c) {
   if (openAll()) return null;
   const map = mapOf(c);
   if (!mapOpen(map)) {
-    const before = MAPS.slice(0, MAPS.indexOf(map));
-    return { map, need: CFG.shop.unlock.maps[map], have: before.reduce((n, m) => n + mapStars(m), 0) };
+    return { map, need: CFG.shop.unlock.maps[map], have: starsBefore(map) };
   }
-  const same = CFG.contracts.filter((x) => mapOf(x) === map), i = same.indexOf(c);
-  if (i <= 0) return null;
-  const prev = same[i - 1];
+  // the previous contract of its map that can be played (W6's placeholders, `locked`, give no stars)
+  const same = LISTS[map] || [], i = same.findIndex((x) => x.id === c.id);
+  const prev = same.slice(0, Math.max(0, i)).reverse().find((x) => !x.locked);
+  if (!prev) return null;
   return bestOf(prev.id) >= CFG.shop.unlock.chainStars ? null : { after: prev };
 }
 export const isOpen = (c) => !lockOf(c);

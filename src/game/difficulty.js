@@ -7,8 +7,17 @@ import { wallet, upgrade } from './economy.js';
 const BASE = JSON.parse(JSON.stringify({ patrol: CFG.patrol, hearing: CFG.hearing, round: CFG.round, lurker: CFG.lurker, mic: CFG.mic, loot: CFG.loot, player: CFG.player }));
 export const DIFFS = ['easy', 'medium', 'hard'];
 
+// A map's own values (its van, its timers; W6): written into CFG now and into the base values that
+// applyDifficulty restores from, so they hold for every round of this page.
+export function setMapBase(over) {
+  for (const k of Object.keys(over)) {
+    if (BASE[k]) Object.assign(BASE[k], JSON.parse(JSON.stringify(over[k])));
+    Object.assign(CFG[k], over[k]);
+  }
+}
+
 export function applyDifficulty(id, contract) {
-  const D = CFG.difficulties[id] || CFG.difficulties.medium;
+  const D = Object.assign({}, CFG.difficulties[id] || CFG.difficulties.medium, (CFG.mapDifficulty && CFG.mapDifficulty[id]) || {});   // W6: a map's own timers
   // restore
   for (const k of Object.keys(BASE)) Object.assign(CFG[k], JSON.parse(JSON.stringify(BASE[k])));
   const P = CFG.patrol;

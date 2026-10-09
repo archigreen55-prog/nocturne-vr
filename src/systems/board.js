@@ -11,6 +11,7 @@ import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
 import { shopPageRows, shopPages, lockText, incomeText } from './economy.js';
 import { S } from '../i18n/index.js';
+import { mapsForBoard } from '../world/maps.js';
 
 // Everything the board shows, as one string: the same string = nothing to redraw.
 function boardSignature(T, lv) {
@@ -22,7 +23,7 @@ function boardSignature(T, lv) {
     V && V.stars, V && V.newBest, mic.noMic, mic.state, mic.calibrated, board.hover, progress(contract, T, loot).text,
     calib && [calib.i, calib.phase, calib.left.toFixed(1)], G.calibNotes,
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
-    wallet().cash, wallet().owned.length, G.shopPage, lockText(contract), incomeText(),
+    wallet().cash, wallet().owned.length, G.shopPage, lockText(contract), incomeText(), G.boardPage === 'map' ? mapsForBoard(G.level.id).map((m) => m.lock) : 0,
   ]);
 }
 const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4();
@@ -58,6 +59,7 @@ export const board = {
         noMic: mic.noMic, mic, calib: G.calib, calibNotes: G.calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: G.touch ? 5 : 4,
         wallet: S.shop.wallet(money(wallet().cash)), lock: lockText(contract), income: incomeText(),
         shop: G.boardPage === 'shop' ? { rows: shopPageRows(), page: G.shopPage, pages: shopPages() } : null,
+        maps: mapsForBoard(G.level.id),   // W6
       });
     }
   },
