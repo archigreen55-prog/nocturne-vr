@@ -25,7 +25,10 @@ export const panel = {
       if (st.hidden && !G.wasHidden && !G.paused) fx('hidden');
       G.wasHidden = st.hidden;
       G.guardLineT -= 0.1;
-      const guardText = G.guardLineT > 0 ? S.hud.guardSays(G.guardLine) : CFG.run.showGuard && round.phase !== 'result' ? S.hud.guardDoes(patrol.activity) : '';
+      // W7: who says it («Петрович: «…»»); the crew's yellow line when the guard is silent (systems/story.js)
+      const guardName = (patrol.env.guard && patrol.env.guard.name) || S.guard.name;
+      const crew = G.crewLineT > 0 && G.guardLineT <= 0 ? G.crewLine : '';
+      const guardText = G.guardLineT > 0 ? S.hud.guardSays(G.guardSaid || G.guardLine, G.guardName) : crew ? S.hud.crewSays(crew.name, crew.line) : CFG.run.showGuard && round.phase !== 'result' ? S.hud.guardDoes(patrol.activity, guardName) : '';
       let goal = round.phase === 'result' ? null : progress(G.contract, T, loot);
       if (goal && mischief.score && !G.contract.goal.mischief) goal = { ...goal, text: `${goal.text} · ${S.traps.score(mischief.score)}` };   // W2b: mischief on any contract
       const pnl = {
@@ -39,7 +42,7 @@ export const panel = {
         fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
         gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),
         msg: G.flashT > 0 ? G.flashText : '', msgColor: G.flashColor,
-        guardSpeech: G.guardLineT > 0, stance: player.crouched || player.virtualCrouch ? S.hud.crouched : S.hud.standing,
+        guardSpeech: G.guardLineT > 0, crewSpeech: !!crew, stance: player.crouched || player.virtualCrouch ? S.hud.crouched : S.hud.standing,
       };
       if (hud) hud.update(pnl, now); else wrist.draw(pnl);
       debugEl.style.display = wrist.showFps && !G.inVR ? 'block' : 'none';

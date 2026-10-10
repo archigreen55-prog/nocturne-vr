@@ -83,6 +83,10 @@ export function pressBoard(id) {
   else if (id === 'diff') setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]);
   else if (id === 'micpage') { G.boardPage = 'mic'; G.calibNotes = ''; }
   else if (id === 'mappage') G.boardPage = 'map';
+  else if (id === 'lurkers') { G.boardPage = 'lurkers'; G.storyPage = 0; }   // W7: Тихарник
+  else if (id === 'papers') G.boardPage = 'papers';   // W7: «Папери»
+  else if (id === 'lprev') G.storyPage = Math.max(0, (G.storyPage || 0) - 1);
+  else if (id === 'lnext') G.storyPage = Math.min(Math.ceil(CFG.story.lurkers.length / 3) - 1, (G.storyPage || 0) + 1);
   else if (id.startsWith('map:')) { if (round.phase === 'ready') switchMap(id.slice(4)); }
   else if (id === 'back') G.boardPage = 'contract';
   else if (shopPress(id)) { /* the shop (systems/economy.js) */ }

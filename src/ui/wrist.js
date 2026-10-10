@@ -168,7 +168,7 @@ export class WristPanel {
 
     // --- door hint while dragging a door, else the message line ---
     let msg = s.msg, color = s.msgColor;
-    if (!msg && s.guardText) { msg = s.guardText; color = '#9fb3c8'; }
+    if (!msg && s.guardText) { msg = s.guardText; color = s.crewSpeech ? '#ffd166' : '#9fb3c8'; }   // W7: the crew's line is yellow
     if (s.door) {
       msg = s.door.creak > 0 ? S.wrist.doorCreaks(s.door.creak > 0.5) : S.wrist.doorQuiet;
       color = s.door.creak > 0 ? (s.door.creak > 0.5 ? '#ff5c5c' : '#ffb347') : '#5fd38d';

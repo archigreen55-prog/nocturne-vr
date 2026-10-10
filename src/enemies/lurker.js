@@ -14,7 +14,9 @@ import { restyleLurker } from '../style/figures.js';
 
 
 export class Lurker {
-  // env: { level, onScare() }
+  // env: { level, onScare(), breathOf(player), onWake(player), onLost(player), ajar }
+  //   W7: breathOf — that player holds the breath (then in the telegraph it loses them); ajar — the doors
+  //   stay this open while it sleeps (a wardrobe with a box inside, story-bible §4.3)
   constructor(env) {
     this.env = env;
     const W = this.spec = env.spec || (env.level && env.level.wardrobe) || WARDROBE;   // the wardrobe (or crate, W6) it sits in
@@ -116,6 +118,7 @@ export class Lurker {
   }
 
   wake() {
+    if (this.env.onWake) this.env.onWake(this.victim);   // W7: Тихарник, the crew's line
     this.state = 'telegraph';
     this.t = 0;
     this.creature.visible = true;
@@ -145,6 +148,12 @@ export class Lurker {
       case 'telegraph': {
         // doors rattle, eyes glow in the gap
         this.setDoors(0.04 + 0.04 * Math.abs(Math.sin(this.t * 38)));
+        // W7: you held your breath — you stopped being a sound: it loses you and goes to sleep (45 s)
+        if (this.env.breathOf && this.env.breathOf(player)) {
+          this.state = 'cooldown'; this.t = 0; this.creature.visible = false; this.setDoors(this.env.ajar || 0);
+          if (this.env.onLost) this.env.onLost(player);
+          break;
+        }
         if (!near) { this.state = 'cooldown'; this.t = L.cooldown - 8; this.setDoors(0); this.creature.visible = false; break; }
         if (this.t >= L.telegraph) this.lunge(player);
         break;
@@ -171,14 +180,14 @@ export class Lurker {
         if (k >= 1) {
           this.creature.rotation.set(0, Math.PI / 2, 0);
           this.creature.visible = false;
-          this.setDoors(0);
+          this.setDoors(this.env.ajar || 0);   // W7: ajar while it sleeps (the box inside)
           playThud({ x: this.FRONT.x, y: 1, z: this.FRONT.z }, false, 0.6, true);   // doors slam (sound only)
           this.state = 'cooldown'; this.t = 0;
         } else this.setDoors(1 - k);
         break;
       }
       case 'cooldown':
-        if (this.t >= L.cooldown) { this.state = 'dormant'; this.t = 0; }
+        if (this.t >= L.cooldown) { this.state = 'dormant'; this.t = 0; if (this.env.ajar) this.setDoors(0); }   // W7: shut again
         break;
     }
   }

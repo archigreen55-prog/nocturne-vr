@@ -17,7 +17,7 @@ const REASONS = {
 export class PauseMenu {
   // h: { info(), label(key), cycle(key), resume(), home(), newRound(), toStart(), toMic(), report(), contractStep(±1), difficultyNext(),
   //      tutorial(), toProgress(), privacy(), bright(±1), brightLabel(), outdoor(), outdoorLabel(),
-  //      shopRows(), buy(id), walletText() }
+  //      shopRows(), buy(id), walletText(), lurkers(), papers() }   (W7: Тихарник, «Папери» — game/story.js)
   constructor(root, h) {
     this.root = root; this.h = h;
     this.page = 'main'; this.reason = 'user';
@@ -53,7 +53,7 @@ export class PauseMenu {
     const head = document.createElement('div');
     head.className = 'pm-head';
     const title = document.createElement('h2');
-    title.textContent = this.page === 'main' ? S.menu.title.main : this.page === 'contract' ? S.menu.title.contract : this.page === 'shop' ? S.shop.title : S.menu.title.settings;
+    title.textContent = this.page === 'main' ? S.menu.title.main : this.page === 'contract' ? S.menu.title.contract : this.page === 'shop' ? S.shop.title : this.page === 'lurkers' ? S.lurkers.title : this.page === 'papers' ? S.notes.title : S.menu.title.settings;
     head.append(title);
     const grid = document.createElement('div');
     grid.className = 'pm-grid scroll';
@@ -80,6 +80,8 @@ export class PauseMenu {
         this.btn(S.menu.newRound, () => h.newRound()),
         this.btn(S.menu.title.contract, () => this.go('contract')),
         this.btn(S.shop.button, () => this.go('shop')),
+        this.btn(S.lurkers.title, () => this.go('lurkers')),   // W7
+        this.btn(S.notes.title, () => this.go('papers')),
         this.btn(S.menu.title.settings, () => this.go('settings')),
         this.btn(S.menu.mic, () => h.toMic()),
         this.btn(S.menu.report, () => h.report()),
@@ -97,13 +99,52 @@ export class PauseMenu {
       brief.className = 'pm-info wide';
       brief.textContent = S.menu.brief(I.brief, I.goalText, I.bonusText);
       if (I.lock) { const lock = document.createElement('p'); lock.className = 'pm-note wide'; lock.textContent = I.lock; grid.append(lock); }
-      grid.append(row, brief,
+      // W7: the customer's lines (italic) and the crew's (yellow) above the brief
+      const story = document.createElement('p');
+      story.className = 'pm-info wide pm-story';
+      if (I.story) {
+        const i = document.createElement('i'); i.textContent = I.story.lines.join(' '); story.append(i);
+        if (I.story.crew) { const c = document.createElement('span'); c.className = 'pm-crew'; c.textContent = ' ' + I.story.crew; story.append(c); }
+      }
+      grid.append(row);
+      if (I.story) grid.append(story);
+      grid.append(brief,
         this.btn(S.board.difficulty(I.diffName), () => { h.difficultyNext(); this.render(); }, 'wide', !can));
       if (!can) {
         const why = document.createElement('p');
         why.className = 'pm-note wide';
         why.textContent = S.menu.changeWhen;
         grid.append(why);
+      }
+      grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
+    } else if (this.page === 'lurkers') {
+      // W7: Тихарник — every card; met: three lines, else «???»
+      const L = h.lurkers();
+      const cnt = document.createElement('p'); cnt.className = 'pm-info wide'; cnt.textContent = S.lurkers.met(L.met.n, L.met.total);
+      grid.append(cnt);
+      for (const c of L.cards) {
+        const row = document.createElement('div');
+        row.className = 'pm-shop wide pm-card-lurker' + (c.met ? '' : ' soon');
+        row.dataset.lurker = c.id;
+        const t = document.createElement('div'); t.className = 'pm-shop-text';
+        const b = document.createElement('b'); b.textContent = c.name; t.append(b);
+        const Lb = S.lurkers.labels;
+        for (const line of c.met ? [`${Lb.wants}: ${c.wants}`, `${Lb.warns}: ${c.warns}`, `${Lb.avoid}: ${c.avoid}`] : [S.lurkers.lockedHint]) { const e = document.createElement('span'); e.textContent = line; t.append(e); }
+        row.append(t); grid.append(row);
+      }
+      if (L.noMic) { const n = document.createElement('p'); n.className = 'pm-note wide'; n.textContent = S.lurkers.noMic; grid.append(n); }
+      grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
+    } else if (this.page === 'papers') {
+      // W7: «Папери» — the notes found
+      const P = h.papers();
+      const cnt = document.createElement('p'); cnt.className = 'pm-info wide'; cnt.textContent = P.rows.length ? S.notes.count(P.count.n, P.count.total) : S.notes.empty;
+      grid.append(cnt);
+      for (const r of P.rows) {
+        const row = document.createElement('div'); row.className = 'pm-shop wide'; row.dataset.note = r.id;
+        const t = document.createElement('div'); t.className = 'pm-shop-text';
+        const b = document.createElement('b'); b.textContent = `«${r.text}»`;
+        const e = document.createElement('span'); e.textContent = r.where;
+        t.append(b, e); row.append(t); grid.append(row);
       }
       grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
     } else if (this.page === 'shop') {

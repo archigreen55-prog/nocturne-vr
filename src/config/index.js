@@ -21,6 +21,7 @@ import { devices } from './devices.js';
 import { traps } from './traps.js';
 import { net } from './net.js';
 import { style } from './style.js';
+import { story } from './story.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
@@ -29,4 +30,5 @@ export const CFG = {
   throw: throwing, devices, traps,
   net,
   style,
+  story,   // W7
 };
