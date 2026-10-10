@@ -10,6 +10,7 @@ import { setPanning } from '../audio/audio.js';
 import { G, $, params } from './state.js';
 import { phoneLayout } from './flatScreen.js';
 import { S } from '../i18n/index.js';
+import { power } from '../world/devices.js';
 
 const NIGHT = 0x0a0f1c;
 
@@ -82,7 +83,7 @@ export const render = {
     const { quality, player } = G;
     if (quality && (G.lampT -= dt) <= 0) {
       G.lampT = 0.5;
-      for (const l of G.points) l.intensity = quality.p.farLights || Math.hypot(l.position.x - player.head.x, l.position.z - player.head.z) < 12 ? l.userData.base * G.lightK : 0;   // lightK: the display brightness (systems/brightness.js)
+      G.points.forEach((l, i) => { l.intensity = quality.p.farLights || Math.hypot(l.position.x - player.head.x, l.position.z - player.head.z) < 12 ? l.userData.base * G.lightK * power.k(i) : 0; });   // lightK: the display brightness (systems/brightness.js); power: the breaker (W2a)
     }
   },
 };

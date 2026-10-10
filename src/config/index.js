@@ -16,9 +16,12 @@ import { maps } from './maps.js';
 import { mansion } from './mansion.js';
 import { sprint } from './sprint.js';
 import { shop } from './shop.js';
+import { throwing } from './throw.js';
+import { devices } from './devices.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
   difficulties, contracts, sprint, shop,
   maps, mansion,
+  throw: throwing, devices,
 };

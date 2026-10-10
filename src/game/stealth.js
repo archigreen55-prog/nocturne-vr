@@ -3,12 +3,14 @@
 // (crouched with furniture close by that reaches within CFG.stealth.coverBelowEyes of your eyes,
 // and the patrol's line of sight to your face actually blocked).
 import { CFG } from '../config/index.js';
+import { power } from '../world/devices.js';
 
 const EYE = 1.62;
 
 function angleDiff(a, b) { const d = a - b; return Math.atan2(Math.sin(d), Math.cos(d)); }
 
 export function nearLamp(x, z) {
+  if (power.dark) return false;   // W2a: the breaker is off
   return CFG.stealth.lamps.some((l) => Math.hypot(x - l.x, z - l.z) < l.r);
 }
 

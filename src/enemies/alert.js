@@ -4,6 +4,7 @@
 // police blue/red in the windows. The last minute of the timer makes the lights flicker.
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
+import { power } from '../world/devices.js';
 import { S } from '../i18n/index.js';
 
 const AMBER = new THREE.Color(0x8a6a40), RED = new THREE.Color(0xa01818), RED_PT = new THREE.Color(0xff3030);
@@ -78,11 +79,11 @@ export class Alert {
     L.points.forEach((p, i) => {
       p.color.copy(B.points[i].c);
       if (this.k > 1) p.color.lerp(RED_PT, 0.7 * (this.k - 1));
-      p.intensity = B.points[i].i * this.gain;
+      p.intensity = B.points[i].i * this.gain * power.k(i);   // W2a: the breaker
     });
     // windows: police lights outside during full alarm
     if (this.level === 2) L.glow.color.copy(Math.sin(t * 2 * Math.PI * 2) > 0 ? POLICE_R : POLICE_B).multiplyScalar(2.2 * this.glowGain);
-    else L.glow.color.setHex(0xffffff).multiplyScalar(this.glowGain);
+    else L.glow.color.setHex(0xffffff).multiplyScalar(this.glowGain * (power.on ? 1 : 0.35));   // W2a: the lamps' glow goes with the power
     // last minute: the lights flicker in bursts
     if (this.flicker) {
       this.flickT -= dt;
