@@ -165,20 +165,31 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
   });
   assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 2, true], 'the dacha\'s guard: Petrovych, one skinned mesh + its outline');
   assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 2], 'a friend: the thief\'s figure');
-  assert.ok(d.guard.tris <= 2800 && d.friend.tris <= 2200, `triangles with the outline: guard ${d.guard.tris}, friend ${d.friend.tris}`);
+  assert.ok(d.guard.tris <= 1500 && d.friend.tris <= 1500, `triangles with the outline: guard ${d.guard.tris}, friend ${d.friend.tris}`);
+  // the owner's budget: ≤ 1 500 triangles a figure with its outline (the mansion with 4 friends stays under 45 000); Шафник too
+  const all = await page.evaluate(async () => {
+    const { buildFigure, RECIPES, lurkerGeometries } = await import('./src/style/figures.js');
+    const tri = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+    const out = {};
+    for (const id of Object.keys(RECIPES)) { const f = buildFigure(RECIPES[id]); out[id] = tri(f.mesh.geometry) + tri(f.hull.geometry); }
+    const L = lurkerGeometries(), hull = window.__game.lurker.body.getObjectByName('style: wardrobe outline');
+    out.shafnyk = ['body', 'arms', 'eyes', 'sock'].reduce((s, k) => s + tri(L[k]), 0) + tri(hull.geometry);
+    return out;
+  });
+  for (const [id, n] of Object.entries(all)) assert.ok(n <= 1500, `${id}: ${n} triangles with the outline`);
   assert.equal(d.oldGuard, 0, 'the old figure is not drawn');
   assert.deepEqual(d.lurkerEyes, d.whisper, 'Шафник\'s eyes: Шепіт (0x7fd0ff), as in the art');
   assert.ok(d.lurkerOutline, 'Шафник has an outline');
   // poses: soap = feet up, the bucket on the head; angry = Pozikhailo leaves
   const poses = await page.evaluate(async () => {
     const g = window.__game, P = g.patrol, B = P.fig.bones, wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    P.knockOut('soap', 30, 'flip'); await wait(700);
-    const flip = +B.legL.rotation.x.toFixed(2);
-    P.pose = 'kneel'; await wait(700);
-    const kneel = +B.legL.rotation.x.toFixed(2);
-    P.pose = 'bucket'; await wait(700);
-    const bucket = +B.armL.rotation.x.toFixed(2), bucketY = P.bucketMesh ? +P.bucketMesh.position.y.toFixed(2) : null;
     const until = async (ok) => { for (let i = 0; i < 80 && !ok(); i++) await wait(100); };   // slow software frames: dt is capped
+    P.knockOut('soap', 30, 'flip'); await until(() => B.legL.rotation.x > 0.3);
+    const flip = +B.legL.rotation.x.toFixed(2);
+    P.pose = 'kneel'; await until(() => B.legL.rotation.x < -1);
+    const kneel = +B.legL.rotation.x.toFixed(2);
+    P.pose = 'bucket'; await until(() => B.armL.rotation.x > 2); await wait(200);
+    const bucket = +B.armL.rotation.x.toFixed(2), bucketY = P.bucketMesh ? +P.bucketMesh.position.y.toFixed(2) : null;
     P.pose = null; P.stunT = 0; P.brain.angryT = 30; await until(() => B.poz.scale.x < 0.1);
     const poz = +B.poz.scale.x.toFixed(2);
     P.brain.angryT = 0; await until(() => B.poz.scale.x > 0.9);

@@ -73,7 +73,7 @@ export function animateThief(rp, dt) {
   const P0 = f.pivots, still = walk < 0.05 && !carry;
   // Nazar keeps his notebook to his chest; Zoya, standing still, puts a finger to her lips: «Тссс»
   ease(B.armL, carry ? 1.3 : P0.book ? 0.9 : crouch ? 0.4 : -sw * 0.8, 0, carry ? 0.15 : P0.book ? 0.55 : 0.06, k);
-  ease(B.armR, carry ? 1.3 : P0.shush && still ? 2.55 : crouch ? 0.4 : sw * 0.8, 0, carry ? -0.15 : P0.shush && still ? -0.45 : -0.06, k);
+  ease(B.armR, carry ? 1.3 : P0.shush && still ? 2.2 : crouch ? 0.4 : sw * 0.8, 0, carry ? -0.15 : P0.shush && still ? -0.45 : -0.06, k);
   B.hips.position.y = lerp(B.hips.position.y, f.rest.hips.y - (crouch ? f.rest.hips.y * 0.38 : 0) + Math.abs(Math.sin(f.phase)) * 0.025 * walk, k);
   B.torso.rotation.x = lerp(B.torso.rotation.x, crouch ? -0.45 : walk > 1.1 ? -0.2 : 0, k);
   B.head.rotation.x = clamp(rp.lookPitch || 0, -0.6, 0.6) - B.torso.rotation.x * 0.6;

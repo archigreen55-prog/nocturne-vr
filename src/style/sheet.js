@@ -76,7 +76,7 @@ function wardrobe(isNew) {
   if (isNew) {
     const L = lurkerGeometries();
     const body = new THREE.Mesh(L.body, mat), arms = new THREE.Mesh(L.arms, mat), eyes = new THREE.Mesh(L.eyes, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
-    body.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10).scale(1.05 * 1.07, 0.95 * 1.07, 0.9 * 1.07), hullMaterial()));
+    body.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 7).scale(1.05 * 1.07, 0.95 * 1.07, 0.9 * 1.07), hullMaterial()));
     arms.rotation.x = 0.35; arms.scale.z = 0.55;   // reaching out of the gap, down (the lunge stretches them in the game)
     creature.add(body, eyes, arms);
     const sock = new THREE.Mesh(L.sock, mat);
