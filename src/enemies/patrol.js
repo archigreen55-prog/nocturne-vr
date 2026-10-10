@@ -15,6 +15,7 @@ import { S } from '../i18n/index.js';
 import { power } from '../world/devices.js';
 import { asList } from '../game/players.js';
 import { lit } from '../style/materials.js';
+import { restyleGuard } from '../style/figures.js';
 
 const EYE = 1.62;
 const RADIUS = 0.28;
@@ -54,6 +55,7 @@ export class Patrol {
     else U.add(new THREE.CylinderGeometry(0.06, 0.07, 0.22, 8).translate(0.29, 1.2, -0.5), 0x2a2a30);   // a hand lamp
     this.upper = U.mesh(mat);
     this.group.add(this.body, this.upper);
+    restyleGuard(this, GC);   // W17 «Стиль»: the guard's figure (style/figures.js); the style off keeps the one above
     this.lampR = 0;
     this.sightK = GC.sightK || 1;   // W6: the second guard sees a little worse in the dark
     if (GC.lamp) {

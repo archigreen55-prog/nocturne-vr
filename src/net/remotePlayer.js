@@ -7,6 +7,7 @@ import { CFG } from '../config/index.js';
 import { Builder } from '../world/level.js';
 import { MAX_SPEED } from '../xr/player.js';
 import { lit } from '../style/materials.js';
+import { restyleFriend } from '../style/figures.js';
 
 const SKIN = 0xd9c9b0;
 
@@ -27,6 +28,7 @@ export class RemotePlayer {
     this.speak = { speakT: 0, quietT: 0, voiceT: 0 };   // like G.speakT / quietT / voiceT for this device's player
     this.desk = null;                            // the item it carries (the host keeps it in front of it)
     this.group = this.build();
+    restyleFriend(this);   // W17 «Стиль»: the thief's figure (style/figures.js); the style off keeps the one above
   }
 
   build() {

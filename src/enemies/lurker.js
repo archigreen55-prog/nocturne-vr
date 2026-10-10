@@ -10,6 +10,7 @@ import { Builder, WARDROBE } from '../world/level.js';
 import { Voice3D, playScratch, playStinger, playThud } from '../audio/audio.js';
 import { asList } from '../game/players.js';
 import { lit } from '../style/materials.js';
+import { restyleLurker } from '../style/figures.js';
 
 
 export class Lurker {
@@ -57,6 +58,7 @@ export class Lurker {
     this.creature = new THREE.Group();
     this.creature.add(this.body, this.eyes, this.arms);
     this.group.add(this.creature);
+    restyleLurker(this);   // W17 «Стиль»: Шафник's look (style/figures.js); the style off keeps the one above
     // wardrobe doors, hinged at the outer edges, opening into the room (-X)
     const D1 = new Builder(), D2 = new Builder();
     D1.box(-0.015, 0.08, 0, 0.015, 2.04, 0.79, 0x3b2d25);

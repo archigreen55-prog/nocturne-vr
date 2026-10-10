@@ -10,6 +10,7 @@ import { PAL } from '../style/palette.js';
 import { STYLE_ON, styleUniforms as U, setStyle, setZones } from '../style/materials.js';
 import { buildDecor } from '../style/decor.js';
 import { quietRandom } from '../style/quiet.js';
+import { animateGuard, animateThief } from '../style/anim.js';
 import { power } from '../world/devices.js';
 import { G, $ } from './state.js';
 
@@ -72,5 +73,8 @@ export const style = {
       spots.push({ x, z, y: y0, h, r: B.item });
     }
     decor.setBlobs(spots);
+    // S2: the figures move (bones only; the game reads none of it)
+    for (const g of G.guards || []) if (g.fig) animateGuard(g, dt, t);
+    for (const p of G.players || []) if (p.fig) animateThief(p, dt);
   },
 };

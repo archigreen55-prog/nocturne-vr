@@ -140,3 +140,81 @@ test('style (S1): the mansion — the fountain has water, each lamp\'s circle li
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in the mansion, Шафник, a friend in the colour of the thief; 2 draw calls each, few triangles; the trap poses and Pozikhailo (gone when the guard is angry); the bucket on the new head; ?style=off keeps the old figures', async () => {
+  const figs = async (map, st) => {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const o = await open(ctx, preview + `?map=${map}&style=${st}`);
+    return { ctx, ...o };
+  };
+  const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+  // the dacha: Petrovych, Шафник, a friend
+  let { ctx, page, errors } = await figs('dacha', 'on');
+  const d = await page.evaluate(async () => {
+    const g = window.__game, P = g.patrol;
+    const { RemotePlayer } = await import('./src/net/remotePlayer.js');
+    const rp = new RemotePlayer({ id: 'f', name: 'Оля', thief: 'rita' });
+    const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+    const info = (f) => f && { who: f.who, meshes: f.root.children.length, skinned: f.root.children.every((m) => m.isSkinnedMesh), tris: f.root.children.reduce((s, m) => s + tri(m), 0) };
+    const lurk = g.lurker;
+    return {
+      guard: info(P.fig), friend: info(rp.fig), oldGuard: P.body.geometry.attributes.position ? P.body.geometry.attributes.position.count : 0,
+      lurkerEyes: Array.from(lurk.eyes.geometry.attributes.color.array.slice(0, 3)).map((v) => +v.toFixed(2)), whisper: new g.THREE.Color(0x7fd0ff).toArray().map((v) => +v.toFixed(2)), lurkerOutline: !!lurk.body.getObjectByName('style: wardrobe outline'),
+    };
+  });
+  assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 2, true], 'the dacha\'s guard: Petrovych, one skinned mesh + its outline');
+  assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 2], 'a friend: the thief\'s figure');
+  assert.ok(d.guard.tris <= 2800 && d.friend.tris <= 2200, `triangles with the outline: guard ${d.guard.tris}, friend ${d.friend.tris}`);
+  assert.equal(d.oldGuard, 0, 'the old figure is not drawn');
+  assert.deepEqual(d.lurkerEyes, d.whisper, 'Шафник\'s eyes: Шепіт (0x7fd0ff), as in the art');
+  assert.ok(d.lurkerOutline, 'Шафник has an outline');
+  // poses: soap = feet up, the bucket on the head; angry = Pozikhailo leaves
+  const poses = await page.evaluate(async () => {
+    const g = window.__game, P = g.patrol, B = P.fig.bones, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    P.knockOut('soap', 30, 'flip'); await wait(700);
+    const flip = +B.legL.rotation.x.toFixed(2);
+    P.pose = 'kneel'; await wait(700);
+    const kneel = +B.legL.rotation.x.toFixed(2);
+    P.pose = 'bucket'; await wait(700);
+    const bucket = +B.armL.rotation.x.toFixed(2), bucketY = P.bucketMesh ? +P.bucketMesh.position.y.toFixed(2) : null;
+    const until = async (ok) => { for (let i = 0; i < 80 && !ok(); i++) await wait(100); };   // slow software frames: dt is capped
+    P.pose = null; P.stunT = 0; P.brain.angryT = 30; await until(() => B.poz.scale.x < 0.1);
+    const poz = +B.poz.scale.x.toFixed(2);
+    P.brain.angryT = 0; await until(() => B.poz.scale.x > 0.9);
+    return { flip, kneel, bucket, bucketY, poz, pozBack: +B.poz.scale.x.toFixed(2), headY: P.fig.headY };
+  });
+  assert.ok(poses.flip > 0.3, `soap: the legs up (${poses.flip})`);
+  assert.ok(poses.kneel < -1, `marbles: on the knees (${poses.kneel})`);
+  assert.ok(poses.bucket > 2, `bucket: the hand up to the head (${poses.bucket})`);
+  assert.equal(poses.bucketY, +(poses.headY - 1.66).toFixed(2), 'the bucket sits on the new head');
+  assert.ok(poses.poz < 0.1 && poses.pozBack >= 0.9, `Pozikhailo: gone when angry (${poses.poz}), back after (${poses.pozBack})`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // the mansion: Valera and Zhora
+  ({ ctx, page, errors } = await figs('mansion', 'on'));
+  const m = await page.evaluate(() => window.__game.guards.map((p) => p.fig && p.fig.who));
+  assert.deepEqual(m, ['valera', 'zhora']);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // style off: the old figures, untouched
+  ({ ctx, page, errors } = await figs('mansion', 'off'));
+  const o = await page.evaluate(() => window.__game.guards.map((p) => ({ fig: !!p.fig, body: p.body.geometry.attributes.position.count > 0, upper: p.upper.geometry.attributes.position.count > 0 })));
+  assert.deepEqual(o, [{ fig: false, body: true, upper: true }, { fig: false, body: true, upper: true }], 'style off: the old guards');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('style: the game\'s random numbers are not touched — the style on or off, the page makes the same number of Math.random calls while it loads and plays (three.js names objects with Math.random; the style\'s take theirs from crypto)', async () => {
+  const count = async (q) => {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { let n = 0; const r = Math.random; Math.random = () => { n++; return r(); }; window.__rn = () => n; try { localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + q);
+    const n = await page.evaluate(() => { const g = window.__game; const a = window.__rn(); for (let i = 0; i < 3; i++) g.renderer.render(g.scene, g.camera); return [a, window.__rn()]; });
+    assert.deepEqual(errors, []);
+    await ctx.close();
+    return n;
+  };
+  const off = await count('?style=off'), on = await count('?style=on');
+  assert.deepEqual(on, off, `Math.random calls (loaded, after drawing): style on ${on}, off ${off}`);
+});
