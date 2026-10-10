@@ -166,3 +166,55 @@ test('Шепотун on the phone and in VR (IWER Quest 3): a whisper by the fir
   assert.deepEqual(v.errors, []);
   await vctx.close();
 });
+
+test('Шепотун with friends (two tabs, ?net=local): the guest whispers by the fireplace — its «wh» reaches the host, the host\'s whisperer echoes at the grate, the guest hears the echo and gets the card; a note the guest reads is its own (nothing goes to the host)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } }); await openAll(ctx);
+  const host = await open(ctx, preview + '?net=local');
+  await host.page.evaluate(() => { const g = window.__game; g.setContract('silent'); g.net.open('314159', 'host', 'Аня', 'zoya'); });
+  const guest = await open(ctx, preview + '?room=314159&net=local');
+  await guest.page.fill('#netname', 'Оля');
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  const pages = [host.page, guest.page];
+  const run = async (s) => { for (let t = 0; t < s; t += 0.1) { for (const p of pages) await p.evaluate(() => window.__game.sim(0.1)); await host.page.waitForTimeout(30); } };
+  for (const p of pages) await p.evaluate(() => { const g = window.__game; g.playing = true; for (const l of g.lurkers) l.update = () => {}; window.__wi = null; import('./src/audio/whisperSfx.js').then((m) => { window.__wi = m.whisperInfo; }); });
+  await host.page.evaluate(() => { const g = window.__game; for (const p of g.guards) p.update = () => null; g.player.teleport(0, -2.5, 0); });
+  await guest.page.evaluate((cal) => {
+    const g = window.__game, m = g.mic;
+    m.state = 'on'; m.cal = { ...cal }; m.calibrated = true; m.noMic = false; window.__db = -62; m.feed = () => window.__db + (Math.random() - 0.5);
+    g.player.teleport(1.5, -11.3, 0);
+  }, MIC_CAL);
+  await run(1.5);
+  const before = await host.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); return { phase: G.round.phase, contract: G.contract.id, wh: G.players.filter((p) => p.mic).map((p) => !!p.mic.whisper) }; });
+  await guest.page.evaluate(() => { window.__db = -48; });
+  await run(1.0);
+  const during = await host.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); return G.players.filter((p) => p.mic).map((p) => !!p.mic.whisper); });
+  await guest.page.evaluate(() => { window.__db = -62; });
+  await run(5);
+  const r = {
+    host: await host.page.evaluate(() => window.__wi.count),
+    guest: await guest.page.evaluate(async () => ({ echoes: window.__wi.count, card: (await import('./src/game/story.js')).hasMet('whisperer') })),
+  };
+  // a note: only the one who took it (owner's change 3): the guest reads the fridge note, the host still sees it
+  // (two tabs share one localStorage here, so «the host's own Папери» cannot be told apart: what is
+  // checked is that reading sends nothing — the host's world and its copy of the note are not touched)
+  r.note = await guest.page.evaluate(async () => {
+    const g = window.__game, S = await import('./src/systems/story.js');
+    window.__sent = []; const pm = BroadcastChannel.prototype.postMessage;
+    BroadcastChannel.prototype.postMessage = function (m) { const t = typeof m === 'string' ? m : JSON.stringify(m); if (!/"type":"pose"/.test(t)) window.__sent.push(t.slice(0, 80)); return pm.call(this, m); };
+    g.player.teleport(-9.13 + 0.9, -0.75, Math.PI / 2); g.sim(0.05);
+    const n = S.aimedNote(); S.readNote(n);
+    return { id: n && n.id, seen: g.scene.getObjectByName('note: saucer').visible };
+  });
+  await run(0.5);
+  r.sent = await guest.page.evaluate(() => window.__sent.filter((t) => /note|saucer/.test(t)));
+  dbg({ before, during, r });
+  assert.deepEqual(r.note, { id: 'saucer', seen: false });
+  assert.deepEqual(r.sent, [], 'reading a note sends nothing to the host');
+  assert.equal(before.contract, 'silent'); assert.notEqual(before.phase, 'ready');
+  assert.deepEqual(before.wh, [false]); assert.deepEqual(during, [true]);
+  assert.equal(r.host, 1, 'the host\'s whisperer echoed');
+  assert.deepEqual(r.guest, { echoes: 1, card: true }, 'the guest heard it; the card is its own');
+  assert.deepEqual(host.errors, []); assert.deepEqual(guest.errors, []);
+  await ctx.close();
+});
