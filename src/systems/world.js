@@ -23,6 +23,7 @@ import { flash, fx } from './messages.js';
 import { S } from '../i18n/index.js';
 import { throwablesFor } from '../loot/throw.js';
 import { score } from './traps.js';
+import { nearest } from '../game/players.js';
 
 export const world = {
   id: 'world',
@@ -42,6 +43,7 @@ export const world = {
     });
 
     const player = G.player = new Player(renderer, camera);
+    G.players = [player];   // everybody in the round (game/players.js); offline just this device's player
     scene.add(player.rig);
     player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
     const listener = () => player.head;
@@ -71,8 +73,12 @@ export const world = {
         level, nav, alert, listener, loot, guard, secondary,
         roundTime: () => (G.round.phase === 'heist' ? G.round.t : null),
         onMischief: (kind) => score(kind),   // W2b: a trick that worked (device, throw)
-        say: (text) => { G.guardLine = guard && guard.name ? `${guard.name}: ${text}` : text; G.guardLineT = 3.5; G.wristTimer = 0; },
+        say: (text, fromHost) => {
+          G.guardLine = guard && guard.name ? `${guard.name}: ${text}` : text; G.guardLineT = 3.5; G.wristTimer = 0;
+          if (G.netEvent && !fromHost) G.netEvent('say', { g: G.guards.indexOf(env.self), text });   // the friends hear it too
+        },
         sound: (kind, x, z, o) => {
+          if (G.netEvent) G.netEvent('gsnd', { g: G.guards.indexOf(env.self), kind, x, z, o });
           const L = player.head, v = env.self.voice;
           const at = (px, pz) => ({ pos: { x: px, y: 1, z: pz }, occ: level.soundOccluded(L.x, L.z, px, pz) });
           if (kind === 'kettle') { const a = at(x, z); playKettle(a.pos, a.occ, o.dur, o.whistleAt, o.whistleFor); }
@@ -97,7 +103,8 @@ export const world = {
       scene.add(G.patrol2.group);
     }
     const guards = G.guards = [patrol, G.patrol2].filter(Boolean);
-    const onScare = () => { if (!(CFG.run.scareK < 1)) G.comfort.flashColor(0xffffff, 0.55);   // the mask (shop): no white flash
+    const onScare = (who) => { if (who && who !== player) return;   // a friend was scared: its own screen flashes (systems/net.js)
+      if (!(CFG.run.scareK < 1)) G.comfort.flashColor(0xffffff, 0.55);   // the mask (shop): no white flash
       G.xrIn.pulse('both', 1, 250); fx('scare'); };
     const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec }));
     const lurker = G.lurker = lurkers[0];
@@ -112,7 +119,8 @@ export const world = {
     const round = G.round = new Round({
       loot, alert, patrol, lurker, lurkers, scream,
       get hands() { return G.hands; },
-      onMessage: (t, c, s) => flash(t, s || 3, c),
+      friendsHeld: () => (G.netHeld ? G.netHeld() : []),
+      onMessage: (t, c, s) => { flash(t, s || 3, c); if (G.netEvent) G.netEvent('flash', { t, c, s: s || 3 }); },
       onPhase: (phase) => {
         G.boardDirty = true;
         if (phase === 'result') {
@@ -127,7 +135,8 @@ export const world = {
           }
           G.resultT = 0; G.autoPlayed = false;
           const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
-          verdict.newBest = recordStars(G.contract.id, G.difficulty, verdict.stars, G.MODE.mode);
+          verdict.newBest = recordStars(G.contract.id, G.difficulty, verdict.stars, G.net ? 'coop' : G.MODE.mode);   // with friends: the coop table (plan-multiplayer §5)
+          if (G.netEvent) G.netEvent('result', { R, alarmed: round.alarmed });
           flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
         }
       },
@@ -136,8 +145,8 @@ export const world = {
 
     // noise -> who hears it: with two guards, the one it is louder to (plan-W6 §3.2)
     noise.on((e) => {
-      if (round.phase === 'result') return;
-      const ey = e.source === 'world' ? e.y : player.floorY;   // a dropped item's noise is at its height; the player's noises on the player's floor
+      if (round.phase === 'result' || G.isGuest) return;   // a guest: the host's guards hear (systems/net.js)
+      const ey = e.source === 'world' ? e.y : (e.who || player).floorY;   // a dropped item's noise is at its height; a player's noises on that player's floor
       let best = null, bestK = 0;
       for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
       if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); }
@@ -145,7 +154,7 @@ export const world = {
     });
     alert.onFull = (cause, x, z) => {
       if (round.phase === 'result') return;
-      const f = x === undefined ? undefined : level.floorIndex(player.floorY);
+      const f = x === undefined ? undefined : level.floorIndex((nearest(G.players, x, z) || player).floorY);
       const chaser = guards.find((g) => g.state === 'chase');
       const posts = level.alarmPosts;
       guards.forEach((g, i) => {

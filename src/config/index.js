@@ -19,10 +19,12 @@ import { shop } from './shop.js';
 import { throwing } from './throw.js';
 import { devices } from './devices.js';
 import { traps } from './traps.js';
+import { net } from './net.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
   difficulties, contracts, sprint, shop,
   maps, mansion,
   throw: throwing, devices, traps,
+  net,
 };

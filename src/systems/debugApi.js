@@ -18,6 +18,7 @@ import { rotateBlocked, playGame } from './flatScreen.js';
 import { pauseOpen, pauseResume } from './phone.js';
 import { tutorialState, restartTutorial, skipTutorial } from './tutorial.js';
 import { brightnessState, brightnessStep, toggleOutdoor } from './brightness.js';
+import { netState, netSim, netOpen, netLeave } from './net.js';
 
 export function exposeDebugApi(simulate) {
   const g = G;
@@ -32,6 +33,7 @@ export function exposeDebugApi(simulate) {
     tutorial: { state: tutorialState, restart: restartTutorial, skip: skipTutorial },
     get run() { return g.run; }, get runStats() { return g.runStats; }, keys: g.keys, get vrRun() { return g.vrRun; },   // running (systems/sprint.js)
     brightness: { state: brightnessState, step: brightnessStep, outdoor: toggleOutdoor },
+    net: { state: netState, sim: netSim, open: netOpen, leave: netLeave, get players() { return g.players; }, get isGuest() { return !!g.isGuest; } },   // W8a: friends
     sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
   };
 }

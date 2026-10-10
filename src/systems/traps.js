@@ -52,6 +52,7 @@ export const roundLimit = (c = G.contract) => (c.goal.noAlarm ? 0 : Math.round(C
 // ---------- the van ----------
 // Every trap item hidden; then the stock (up to the round's limit) laid on the cargo floor by the rear.
 function loadVan() {
+  if (G.isGuest) return 0;   // with friends the van is the host's (systems/net.js)
   const items = G.loot.items.filter(isTrap);
   for (const it of items) { Object.assign(it, { gone: true, armed: false, door: null, inVan: false, avoided: false, dev: null, clockT: 0, ringT: 0, state: 'rest' }); it.mesh.visible = false; it.mesh.position.set(0, -20, 0); }
   for (const s of local.spread.values()) s.visible = false;
@@ -203,6 +204,7 @@ export const trapsSystem = {
     local.lastPhase = null;
   },
   world(dt) {
+    if (G.isGuest) return;   // with friends the traps run on the host
     const { round, loot, player } = G;
     // a new round: the van loaded from the stock, the points from zero
     if (round.phase !== local.lastPhase) {

@@ -80,7 +80,7 @@ export const tutorial = {
   act(dt) {
     if (!bubble) return;
     const { round } = G;
-    if (!T.on || G.inVR || !G.playingDesktop || G.paused) { bubble.hide(); return; }
+    if (!T.on || G.inVR || !G.playingDesktop || G.paused || G.net) { bubble.hide(); return; }   // with friends the host explains
     if (!G.touch && G.keys.take('KeyH')) { finish(); return; }
     if (T.waitReady) { bubble.hide(); if (round.phase === 'ready') T.waitReady = false; else return; }
     if (T.step < STEPS.length) {

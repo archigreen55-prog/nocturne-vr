@@ -13,6 +13,7 @@ import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
 import { nearLamp, targetY } from '../game/stealth.js';
 import { S } from '../i18n/index.js';
 import { power } from '../world/devices.js';
+import { asList } from '../game/players.js';
 
 const EYE = 1.62;
 const RADIUS = 0.28;
@@ -309,18 +310,27 @@ export class Patrol {
   }
 
   // ---------- per frame ----------
-  // Returns 'caught' or null.
-  update(dt, player) {
+  // players: everybody in the round (G.players; one player is taken as a list of one). It watches the
+  // one it sees best (this.target) and catches whoever it reaches.
+  // Returns 'caught' (this.caughtWho: who) or null.
+  update(dt, players) {
     const P = CFG.patrol;
     const alert = this.env.alert;
+    players = asList(players);
+    this.caughtWho = null;
     if (this.stunT > 0) return this.knockedOut(dt);   // W2b: a trap: sees, hears and catches nothing
+    if (!players.includes(this.target)) this.target = players[0] || null;
+    if (!this.target) return null;
     this.timer += dt;
     // vision at 10 Hz
     this.aiT += dt;
-    if (this.aiT >= AI_DT) { this.see(player, this.aiT); this.aiT = 0; }
+    if (this.aiT >= AI_DT) { this.see(players, this.aiT); this.aiT = 0; }
 
-    const dPlayer = Math.hypot(player.head.x - this.x, player.head.z - this.z, (player.floorY || 0) - this.y);
-    if (dPlayer < P.catchDist && (this.state === 'chase' || this.state === 'hunt' || (this.visible && dPlayer < 0.6))) return 'caught';
+    for (const p of players) {
+      const dPlayer = Math.hypot(p.head.x - this.x, p.head.z - this.z, (p.floorY || 0) - this.y);
+      if (dPlayer < P.catchDist && (this.state === 'chase' || this.state === 'hunt' || (this.visible && p === this.target && dPlayer < 0.6))) { this.caughtWho = p; return 'caught'; }
+    }
+    const player = this.target;
 
     let speed = P.walk, look = false;
     this.runRetarget -= dt; this.runLineT -= dt; this.heardRunT -= dt;
@@ -533,8 +543,8 @@ export class Patrol {
     }
   }
 
-  // Vision check (10 Hz): updates the detection meter and reacts.
-  see(player, dt) {
+  // What it makes of one player now: { visible, feel, d, range }.
+  look(player) {
     const P = CFG.patrol, alert = this.env.alert;
     const hx = player.head.x, hz = player.head.z;
     const dx = hx - this.x, dz = hz - this.z, d = Math.hypot(dx, dz, (player.floorY || 0) - this.y);   // a floor above is far
@@ -545,10 +555,30 @@ export class Patrol {
     const M = this.mods || {};
     const dark = power.dark && !lit ? CFG.devices.breaker.darkSightK : 1;   // W2a: the breaker is off, outside its beam
     const range = P.sight * this.sightK * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1) * dark;
-    this.visible = false;
     // crouched, it has to see your face, not just the top of your head behind the furniture
-    if (d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz)) this.visible = true;
+    const visible = d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz);
     const feel = d < P.feelDist && !this.env.level.soundOccluded(this.x, this.z, hx, hz);
+    return { visible, feel, d, range };
+  }
+
+  // Vision check (10 Hz): the player it notices most becomes the target; updates the detection meter
+  // and reacts. One meter for everybody: two of you in its view do not fill it twice as fast.
+  see(players, dt) {
+    const P = CFG.patrol, alert = this.env.alert;
+    players = asList(players);
+    // seen beats felt beats neither; then the nearer (for its range); the current target wins a tie
+    const score = (r) => (r.visible ? 2 : r.feel ? 1 : 0) + (1 - Math.min(1, r.d / Math.max(0.01, r.range))) * 0.5;
+    let player = this.target && players.includes(this.target) ? this.target : players[0];
+    let seen = this.look(player);
+    for (const p of players) {
+      if (p === player) continue;
+      const r = this.look(p);
+      if (score(r) > score(seen)) { player = p; seen = r; }
+    }
+    this.target = player;
+    const hx = player.head.x, hz = player.head.z;
+    const { feel, d, range } = seen;
+    this.visible = seen.visible;
     if (this.visible || feel) {
       const rate = this.visible ? P.meterBase + P.meterNear * (1 - d / range) : P.feelRate;
       this.meter += dt * rate * (alert.full ? 1.5 : 1);

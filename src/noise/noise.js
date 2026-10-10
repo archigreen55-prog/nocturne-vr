@@ -37,8 +37,9 @@ export class NoiseSystem {
 
   // kind: step | run | breath | voice | door | drop | glass | shout | can | device; source: 'player' | 'world' | 'patrol'
   // device: the device making it (W2a: the guard goes to switch it off instead of looking around)
-  emit(x, z, radius, kind, { y = 0.03, source = 'player', ripple = true, device = null } = {}) {
-    const e = { x, z, y, radius, kind, source, device, time: performance.now() };
+  // who: the player who made it (G.players; plan-multiplayer §4.1), null = this device's own player
+  emit(x, z, radius, kind, { y = 0.03, source = 'player', ripple = true, device = null, who = null } = {}) {
+    const e = { x, z, y, radius, kind, source, device, who, time: performance.now() };
     this.log.push(e);
     if (this.log.length > 50) this.log.shift();
     for (const fn of this.listeners) fn(e);

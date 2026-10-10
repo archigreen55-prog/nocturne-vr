@@ -22,6 +22,8 @@ export const G = {
   playingDesktop: false,
   // phone pause (systems/phone.js)
   paused: false, lastRender: 0, graceUntil: 0, gyroReady: false, holdDoor: null, feedback: null,
+  // everybody in the round (game/players.js): [G.player] offline; the remote players and the bot join it
+  players: [],
   // the frame loop (main.js)
   last: 0, lampT: 0,
 };
