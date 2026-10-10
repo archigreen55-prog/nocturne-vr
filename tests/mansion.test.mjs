@@ -634,6 +634,8 @@ test('mansion (M5): the board\'s «Карта» page lists both maps, the other 
   await standFacing(p2, 1.75, 8.75, 1.6, 2.92);   // the first map's board stand
   await p2.evaluate(() => window.__game.pressBoard('mappage'));
   await keepFor(p2, 700);
+  // the board redraws in a real frame while in view: on a busy machine that can take longer (seen in W8a)
+  await p2.waitForFunction(() => window.__game.board.buttons.some((x) => x.id === 'map:mansion'), null, { timeout: 15000, polling: 100 }).catch(() => {});
   const main = await p2.evaluate(() => window.__game.board.buttons.map((x) => ({ id: x.id, enabled: x.enabled, label: x.label })));
   const m2 = main.find((x) => x.id === 'map:mansion');
   assert.ok(m2 && !m2.enabled && /🔒 8★ \(є 0\)/.test(m2.label), `main site: ${JSON.stringify(main)}`);

@@ -110,6 +110,7 @@ export const economy = {
   },
   world() {
     const { round, player } = G;
+    if (G.isGuest) return;   // with friends the host's contract is played (plan-multiplayer §5)
     // leaving the van with a closed contract: play the last open one instead (before the clock starts)
     if (round.phase !== 'ready' || isOpen(G.contract) || !G.active) return;
     const V = CFG.round.vanZone;

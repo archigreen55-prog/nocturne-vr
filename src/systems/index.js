@@ -42,6 +42,7 @@ import { trapsSystem } from './traps.js';
 import { mapView } from './mapView.js';
 import { guards } from './guards.js';
 import { brightness } from './brightness.js';
+import { net } from './net.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -58,6 +59,7 @@ export const SYSTEMS = [
   controls,      // input: keyboard, touch, VR controllers
   sprint,        // input: running (stamina, doors, crystal, breath); world: running steps, breathing
   player,        // act: breath, walking, hands, doors, the drop-off ring
+  net,           // W8a: friends — pre: what arrived; act / world (host): friends' hands, ring, voices; present: what goes out
   tutorial,      // act: the first-run tutorial (phone, PC)
   economy,       // the wallet and the shop; world: a closed contract is not played; result: the round's money
   trapsSystem,   // W2b: traps from the van (placing, springing, the alarm clock), mischief points and combos

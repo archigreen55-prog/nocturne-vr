@@ -16,7 +16,9 @@ import { shopPress } from './economy.js';
 import { newRoundTraps, reloadVan } from './traps.js';
 import { S } from '../i18n/index.js';
 
-export function newRound() {
+// fromHost: a guest starts a new round only when the host does (systems/net.js)
+export function newRound(fromHost = false) {
+  if (G.isGuest && !fromHost) { flash(S.net.hostDecides, 2, '#93a1b8'); return; }
   const { drags, summary, board, loot, hands, level, patrol, lurker, round, scream, breath, noise, siren, player, comfort } = G;
   for (const h of ['left', 'right']) { if (drags[h]) { drags[h].door.release(); drags[h] = null; } }
   applyDifficulty(G.difficulty, G.contract);
@@ -33,10 +35,12 @@ export function newRound() {
   comfort.fadeIn(0.5);
   G.boardDirty = true;
   flash(S.messages.newRound, 4);
+  if (G.netEvent) G.netEvent('newround', {});
 }
 // Contract / difficulty can change only before the clock starts (at the van, or on the start screen).
 export function setContract(id) {
   if (G.round.phase !== 'ready') return;
+  if (G.isGuest) { flash(S.net.hostDecides, 2, '#93a1b8'); return; }
   G.contract = contractById(id); G.contractId = G.contract.id; saveSetting('contract', G.contractId);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   reloadVan();   // W2b: another contract / difficulty: another number of traps
@@ -44,6 +48,7 @@ export function setContract(id) {
 }
 export function setDifficulty(id) {
   if (G.round.phase !== 'ready') return;
+  if (G.isGuest) { flash(S.net.hostDecides, 2, '#93a1b8'); return; }
   G.difficulty = id; saveSetting('difficulty', id);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   reloadVan();   // W2b: another contract / difficulty: another number of traps
@@ -69,6 +74,7 @@ async function micOnInVR() {
 export function pressBoard(id) {
   const { round, mic, scream } = G;
   const all = CFG.contracts, i = all.indexOf(G.contract);
+  if (G.isGuest && ['leave', 'again', 'cprev', 'cnext', 'diff', 'mappage'].includes(id)) { flash(S.net.hostDecides, 2, '#93a1b8'); G.boardDirty = true; return; }   // the host's round
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
   else if (id === 'play') scream.play();
   else if (id === 'again') newRound();
@@ -93,6 +99,7 @@ export function pressBoard(id) {
 // who: the player a guard caught (G.players); offline always this device's own player
 export function caught(who = G.player) {
   const { drags } = G;
+  if (who && who !== G.player) { G.caughtT = 0; if (G.netCaught) G.netCaught(who); return; }   // a friend: its own screen goes black (systems/net.js)
   G.caughtT = 0;
   G.comfort.blackout();
   G.xrIn.pulse('both', 1, 400);
@@ -122,7 +129,7 @@ export const contract = {
   act(dt) {
     if (G.caughtT >= 0) {
       G.caughtT += dt;
-      if (G.caughtT > 1 && G.round.phase !== 'result') {
+      if (G.caughtT > 1 && G.round.phase !== 'result' && !G.isGuest) {   // a guest: the host ends the round
         G.round.finish('caught');   // onPhase: back to the van, board in front
         G.caughtT = -1;
       }

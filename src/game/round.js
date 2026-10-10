@@ -84,7 +84,7 @@ export class Round {
     if (this.phase === 'result') return;
     const { loot, hands } = this.env;
     // items still in hand at the van go into it; on a failure they are lost
-    for (const it of hands.heldItems()) {
+    for (const it of [...hands.heldItems(), ...(this.env.friendsHeld ? this.env.friendsHeld() : [])]) {   // friends' too (systems/net.js)
       if (kind === 'left' || kind === 'escaped') loot.stow(it);
       else { it.holders.length = 0; it.state = 'rest'; }
     }

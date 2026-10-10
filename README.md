@@ -115,9 +115,19 @@ wave T4). The screen stays on during play (Wake Lock).
   with the microphone (Safari 16.4+; older iOS: a silent audio loop); a "Перевірити звук" button.
 - VR and PC: the microphone and the 4-step calibration as before.
 
+## Play with friends (test)
+
+On the start screen, «Грати з друзями»: one player creates a room (a 6-digit code, a QR code and a link),
+the others open the link or type the code. The browsers find each other through public relays (Nostr,
+then WebTorrent trackers; the [Trystero](https://github.com/dmotz/trystero) library) and then talk
+directly (WebRTC). The room's creator is the host: its game runs the guards, the loot and the clock; the
+friends' bodies are in its house. There is no server of ours and no voice chat yet. Without a TURN
+server some networks (often mobile ↔ mobile) cannot connect directly; one Wi‑Fi always works.
+Two tabs of one browser can try it with `?net=local`.
+
 ## Privacy
 
-[privacy.html](https://archigreen55-prog.github.io/nocturne-vr/privacy.html): the microphone is analysed on the device only and nothing is sent anywhere;
+[privacy.html](https://archigreen55-prog.github.io/nocturne-vr/privacy.html): the microphone is analysed on the device only and nothing is sent anywhere unless you open a room with friends (then only game data goes to them: name, position, the microphone level as one word, never audio);
 to replay a scream, the game keeps the last seconds of microphone audio in memory only (a new round drops
 it); settings, calibration and stars stay in the browser's localStorage on the device; no analytics, ads,
 accounts or cookies. Contact: the repository's Issues.

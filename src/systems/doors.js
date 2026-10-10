@@ -26,6 +26,7 @@ export function nearestDoor(x, z, maxDist, dirYaw) {
 export function useDoor(door, hand, time = CFG.doors.fastTime) {
   if (!door) return;
   if (G.hands.busy) { flash(S.messages.handsBusy); return; }
+  if (G.isGuest && !door.locked) { G.netIntent('door', { i: G.level.doors.indexOf(door), time }); if (hand) G.xrIn.pulse(hand, 0.3, 30); return; }   // with friends the host swings it
   door.lastUser = 'player';
   const r = door.toggle(G.player.head.x, G.player.head.z, time);
   if (r === 'locked') { playKnock({ x: door.cx, y: 1, z: door.cz }); flash(S.messages.locked); if (hand) G.xrIn.pulse(hand, 0.6, 60); }
@@ -88,7 +89,7 @@ function updateDoors(dt) {
     d.creakPeak = Math.max(d.creakPeak || 0, loud);
     if (d.creakPeak > 0) d.creakAge = (d.creakAge || 0) + dt;
     if (d.creakPeak > 0 && (loud === 0 || d.creakAge >= 0.5)) {
-      if (d.lastUser !== 'patrol') noise.emit(d.cx, d.cz, CFG.doors.creakRadius * Math.pow(d.creakPeak, 0.7), 'door');
+      if (d.lastUser !== 'patrol' && !G.isGuest) noise.emit(d.cx, d.cz, CFG.doors.creakRadius * Math.pow(d.creakPeak, 0.7), 'door');
       d.creakPeak = 0; d.creakAge = 0;
     }
   }

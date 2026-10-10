@@ -62,6 +62,7 @@ function wire(dev) {
 // The player uses a device (VR trigger, the phone's context button, E).
 export function useDevice(dev) {
   const T = S.devices, D = CFG.devices;
+  if (G.isGuest) { G.netIntent('dev', { id: dev.id }); return; }   // with friends the host's devices
   if (G.round.phase !== 'heist') { flash(T.notYet, 2, '#93a1b8'); return; }
   if (dev.dead) { flash(T.dead[dev.kind] || T.dead.radio, 2.5, '#93a1b8'); return; }
   switch (dev.kind) {
@@ -122,7 +123,7 @@ function sendToBreaker(dev) {
 }
 
 // ---------- throwing (phone, PC) ----------
-const canAim = () => !!G.hands.desk && !G.hands.desk.twoHanded && G.caughtT < 0 && !G.paused && G.playingDesktop && !G.inVR;
+const canAim = () => !G.isGuest && !!G.hands.desk && !G.hands.desk.twoHanded && G.caughtT < 0 && !G.paused && G.playingDesktop && !G.inVR;
 function cancelAim(say) { if (local.aim && say) flash(S.throw.cancelled, 1.2, '#93a1b8'); local.aim = null; if (local.arc) local.arc.hide(); }
 function doThrow() {
   const { hands, player } = G;
@@ -182,6 +183,7 @@ export const distract = {
     if (local.aim && !ok) cancelAim(false);
   },
   world(dt) {
+    if (G.isGuest) return;   // with friends the devices run on the host (systems/net.js)
     const { round, loot, devices } = G, D = CFG.devices;
     // a new round: every device off, the lights on
     if (round.phase !== local.lastPhase) {

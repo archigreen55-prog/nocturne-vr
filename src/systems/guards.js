@@ -37,7 +37,7 @@ export const guards = {
     const { patrol2, player, round, level, alert } = G;
     if (!G.active || round.phase === 'result') { if (round.phase === 'result') this.answer = null; return; }
     // the other lurkers of the map (heist.js steps the first one)
-    if (G.caughtT < 0) for (const l of (G.lurkers || []).slice(1)) l.update(dt, G.players);
+    if (G.caughtT < 0 && !G.isGuest) for (const l of (G.lurkers || []).slice(1)) l.update(dt, G.players);   // a guest: the host's lurkers
     // running on the stairs: every tread creaks (player.js sets stairCreak on the step)
     if (player.stairCreak) playStairCreak();
     // a heavy item (a two-carrier stand-in, W5): coming up to it says why it cannot be taken
@@ -50,14 +50,14 @@ export const guards = {
     if (heavy && !this.nearHeavy) flash(S.mansion.items.heavy, 2.5);
     this.nearHeavy = heavy;
     if (!patrol2) return;
-    if (G.caughtT < 0 && patrol2.update(dt, G.players) === 'caught') caught(patrol2.caughtWho);
+    if (G.caughtT < 0 && !G.isGuest && patrol2.update(dt, G.players) === 'caught') caught(patrol2.caughtWho);
     if (patrol2.lamp) {
       updateFlashMask(patrol2.x, patrol2.z, level.doors, patrol2.y, 1);
       // the lamp's own shadow map on the floor plan (enemies/flashWalls.js): the walls of its floor, within its reach
       if (G.lampWallsOn) { patrol2.lamp.getWorldPosition(lampFrom); lampWalls.update(lampFrom, level, (patrol2.lamp.distance || 7) + 1); }
     }
     // radio chatter while both are calm (the alarm has its own calls)
-    if (round.phase !== 'heist' || alert.full) return;
+    if (round.phase !== 'heist' || alert.full || G.isGuest) return;
     if (this.answer) {
       if ((this.answer.t -= dt) <= 0) { const a = this.answer; this.answer = null; a.who.env.sound('radio'); a.who.env.say(a.line); }
       return;
