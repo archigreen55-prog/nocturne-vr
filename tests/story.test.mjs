@@ -141,8 +141,9 @@ test('Petrovych by name: «Петрович: «…»» and on easy «Петро�
     for (let i = 0; i < 60 && !window.__said.includes('Ну що, хато, подрімаємо?'); i++) g.sim(0.25);
     out.house = window.__said.filter((t) => t === 'Ну що, хато, подрімаємо?').length;
     out.line = g.guardLine;
-    for (let i = 0; i < 4; i++) { g.sim(0.1); }
-    const { G } = await import('./src/systems/state.js'); G.wristTimer = 0; g.sim(0.15);
+    if (g.hud) { const hu = g.hud.update.bind(g.hud); g.hud.update = (s, n) => { shown.push(s.guardText); return hu(s, n); }; }
+    const { G } = await import('./src/systems/state.js'), { panel } = await import('./src/systems/panel.js');
+    G.wristTimer = 0; panel.frame(0.01, performance.now());   // the panel line now (it is drawn after the frame, not in sim)
     out.wrist = shown.filter(Boolean).at(-1);
     g.sim(10); out.houseAgain = window.__said.filter((t) => t === 'Ну що, хато, подрімаємо?').length;
     // two items gone from their place, the guard sees both places
