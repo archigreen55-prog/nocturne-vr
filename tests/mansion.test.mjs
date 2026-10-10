@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { devices } from 'playwright';
 import { newContext, ROOT } from './harness.mjs';
 import { browser, UA, open, test, base, preview, keepFor, LAND, tp, standFacing } from './runner.mjs';
 
@@ -637,4 +638,100 @@ test('mansion (M5): the board\'s «Карта» page lists both maps, the other 
   assert.ok(m2 && !m2.enabled && /🔒 8★ \(є 0\)/.test(m2.label), `main site: ${JSON.stringify(main)}`);
   assert.deepEqual(errors, []);
   await ctx.close();
+});
+
+// ---------- the flashlight and the hand lamp stop at the mansion's walls (enemies/flashWalls.js, both floors) ----------
+async function mansionLight(walls) {
+  const ctx = await newContext(browser, { viewport: { width: 640, height: 400 } });
+  const { page, errors } = await open(ctx, mansion + '&mode=pc' + (walls ? '' : '&flashwalls=off'));
+  const r = await page.evaluate(() => {
+    const g = window.__game, T = g.THREE, P = g.patrol, P2 = g.patrol2, W = 320, H = 200;
+    g.renderer.setAnimationLoop(null);
+    g.playing = true; g.sim(0.1);   // the guards' frame step runs (the lamp's rooms and shadow map are refreshed there)
+    P.update = () => null; P2.update = () => null;
+    g.wrist.mesh.visible = false; g.board.mesh.visible = false;
+    const rt = new T.WebGLRenderTarget(W, H); rt.texture.colorSpace = T.SRGBColorSpace;
+    const px = new Uint8Array(W * H * 4);
+    const shot = () => {
+      const aspect = g.camera.aspect;
+      g.camera.aspect = W / H; g.camera.updateProjectionMatrix();
+      g.renderer.setRenderTarget(rt); g.renderer.render(g.scene, g.camera); g.renderer.readRenderTargetPixels(rt, 0, 0, W, H, px); g.renderer.setRenderTarget(null);
+      g.camera.aspect = aspect; g.camera.updateProjectionMatrix();
+      return Float32Array.from({ length: W * H }, (_, i) => 0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]);
+    };
+    const guard = (Q, x, z, heading, y = 0) => { Q.x = x; Q.z = z; Q.y = y; Q.heading = heading; Q.headYaw = 0; Q.place(); };
+    const view = (x, z, yaw, pitch, y = 0) => { g.player.teleport(x, z, yaw, y); g.player.lookPitch = pitch; g.level.setFloorVisible(y > 1 ? 1 : 0); };   // the floor's rooms are drawn by a frame hook sim() does not run
+    // lit pixels of a light: the frame with it minus the frame without it
+    const lit = (setup, light) => {
+      setup(); g.sim(1 / 72); g.sim(1 / 72); g.scene.updateMatrixWorld(true);
+      const on = shot();
+      const off0 = light.intensity; light.intensity = 0; if (P.beam) P.beam.visible = light !== P.spot ? P.beam.visible : false;
+      const off = shot();
+      light.intensity = off0; if (P.beam) P.beam.visible = true;
+      let n = 0;
+      for (let i = 0; i < on.length; i++) if (on[i] - off[i] > 3) n++;
+      return n;
+    };
+    const door = (cx, cz) => g.level.doors.find((d) => Math.hypot(d.cx - cx, d.cz - cz) < 0.4 && Math.abs((d.y0 || 0) - (cz === -12 && cx === 5 ? 3 : 0)) < 0.1);
+    const openDoor = (d, from) => { if (!d.open) d.toggle(from[0], from[1]); d.update(10); };
+    // 1. Valera in the hall, the study's door (7, -8.5) open, the flashlight on the hall's east wall south of it (x = 7, z -7.5..-5).
+    //    Seen from inside the study: that wall's other side stays dark.
+    openDoor(door(7, -8.5), [6, -8.5]);
+    const study = lit(() => { guard(P, 4.5, -6.0, -Math.PI / 2 + 0.1); view(8.5, -5.8, Math.PI / 2, -0.2); }, P.spot);   // the camera sees the wall z -6.8..-4.8 only, not the door at -8.5
+    // 2. the flashlight through the open door into the study: light goes through
+    const through = lit(() => { guard(P, 5.0, -8.5, -Math.PI / 2); view(11, -8.5, Math.PI / 2, -0.3); }, P.spot);
+    // 3. Zhora's lamp in the gallery by the wall to the kids' room (z = -12), its door (5, -12) open; seen from the kids' room
+    //    at that wall (x 2..4.5, away from the door): the wall's far side stays dark.
+    openDoor(door(5, -12), [5, -11]);
+    const kids = lit(() => { guard(P2, 3, -11.0, 0, 3); view(3, -14.5, 0, -0.1, 3); }, P2.lamp);
+    // 4. the lamp through the open door: the kids' room floor by the door is lit
+    const lampThrough = lit(() => { guard(P2, 5, -11.0, 0, 3); view(5, -15.5, 0, -0.5, 3); }, P2.lamp);
+    return { study, through, kids, lampThrough };
+  });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  return r;
+}
+test('mansion (walls): the flashlight and Zhora\'s lamp stop at the mansion\'s walls on both floors; both still shine through an open door', async () => {
+  const on = await mansionLight(true), off = await mansionLight(false);
+  const info = JSON.stringify({ withWalls: on, roomMaskOnly: off });
+  assert.ok(off.study > 200 && off.kids > 200, `the room mask alone leaks through these walls: ${info}`);
+  assert.ok(on.study < 20, `the study side of the hall's wall stays dark: ${info}`);
+  assert.ok(on.kids < 20, `the kids' room side of the gallery's wall stays dark from the lamp: ${info}`);
+  assert.ok(on.through > 1500 && on.lampThrough > 300, `both lights go through an open door: ${info}`);
+});
+
+// The wall tests of both lights on the phone (software rendering here: the ratio counts, not the times):
+// Zhora's lamp close by in the gallery, Valera's beam filling the screen in the hall, the garden; the page
+// with the wall test and without it (?flashwalls=off), median of 30 frames. FLASH_FPS=1 prints the numbers.
+async function mansionFrames(query) {
+  const ctx = await newContext(browser, { ...devices['Pixel 7 landscape'] });
+  await ctx.addInitScript(() => localStorage.setItem('nocturne.tutorial', JSON.stringify({ done: true })));
+  const { page, errors } = await open(ctx, mansion + query);
+  const r = await page.evaluate(() => {
+    const g = window.__game, gl = g.renderer.getContext(), px = new Uint8Array(4), S = new g.THREE.Vector3(), T = new g.THREE.Vector3();
+    g.renderer.setAnimationLoop(null);
+    g.patrol.update = () => null; g.patrol2.update = () => null;
+    const frame = () => { const t0 = performance.now(); g.renderer.render(g.scene, g.camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return performance.now() - t0; };
+    const med = () => { for (let i = 0; i < 6; i++) frame(); const t = Array.from({ length: 30 }, frame).sort((a, b) => a - b); return +t[15].toFixed(1); };
+    const guard = (P, x, z, heading, y = 0) => { P.x = x; P.z = z; P.y = y; P.heading = heading; P.headYaw = 0; P.place(); };
+    const settle = () => { g.sim(1 / 72); g.scene.updateMatrixWorld(true); };
+    const out = {};
+    guard(g.patrol, 2, -8.5, Math.PI / 2); settle();
+    g.patrol.spot.getWorldPosition(S); g.patrol.spotTarget.getWorldPosition(T);
+    const fx = T.x - S.x, fz = T.z - S.z, fl = Math.hypot(fx, fz) || 1;
+    g.player.teleport(S.x - fx / fl * 1.2, S.z - fz / fl * 1.2, Math.atan2(-fx, -fz), 0); g.player.lookPitch = -0.3; g.level.setFloorVisible(0); settle(); out.beam = med();
+    guard(g.patrol2, 4, -8.5, Math.PI / 2, 3); g.player.teleport(5.5, -8.5, Math.PI / 2, 3); g.player.lookPitch = -0.1; g.level.setFloorVisible(1); settle(); out.lamp = med();
+    g.player.teleport(15, 3, Math.PI / 2, 0); g.player.lookPitch = 0; g.level.setFloorVisible(0); settle(); out.garden = med();
+    return out;
+  });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  return r;
+}
+test('mansion (walls): a frame with the lamp or the beam on screen costs at most 15 % more with the wall tests than without (phone)', async () => {
+  const off = await mansionFrames('&flashwalls=off'), on = await mansionFrames('');
+  const info = Object.keys(off).map((k) => `${k}: ${off[k]} → ${on[k]} ms (${((on[k] / off[k] - 1) * 100).toFixed(1)} %)`).join('; ');
+  if (process.env.FLASH_FPS) console.log('  mansion wall tests: ' + info);
+  assert.ok(on.lamp <= off.lamp * 1.15 && on.beam <= off.beam * 1.15, info);
 });

@@ -8,48 +8,55 @@ export const WALL_H = 2.7;
 export const DOOR_H = 2.1;
 export const EXT_T = 0.3;   // exterior wall thickness
 export const INT_T = 0.14;  // interior wall thickness
+export const JAMB = 0.01;   // the door frame reaches this far into the opening; the leaf fills the rest (no face in the wall end's plane)
 
 // Walls of one floor at height y0: S = the static Builder, solid(x0, z0, x1, z1) adds the footprint
-// to the collision worlds, doorSpecs collects doors for new Door(); floor = the floor's index.
-export function wallKit(S, solid, doorSpecs, y0 = 0, floor = 0, wallH = WALL_H) {
+// to the collision worlds, doorSpecs collects doors for new Door(); floor = the floor's index;
+// occluders (optional) collects the wall centre lines [x0, z0, x1, z1, y0, y1] the flashlight stops at
+// (enemies/flashWalls.js), the ends at x0 / z0 / x1 / z1 extended by half the thickness (a corner).
+export function wallKit(S, solid, doorSpecs, y0 = 0, floor = 0, wallH = WALL_H, occluders = null) {
+  const occ = (x0, z0, x1, z1) => { if (occluders) occluders.push([x0, z0, x1, z1, y0, y0 + wallH]); };
   // Wall along X at z, from x0 to x1; openings: [{ c, w, door?: 'normal' | 'locked', front? }]
   function wallX(z, x0, x1, t, color, openings = []) {
     let x = x0;
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
-      if (a > x) { S.box(x, y0, z - t / 2, a, y0 + wallH, z + t / 2, color); solid(x, z - t / 2, a, z + t / 2); }
+      if (a > x) { S.box(x, y0, z - t / 2, a, y0 + wallH, z + t / 2, color); solid(x, z - t / 2, a, z + t / 2); occ(x === x0 ? x - t / 2 : x, z, a, z); }
       S.box(a, y0 + DOOR_H, z - t / 2, b, y0 + wallH, z + t / 2, color);             // lintel
-      S.box(a - 0.05, y0, z - t / 2 - 0.02, a, y0 + DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);  // jambs
-      S.box(b, y0, z - t / 2 - 0.02, b + 0.05, y0 + DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
-      if (o.door) doorSpecs.push({ axis: 'x', hx: a + 0.02, hz: z, w: o.w - 0.04, locked: o.door === 'locked', front: o.front, y0, floor });
+      S.box(a - 0.05, y0, z - t / 2 - 0.02, a + JAMB, y0 + DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);  // jambs, 1 cm into the opening
+      S.box(b - JAMB, y0, z - t / 2 - 0.02, b + 0.05, y0 + DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
+      if (o.door) doorSpecs.push({ axis: 'x', hx: a + JAMB, hz: z, w: o.w - 2 * JAMB, locked: o.door === 'locked', front: o.front, y0, floor });   // jamb to jamb
       x = b;
     }
-    if (x1 > x) { S.box(x, y0, z - t / 2, x1, y0 + wallH, z + t / 2, color); solid(x, z - t / 2, x1, z + t / 2); }
+    if (x1 > x) { S.box(x, y0, z - t / 2, x1, y0 + wallH, z + t / 2, color); solid(x, z - t / 2, x1, z + t / 2); occ(x === x0 ? x - t / 2 : x, z, x1 + t / 2, z); }
   }
   // Wall along Z at x, from z0 to z1 (z0 < z1)
   function wallZ(x, z0, z1, t, color, openings = []) {
     let z = z0;
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
-      if (a > z) { S.box(x - t / 2, y0, z, x + t / 2, y0 + wallH, a, color); solid(x - t / 2, z, x + t / 2, a); }
+      if (a > z) { S.box(x - t / 2, y0, z, x + t / 2, y0 + wallH, a, color); solid(x - t / 2, z, x + t / 2, a); occ(x, z === z0 ? z - t / 2 : z, x, a); }
       S.box(x - t / 2, y0 + DOOR_H, a, x + t / 2, y0 + wallH, b, color);
-      S.box(x - t / 2 - 0.02, y0, a - 0.05, x + t / 2 + 0.02, y0 + DOOR_H + 0.05, a, C.trim);
-      S.box(x - t / 2 - 0.02, y0, b, x + t / 2 + 0.02, y0 + DOOR_H + 0.05, b + 0.05, C.trim);
-      if (o.door) doorSpecs.push({ axis: 'z', hx: x, hz: a + 0.02, w: o.w - 0.04, locked: o.door === 'locked', y0, floor });
+      S.box(x - t / 2 - 0.02, y0, a - 0.05, x + t / 2 + 0.02, y0 + DOOR_H + 0.05, a + JAMB, C.trim);
+      S.box(x - t / 2 - 0.02, y0, b - JAMB, x + t / 2 + 0.02, y0 + DOOR_H + 0.05, b + 0.05, C.trim);
+      if (o.door) doorSpecs.push({ axis: 'z', hx: x, hz: a + JAMB, w: o.w - 2 * JAMB, locked: o.door === 'locked', y0, floor });
       z = b;
     }
-    if (z1 > z) { S.box(x - t / 2, y0, z, x + t / 2, y0 + wallH, z1, color); solid(x - t / 2, z, x + t / 2, z1); }
+    if (z1 > z) { S.box(x - t / 2, y0, z, x + t / 2, y0 + wallH, z1, color); solid(x - t / 2, z, x + t / 2, z1); occ(x, z === z0 ? z - t / 2 : z, x, z1 + t / 2); }
   }
   return { wallX, wallZ };
 }
 
 // A fence along one side (posts and two rails); solid(…) adds it to the collision worlds.
-export function fence(S, solid, x0, z0, x1, z1) {
+// skipEnds: no post at either end (a side between two others that already have the corner posts);
+// its rails then run between the other sides' rails.
+export function fence(S, solid, x0, z0, x1, z1, skipEnds = false) {
   const alongX = z0 === z1, len = alongX ? x1 - x0 : z1 - z0;
-  for (let p = 0; p <= len + 0.01; p += 2) S.boxAt(0.1, 1.2, 0.1, alongX ? x0 + p : x0, 0, alongX ? z0 : z0 + p, C.fence);
+  for (let p = skipEnds ? 2 : 0; p <= len + 0.01 - (skipEnds ? 2 : 0); p += 2) S.boxAt(0.1, 1.2, 0.1, alongX ? x0 + p : x0, 0, alongX ? z0 : z0 + p, C.fence);
+  const in0 = skipEnds ? 0.03 : 0;
   for (const y of [0.45, 1.0]) {
-    if (alongX) S.box(x0, y, z0 - 0.03, x1, y + 0.1, z0 + 0.03, C.fence);
-    else S.box(x0 - 0.03, y, z0, x0 + 0.03, y + 0.1, z1, C.fence);
+    if (alongX) S.box(x0 + in0, y, z0 - 0.03, x1 - in0, y + 0.1, z0 + 0.03, C.fence);
+    else S.box(x0 - 0.03, y, z0 + in0, x0 + 0.03, y + 0.1, z1 - in0, C.fence);
   }
   solid(Math.min(x0, x1) - 0.05, Math.min(z0, z1) - 0.05, Math.max(x0, x1) + 0.05, Math.max(z0, z1) + 0.05);
 }
@@ -72,10 +79,10 @@ export function van(S, G, x, z, yaw) {
   const box = (a, b, c, d, e, f, col) => { const g = new THREE.BoxGeometry(Math.abs(d - a), Math.abs(e - b), Math.abs(f - c)); g.translate((a + d) / 2, (b + e) / 2, (c + f) / 2); tmp.parts.push([g, col, false]); };
   const gbox = (a, b, c, d, e, f, col) => { const g = new THREE.BoxGeometry(Math.abs(d - a), Math.abs(e - b), Math.abs(f - c)); g.translate((a + d) / 2, (b + e) / 2, (c + f) / 2); tmp.parts.push([g, col, true]); };
   // cargo: an open-backed shell (sides, roof, front wall), so you can see the loot inside
-  box(x0, 0.35, z0, x0 + 0.05, 2.2, z1 - 1.3, C.van); box(x1 - 0.05, 0.35, z0, x1, 2.2, z1 - 1.3, C.van);
-  box(x0, 2.15, z0, x1, 2.2, z1 - 1.3, C.van); box(x0, 0.35, z1 - 1.36, x1, 2.2, z1 - 1.3, C.van);
+  box(x0, 0.35, z0, x0 + 0.05, 2.15, z1 - 1.3, C.van); box(x1 - 0.05, 0.35, z0, x1, 2.15, z1 - 1.3, C.van);   // sides and front wall under the roof
+  box(x0, 2.15, z0, x1, 2.2, z1 - 1.3, C.van); box(x0 + 0.05, 0.35, z1 - 1.36, x1 - 0.05, 2.15, z1 - 1.3, C.van);
   box(x0 + 0.05, 0.4, z0 + 0.02, x0 + 0.06, 2.15, z1 - 1.36, 0x2e3036); box(x1 - 0.06, 0.4, z0 + 0.02, x1 - 0.05, 2.15, z1 - 1.36, 0x2e3036);
-  box(x0, 0.28, z0 - 0.04, x1, 0.36, z0 + 0.02, C.metal);                           // rear sill
+  box(x0 + 0.001, 0.28, z0 - 0.04, x1 - 0.001, 0.36, z0 + 0.02, C.metal);           // rear sill
   box(x0 + 0.05, 0.35, z1 - 1.3, x1 - 0.05, 1.6, z1, C.van);                    // cab
   box(x0 + 0.1, 1.6, z1 - 1.3, x1 - 0.1, 1.95, z1 - 0.5, C.van);
   gbox(x0 + 0.15, 1.2, z1 + 0.001, x1 - 0.15, 1.55, z1 + 0.01, 0x0e1420);
@@ -90,7 +97,7 @@ export function van(S, G, x, z, yaw) {
   }
   for (const s of [-1, 1]) {   // open rear doors, swung out ~110°
     const hx = s < 0 ? x0 : x1;
-    const g = new THREE.BoxGeometry(0.98, 1.8, 0.05); g.translate(-s * 0.49, 1.3, 0);
+    const g = new THREE.BoxGeometry(0.98, 1.79, 0.05); g.translate(-s * 0.49, 1.295, 0);   // top under the roof's
     g.rotateY(s * 1.9); g.translate(hx, 0, z0);
     tmp.parts.push([g, C.van, false]);
   }

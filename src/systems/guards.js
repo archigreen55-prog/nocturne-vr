@@ -4,11 +4,15 @@
 // are. On a map with one guard nothing here runs.
 import { CFG } from '../config/index.js';
 import { updateFlashMask, flashUniforms } from '../enemies/flashMask.js';
-import { G } from './state.js';
+import { lampWalls } from '../enemies/flashWalls.js';
+import * as THREE from 'three';
+import { G, params } from './state.js';
 import { caught } from './contract.js';
 import { S } from '../i18n/index.js';
 import { flash } from './messages.js';
 import { playStairCreak } from '../audio/stairSfx.js';
+
+const lampFrom = new THREE.Vector3();
 
 export const guards = {
   id: 'guards',
@@ -19,6 +23,9 @@ export const guards = {
     const g2 = G.patrol2;
     // the hand lamp is the point light after the three of the scene's pool (they were added first)
     flashUniforms.uLampIndex.value = g2 && g2.lamp ? G.points.length : -1;
+    // the lamp stops at walls like the flashlight (?flashwalls=off: to measure the cost)
+    G.lampWallsOn = !!(g2 && g2.lamp) && params.get('flashwalls') !== 'off' && (params.get('flash') || 'mask') === 'mask';
+    lampWalls.uniforms.uLampWallOn.value = G.lampWallsOn ? 1 : 0;
     this.resetRadio();
   },
   resetRadio() {
@@ -44,7 +51,11 @@ export const guards = {
     this.nearHeavy = heavy;
     if (!patrol2) return;
     if (G.caughtT < 0 && patrol2.update(dt, player) === 'caught') caught();
-    if (patrol2.lamp) updateFlashMask(patrol2.x, patrol2.z, level.doors, patrol2.y, 1);
+    if (patrol2.lamp) {
+      updateFlashMask(patrol2.x, patrol2.z, level.doors, patrol2.y, 1);
+      // the lamp's own shadow map on the floor plan (enemies/flashWalls.js): the walls of its floor, within its reach
+      if (G.lampWallsOn) { patrol2.lamp.getWorldPosition(lampFrom); lampWalls.update(lampFrom, level, (patrol2.lamp.distance || 7) + 1); }
+    }
     // radio chatter while both are calm (the alarm has its own calls)
     if (round.phase !== 'heist' || alert.full) return;
     if (this.answer) {
