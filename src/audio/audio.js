@@ -318,8 +318,8 @@ export function playScratch(voice, dur) {
 }
 
 // Lurker lunge: a loud dissonant screech right in the face.
-export function playStinger() {
-  oneShot(null, false, 1.2, 1, (dst, t) => {
+export function playStinger(gain = 1) {
+  oneShot(null, false, 1.2, gain, (dst, t) => {
     for (const f of [220, 233, 311, 466, 622]) {
       const o = ctx.createOscillator();
       o.type = 'sawtooth';

@@ -9,6 +9,13 @@ import { newContext, ROOT } from './harness.mjs';
 import { browser, UA, open, test, base, preview, keepFor, LAND, tp, standFacing } from './runner.mjs';
 
 const mansion = preview + '?map=mansion';
+// The mansion opens by stars (8★ on the dacha, W3) or with «Відкрити все» on a preview: these tests
+// play it, so their contexts have «Відкрити все» on (the main site ignores it).
+async function mctx(b, opts) {
+  const ctx = await newContext(b, opts);
+  await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque origin */ } });
+  return ctx;
+}
 // walk with W + Space (2 m/s) for `secs` of game time (the keyboard state is read every simulated frame)
 async function walk(page, yaw, secs) {
   await page.evaluate((yaw) => { window.__game.player.lookYaw = yaw; }, yaw);
@@ -21,7 +28,7 @@ async function walk(page, yaw, secs) {
 const pos = (page) => page.evaluate(() => { const p = window.__game.player; return { x: +p.head.x.toFixed(2), z: +p.head.z.toFixed(2), y: +p.floorY.toFixed(2) }; });
 
 test('mansion (M1): ?map=mansion opens the second map on a preview and is remembered; the main site keeps the first map; ?map=dacha goes back', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   const info = await page.evaluate(() => {
     const g = window.__game, L = g.level;
@@ -43,7 +50,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   const page2 = (await open(ctx, preview)).page;
   assert.equal(await page2.evaluate(() => window.__game.level.id), 'mansion', 'the map is remembered');
   await page2.close();
-  // the main site (no preview): the mansion is closed by the flag, ?map=mansion is ignored
+  // the main site (no preview): the mansion is closed (no stars yet), ?map=mansion is ignored
   const page3 = (await open(ctx, base + '?map=mansion')).page;
   assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.length].join()), 'dacha,8,8', 'the first map as before');
   await page3.close();
@@ -57,7 +64,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
 });
 
 test('mansion (M1): the stairs — the ground rises smoothly along both flights, the player walks up to the gallery, the well and the flights are fenced', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   // the ground height along the centre line of flight 1, the landing and flight 2
   const profile = await page.evaluate(() => {
@@ -118,7 +125,7 @@ test('mansion (M1): the stairs — the ground rises smoothly along both flights,
 });
 
 test('mansion (M1): the guard walks its ground-floor rounds for 3 minutes of game time without getting stuck; the navigation graph links the floors by the stairs; a door on the other floor is not opened', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   await page.click('#start');
   await page.waitForFunction(() => window.__game.playing);
@@ -150,7 +157,7 @@ test('mansion (M1): the guard walks its ground-floor rounds for 3 minutes of gam
 });
 
 test('mansion (M1): VR emulator (IWER Quest 3) — the stick walks the rig up the stairs to the landing', async () => {
-  const ctx = await newContext(browser, { userAgent: UA.quest });
+  const ctx = await mctx(browser, { userAgent: UA.quest });
   await ctx.addInitScript({ content: (await readFile(join(ROOT, 'node_modules/iwer/build/iwer.min.js'), 'utf8')) + `
     window.__xrDevice = new IWER.XRDevice(IWER.metaQuest3);
     window.__xrDevice.installRuntime({ forceInstall: true });` });
@@ -181,7 +188,7 @@ test('mansion (M1): VR emulator (IWER Quest 3) — the stick walks the rig up th
 
 // ---------- M2: furniture, instanced doors, the other floor hidden, the mask by height, the lamp pool ----------
 test('mansion (M2): the rooms of the other floor are not drawn, the doors are one instanced mesh; triangles and draw calls at the gallery, the garden and the hall stay within the budget', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   await page.click('#start');
   await page.waitForFunction(() => window.__game.playing);
@@ -219,7 +226,7 @@ test('mansion (M2): the rooms of the other floor are not drawn, the doors are on
 });
 
 test('mansion (M2): the flashlight mask lights the guard\'s floor only (the stair well both); the point lights move to the lamps of the player\'s floor', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   await page.click('#start');
   await page.waitForFunction(() => window.__game.playing);
@@ -251,7 +258,7 @@ test('mansion (M2): the flashlight mask lights the guard\'s floor only (the stai
 
 // ---------- M3: two guards, the radio, hearing between floors ----------
 test('mansion (M3): two guards — Zhora walks his upstairs rounds, comes down for coffee and goes back up, Valera keeps downstairs; the radio names both', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   await page.click('#start');
   await page.waitForFunction(() => window.__game.playing);
@@ -278,7 +285,7 @@ test('mansion (M3): two guards — Zhora walks his upstairs rounds, comes down f
 });
 
 test('mansion (M3): a noise upstairs reaches Zhora, not Valera through the slab; a noise downstairs reaches the nearer one; a full alarm sends the other guard to the nearest exit; the lamp mask follows Zhora', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   await page.click('#start');
   await page.waitForFunction(() => window.__game.playing);
@@ -317,7 +324,7 @@ test('mansion (M3): a noise upstairs reaches Zhora, not Valera through the slab;
 });
 
 test('mansion (M4): 12 of the 15 items can be taken and delivered into the van\'s cargo (the 2 heavy ones cannot, the fake is not counted); a heavy item says why when you come up to it', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   const r = await page.evaluate(() => {
     const g = window.__game, L = g.loot, out = { ids: [], notTakeable: [], delivered: 0, inCargo: 0, slots: new Set() };
@@ -357,7 +364,7 @@ test('mansion (M4): 12 of the 15 items can be taken and delivered into the van\'
 });
 
 test('mansion (M4): loot dropped off the balcony lands on the hedge unharmed with a rustle Valera hears; onto the path it is damaged; the mirror breaks; over the gallery rail it falls into the well; the van has two lurkers — the crate in the garage scares', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   const r = await page.evaluate(() => {
     const g = window.__game, L = g.loot, out = {};
@@ -408,7 +415,7 @@ test('mansion (M4): loot dropped off the balcony lands on the hedge unharmed wit
 });
 
 test('mansion (M4): a pocket hides you standing while its door is shut (not with it open, not with the guard inside); the fountain masks noise for a guard beside it; the shed has a door', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   const r = await page.evaluate(() => {
     const g = window.__game, L = g.level, out = {};
@@ -448,7 +455,7 @@ test('mansion (M4): a pocket hides you standing while its door is shut (not with
 test('mansion (stairs + run): on a PC and a phone running up the stairs is x0.8 (2.24 m/s) and every tread creaks; in VR the ramp caps the speed at 1.2 m/s', async () => {
   const S = { onRamp: 0, creaks: 0, runSteps: 0, speeds: [] };
   // PC: W + Space twice (the running wish) through the keyboard state, fixed steps
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   const pc = await page.evaluate(() => {
     const g = window.__game, out = { onRamp: 0, creaks: 0, runSteps: 0, speeds: [], cfg: g.CFG.sprint.stairs };
@@ -471,7 +478,7 @@ test('mansion (stairs + run): on a PC and a phone running up the stairs is x0.8 
   await page.close();
   await ctx.close();
   // phone: the joystick forward past its circle
-  const pctx = await newContext(browser, LAND);
+  const pctx = await mctx(browser, LAND);
   const { page: ph, errors: perr } = await open(pctx, mansion);
   await ph.tap('#start'); await ph.waitForFunction(() => window.__game.playing);
   const cdp = await pctx.newCDPSession(ph);
@@ -487,7 +494,7 @@ test('mansion (stairs + run): on a PC and a phone running up the stairs is x0.8 
   assert.deepEqual(perr, []);
   await pctx.close();
   // VR: the stick forward + stick press (running), the ramp caps the speed
-  const vctx = await newContext(browser, { userAgent: UA.quest });
+  const vctx = await mctx(browser, { userAgent: UA.quest });
   await vctx.addInitScript({ content: (await readFile(join(ROOT, 'node_modules/iwer/build/iwer.min.js'), 'utf8')) + `
     window.__xrDevice = new IWER.XRDevice(IWER.metaQuest3);
     window.__xrDevice.installRuntime({ forceInstall: true });` });
@@ -522,7 +529,7 @@ test('mansion (stairs + run): on a PC and a phone running up the stairs is x0.8 
 
 // ---------- M5: contracts, timers, the «Карта» page ----------
 test('mansion (M5): the map has its own contracts 8–14 (9 and 11 locked, grey) and timers 12/10/8 min by difficulty; contract 10 counts upstairs items; contract 12 needs the fake in the painting\'s place and no guard noticing', async () => {
-  const ctx = await newContext(browser);
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   const r = await page.evaluate(() => {
     const g = window.__game, out = {};
@@ -599,8 +606,8 @@ test('mansion (M5): the map has its own contracts 8–14 (9 and 11 locked, grey)
   await ctx.close();
 });
 
-test('mansion (M5): the board\'s «Карта» page lists both maps, the other one reloads the page with ?map=; on the main site the mansion is «скоро» and disabled', async () => {
-  const ctx = await newContext(browser);
+test('mansion (M5): the board\'s «Карта» page lists both maps, the other one reloads the page with ?map=; on the main site the mansion is closed (🔒 8★) and disabled', async () => {
+  const ctx = await mctx(browser);
   const { page, errors } = await open(ctx, mansion);
   await page.click('#start');
   await page.waitForFunction(() => window.__game.playing);
@@ -620,7 +627,7 @@ test('mansion (M5): the board\'s «Карта» page lists both maps, the other 
   assert.equal(await page.evaluate(() => window.__game.level.id), 'dacha', 'the page reloaded on the first map');
   assert.equal(await page.evaluate(() => window.__game.CFG.contracts[0].id), 'first', 'the first map\'s contracts are back');
   await page.close();
-  // the main site: the mansion is closed by the flag
+  // the main site: the mansion is closed until 8★ on the dacha
   const p2 = (await open(ctx, base)).page;
   await p2.click('#start'); await p2.waitForFunction(() => window.__game.playing);
   await standFacing(p2, 1.75, 8.75, 1.6, 2.92);   // the first map's board stand
@@ -628,14 +635,14 @@ test('mansion (M5): the board\'s «Карта» page lists both maps, the other 
   await keepFor(p2, 700);
   const main = await p2.evaluate(() => window.__game.board.buttons.map((x) => ({ id: x.id, enabled: x.enabled, label: x.label })));
   const m2 = main.find((x) => x.id === 'map:mansion');
-  assert.ok(m2 && !m2.enabled && /скоро/.test(m2.label), `main site: ${JSON.stringify(main)}`);
+  assert.ok(m2 && !m2.enabled && /🔒 8★ \(є 0\)/.test(m2.label), `main site: ${JSON.stringify(main)}`);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
 
 // ---------- the flashlight and the hand lamp stop at the mansion's walls (enemies/flashWalls.js, both floors) ----------
 async function mansionLight(walls) {
-  const ctx = await newContext(browser, { viewport: { width: 640, height: 400 } });
+  const ctx = await mctx(browser, { viewport: { width: 640, height: 400 } });
   const { page, errors } = await open(ctx, mansion + '&mode=pc' + (walls ? '' : '&flashwalls=off'));
   const r = await page.evaluate(() => {
     const g = window.__game, T = g.THREE, P = g.patrol, P2 = g.patrol2, W = 320, H = 200;
@@ -698,7 +705,7 @@ test('mansion (walls): the flashlight and Zhora\'s lamp stop at the mansion\'s w
 // Zhora's lamp close by in the gallery, Valera's beam filling the screen in the hall, the garden; the page
 // with the wall test and without it (?flashwalls=off), median of 30 frames. FLASH_FPS=1 prints the numbers.
 async function mansionFrames(query) {
-  const ctx = await newContext(browser, { ...devices['Pixel 7 landscape'] });
+  const ctx = await mctx(browser, { ...devices['Pixel 7 landscape'] });
   await ctx.addInitScript(() => localStorage.setItem('nocturne.tutorial', JSON.stringify({ done: true })));
   const { page, errors } = await open(ctx, mansion + query);
   const r = await page.evaluate(() => {

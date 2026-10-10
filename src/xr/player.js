@@ -7,7 +7,7 @@ import { loadSetting, saveSetting } from '../settings.js';
 import { CFG } from '../config/index.js';
 
 const MAX_SPEED = CFG.player.maxSpeed;       // m/s at full stick (plan §4.2)
-const QUIET_SPEED = CFG.player.quietSpeed;   // up to this, steps are silent
+const QUIET_SPEED = CFG.player.quietSpeed;   // up to this, steps are silent (the base value; the game reads CFG.player.quietSpeed: an upgrade raises it)
 const ACCEL_TAU = 0.08;      // s, velocity smoothing (~0.15 s to full speed)
 const RADIUS = 0.22;         // body circle around the head, m
 const CROUCH_DROP = 0.55;    // virtual crouch lowers the rig by this, m
@@ -49,7 +49,7 @@ export class Player {
   }
 
   get crouched() { return this.head.y < CROUCH_K * this.standingHeight; }
-  get stepsAudible() { return this.speed > QUIET_SPEED; }
+  get stepsAudible() { return this.speed > CFG.player.quietSpeed; }
   get running() { return this.runSpeed > 0; }
 
   enterVR() {
@@ -166,15 +166,16 @@ export class Player {
     // running faster than walking can go: a running step (longer stride, far louder: CFG.sprint)
     this.stepNoise = 0;
     const runStep = run && this.speed > MAX_SPEED * 0.9 * (this.onRamp ? (ST.runK || 1) : 1);
+    const quiet = CFG.player.quietSpeed;
     this.stairCreak = false;
-    if (this.speed > QUIET_SPEED) {
+    if (this.speed > quiet) {
       this.stepAcc += this.speed * dt;
       // running on the stairs: every tread creaks (a step per tread, CFG.sprint.stairs)
       const stride = runStep && this.onRamp && ST.creakEveryStepWhenRunning && level.stairStep ? level.stairStep : (runStep ? CFG.sprint.stepLength : CFG.player.stepLength);
       if (this.stepAcc >= stride) {
         if (runStep && this.onRamp && ST.creakEveryStepWhenRunning) this.stairCreak = true;
         this.stepAcc = 0;
-        const [r0, r1] = CFG.player.stepRadius, k = Math.min(1, (this.speed - QUIET_SPEED) / (MAX_SPEED - QUIET_SPEED));
+        const [r0, r1] = CFG.player.stepRadius, k = Math.min(1, (this.speed - quiet) / (MAX_SPEED - quiet));
         this.stepNoise = runStep ? CFG.sprint.radius : r0 + (r1 - r0) * k;
         this.stepKind = runStep ? 'run' : 'step';
       }

@@ -1,7 +1,8 @@
 // The maps of the game (W6): which one this page runs and how to build it. One page = one map:
 // changing the map reloads the page with ?map=<id> (the lights and shaders are fixed per page).
 import { CFG } from '../config/index.js';
-import { PREVIEW, loadSetting, saveSetting } from '../settings.js';
+import { loadSetting, saveSetting } from '../settings.js';
+import { mapOpen as starsOpen, starsBefore } from '../game/economy.js';
 import { buildLevel as buildDacha } from './level.js';
 import { buildMansion } from './mansion/level.js';
 import { S } from '../i18n/index.js';
@@ -19,7 +20,8 @@ export function applyMapConfig() {
   CFG.mapDifficulty = m.difficulty || null;
 }
 // the board's «Карта» page: every map, which is open and which this page runs
-export const mapsForBoard = (current) => Object.keys(MAPS).map((id) => ({ id, name: MAPS[id].name(), blurb: MAPS[id].blurb(), open: mapOpen(id), current: id === current }));
+export const mapsForBoard = (current) => Object.keys(MAPS).map((id) => ({ id, name: MAPS[id].name(), blurb: MAPS[id].blurb(), open: mapOpen(id), current: id === current,
+  lock: mapOpen(id) ? '' : S.shop.mapLock(CFG.shop.unlock.maps[id], starsBefore(id)) }));
 // go to another map: remembered, then the page reloads with ?map=<id> (one page = one map)
 export function switchMap(id) {
   if (!MAPS[id] || !mapOpen(id)) return false;
@@ -28,7 +30,8 @@ export function switchMap(id) {
   return true;
 }
 
-export const mapOpen = (id) => id === 'dacha' || PREVIEW || !!(CFG.maps[id] && CFG.maps[id].open);
+// W3: a map opens by stars on the maps before it (the mansion: 8★ on the dacha); «Відкрити все» (previews, ?debug) opens it
+export const mapOpen = (id) => !!MAPS[id] && starsOpen(id);
 
 // ?map=<id> picks the map and remembers it; otherwise the remembered one; a closed map = the default.
 export function currentMapId() {

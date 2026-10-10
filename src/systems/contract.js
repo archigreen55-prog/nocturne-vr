@@ -12,6 +12,7 @@ import { playGame } from './flatScreen.js';
 import { syncStartScreen } from './startScreen.js';
 import { switchMap, applyMapConfig } from '../world/maps.js';
 import { summaryState } from './phone.js';
+import { shopPress } from './economy.js';
 import { S } from '../i18n/index.js';
 
 export function newRound() {
@@ -74,6 +75,7 @@ export function pressBoard(id) {
   else if (id === 'mappage') G.boardPage = 'map';
   else if (id.startsWith('map:')) { if (round.phase === 'ready') switchMap(id.slice(4)); }
   else if (id === 'back') G.boardPage = 'contract';
+  else if (shopPress(id)) { /* the shop (systems/economy.js) */ }
   else if (id === 'cal') calibrateInVR();
   else if (id === 'micon') micOnInVR();
   else if (id === 'nomic') { mic.setNoMic(!mic.noMic); G.start.refresh(); }

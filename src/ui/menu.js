@@ -16,7 +16,8 @@ const REASONS = {
 
 export class PauseMenu {
   // h: { info(), label(key), cycle(key), resume(), home(), newRound(), toStart(), toMic(), report(), contractStep(±1), difficultyNext(),
-  //      tutorial(), toProgress(), privacy(), bright(±1), brightLabel(), outdoor(), outdoorLabel() }
+  //      tutorial(), toProgress(), privacy(), bright(±1), brightLabel(), outdoor(), outdoorLabel(),
+  //      shopRows(), buy(id), walletText() }
   constructor(root, h) {
     this.root = root; this.h = h;
     this.page = 'main'; this.reason = 'user';
@@ -52,7 +53,7 @@ export class PauseMenu {
     const head = document.createElement('div');
     head.className = 'pm-head';
     const title = document.createElement('h2');
-    title.textContent = this.page === 'main' ? S.menu.title.main : this.page === 'contract' ? S.menu.title.contract : S.menu.title.settings;
+    title.textContent = this.page === 'main' ? S.menu.title.main : this.page === 'contract' ? S.menu.title.contract : this.page === 'shop' ? S.shop.title : S.menu.title.settings;
     head.append(title);
     const grid = document.createElement('div');
     grid.className = 'pm-grid scroll';
@@ -69,11 +70,16 @@ export class PauseMenu {
       mic.className = 'pm-info';
       mic.textContent = I.micText;
       head.append(mic);
+      const purse = document.createElement('p');
+      purse.className = 'pm-info pm-wallet';
+      purse.textContent = h.walletText();
+      head.append(purse);
       grid.append(
         this.btn(S.menu.resume, () => h.resume(), 'primary wide'),
         this.btn(S.menu.home, () => h.home()),
         this.btn(S.menu.newRound, () => h.newRound()),
         this.btn(S.menu.title.contract, () => this.go('contract')),
+        this.btn(S.shop.button, () => this.go('shop')),
         this.btn(S.menu.title.settings, () => this.go('settings')),
         this.btn(S.menu.mic, () => h.toMic()),
         this.btn(S.menu.report, () => h.report()),
@@ -90,12 +96,39 @@ export class PauseMenu {
       const brief = document.createElement('p');
       brief.className = 'pm-info wide';
       brief.textContent = S.menu.brief(I.brief, I.goalText, I.bonusText);
+      if (I.lock) { const lock = document.createElement('p'); lock.className = 'pm-note wide'; lock.textContent = I.lock; grid.append(lock); }
       grid.append(row, brief,
         this.btn(S.board.difficulty(I.diffName), () => { h.difficultyNext(); this.render(); }, 'wide', !can));
       if (!can) {
         const why = document.createElement('p');
         why.className = 'pm-note wide';
         why.textContent = S.menu.changeWhen;
+        grid.append(why);
+      }
+      grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
+    } else if (this.page === 'shop') {
+      // the shop (W3): one row per upgrade; buying only before the clock starts
+      const purse = document.createElement('p');
+      purse.className = 'pm-info wide pm-wallet';
+      purse.textContent = h.walletText();
+      grid.append(purse);
+      for (const r of h.shopRows()) {
+        const row = document.createElement('div');
+        row.className = 'pm-shop wide' + (r.state === 'owned' ? ' owned' : r.state === 'soon' ? ' soon' : '');
+        const t = document.createElement('div');
+        t.className = 'pm-shop-text';
+        const b = document.createElement('b'); b.textContent = r.name;
+        const e = document.createElement('span'); e.textContent = r.effect;
+        t.append(b, e);
+        const btn = this.btn(r.button, () => { h.buy(r.id); this.render(); }, 'pm-buy', !r.enabled);
+        btn.dataset.upgrade = r.id;
+        row.append(t, btn);
+        grid.append(row);
+      }
+      if (I.phase !== 'ready') {
+        const why = document.createElement('p');
+        why.className = 'pm-note wide';
+        why.textContent = S.shop.onlyAtVan;
         grid.append(why);
       }
       grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));

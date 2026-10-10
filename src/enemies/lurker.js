@@ -181,7 +181,7 @@ export class Lurker {
     // never through a wall: shorter until the whole lunge stays in the room
     while (reach > 0.3 && !this.near(this.FRONT.x + dx / d * reach, this.FRONT.z + dz / d * reach)) reach -= 0.1;
     this.target.set(this.FRONT.x + dx / d * reach, Math.max(0.6, h.y - 0.05), this.FRONT.z + dz / d * reach);
-    playStinger();
+    playStinger((CFG.run && CFG.run.scareK) || 1);   // the mask (shop): quieter
     if (this.env.onScare) this.env.onScare();
   }
 

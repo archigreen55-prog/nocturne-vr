@@ -30,6 +30,7 @@ import { controls } from './controls.js';
 import { sprint } from './sprint.js';
 import { player } from './player.js';
 import { tutorial } from './tutorial.js';
+import { economy } from './economy.js';
 import { heist } from './heist.js';
 import { board } from './board.js';
 import { panel } from './panel.js';
@@ -56,6 +57,7 @@ export const SYSTEMS = [
   sprint,        // input: running (stamina, doors, crystal, breath); world: running steps, breathing
   player,        // act: breath, walking, hands, doors, the drop-off ring
   tutorial,      // act: the first-run tutorial (phone, PC)
+  economy,       // the wallet and the shop; world: a closed contract is not played; result: the round's money
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
   board,         // present: the board
   panel,         // frame: wrist panel / HUD

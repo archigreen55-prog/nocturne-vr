@@ -64,6 +64,7 @@ export class Board {
     this.buttons = [];
     if (s.phase === 'result') this.drawResult(s);
     else if (s.phase === 'ready' && s.page === 'mic') this.drawMic(s);
+    else if (s.phase === 'ready' && s.page === 'shop') this.drawShop(s);
     else if (s.phase === 'ready' && s.page === 'map' && s.maps) this.drawMap(s);
     else if (s.phase === 'ready') this.drawContract(s);
     else this.drawRound(s);
@@ -146,17 +147,21 @@ export class Board {
     g.fillStyle = '#93a1b8'; g.font = '24px system-ui, sans-serif';
     g.fillText(S.board.records(B), 50, 374);
     if (C.needsMic && s.noMic) { g.fillStyle = '#ff9f43'; g.fillText(S.board.needsMic, 50, 408); }
-    g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif';
-    g.fillText(S.board.pickHere, 50, 440);
-    this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 110, h: 120, font: 48 });
-    this.buttons.push({ id: 'cnext', label: '▶', x: 175, y: 470, w: 110, h: 120, font: 48 });
+    // a closed contract says what opens it (W3); the wallet on the right
+    if (s.lock) { g.fillStyle = '#ff9f43'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440); }
+    else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.board.pickHere, 50, 440); }
+    if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffd166'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
+    this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 90, h: 120, font: 48 });
+    this.buttons.push({ id: 'cnext', label: '▶', x: 150, y: 470, w: 90, h: 120, font: 48 });
     if (s.maps) {   // W6: more than one map: a «Карта…» page
-      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 300, y: 470, w: 300, h: 120, font: 30 });
-      this.buttons.push({ id: 'mappage', label: S.board.mapPage, x: 615, y: 470, w: 170, h: 120, font: 30 });
-      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 800, y: 470, w: 174, h: 120, font: 30 });
+      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 250, y: 470, w: 250, h: 120, font: 22 });
+      this.buttons.push({ id: 'mappage', label: S.board.mapPage, x: 510, y: 470, w: 140, h: 120, font: 26 });
+      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 660, y: 470, w: 160, h: 120, font: 26 });
+      this.buttons.push({ id: 'shop', label: S.shop.button, x: 830, y: 470, w: 144, h: 120, font: 26 });
     } else {
-      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 300, y: 470, w: 380, h: 120, font: 32 });
-      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 695, y: 470, w: 279, h: 120, font: 32 });
+      this.buttons.push({ id: 'diff', label: S.board.difficulty(s.diffName), x: 250, y: 470, w: 320, h: 120, font: 24 });
+      this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 580, y: 470, w: 190, h: 120, font: 28 });
+      this.buttons.push({ id: 'shop', label: S.shop.button, x: 780, y: 470, w: 194, h: 120, font: 28 });
     }
   }
 
@@ -170,7 +175,7 @@ export class Board {
     wrap(g, S.board.mapHint, 50, 130, W - 100, 32);
     let y = 230;
     for (const m of s.maps) {
-      const label = m.current ? S.board.mapCurrent(m.name) : m.open ? m.name : S.board.mapSoon(m.name);
+      const label = m.current ? S.board.mapCurrent(m.name) : m.open ? m.name : m.lock ? `${m.name} — ${m.lock}` : S.board.mapSoon(m.name);
       this.buttons.push({ id: 'map:' + m.id, label, x: 50, y, w: 640, h: 90, font: 32, enabled: m.open && !m.current });
       g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8'; g.textAlign = 'left';
       g.fillText(m.blurb || '', 720, y + 55);
@@ -222,6 +227,29 @@ export class Board {
     this.buttons.push({ id: 'back', label: '◀', x: 858, y: 510, w: 116, h: 90, font: 44, enabled: !busy });
   }
 
+  // The shop (W3): upgrades, ROWS per page, a buy button each; the wallet on top.
+  drawShop(s) {
+    const g = this.g, P = s.shop;
+    g.textAlign = 'left'; g.font = 'bold 48px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.fillText(S.shop.title, 50, 72);
+    g.textAlign = 'right'; g.font = 'bold 32px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 70);
+    P.rows.forEach((r, i) => {
+      const y = 100 + i * 96;
+      g.textAlign = 'left'; g.font = 'bold 30px system-ui, sans-serif'; g.fillStyle = r.state === 'owned' ? '#5fd38d' : r.state === 'soon' ? '#6f8396' : '#e6ecf5';
+      g.fillText(r.name, 50, y + 34);
+      g.font = '23px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
+      g.fillText(r.effect, 50, y + 68);
+      this.buttons.push({ id: 'buy:' + r.id, label: r.button, x: 664, y: y + 6, w: 310, h: 78, font: 26, enabled: r.enabled });
+    });
+    if (P.pages > 1) {
+      this.buttons.push({ id: 'sprev', label: '◀', x: 50, y: 500, w: 110, h: 100, font: 44 });
+      this.buttons.push({ id: 'snext', label: '▶', x: 175, y: 500, w: 110, h: 100, font: 44 });
+      g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
+      g.fillText(S.shop.page(P.page + 1, P.pages), 305, 560);
+    }
+    this.buttons.push({ id: 'back', label: S.menu.back, x: 744, y: 500, w: 230, h: 100, font: 30 });
+  }
+
   drawResult(s) {
     const g = this.g, R = s.result;
     const good = R.kind === 'left' || R.kind === 'escaped';
@@ -240,6 +268,8 @@ export class Board {
     if (R.seen) extra.push(S.board.res.seen(R.seen));
     if (R.scares) extra.push(S.board.res.scared(R.scares));
     if (extra.length) g.fillText(extra.join(' · '), W / 2, 330);
+    // the money for the wallet (W3)
+    if (s.income) { g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#ffd166'; g.fillText(s.income, W / 2, 300); }
     // the contract
     if (s.verdict) {
       const V = s.verdict;

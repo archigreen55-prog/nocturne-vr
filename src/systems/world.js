@@ -94,7 +94,8 @@ export const world = {
       scene.add(G.patrol2.group);
     }
     const guards = G.guards = [patrol, G.patrol2].filter(Boolean);
-    const onScare = () => { G.comfort.flashColor(0xffffff, 0.55); G.xrIn.pulse('both', 1, 250); fx('scare'); };
+    const onScare = () => { if (!(CFG.run.scareK < 1)) G.comfort.flashColor(0xffffff, 0.55);   // the mask (shop): no white flash
+      G.xrIn.pulse('both', 1, 250); fx('scare'); };
     const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec }));
     const lurker = G.lurker = lurkers[0];
     for (const l of lurkers) scene.add(l.group);
