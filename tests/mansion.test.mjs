@@ -643,7 +643,7 @@ test('mansion (M5): the board\'s «Карта» page lists both maps, the other 
 
 // ---------- the flashlight and the hand lamp stop at the mansion's walls (enemies/flashWalls.js, both floors) ----------
 async function mansionLight(walls) {
-  const ctx = await newContext(browser, { viewport: { width: 640, height: 400 } });
+  const ctx = await mctx(browser, { viewport: { width: 640, height: 400 } });
   const { page, errors } = await open(ctx, mansion + '&mode=pc' + (walls ? '' : '&flashwalls=off'));
   const r = await page.evaluate(() => {
     const g = window.__game, T = g.THREE, P = g.patrol, P2 = g.patrol2, W = 320, H = 200;
@@ -706,7 +706,7 @@ test('mansion (walls): the flashlight and Zhora\'s lamp stop at the mansion\'s w
 // Zhora's lamp close by in the gallery, Valera's beam filling the screen in the hall, the garden; the page
 // with the wall test and without it (?flashwalls=off), median of 30 frames. FLASH_FPS=1 prints the numbers.
 async function mansionFrames(query) {
-  const ctx = await newContext(browser, { ...devices['Pixel 7 landscape'] });
+  const ctx = await mctx(browser, { ...devices['Pixel 7 landscape'] });
   await ctx.addInitScript(() => localStorage.setItem('nocturne.tutorial', JSON.stringify({ done: true })));
   const { page, errors } = await open(ctx, mansion + query);
   const r = await page.evaluate(() => {
