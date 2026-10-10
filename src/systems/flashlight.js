@@ -13,7 +13,7 @@ export const flashlight = {
     const { renderer, scene, patrol } = G;
     const flashMode = params.get('flash') || 'mask';
     if (flashMode === 'mask') {
-      const masked = maskScene(scene);
+      const masked = maskScene(scene, G.level);
       maskBeam(patrol.beam.material);
       if (params.get('flashwalls') !== 'off') wallsOnScene(scene, patrol.beam.material);   // ...and it stops at walls (?flashwalls=off: to measure the cost)
       console.log(`flashlight room mask on ${masked} lit materials`);

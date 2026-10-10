@@ -95,7 +95,7 @@ export class Round {
       sum: lost ? 0 : tally.sum,
       inVan: tally.inVan, intact: tally.intact, damaged: tally.damaged, broken: tally.broken, total: tally.total, list: tally.list,
       shouts: this.shouts,
-      scares: this.env.lurker.scares,
+      scares: (this.env.lurkers || [this.env.lurker]).reduce((n, l) => n + l.scares, 0),
       seen: this.env.patrol.seenCount,
       lostLoot: lost ? tally.sum : 0,
     };

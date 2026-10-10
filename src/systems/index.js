@@ -36,6 +36,8 @@ import { panel } from './panel.js';
 import { startScreen } from './startScreen.js';
 import { flashlight } from './flashlight.js';
 import { progressCode } from './progressCode.js';
+import { mapView } from './mapView.js';
+import { guards } from './guards.js';
 import { brightness } from './brightness.js';
 
 export const SYSTEMS = [
@@ -60,6 +62,8 @@ export const SYSTEMS = [
   startScreen,   // the start screen, report, PWA
   flashlight,    // the flashlight's room mask (after everything is in the scene)
   progressCode,  // start screen: progress as a code, «Навчання ще раз»
+  mapView,       // W6: the player's floor decides which rooms are drawn; the point lights follow the nearest lamps
+  guards,        // W6: the second guard (its step of the frame, its lamp's mask) and the radio chatter between the two
   brightness,    // display brightness and «Надворі» (phone, PC): the picture only
 ];
 

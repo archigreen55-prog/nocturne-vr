@@ -7,6 +7,7 @@ import { LEVELS } from '../audio/mic.js';
 import { goalText, bonusText, progress, bestStars } from '../game/contracts.js';
 import { G } from './state.js';
 import { summaryState } from './phone.js';
+import { mapsForBoard } from '../world/maps.js';
 
 // Everything the board shows, as one string: the same string = nothing to redraw.
 function boardSignature(T, lv) {
@@ -51,6 +52,7 @@ export const board = {
         goalText: goalText(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
         diffName: CFG.difficulties[difficulty].name, difficulty, progress: progress(contract, T, loot), verdict: G.verdict,
         noMic: mic.noMic, mic, calib: G.calib, calibNotes: G.calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: G.touch ? 5 : 4,
+        maps: mapsForBoard(G.level.id),   // W6
       });
     }
   },
