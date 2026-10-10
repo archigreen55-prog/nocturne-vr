@@ -23,8 +23,8 @@ export const heist = {
     setListener(player.head.x, player.head.y, player.head.z, player.yaw);
 
     if (G.active && round.phase !== 'result') {
-      // noise from the player: stick steps, voice, shout
-      if (player.stepNoise) noise.emit(player.head.x, player.head.z, player.stepNoise, player.stepKind);   // 'step' or 'run'
+      // noise from the players: stick steps of everybody; voice and shout from this device's microphone
+      for (const p of G.players) if (p.stepNoise) noise.emit(p.head.x, p.head.z, p.stepNoise, p.stepKind, { who: p });   // 'step' or 'run'
       const micLive = mic.state === 'on' && !mic.noMic && !breath.holding && !scream.playing && G.caughtT < 0;
       const shout = mic.takeShout();
       if (micLive && shout) {
@@ -44,13 +44,13 @@ export const heist = {
       } else G.voiceT = 0;
 
       // world
-      loot.update(dt, player);
+      loot.update(dt, G.players);
       if (G.caughtT < 0) {
-        if (patrol.update(dt, player) === 'caught') caught();
-        lurker.update(dt, player);
+        if (patrol.update(dt, G.players) === 'caught') caught(patrol.caughtWho);
+        lurker.update(dt, G.players);
       }
       alert.update(dt);
-      round.update(dt, player);
+      round.update(dt, G.players);
       // heartbeat while escaping (plan §5: 1 Hz)
       if (round.phase === 'escape') {
         G.heartT -= dt;
@@ -59,7 +59,7 @@ export const heist = {
     } else {
       mic.takeShout();
       G.speakT = 0;
-      if (round.phase === 'result') { loot.update(dt, player); alert.update(dt); }
+      if (round.phase === 'result') { loot.update(dt, G.players); alert.update(dt); }
     }
   },
   present(dt) { G.noise.update(dt); },

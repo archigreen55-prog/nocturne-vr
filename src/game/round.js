@@ -4,6 +4,7 @@
 // alarm), caught, late (the escape time ran out).
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
+import { asList } from './players.js';
 
 export const RESULT_TITLES = {
   left: S.result.left, escaped: S.result.escaped, caught: S.result.caught, late: S.result.late,
@@ -51,10 +52,13 @@ export class Round {
     this.env.onPhase('escape');
   }
 
-  update(dt, player) {
+  // players: everybody in the round (one player is taken as a list of one). The clock starts when
+  // anybody leaves the van; the escape ends when everybody is back at it.
+  update(dt, players) {
     const R = CFG.round;
+    players = asList(players);
     if (this.phase === 'ready') {
-      if (Math.hypot(player.head.x - R.vanZone.x, player.head.z - R.vanZone.z) > R.startDist) {
+      if (players.some((p) => Math.hypot(p.head.x - R.vanZone.x, p.head.z - R.vanZone.z) > R.startDist)) {
         this.phase = 'heist';
         this.env.onMessage(S.round.clockStarts, '#ffd166', 3);
         this.env.onPhase('heist');
@@ -70,7 +74,7 @@ export class Round {
     } else if (this.phase === 'escape') {
       this.t += dt;
       this.escapeLeft -= dt;
-      if (this.atVan(player.head)) this.finish('escaped');
+      if (players.length && players.every((p) => this.atVan(p.head))) this.finish('escaped');
       else if (this.escapeLeft <= 0) this.finish('late');
     }
   }

@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { Builder, WARDROBE } from '../world/level.js';
 import { Voice3D, playScratch, playStinger, playThud } from '../audio/audio.js';
+import { asList } from '../game/players.js';
 
 
 export class Lurker {
@@ -119,11 +120,21 @@ export class Lurker {
     playScratch(this.voice, CFG.lurker.telegraph);
   }
 
-  update(dt, player) {
+  // players: everybody in the round (one player is taken as a list of one). Once awake it keeps to
+  // the one who woke it (this.victim); asleep it reacts to the nearest one in its own room.
+  update(dt, players) {
     const L = CFG.lurker;
     this.t += dt;
-    const d = Math.hypot(player.head.x - this.FRONT.x, player.head.z - this.FRONT.z, (player.floorY || 0) - this.y0);
-    const near = d < L.cancel && this.near(player.head.x, player.head.z);
+    players = asList(players);
+    if (!players.length) return;
+    const measure = (p) => {
+      const d = Math.hypot(p.head.x - this.FRONT.x, p.head.z - this.FRONT.z, (p.floorY || 0) - this.y0);
+      return { p, d, near: d < L.cancel && this.near(p.head.x, p.head.z) };
+    };
+    let m;
+    if (this.state !== 'dormant' && players.includes(this.victim)) m = measure(this.victim);
+    else for (const p of players) { const r = measure(p); if (!m || (r.near && !m.near) || (r.near === m.near && r.d < m.d)) m = r; }
+    const player = this.victim = m.p, d = m.d, near = m.near;
     switch (this.state) {
       case 'dormant':
         if (d < L.trigger && near) this.wake();
@@ -182,7 +193,7 @@ export class Lurker {
     while (reach > 0.3 && !this.near(this.FRONT.x + dx / d * reach, this.FRONT.z + dz / d * reach)) reach -= 0.1;
     this.target.set(this.FRONT.x + dx / d * reach, Math.max(0.6, h.y - 0.05), this.FRONT.z + dz / d * reach);
     playStinger((CFG.run && CFG.run.scareK) || 1);   // the mask (shop): quieter
-    if (this.env.onScare) this.env.onScare();
+    if (this.env.onScare) this.env.onScare(player);
   }
 
   face(player) {

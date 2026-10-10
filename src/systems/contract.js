@@ -90,7 +90,8 @@ export function pressBoard(id) {
   if (['wdn', 'wup', 'sdn', 'sup'].includes(id)) G.start.refresh();
   G.boardDirty = true;
 }
-export function caught() {
+// who: the player a guard caught (G.players); offline always this device's own player
+export function caught(who = G.player) {
   const { drags } = G;
   G.caughtT = 0;
   G.comfort.blackout();

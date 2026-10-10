@@ -332,9 +332,11 @@ export class Loot {
     this.env.onMessage(S.loot.crystalBumped, '#7fc8ff');
   }
 
-  update(dt, player) {
+  // players: everybody in the round (G.players; one player is taken as a list of one)
+  update(dt, players) {
     const cr = this.crystal;
-    if (cr && cr.state === 'rest' && !cr.delivered) {
+    for (const player of Array.isArray(players) ? players : [players]) {
+      if (!cr || cr.state !== 'rest' || cr.delivered) break;
       const p = cr.mesh.position;
       const d = Math.hypot(player.head.x - p.x, player.head.z - p.z);
       if (d < 0.45 && player.speed > CFG.loot.crystal.bumpSpeed && p.y > 0.3) {

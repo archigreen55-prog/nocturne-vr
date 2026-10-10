@@ -23,6 +23,7 @@ import { flash, fx } from './messages.js';
 import { S } from '../i18n/index.js';
 import { throwablesFor } from '../loot/throw.js';
 import { score } from './traps.js';
+import { nearest } from '../game/players.js';
 
 export const world = {
   id: 'world',
@@ -42,6 +43,7 @@ export const world = {
     });
 
     const player = G.player = new Player(renderer, camera);
+    G.players = [player];   // everybody in the round (game/players.js); offline just this device's player
     scene.add(player.rig);
     player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
     const listener = () => player.head;
@@ -137,7 +139,7 @@ export const world = {
     // noise -> who hears it: with two guards, the one it is louder to (plan-W6 §3.2)
     noise.on((e) => {
       if (round.phase === 'result') return;
-      const ey = e.source === 'world' ? e.y : player.floorY;   // a dropped item's noise is at its height; the player's noises on the player's floor
+      const ey = e.source === 'world' ? e.y : (e.who || player).floorY;   // a dropped item's noise is at its height; a player's noises on that player's floor
       let best = null, bestK = 0;
       for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
       if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); }
@@ -145,7 +147,7 @@ export const world = {
     });
     alert.onFull = (cause, x, z) => {
       if (round.phase === 'result') return;
-      const f = x === undefined ? undefined : level.floorIndex(player.floorY);
+      const f = x === undefined ? undefined : level.floorIndex((nearest(G.players, x, z) || player).floorY);
       const chaser = guards.find((g) => g.state === 'chase');
       const posts = level.alarmPosts;
       guards.forEach((g, i) => {

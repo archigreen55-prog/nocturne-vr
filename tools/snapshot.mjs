@@ -72,6 +72,9 @@ const INIT = ({ manualFrames }) => {
     window.requestAnimationFrame = (cb) => { queue.push(cb); return queue.length; };
     window.cancelAnimationFrame = () => {};
     let now = 0;
+    // the page's clock is the driven one too: the guard's idle gaze sweeps with performance.now(), so a
+    // busy machine changed what the guard saw and two snapshots of one commit differed (found in W8a)
+    performance.now = () => now || 1e7;
     // step(n): n frames 1/60 s apart. Time starts at a fixed 10^7 ms (always far ahead of the page's own
     // clock, so the first dt is clamped the same way), so every dt is the same float on every run.
     window.__step = (n = 1) => {
