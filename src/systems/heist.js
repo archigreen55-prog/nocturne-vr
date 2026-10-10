@@ -1,19 +1,24 @@
-// The round's world step. World: the flashlight's room mask, the wrist facing the eye, the audio
-// listener; while the round runs: the player's noise (steps, talking, a shout), loot, the guard, the
+// The round's world step. World: the flashlight's room mask and walls, the wrist facing the eye, the
+// audio listener; while the round runs: the player's noise (steps, talking, a shout), loot, the guard, the
 // lurker, the alarm, the round clock, the heartbeat while escaping. Present: the noise ripples.
+import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { setListener, playHeartbeat } from '../audio/audio.js';
 import { updateFlashMask } from '../enemies/flashMask.js';
+import { updateFlashWalls } from '../enemies/flashWalls.js';
 import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { caught } from './contract.js';
 import { S } from '../i18n/index.js';
+
+const flashFrom = new THREE.Vector3();
 
 export const heist = {
   id: 'heist',
   world(dt) {
     const { patrol, level, wrist, player, round, noise, mic, breath, scream, alert, loot, lurker, xrIn } = G;
     updateFlashMask(patrol.x, patrol.z, level.doors, patrol.y);
+    updateFlashWalls(patrol.spot.getWorldPosition(flashFrom), level);
     if (G.inVR) wrist.faceEye(player.head);
     setListener(player.head.x, player.head.y, player.head.z, player.yaw);
 

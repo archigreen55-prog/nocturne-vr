@@ -82,7 +82,7 @@ export const render = {
     const { quality, player } = G;
     if (quality && (G.lampT -= dt) <= 0) {
       G.lampT = 0.5;
-      for (const l of G.points) l.intensity = quality.p.farLights || Math.hypot(l.position.x - player.head.x, l.position.z - player.head.z) < 12 ? l.userData.base : 0;
+      for (const l of G.points) l.intensity = quality.p.farLights || Math.hypot(l.position.x - player.head.x, l.position.z - player.head.z) < 12 ? l.userData.base * G.lightK : 0;   // lightK: the display brightness (systems/brightness.js)
     }
   },
 };

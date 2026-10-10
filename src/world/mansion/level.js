@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { CollisionWorld } from '../collision.js';
 import { Builder, Door, C } from '../level.js';
 import { Floors } from '../floors.js';
-import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T } from '../kit.js';
+import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T, JAMB } from '../kit.js';
 import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
 // the crate of the second lurker: in the garage by the gate, its lid pops up in the telegraph
 const CRATE = { x: 12.2, z: 0.2, y0: 0, kind: 'crate', size: 0.9, minZ: -0.25, maxZ: 0.65 };
@@ -30,7 +30,7 @@ const LEAF_W = 0.96;   // the door leaf geometry is built for this width; other 
 // LEAF_W, one instance per door, its matrix refreshed before each render from the door's swing.
 function instancedDoors(doors, material) {
   const B = new Builder(), LEAF_T = 0.05, DOOR_H = 2.1;
-  B.box(0, 0.01, -LEAF_T / 2, LEAF_W, DOOR_H - 0.02, LEAF_T / 2, C.door);
+  B.box(0, 0.016, -LEAF_T / 2, LEAF_W, DOOR_H - 0.003, LEAF_T / 2, C.door);   // floor to 3 mm under the lintel (no gap to look through)
   for (const y of [0.25, 1.15]) for (const s of [-1, 1]) B.box(0.12, y, s * LEAF_T / 2, LEAF_W - 0.12, y + 0.75, s * (LEAF_T / 2 + 0.012), 0x57402f);
   for (const s of [-1, 1]) B.box(LEAF_W - 0.12, 0.98, s * (LEAF_T / 2), LEAF_W - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
   const leaf = B.mesh(material);
@@ -64,6 +64,7 @@ export function buildMansion() {
   const walls = FLOOR_Y.map(() => new CollisionWorld(LOT));    // walls and fence only: sound, line of sight
   const furniture = [];    // { minX, minZ, maxX, maxZ, h, top, floor } absolute heights, for cover and landing
   const doorSpecs = [];
+  const occluders = [];    // wall centre lines [x0, z0, x1, z1, y0, y1] per floor: the flashlight and the lamp stop at them
   const solidOn = (f) => (x0, z0, x1, z1) => { worlds[f].addBox(x0, z0, x1, z1); walls[f].addBox(x0, z0, x1, z1); };
   // a block a body walks around (and hides behind) on floor f; h and top relative to that floor
   const block = (f, x0, z0, x1, z1, h, top = h) => {
@@ -74,59 +75,69 @@ export function buildMansion() {
     return b;
   };
   const rail = (f, x0, z0, x1, z1) => worlds[f].addEdge(x0, z0, x1, z1);   // a line a body cannot cross
-  const K0 = wallKit(SA, solidOn(0), doorSpecs, FLOOR_Y[0], 0), R0 = wallKit(S0, solidOn(0), doorSpecs, FLOOR_Y[0], 0);   // band / rows
-  const K1 = wallKit(SA, solidOn(1), doorSpecs, FLOOR_Y[1], 1), R1 = wallKit(S1, solidOn(1), doorSpecs, FLOOR_Y[1], 1);
+  const K0 = wallKit(SA, solidOn(0), doorSpecs, FLOOR_Y[0], 0, WALL_H, occluders), R0 = wallKit(S0, solidOn(0), doorSpecs, FLOOR_Y[0], 0, WALL_H, occluders);   // band / rows
+  // the outer walls of the ground floor rise to the upper floor (the slab's edge band); the garage's to its roof
+  const KE0 = wallKit(SA, solidOn(0), doorSpecs, FLOOR_Y[0], 0, FLOOR_Y[1], occluders), KG = wallKit(SA, solidOn(0), doorSpecs, FLOOR_Y[0], 0, WALL_H + 0.25, occluders);
+  const K1 = wallKit(SA, solidOn(1), doorSpecs, FLOOR_Y[1], 1, WALL_H, occluders), R1 = wallKit(S1, solidOn(1), doorSpecs, FLOOR_Y[1], 1, WALL_H, occluders);
   const H = HOUSE;
 
   // ---------- ground floor walls ----------
-  K0.wallX(-18, H.minX, H.maxX, EXT_T, C.wallExt);
-  K0.wallX(0, H.minX, 4, EXT_T, C.wallExt, [{ c: -4.5, w: 1.0, door: 'locked', front: true }]);   // front door, locked
-  K0.wallX(1.5, 4, H.maxX, EXT_T, C.wallExt);                                                   // garage south wall
-  K0.wallZ(H.minX, -18, 0, EXT_T, C.wallExt);
-  K0.wallZ(4, 0, 1.5, EXT_T, C.wallExt);
-  K0.wallZ(13, -18, 1.5, EXT_T, C.wallExt, [{ c: -15, w: 1.0, door: 'normal' }, { c: -1.5, w: 2.6, door: 'normal' }]);   // back door, garage gate
-  K0.wallX(-12, -13, 13, INT_T, C.wallInt, [{ c: -8, w: 1.0, door: 'normal' }, { c: -1, w: 1.6 }, { c: 3, w: 1.0, door: 'normal' }, { c: 6.5, w: 1.0, door: 'normal' }]);
-  K0.wallX(-5, -13, 13, INT_T, C.wallInt, [{ c: -4.5, w: 1.6 }, { c: 5.5, w: 1.0, door: 'normal' }]);
-  R0.wallZ(-6, -18, -12, INT_T, C.wallpaperLib, [{ c: -15, w: 1.4 }]);
-  R0.wallZ(0, -18, -12, INT_T, C.wallInt);
-  R0.wallZ(6, -18, -12, INT_T, C.wallInt, [{ c: -15, w: 1.4 }]);
+  KE0.wallX(-18, H.minX, H.maxX, EXT_T, C.wallExt);
+  KE0.wallX(0, H.minX, 4, EXT_T, C.wallExt, [{ c: -4.5, w: 1.0, door: 'locked', front: true }]);   // front door, locked
+  KG.wallX(1.5, 4, H.maxX, EXT_T, C.wallExt);                                                   // garage south wall
+  // the Z walls run between the X walls' inner faces (a corner is one wall's end inside the other)
+  KE0.wallZ(H.minX, -18 + EXT_T / 2, 0 - EXT_T / 2, EXT_T, C.wallExt);
+  KG.wallZ(4, 0 + EXT_T / 2, 1.5 - EXT_T / 2, EXT_T, C.wallExt);
+  KE0.wallZ(13, -18 + EXT_T / 2, -0.25, EXT_T, C.wallExt, [{ c: -15, w: 1.0, door: 'normal' }, { c: -1.5, w: 2.5, door: 'normal' }]);   // back door, garage gate (the house's wall ends at the gate's jamb)
+  KG.wallZ(13, -0.25, 1.5 - EXT_T / 2, EXT_T, C.wallExt);                                        // the garage's part of the east wall, from the gate on
+  // interior walls run between the outer walls' inner faces (IX0..IX1, IZ0..): no face in an outer wall
+  const IX0 = H.minX + EXT_T, IX1 = H.maxX - EXT_T, IZ0 = H.minZ + EXT_T, IZ1 = 0.15 - EXT_T;
+  K0.wallX(-12, IX0, IX1, INT_T, C.wallInt, [{ c: -8, w: 1.0, door: 'normal' }, { c: -1, w: 1.6 }, { c: 3, w: 1.0, door: 'normal' }, { c: 6.5, w: 1.0, door: 'normal' }]);
+  K0.wallX(-5, IX0, IX1, INT_T, C.wallInt, [{ c: -4.5, w: 1.6 }, { c: 5.5, w: 1.0, door: 'normal' }]);
+  R0.wallZ(-6, IZ0, -12, INT_T, C.wallpaperLib, [{ c: -15, w: 1.4 }]);
+  R0.wallZ(0, IZ0, -12, INT_T, C.wallInt);
+  R0.wallZ(6, IZ0, -12, INT_T, C.wallInt, [{ c: -15, w: 1.4 }]);
   K0.wallZ(-9, -12, -5, INT_T, C.wallInt, [{ c: -8.5, w: 1.0, door: 'normal' }]);
   K0.wallZ(-7, -12, -5, INT_T, C.wallInt, [{ c: -6.2, w: 1.4 }]);
   K0.wallZ(7, -12, -5, INT_T, C.wallInt, [{ c: -8.5, w: 1.0, door: 'normal' }]);
-  R0.wallZ(-7, -5, 0, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
-  R0.wallZ(-2, -5, 0, INT_T, C.wallInt);
-  R0.wallZ(4, -5, 0, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
+  R0.wallZ(-7, -5, IZ1, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
+  R0.wallZ(-2, -5, IZ1, INT_T, C.wallInt);
+  R0.wallZ(4, -5, IZ1, INT_T, C.wallInt, [{ c: -2.5, w: 1.0, door: 'normal' }]);
 
   // ---------- upstairs walls (y = 3) ----------
   K1.wallX(-18, H.minX, H.maxX, EXT_T, C.wallExt);
   K1.wallX(0, H.minX, H.maxX, EXT_T, C.wallExt, [{ c: -8, w: 1.0, door: 'normal' }]);   // balcony door
-  K1.wallZ(H.minX, -18, 0, EXT_T, C.wallExt);
-  K1.wallZ(13, -18, 0, EXT_T, C.wallExt);
-  K1.wallX(-12, -13, 13, INT_T, C.wallpaperBed, [{ c: -8, w: 1.0, door: 'normal' }, { c: -0.5, w: 1.0, door: 'normal' }, { c: 5, w: 1.0, door: 'normal' }, { c: 10.5, w: 1.0, door: 'normal' }]);
-  K1.wallX(-5, -13, 13, INT_T, C.wallInt, [{ c: -8, w: 1.0, door: 'normal' }, { c: -1, w: 1.0, door: 'normal' }, { c: 9, w: 1.0, door: 'normal' }]);
-  R1.wallZ(-6, -18, -12, INT_T, C.wallpaperBed, [{ c: -15, w: 0.9, door: 'normal' }]);
-  R1.wallZ(-3, -18, -12, INT_T, C.wallInt);
-  R1.wallZ(2, -18, -12, INT_T, C.wallInt);
-  R1.wallZ(8, -18, -12, INT_T, C.wallInt);
+  K1.wallZ(H.minX, -18 + EXT_T / 2, 0 - EXT_T / 2, EXT_T, C.wallExt);
+  K1.wallZ(13, -18 + EXT_T / 2, 0 - EXT_T / 2, EXT_T, C.wallExt);
+  K1.wallX(-12, IX0, IX1, INT_T, C.wallpaperBed, [{ c: -8, w: 1.0, door: 'normal' }, { c: -0.5, w: 1.0, door: 'normal' }, { c: 5, w: 1.0, door: 'normal' }, { c: 10.5, w: 1.0, door: 'normal' }]);
+  K1.wallX(-5, IX0, IX1, INT_T, C.wallInt, [{ c: -8, w: 1.0, door: 'normal' }, { c: -1, w: 1.0, door: 'normal' }, { c: 9, w: 1.0, door: 'normal' }]);
+  R1.wallZ(-6, IZ0, -12, INT_T, C.wallpaperBed, [{ c: -15, w: 0.9, door: 'normal' }]);
+  R1.wallZ(-3, IZ0, -12, INT_T, C.wallInt);
+  R1.wallZ(2, IZ0, -12, INT_T, C.wallInt);
+  R1.wallZ(8, IZ0, -12, INT_T, C.wallInt);
   K1.wallZ(-9, -12, -5, INT_T, C.wallInt, [{ c: -7, w: 1.0, door: 'normal' }]);
   K1.wallZ(-7, -12, -5, INT_T, C.wallInt, [{ c: -6.2, w: 1.4 }]);
-  R1.wallZ(-5, -5, 0, INT_T, C.wallInt);
-  R1.wallZ(5, -5, 0, INT_T, C.wallInt);
+  R1.wallZ(-5, -5, IZ1, INT_T, C.wallInt);
+  R1.wallZ(5, -5, IZ1, INT_T, C.wallInt);
 
   // ---------- floors, the slab, the roof ----------
   S.box(-30, -0.1, -30, 30, 0, 36, C.grass);                                      // ground
-  S.box(H.minX, 0, H.minZ, H.maxX, 0.012, 0.15, C.planksB);                       // ground floor
-  S.box(4, 0, 0, H.maxX, 0.012, H.maxZ, C.stone);                                 // garage floor
+  // the floor boards stop inside the outer walls (no edge in a wall's plane); the garage's stone floor
+  // is its own piece, from the house's south wall to the garage's
+  const E = 0.001;   // the boards reach 1 mm into the walls: no edge in a wall's face, boards under every doorway
+  S.box(IX0 - E, 0, IZ0 - E, IX1 + E, 0.012, IZ1 + E, C.planksB);                 // ground floor
+  S.box(4 + EXT_T / 2, 0, 0.15, IX1, 0.011, H.maxZ - EXT_T, C.stone);             // garage floor
   const W = STAIRS.well, y1 = FLOOR_Y[1];
   // the floor-2 slab (ceiling of floor 1 / floor of floor 2) in four pieces around the stair well
   for (const [x0, z0, x1, z1] of [
-    [H.minX, H.minZ, H.maxX, W.minZ], [H.minX, W.maxZ, H.maxX, 0.15], [H.minX, W.minZ, W.minX, W.maxZ], [W.maxX, W.minZ, H.maxX, W.maxZ],
+    [IX0, IZ0, IX1, W.minZ], [IX0, W.maxZ, IX1, IZ1], [IX0, W.minZ, W.minX, W.maxZ], [W.maxX, W.minZ, IX1, W.maxZ],
   ]) S.box(x0, WALL_H, z0, x1, y1, z1, C.ceiling);
-  S.box(H.minX, y1, H.minZ, H.maxX, y1 + 0.012, 0.15, C.planksA);                  // upstairs floor (over the slab)
-  S.box(4, WALL_H, 0, H.maxX, WALL_H + 0.25, H.maxZ, C.roof);                      // garage roof
+  S.box(IX0 - E, y1, IZ0 - E, IX1 + E, y1 + 0.012, IZ1 + E, C.planksA);            // upstairs floor (over the slab)
+  S.box(4 + EXT_T / 2, WALL_H + 0.02, 0.15, IX1, WALL_H + 0.24, H.maxZ - EXT_T / 2, C.roof);   // garage roof (its own slab, 2 cm above the house's ceiling, 1 cm under the garage walls' tops)
+  S.box(4 + EXT_T / 2, WALL_H, -0.15, IX1, y1, 0.15, C.wallExt);                   // the beam under the upper south wall over the garage (the garage has no wall there)
   S.box(H.minX - 0.2, y1 + WALL_H, H.minZ - 0.2, H.maxX + 0.2, y1 + WALL_H + 0.25, 0.35, C.roof);   // flat roof
-  for (const [x0, z0, x1, z1] of [[H.minX - 0.2, H.minZ - 0.2, H.maxX + 0.2, H.minZ], [H.minX - 0.2, 0.15, H.maxX + 0.2, 0.35], [H.minX - 0.2, H.minZ, H.minX, 0.35], [H.maxX, H.minZ, H.maxX + 0.2, 0.35]]) {
-    S.box(x0, y1 + WALL_H + 0.25, z0, x1, y1 + WALL_H + 0.7, z1, C.wallExt);        // parapet
+  for (const [x0, z0, x1, z1] of [[H.minX - 0.2, H.minZ - 0.2, H.maxX + 0.2, H.minZ], [H.minX - 0.2, 0.15, H.maxX + 0.2, 0.35], [H.minX - 0.2, H.minZ, H.minX, 0.15], [H.maxX, H.minZ, H.maxX + 0.2, 0.15]]) {
+    S.box(x0, y1 + WALL_H + 0.25, z0, x1, y1 + WALL_H + 0.7, z1, C.wallExt);        // parapet (the sides between the ends)
   }
 
   // ---------- the stairs (plan-W6 §2.2): a ramp under visible steps ----------
@@ -147,12 +158,12 @@ export function buildMansion() {
     furniture.push({ minX: L.minX, minZ: L.minZ, maxX: L.maxX, maxZ: L.maxZ, h: L.y, top: null, floor: 0 });
     rail(0, F1.minX, F1.minZ, F1.minX, F1.maxZ);                                   // flight 1: no stepping off its west edge
     // upstairs: the well is fenced by a solid parapet 1 m high; the flights keep their rails
-    const par = (x0, z0, x1, z1, yb) => { S.box(Math.min(x0, x1) - 0.04, yb, Math.min(z0, z1) - 0.04, Math.max(x0, x1) + 0.04, yb + 1.0, Math.max(z0, z1) + 0.04, C.trim); rail(1, x0, z0, x1, z1); };
+    const par = (x0, z0, x1, z1, yb) => { S.box(Math.min(x0, x1) - 0.04, yb + 0.012, Math.min(z0, z1) - 0.04, Math.max(x0, x1) + 0.04, yb + 1.0, Math.max(z0, z1) + 0.04, C.trim); rail(1, x0, z0, x1, z1); };   // on the boards
     par(L.maxX, L.minZ, L.maxX, F2.maxZ - 0.6, y1);   // east edge of the landing and flight 2 (open for the last 0.6 m at the top, where it is at most 0.3 m below the gallery)
-    par(F1.minX, F1.maxZ, F1.maxX, F1.maxZ, y1);      // over the bottom of flight 1
+    { const x1 = F2.minX - 0.04 - 0.005; S.box(F1.minX - 0.04, y1 + 0.012, F1.maxZ - 0.04, x1, y1 + 1.0, F1.maxZ + 0.04, C.trim); rail(1, F1.minX, F1.maxZ, F1.maxX, F1.maxZ); }   // over the bottom of flight 1, up to the wall between the flights
     rail(1, L.minX, L.minZ, L.minX, F1.maxZ);          // west edge (the wall is just beyond); the north edge is the wall
-    // the wall between the flights, from the landing up
-    S.box(F2.minX - 0.04, L.y, F2.minZ, F2.minX + 0.04, y1 + 1.0, F2.maxZ, C.trim);
+    // the wall between the flights, from the landing up (1 cm short of the flights' ends and the parapet's top)
+    S.box(F2.minX - 0.04, L.y, F2.minZ + 0.01, F2.minX + 0.04, y1 + 1.0 - 0.01, F2.maxZ - 0.01, C.trim);
     rail(1, F2.minX, F2.minZ, F2.minX, F2.maxZ);
     // handrail posts along the flights
     for (let i = 0; i <= n; i += 2) {
@@ -164,9 +175,9 @@ export function buildMansion() {
   // ---------- balcony (upstairs, over the garden) ----------
   {
     const B = ROOMS.find((r) => r.name === TEXT.mansion.rooms.balcony);
-    S.box(B.minX, y1 - 0.15, B.minZ, B.maxX, y1 + 0.012, B.maxZ, C.stone);
-    for (const [x0, z0, x1, z1] of [[B.minX, B.maxZ, B.maxX, B.maxZ], [B.minX, B.minZ, B.minX, B.maxZ], [B.maxX, B.minZ, B.maxX, B.maxZ]]) {
-      S.box(Math.min(x0, x1) - 0.04, y1, Math.min(z0, z1) - 0.04, Math.max(x0, x1) + 0.04, y1 + 1.0, Math.max(z0, z1) + 0.04, C.trim);
+    S.box(B.minX, y1 - 0.15, 0.15, B.maxX, y1 + 0.002, B.maxZ, C.stone);   // from the outer wall; 1 cm under the floor boards' top
+    for (const [x0, z0, x1, z1] of [[B.minX, B.maxZ, B.maxX, B.maxZ], [B.minX, 0.15, B.minX, B.maxZ - 0.08], [B.maxX, 0.15, B.maxX, B.maxZ - 0.08]]) {
+      S.box(Math.min(x0, x1) - 0.04, y1, Math.min(z0, z1) - 0.04, Math.max(x0, x1) + 0.04, y1 + 1.0, Math.max(z0, z1) + 0.04, C.trim);   // the sides stop at the front one
       rail(1, x0, z0, x1, z1);
     }
     for (const x of [B.minX, B.maxX]) S.box(x - 0.08, 0, B.maxZ - 0.08, x + 0.08, y1, B.maxZ + 0.08, C.wallExt);   // posts under it
@@ -184,7 +195,7 @@ export function buildMansion() {
   {
     const c = CRATE, s = c.size;
     S0.box(c.x - s / 2, 0, c.z - s / 2, c.x + s / 2, s * 0.8, c.z + s / 2, C.woodLight);
-    for (const z of [c.z - s / 2, c.z + s / 2 - 0.06]) S0.box(c.x - s / 2, s * 0.3, z, c.x + s / 2, s * 0.36, z + 0.06, C.woodDark);
+    for (const z of [c.z - s / 2 - 0.005, c.z + s / 2 - 0.06]) S0.box(c.x - s / 2 - 0.005, s * 0.3, z, c.x + s / 2 + 0.005, s * 0.36, z + 0.065, C.woodDark);   // straps, 5 mm proud
     block(0, c.x - s / 2, c.z - s / 2, c.x + s / 2, c.z + s / 2, s * 0.85, null);
   }
 
@@ -199,7 +210,7 @@ export function buildMansion() {
 
   // ---------- garden and the alley ----------
   for (const [x0, z0, x1, z1] of [[LOT.minX, LOT.maxZ, LOT.maxX, LOT.maxZ], [LOT.minX, LOT.minZ, LOT.maxX, LOT.minZ], [LOT.minX, LOT.minZ, LOT.minX, LOT.maxZ], [LOT.maxX, LOT.minZ, LOT.maxX, LOT.maxZ]]) {
-    fence(S, solidOn(0), x0, z0, x1, z1);
+    fence(S, solidOn(0), x0, z0, x1, z1, x0 === x1);   // the Z sides: no corner posts of their own
   }
   const hedge = (x0, z0, x1, z1) => { S.box(x0, 0, z0, x1, 1.4, z1, C.leaves); block(0, x0, z0, x1, z1, 1.4, null); };
   hedge(-12, 5.5, -2, 6.5); hedge(2, 5.5, 12, 6.5); hedge(-16, 11.5, -8, 12.5); hedge(8, 11.5, 16, 12.5); hedge(-6, 17.5, 6, 18.5);
@@ -216,11 +227,11 @@ export function buildMansion() {
     block(0, gx - 0.5, gz - 0.5, gx + 0.5, gz + 0.5, 1.7, null);   // the heavy statue stands here (a loot item nobody can lift yet)
   }
   {   // shed (a hiding pocket with a door) and the greenhouse
-    const Ks = wallKit(S, solidOn(0), doorSpecs, 0, 0, 2.3);
-    Ks.wallX(18, -19, -15, 0.1, C.fence); Ks.wallX(21, -19, -15, 0.1, C.fence, [{ c: -17, w: 1.0, door: 'normal' }]); Ks.wallZ(-19, 18, 21, 0.1, C.fence); Ks.wallZ(-15, 18, 21, 0.1, C.fence);
-    S.box(-19.2, 2.3, 17.8, -14.8, 2.45, 21.2, C.roof);
+    const Ks = wallKit(S, solidOn(0), doorSpecs, 0, 0, 2.5, occluders);
+    Ks.wallX(18, -19, -15, 0.1, C.fence); Ks.wallX(21, -19, -15, 0.1, C.fence, [{ c: -17, w: 1.0, door: 'normal' }]); Ks.wallZ(-19, 18.05, 20.95, 0.1, C.fence); Ks.wallZ(-15, 18.05, 20.95, 0.1, C.fence);
+    S.box(-19.2, 2.5, 17.8, -14.8, 2.65, 21.2, C.roof);
     const Kg = wallKit(S, solidOn(0), [], 0, 0, 2.2);
-    Kg.wallX(6, 14, 19, 0.06, C.glass); Kg.wallX(10, 14, 19, 0.06, C.glass, [{ c: 16.5, w: 1.0 }]); Kg.wallZ(14, 6, 10, 0.06, C.glass); Kg.wallZ(19, 6, 10, 0.06, C.glass);
+    Kg.wallX(6, 14, 19, 0.06, C.glass); Kg.wallX(10, 14, 19, 0.06, C.glass, [{ c: 16.5, w: 1.0 }]); Kg.wallZ(14, 6.03, 9.97, 0.06, C.glass); Kg.wallZ(19, 6.03, 9.97, 0.06, C.glass);
     S.box(13.9, 2.2, 5.9, 19.1, 2.3, 10.1, C.glass);
   }
   for (const [x, z, s] of [[-18, -8, 1.1], [-18, 2, 0.9], [19, 24, 1], [-14, 26, 1.2], [6, 27, 0.9], [-19, 14, 0.8], [20, -18, 1]]) {   // trees
@@ -315,7 +326,8 @@ export function buildMansion() {
   }
 
   return {
-    id: 'mansion', group, doors, furniture, moon, glowMaterial: glowMesh.material, triangles,
+    id: 'mansion', group, doors, furniture, moon, glowMaterial: glowMesh.material, triangles, occluders,
+    outbuildings: [{ minX: -19, maxX: -15, minZ: 18, maxZ: 21 }],   // the shed: walls with a door outside the house
     world: worlds[0], walls: walls[0],   // as on the first map: the ground floor
     worlds, floors, rooms, links: LINKS, outside: OUTSIDE, house: HOUSE,
     spawn: SPAWN, board: BOARD, cargo: CARGO, dropZone: DROP, vanZone: VAN_ZONE, lights: LIGHTS, lamps: LAMPS, lampList: LAMP_LIST,

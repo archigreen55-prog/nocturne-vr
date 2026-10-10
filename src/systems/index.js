@@ -38,6 +38,7 @@ import { flashlight } from './flashlight.js';
 import { progressCode } from './progressCode.js';
 import { mapView } from './mapView.js';
 import { guards } from './guards.js';
+import { brightness } from './brightness.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -63,6 +64,7 @@ export const SYSTEMS = [
   progressCode,  // start screen: progress as a code, «Навчання ще раз»
   mapView,       // W6: the player's floor decides which rooms are drawn; the point lights follow the nearest lamps
   guards,        // W6: the second guard (its step of the frame, its lamp's mask) and the radio chatter between the two
+  brightness,    // display brightness and «Надворі» (phone, PC): the picture only
 ];
 
 export const PHASES = ['pre', 'input', 'act', 'world', 'result', 'present'];
