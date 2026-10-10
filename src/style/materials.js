@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { PAL } from './palette.js';
+import { quietRandom } from './quiet.js';
 
 const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('style') : null;
 export const STYLE_ON = q === 'off' ? false : q === 'on' ? true : loadSetting('style', CFG.style.on) !== false;
@@ -95,7 +96,7 @@ export function setZones(list) {
     }
   }
   if (!zoneTex) {
-    zoneTex = new THREE.DataTexture(data, ZW, ZW, THREE.RGBAFormat);
+    zoneTex = quietRandom(() => new THREE.DataTexture(data, ZW, ZW, THREE.RGBAFormat));   // made while playing: the game's random numbers untouched
     zoneTex.magFilter = zoneTex.minFilter = THREE.LinearFilter;
     zoneTex.colorSpace = THREE.NoColorSpace;
     styleUniforms.uStyleZoneTex.value = zoneTex;
