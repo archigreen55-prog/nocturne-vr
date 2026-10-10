@@ -68,8 +68,11 @@ export async function launch({ micWav } = {}) {
 // New context. three.js is served from vendor/ (the minified bundle) like on the site; abortVendor =
 // simulate it failing to load. Service workers are blocked unless sw: true (they would cache between
 // pages and keep requests away from the routes); the service-worker tests opt in.
-export async function newContext(browser, options = {}, { abortVendor = false, sw = false } = {}) {
+// W17 S3: the tests see every menu page at once and no splash (the old long start screen: every id where
+// it was); a test of the menu itself passes { menu: true } and gets what a player gets
+export async function newContext(browser, options = {}, { abortVendor = false, sw = false, menu = false } = {}) {
   const ctx = await browser.newContext({ serviceWorkers: sw ? 'allow' : 'block', ...options });
+  if (!menu) await ctx.addInitScript(() => { window.__NOCTURNE_TEST = { pages: 'all', splash: false }; });
   if (abortVendor) await ctx.route('**/vendor/**', (route) => route.abort('connectionrefused'));
   return ctx;
 }

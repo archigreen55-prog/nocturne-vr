@@ -98,7 +98,7 @@ test('another language is one file: src/i18n/xx.js picked with ?lang=xx and reme
     let { page, errors } = await open(ctx, site.base + '?lang=xx');
     assert.equal(await page.textContent('#start'), 'Play');
     assert.equal(await page.textContent('[data-t="start.h.mic"]'), '1. Microphone');
-    assert.equal(await page.textContent('[data-t="start.h.contract"]'), '2. Контракт', 'missing key: Ukrainian');
+    assert.equal(await page.textContent('[data-t="start.h.contract"]'), 'Контракт', 'missing key: Ukrainian');
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'xx');
     await page.tap('#start');
     await page.waitForFunction(() => window.__game.playing);

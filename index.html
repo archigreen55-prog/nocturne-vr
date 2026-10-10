@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Nocturne VR</title>
+<title>HUSH JOB VR</title>
 <link rel="icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
 <meta name="theme-color" content="#0a0f1c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Nocturne">
+<meta name="apple-mobile-web-app-title" content="HUSH JOB">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>
   // Errors from the very first moment, for the report and ?debug (a phone has no DevTools), and a
@@ -69,6 +69,10 @@
         box.querySelector('pre').textContent = errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`).join('\n');
         box.append(copy);
         document.getElementById('buttons').after(box);
+        // W17 S3: the start button lives on the «Грати» page; without the game's modules nothing opens it
+        const sec = btn.closest('section[data-page]');
+        if (sec) for (const s of document.querySelectorAll('#overlay section[data-page]')) s.hidden = s !== sec;
+        const sp = document.getElementById('splash'); if (sp) sp.remove();
       };
       if (document.readyState === 'loading') addEventListener('DOMContentLoaded', show); else show();
     }
@@ -118,8 +122,9 @@
   #privacylink { color: var(--accent); }
   #hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 13px; color: var(--muted); background: rgba(0, 0, 0, .5); padding: 4px 10px; border-radius: 6px; z-index: 5; display: none; }
 </style>
-<link rel="stylesheet" href="src/ui/phone.css?v=0.6.0-pre.9.style.8">
-<link rel="stylesheet" href="src/ui/tutorial.css?v=0.6.0-pre.9.style.8">
+<link rel="stylesheet" href="src/ui/phone.css?v=0.6.0-pre.9.style.9">
+<link rel="stylesheet" href="src/style/menu.css?v=0.6.0-pre.9.style.9">
+<link rel="stylesheet" href="src/ui/tutorial.css?v=0.6.0-pre.9.style.9">
 <script type="importmap">
 {
   "imports": {
@@ -129,143 +134,144 @@
     "trystero-nostr": "./vendor/trystero-nostr-0.25.4.min.js",
     "trystero-torrent": "./vendor/trystero-torrent-0.25.4.min.js",
     "qrcode-generator": "./vendor/qrcode-generator-2.0.4.min.js",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/distractSfx.js": "./src/audio/distractSfx.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/runSfx.js": "./src/audio/runSfx.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/stairSfx.js": "./src/audio/stairSfx.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/trapSfx.js": "./src/audio/trapSfx.js?v=0.6.0-pre.9.style.8",
-    "./src/audio/whisperSfx.js": "./src/audio/whisperSfx.js?v=0.6.0-pre.9.style.8",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.9.style.8",
-    "./src/config/contracts.js": "./src/config/contracts.js?v=0.6.0-pre.9.style.8",
-    "./src/config/devices.js": "./src/config/devices.js?v=0.6.0-pre.9.style.8",
-    "./src/config/difficulty.js": "./src/config/difficulty.js?v=0.6.0-pre.9.style.8",
-    "./src/config/doors.js": "./src/config/doors.js?v=0.6.0-pre.9.style.8",
-    "./src/config/guard.js": "./src/config/guard.js?v=0.6.0-pre.9.style.8",
-    "./src/config/index.js": "./src/config/index.js?v=0.6.0-pre.9.style.8",
-    "./src/config/items.js": "./src/config/items.js?v=0.6.0-pre.9.style.8",
-    "./src/config/mansion.js": "./src/config/mansion.js?v=0.6.0-pre.9.style.8",
-    "./src/config/maps.js": "./src/config/maps.js?v=0.6.0-pre.9.style.8",
-    "./src/config/mic.js": "./src/config/mic.js?v=0.6.0-pre.9.style.8",
-    "./src/config/net.js": "./src/config/net.js?v=0.6.0-pre.9.style.8",
-    "./src/config/noise.js": "./src/config/noise.js?v=0.6.0-pre.9.style.8",
-    "./src/config/player.js": "./src/config/player.js?v=0.6.0-pre.9.style.8",
-    "./src/config/round.js": "./src/config/round.js?v=0.6.0-pre.9.style.8",
-    "./src/config/shop.js": "./src/config/shop.js?v=0.6.0-pre.9.style.8",
-    "./src/config/sprint.js": "./src/config/sprint.js?v=0.6.0-pre.9.style.8",
-    "./src/config/story.js": "./src/config/story.js?v=0.6.0-pre.9.style.8",
-    "./src/config/style.js": "./src/config/style.js?v=0.6.0-pre.9.style.8",
-    "./src/config/throw.js": "./src/config/throw.js?v=0.6.0-pre.9.style.8",
-    "./src/config/traps.js": "./src/config/traps.js?v=0.6.0-pre.9.style.8",
-    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/flashWalls.js": "./src/enemies/flashWalls.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.9.style.8",
-    "./src/enemies/whisperer.js": "./src/enemies/whisperer.js?v=0.6.0-pre.9.style.8",
-    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.9.style.8",
-    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.9.style.8",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9.style.8",
-    "./src/game/economy.js": "./src/game/economy.js?v=0.6.0-pre.9.style.8",
-    "./src/game/mischief.js": "./src/game/mischief.js?v=0.6.0-pre.9.style.8",
-    "./src/game/players.js": "./src/game/players.js?v=0.6.0-pre.9.style.8",
-    "./src/game/progress.js": "./src/game/progress.js?v=0.6.0-pre.9.style.8",
-    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9.style.8",
-    "./src/game/run.js": "./src/game/run.js?v=0.6.0-pre.9.style.8",
-    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9.style.8",
-    "./src/game/story.js": "./src/game/story.js?v=0.6.0-pre.9.style.8",
-    "./src/i18n/index.js": "./src/i18n/index.js?v=0.6.0-pre.9.style.8",
-    "./src/i18n/name.js": "./src/i18n/name.js?v=0.6.0-pre.9.style.8",
-    "./src/i18n/uk.js": "./src/i18n/uk.js?v=0.6.0-pre.9.style.8",
-    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9.style.8",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9.style.8",
-    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9.style.8",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.9.style.8",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.9.style.8",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.9.style.8",
-    "./src/loot/throw.js": "./src/loot/throw.js?v=0.6.0-pre.9.style.8",
-    "./src/main.js": "./src/main.js?v=0.6.0-pre.9.style.8",
-    "./src/net/remotePlayer.js": "./src/net/remotePlayer.js?v=0.6.0-pre.9.style.8",
-    "./src/net/room.js": "./src/net/room.js?v=0.6.0-pre.9.style.8",
-    "./src/net/sync.js": "./src/net/sync.js?v=0.6.0-pre.9.style.8",
-    "./src/net/transport.js": "./src/net/transport.js?v=0.6.0-pre.9.style.8",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.9.style.8",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.9.style.8",
-    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.9.style.8",
-    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.9.style.8",
-    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.9.style.8",
-    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.9.style.8",
-    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.9.style.8",
-    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.9.style.8",
-    "./src/style/anim.js": "./src/style/anim.js?v=0.6.0-pre.9.style.8",
-    "./src/style/decor.js": "./src/style/decor.js?v=0.6.0-pre.9.style.8",
-    "./src/style/figures.js": "./src/style/figures.js?v=0.6.0-pre.9.style.8",
-    "./src/style/ink.js": "./src/style/ink.js?v=0.6.0-pre.9.style.8",
-    "./src/style/materials.js": "./src/style/materials.js?v=0.6.0-pre.9.style.8",
-    "./src/style/palette.js": "./src/style/palette.js?v=0.6.0-pre.9.style.8",
-    "./src/style/quiet.js": "./src/style/quiet.js?v=0.6.0-pre.9.style.8",
-    "./src/style/sheet.js": "./src/style/sheet.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/board.js": "./src/systems/board.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/brightness.js": "./src/systems/brightness.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/contract.js": "./src/systems/contract.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/controls.js": "./src/systems/controls.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/debugApi.js": "./src/systems/debugApi.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/desktop.js": "./src/systems/desktop.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/distract.js": "./src/systems/distract.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/doors.js": "./src/systems/doors.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/economy.js": "./src/systems/economy.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/flashlight.js": "./src/systems/flashlight.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/flatScreen.js": "./src/systems/flatScreen.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/guards.js": "./src/systems/guards.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/heist.js": "./src/systems/heist.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/index.js": "./src/systems/index.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/mapView.js": "./src/systems/mapView.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/messages.js": "./src/systems/messages.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/net.js": "./src/systems/net.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/panel.js": "./src/systems/panel.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/phone.js": "./src/systems/phone.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/player.js": "./src/systems/player.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/progressCode.js": "./src/systems/progressCode.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/render.js": "./src/systems/render.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/rig.js": "./src/systems/rig.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/sprint.js": "./src/systems/sprint.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/startScreen.js": "./src/systems/startScreen.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/state.js": "./src/systems/state.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/stats.js": "./src/systems/stats.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/story.js": "./src/systems/story.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/style.js": "./src/systems/style.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/traps.js": "./src/systems/traps.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/tutorial.js": "./src/systems/tutorial.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/vr.js": "./src/systems/vr.js?v=0.6.0-pre.9.style.8",
-    "./src/systems/world.js": "./src/systems/world.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/tutorial.js": "./src/ui/tutorial.js?v=0.6.0-pre.9.style.8",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.9.style.8",
-    "./src/version.js": "./src/version.js?v=0.6.0-pre.9.style.8",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.9.style.8",
-    "./src/world/devices.js": "./src/world/devices.js?v=0.6.0-pre.9.style.8",
-    "./src/world/floors.js": "./src/world/floors.js?v=0.6.0-pre.9.style.8",
-    "./src/world/kit.js": "./src/world/kit.js?v=0.6.0-pre.9.style.8",
-    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.9.style.8",
-    "./src/world/mansion/furniture.js": "./src/world/mansion/furniture.js?v=0.6.0-pre.9.style.8",
-    "./src/world/mansion/layout.js": "./src/world/mansion/layout.js?v=0.6.0-pre.9.style.8",
-    "./src/world/mansion/level.js": "./src/world/mansion/level.js?v=0.6.0-pre.9.style.8",
-    "./src/world/maps.js": "./src/world/maps.js?v=0.6.0-pre.9.style.8",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.9.style.8"
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/distractSfx.js": "./src/audio/distractSfx.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/runSfx.js": "./src/audio/runSfx.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/stairSfx.js": "./src/audio/stairSfx.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/trapSfx.js": "./src/audio/trapSfx.js?v=0.6.0-pre.9.style.9",
+    "./src/audio/whisperSfx.js": "./src/audio/whisperSfx.js?v=0.6.0-pre.9.style.9",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.9.style.9",
+    "./src/config/contracts.js": "./src/config/contracts.js?v=0.6.0-pre.9.style.9",
+    "./src/config/devices.js": "./src/config/devices.js?v=0.6.0-pre.9.style.9",
+    "./src/config/difficulty.js": "./src/config/difficulty.js?v=0.6.0-pre.9.style.9",
+    "./src/config/doors.js": "./src/config/doors.js?v=0.6.0-pre.9.style.9",
+    "./src/config/guard.js": "./src/config/guard.js?v=0.6.0-pre.9.style.9",
+    "./src/config/index.js": "./src/config/index.js?v=0.6.0-pre.9.style.9",
+    "./src/config/items.js": "./src/config/items.js?v=0.6.0-pre.9.style.9",
+    "./src/config/mansion.js": "./src/config/mansion.js?v=0.6.0-pre.9.style.9",
+    "./src/config/maps.js": "./src/config/maps.js?v=0.6.0-pre.9.style.9",
+    "./src/config/mic.js": "./src/config/mic.js?v=0.6.0-pre.9.style.9",
+    "./src/config/net.js": "./src/config/net.js?v=0.6.0-pre.9.style.9",
+    "./src/config/noise.js": "./src/config/noise.js?v=0.6.0-pre.9.style.9",
+    "./src/config/player.js": "./src/config/player.js?v=0.6.0-pre.9.style.9",
+    "./src/config/round.js": "./src/config/round.js?v=0.6.0-pre.9.style.9",
+    "./src/config/shop.js": "./src/config/shop.js?v=0.6.0-pre.9.style.9",
+    "./src/config/sprint.js": "./src/config/sprint.js?v=0.6.0-pre.9.style.9",
+    "./src/config/story.js": "./src/config/story.js?v=0.6.0-pre.9.style.9",
+    "./src/config/style.js": "./src/config/style.js?v=0.6.0-pre.9.style.9",
+    "./src/config/throw.js": "./src/config/throw.js?v=0.6.0-pre.9.style.9",
+    "./src/config/traps.js": "./src/config/traps.js?v=0.6.0-pre.9.style.9",
+    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/flashWalls.js": "./src/enemies/flashWalls.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.9.style.9",
+    "./src/enemies/whisperer.js": "./src/enemies/whisperer.js?v=0.6.0-pre.9.style.9",
+    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.9.style.9",
+    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.9.style.9",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.9.style.9",
+    "./src/game/economy.js": "./src/game/economy.js?v=0.6.0-pre.9.style.9",
+    "./src/game/mischief.js": "./src/game/mischief.js?v=0.6.0-pre.9.style.9",
+    "./src/game/players.js": "./src/game/players.js?v=0.6.0-pre.9.style.9",
+    "./src/game/progress.js": "./src/game/progress.js?v=0.6.0-pre.9.style.9",
+    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.9.style.9",
+    "./src/game/run.js": "./src/game/run.js?v=0.6.0-pre.9.style.9",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.9.style.9",
+    "./src/game/story.js": "./src/game/story.js?v=0.6.0-pre.9.style.9",
+    "./src/i18n/index.js": "./src/i18n/index.js?v=0.6.0-pre.9.style.9",
+    "./src/i18n/name.js": "./src/i18n/name.js?v=0.6.0-pre.9.style.9",
+    "./src/i18n/uk.js": "./src/i18n/uk.js?v=0.6.0-pre.9.style.9",
+    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.9.style.9",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.9.style.9",
+    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.9.style.9",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.9.style.9",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.9.style.9",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.9.style.9",
+    "./src/loot/throw.js": "./src/loot/throw.js?v=0.6.0-pre.9.style.9",
+    "./src/main.js": "./src/main.js?v=0.6.0-pre.9.style.9",
+    "./src/net/remotePlayer.js": "./src/net/remotePlayer.js?v=0.6.0-pre.9.style.9",
+    "./src/net/room.js": "./src/net/room.js?v=0.6.0-pre.9.style.9",
+    "./src/net/sync.js": "./src/net/sync.js?v=0.6.0-pre.9.style.9",
+    "./src/net/transport.js": "./src/net/transport.js?v=0.6.0-pre.9.style.9",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.9.style.9",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.9.style.9",
+    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.9.style.9",
+    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.9.style.9",
+    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.9.style.9",
+    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.9.style.9",
+    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.9.style.9",
+    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.9.style.9",
+    "./src/style/anim.js": "./src/style/anim.js?v=0.6.0-pre.9.style.9",
+    "./src/style/decor.js": "./src/style/decor.js?v=0.6.0-pre.9.style.9",
+    "./src/style/figures.js": "./src/style/figures.js?v=0.6.0-pre.9.style.9",
+    "./src/style/ink.js": "./src/style/ink.js?v=0.6.0-pre.9.style.9",
+    "./src/style/materials.js": "./src/style/materials.js?v=0.6.0-pre.9.style.9",
+    "./src/style/palette.js": "./src/style/palette.js?v=0.6.0-pre.9.style.9",
+    "./src/style/quiet.js": "./src/style/quiet.js?v=0.6.0-pre.9.style.9",
+    "./src/style/sheet.js": "./src/style/sheet.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/board.js": "./src/systems/board.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/brightness.js": "./src/systems/brightness.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/contract.js": "./src/systems/contract.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/controls.js": "./src/systems/controls.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/debugApi.js": "./src/systems/debugApi.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/desktop.js": "./src/systems/desktop.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/distract.js": "./src/systems/distract.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/doors.js": "./src/systems/doors.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/economy.js": "./src/systems/economy.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/flashlight.js": "./src/systems/flashlight.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/flatScreen.js": "./src/systems/flatScreen.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/guards.js": "./src/systems/guards.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/heist.js": "./src/systems/heist.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/index.js": "./src/systems/index.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/mapView.js": "./src/systems/mapView.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/menu.js": "./src/systems/menu.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/messages.js": "./src/systems/messages.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/net.js": "./src/systems/net.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/panel.js": "./src/systems/panel.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/phone.js": "./src/systems/phone.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/player.js": "./src/systems/player.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/progressCode.js": "./src/systems/progressCode.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/render.js": "./src/systems/render.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/rig.js": "./src/systems/rig.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/sprint.js": "./src/systems/sprint.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/startScreen.js": "./src/systems/startScreen.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/state.js": "./src/systems/state.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/stats.js": "./src/systems/stats.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/story.js": "./src/systems/story.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/style.js": "./src/systems/style.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/traps.js": "./src/systems/traps.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/tutorial.js": "./src/systems/tutorial.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/vr.js": "./src/systems/vr.js?v=0.6.0-pre.9.style.9",
+    "./src/systems/world.js": "./src/systems/world.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/tutorial.js": "./src/ui/tutorial.js?v=0.6.0-pre.9.style.9",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.9.style.9",
+    "./src/version.js": "./src/version.js?v=0.6.0-pre.9.style.9",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.9.style.9",
+    "./src/world/devices.js": "./src/world/devices.js?v=0.6.0-pre.9.style.9",
+    "./src/world/floors.js": "./src/world/floors.js?v=0.6.0-pre.9.style.9",
+    "./src/world/kit.js": "./src/world/kit.js?v=0.6.0-pre.9.style.9",
+    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.9.style.9",
+    "./src/world/mansion/furniture.js": "./src/world/mansion/furniture.js?v=0.6.0-pre.9.style.9",
+    "./src/world/mansion/layout.js": "./src/world/mansion/layout.js?v=0.6.0-pre.9.style.9",
+    "./src/world/mansion/level.js": "./src/world/mansion/level.js?v=0.6.0-pre.9.style.9",
+    "./src/world/maps.js": "./src/world/maps.js?v=0.6.0-pre.9.style.9",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.9.style.9"
   }
 }
 </script>
@@ -274,7 +280,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.6.0-pre.9.style.8';
+    const PAGE_VERSION = '0.6.0-pre.9.style.9';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -286,13 +292,69 @@
 </script>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><div class="logo"><span class="hush">HUSH</span> <span class="job">JOB</span><div class="beam"></div></div><div class="lamp"></div><p id="splashload"></p></div>
+<div id="micask" hidden><div class="box" role="dialog" aria-modal="true">
+  <h2 data-t="menu2.ask.title"></h2>
+  <p data-t="menu2.ask.text"></p>
+  <div class="row"><button id="askyes" class="primary" data-t="menu2.ask.yes"></button><button id="asklater" data-t="menu2.ask.later"></button><button id="asknone" data-t="menu2.ask.none"></button></div>
+</div></div>
 <div id="overlay"><div class="card">
-  <h1 data-game-name></h1>
-  <p class="muted" data-t-html="start.intro"></p>
+  <section data-page="menu">
+    <div class="mm-logo"><h1 class="logo"><span class="hush">HUSH</span> <span class="job">JOB</span><span class="beam"></span></h1></div>
+    <nav class="mm-nav" id="mmnav">
+      <button class="mm primary" data-go="play"><span data-t="menu2.play"></span></button>
+      <button class="mm" data-go="friends"><span data-t="menu2.friends"></span></button>
+      <button class="mm" data-go="shop"><span data-t="menu2.shop"></span><span class="mm-note" id="mmwallet"></span></button>
+      <button class="mm" data-go="lurkers"><span data-t="menu2.lurkers"></span><span class="mm-note" id="mmlurkers"></span></button>
+      <button class="mm" data-go="settings"><span data-t="menu2.settings"></span></button>
+    </nav>
+    <p class="mm-mic" id="mmmic" hidden><span data-t="menu2.mic.line"></span><button data-go="settings" data-t="menu2.mic.setup"></button></p>
+    <p class="mm-foot"><span id="version"></span><a id="privacylink" href="privacy.html" target="_blank" rel="noopener" data-t="privacy.link"></a></p>
+  </section>
 
-  <p id="modeline" class="muted"></p>
+  <section data-page="play" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.play"></h2></header>
+    <h3 data-t="start.h.contract"></h3>
+    <div id="settings" style="margin-top:4px">
+      <label><span data-t="start.label.contract"></span><select id="contract"></select></label>
+      <label><span data-t="start.label.difficulty"></span><select id="difficulty"><option value="easy" data-t="difficulty.easy"></option><option value="medium" data-t="difficulty.medium"></option><option value="hard" data-t="difficulty.hard"></option></select></label>
+    </div>
+    <p class="muted" id="contractinfo"></p>
+    <p class="muted" id="walletline"></p>
+    <div id="buttons"><button id="start" class="primary" disabled>Завантаження…</button></div>
+    <p class="row" style="font-size:14px"><span id="playmic"></span><button id="playmicgo" data-go="settings" data-t="menu2.mic.setup"></button></p>
+    <div class="row phone-only"><button id="phonehome" data-t="menu.home"></button><button id="phonenew" data-t="menu.newRound"></button></div>
+    <p class="muted" data-t="start.standing"></p>
+    <h3 data-t="start.h.hide"></h3>
+    <p class="muted" style="font-size:14px; color:#c9d3e3" data-t-html="start.hideHow"></p>
+    <p class="muted" data-t-html="start.intro"></p>
+  </section>
 
-  <h2 data-t="start.h.mic"></h2>
+  <section data-page="friends" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.friends"></h2></header>
+    <div id="netbox"></div>
+  </section>
+
+  <section data-page="shop" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.shop"></h2></header>
+    <p id="shopwallet" style="color:var(--lamp);font-weight:700"></p>
+    <p class="muted" data-t="menu2.shopNote"></p>
+    <div id="shoplist"></div>
+  </section>
+
+  <section data-page="lurkers" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.lurkers"></h2></header>
+    <p class="muted" id="lurkercount"></p>
+    <div class="cards" id="lurkerlist"></div>
+    <p class="muted" id="lurkernomic" hidden data-t="lurkers.noMic"></p>
+    <h3 data-t="notes.title"></h3>
+    <p class="muted" id="papercount"></p>
+    <div class="cards" id="paperlist"></div>
+  </section>
+
+  <section data-page="settings" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.settings"></h2></header>
+    <h3 data-t="start.h.mic"></h3>
   <div id="micbox">
     <p id="michold" class="phone-only muted" style="margin-top:0"></p>
     <div class="row">
@@ -303,7 +365,6 @@
     </div>
     <div id="michelp" class="muted"></div>
     <div id="micnote" style="font-size:13px;color:var(--warn)"></div>
-    <div id="recstate" class="muted"></div>
     <div id="calstep"></div>
     <div class="row phone-only"><button id="verifybtn" disabled data-t="start.verifyButton"></button><button id="soundtest" data-t="start.soundTest"></button></div>
     <div id="verifyres" style="font-size:14px"></div>
@@ -312,64 +373,39 @@
       <div id="meter"><div class="zone" id="zq"></div><div class="zone" id="zn"></div><div class="zone" id="zs"></div><div class="fill" id="fill"></div><div class="tick" id="tw"></div><div class="tick" id="ts"></div></div>
       <span id="level"></span>
     </div>
-    <div id="shoutrow" style="display:none">
-      <!-- ± buttons, not sliders: on a phone a page swipe that starts on a slider moves it -->
-      <div class="row"><label style="min-width:230px"><span data-t="start.whisperLimit"></span><b id="whisperdb"></b></label>
-        <button class="adj" id="wdn" aria-label="" data-t-attr="aria-label:start.aria.whisperDown">−</button><button class="adj" id="wup" aria-label="" data-t-attr="aria-label:start.aria.whisperUp">+</button>
-        <span class="muted" data-t="start.whisperHint"></span></div>
-      <div class="row"><label style="min-width:230px"><span data-t="start.shoutLimit"></span><b id="shoutdb"></b></label>
-        <button class="adj" id="sdn" aria-label="" data-t-attr="aria-label:start.aria.shoutDown">−</button><button class="adj" id="sup" aria-label="" data-t-attr="aria-label:start.aria.shoutUp">+</button>
-        <span class="muted" data-t="start.shoutHint"></span></div>
-      <div class="row"><button id="adjreset" data-t="start.adjReset"></button><span id="adjnote" class="muted"></span></div>
-    </div>
     <p class="muted" data-t-html="start.calibInfo"></p>
   </div>
 
-  <h2 data-t="start.h.contract"></h2>
-  <div id="settings" style="margin-top:4px">
-    <label><span data-t="start.label.contract"></span><select id="contract"></select></label>
-    <label><span data-t="start.label.difficulty"></span><select id="difficulty"><option value="easy" data-t="difficulty.easy"></option><option value="medium" data-t="difficulty.medium"></option><option value="hard" data-t="difficulty.hard"></option></select></label>
-  </div>
-  <p class="muted" id="contractinfo"></p>
-  <p class="muted" id="walletline"></p>
-  <label id="openall" hidden><input type="checkbox" id="openallcb"> <span data-t="shop.openAll"></span></label>
-
-  <h2 data-t="start.h.play"></h2>
-  <div id="buttons"><button id="start" class="primary" disabled>Завантаження…</button></div>
-  <div id="netbox"></div>
-  <div id="settings">
-    <label class="pc-only"><span data-t="start.label.vignette"></span><select id="vignette"></select></label>
-    <label class="pc-only"><span data-t="start.label.snap"></span><select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
-    <label class="pc-only"><span data-t="sprint.vrLabel"></span><select id="vrrun"></select></label>
-    <label class="phone-only"><span data-t="start.label.look"></span><select id="lookspeed"><option value="slow" data-t="settings.look.slow"></option><option value="normal" data-t="settings.look.normal"></option><option value="fast" data-t="settings.look.fast"></option></select></label>
-    <label class="phone-only"><span data-t="start.label.hud"></span><select id="hudmode"><option value="full" data-t="settings.hud.full"></option><option value="min" data-t="settings.hud.min"></option></select></label>
-    <label class="phone-only"><span data-t="start.label.fx"></span><select id="feedback"><option value="auto" data-t="settings.fx.auto"></option><option value="flash" data-t="settings.fx.flash"></option><option value="off" data-t="settings.fx.off"></option></select></label>
-    <label><span data-t="style.label"></span><select id="stylesel"><option value="on" data-t="style.on"></option><option value="off" data-t="style.off"></option></select></label>
-    <label class="phone-only"><span data-t="start.label.quality"></span><select id="quality"><option value="auto" data-t="settings.quality.auto"></option><option value="low" data-t="quality.low"></option><option value="medium" data-t="quality.medium"></option><option value="high" data-t="quality.high"></option></select></label>
-    <label class="phone-only"><span data-t="start.label.fps"></span><select id="fpscap"><option value="60" data-t="settings.fps.fps60"></option><option value="30" data-t="settings.fps.fps30"></option></select></label>
-    <label class="phone-only"><span data-t="start.label.breath"></span><select id="breathmode"><option value="hold" data-t="settings.breath.hold"></option><option value="toggle" data-t="settings.breath.toggle"></option></select></label>
-  </div>
-  <div class="row phone-only"><button id="gyrobtn" data-t="start.gyroOff"></button><span id="qualitynote" class="muted"></span></div>
-  <div class="row phone-only"><button id="phonehome" data-t="menu.home"></button><button id="phonenew" data-t="menu.newRound"></button></div>
-  <div class="row" id="brightrow"><span data-t="bright.label"></span> <b id="brightval"></b>
-    <button class="adj" id="brightdn" aria-label="" data-t-attr="aria-label:bright.down">−</button><button class="adj" id="brightup" aria-label="" data-t-attr="aria-label:bright.up">+</button>
-    <button id="outdoorbtn"></button></div>
-  <p class="muted" id="brighthint"></p>
-  <div class="row" id="extrarow"><button id="tutorialbtn" data-t="tutorial.again"></button><button id="progbtn" data-t="progress.button"></button></div>
+    <h3 data-t="menu2.group.controls"></h3>
+    <div id="settings">
+      <label class="pc-only"><span data-t="start.label.vignette"></span><select id="vignette"></select></label>
+      <label class="pc-only"><span data-t="start.label.snap"></span><select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
+      <label class="pc-only"><span data-t="sprint.vrLabel"></span><select id="vrrun"></select></label>
+      <label class="phone-only"><span data-t="start.label.look"></span><select id="lookspeed"><option value="slow" data-t="settings.look.slow"></option><option value="normal" data-t="settings.look.normal"></option><option value="fast" data-t="settings.look.fast"></option></select></label>
+      <label class="phone-only"><span data-t="start.label.breath"></span><select id="breathmode"><option value="hold" data-t="settings.breath.hold"></option><option value="toggle" data-t="settings.breath.toggle"></option></select></label>
+    </div>
+    <div class="row phone-only"><button id="gyrobtn" data-t="start.gyroOff"></button></div>
+    <h3 data-t="menu2.group.screen"></h3>
+    <div class="row" id="brightrow"><span data-t="bright.label"></span> <b id="brightval"></b>
+      <button class="adj" id="brightdn" aria-label="" data-t-attr="aria-label:bright.down">−</button><button class="adj" id="brightup" aria-label="" data-t-attr="aria-label:bright.up">+</button>
+      <button id="outdoorbtn"></button></div>
+    <p class="muted" id="brighthint"></p>
+    <div class="row phone-only" style="gap:8px 24px;font-size:14px">
+      <label><span data-t="start.label.hud"></span><select id="hudmode"><option value="full" data-t="settings.hud.full"></option><option value="min" data-t="settings.hud.min"></option></select></label>
+      <label><span data-t="start.label.fx"></span><select id="feedback"><option value="auto" data-t="settings.fx.auto"></option><option value="flash" data-t="settings.fx.flash"></option><option value="off" data-t="settings.fx.off"></option></select></label>
+    </div>
+    <h3 data-t="menu2.group.more"></h3>
+    <div class="row" id="extrarow"><button id="tutorialbtn" data-t="tutorial.again"></button><button id="progbtn" data-t="progress.button"></button></div>
   <div id="progress" hidden>
     <p class="muted" data-t="progress.about"></p>
     <div class="row"><button id="progexport" data-t="progress.export"></button><button id="progimport" data-t="progress.import"></button></div>
     <textarea id="progcode" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" hidden></textarea>
     <div class="row"><button id="progapply" data-t="progress.apply" hidden></button><span id="prognote" class="muted"></span></div>
   </div>
-  <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden data-t="start.install"></button><span id="installnote" class="muted"></span></div>
-  <p class="muted" data-t="start.standing"></p>
-
-  <h2 data-t="start.h.hide"></h2>
-  <p class="muted" style="font-size:14px; color:#c9d3e3" data-t-html="start.hideHow"></p>
-
+    <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden data-t="start.install"></button><span id="installnote" class="muted"></span></div>
+    <div class="row"><button class="mm" data-go="testers" style="font-size:14px"><span data-t="menu2.testers"></span></button></div>
   <div class="phone-only">
-  <h2 data-t="start.h.phone"></h2>
+  <h3 data-t="start.h.phone"></h3>
   <table>
     <tr><td data-t="controls.phone.k1"></td><td data-t="controls.phone.v1"></td></tr>
     <tr><td data-t="controls.phone.k2"></td><td data-t="controls.phone.v2"></td></tr>
@@ -382,7 +418,7 @@
   </table>
   </div>
   <div class="controls pc-only"><div>
-  <h2 data-t="start.h.quest"></h2>
+  <h3 data-t="start.h.quest"></h3>
   <table>
     <tr><td data-t="controls.vr.k1"></td><td data-t="controls.vr.v1"></td></tr>
     <tr><td data-t="controls.vr.k2"></td><td data-t="controls.vr.v2"></td></tr>
@@ -399,7 +435,7 @@
     <tr><td data-t="controls.vr.k13"></td><td data-t="controls.vr.v13"></td></tr>
   </table>
   </div><div>
-  <h2 data-t="start.h.keyboard"></h2>
+  <h3 data-t="start.h.keyboard"></h3>
   <table>
     <tr><td data-t="controls.pc.k1"></td><td data-t="controls.pc.v1"></td></tr>
     <tr><td data-t="controls.pc.k2"></td><td data-t="controls.pc.v2"></td></tr>
@@ -411,9 +447,35 @@
     <tr><td data-t="controls.pc.k8"></td><td data-t="controls.pc.v8"></td></tr>
   </table>
   </div></div>
-  <div class="row" style="margin-top:12px"><button id="report" data-t="menu.report"></button><span class="muted" data-t="start.reportHint"></span></div>
-  <p class="muted"><a id="privacylink" href="privacy.html" target="_blank" rel="noopener" data-t="privacy.link"></a></p>
-  <div id="version"></div>
+  </section>
+
+  <section data-page="testers" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.testers"></h2></header>
+    <div class="row" style="margin-top:12px"><button id="report" data-t="menu.report"></button><span class="muted" data-t="start.reportHint"></span></div>
+    <div class="row" style="gap:8px 24px;font-size:14px">
+      <label><span data-t="style.label"></span><select id="stylesel"><option value="on" data-t="style.on"></option><option value="off" data-t="style.off"></option></select></label>
+      <label class="phone-only"><span data-t="start.label.quality"></span><select id="quality"><option value="auto" data-t="settings.quality.auto"></option><option value="low" data-t="quality.low"></option><option value="medium" data-t="quality.medium"></option><option value="high" data-t="quality.high"></option></select></label>
+      <label class="phone-only"><span data-t="start.label.fps"></span><select id="fpscap"><option value="60" data-t="settings.fps.fps60"></option><option value="30" data-t="settings.fps.fps30"></option></select></label>
+    </div>
+    <p class="muted phone-only" id="qualitynote"></p>
+    <label id="openall" hidden><input type="checkbox" id="openallcb"> <span data-t="shop.openAll"></span></label>
+    <h3 data-t="menu2.group.micMore"></h3>
+    <div id="micmore">
+    <div id="recstate" class="muted"></div>
+    <div id="shoutrow" style="display:none">
+      <!-- ± buttons, not sliders: on a phone a page swipe that starts on a slider moves it -->
+      <div class="row"><label style="min-width:230px"><span data-t="start.whisperLimit"></span><b id="whisperdb"></b></label>
+        <button class="adj" id="wdn" aria-label="" data-t-attr="aria-label:start.aria.whisperDown">−</button><button class="adj" id="wup" aria-label="" data-t-attr="aria-label:start.aria.whisperUp">+</button>
+        <span class="muted" data-t="start.whisperHint"></span></div>
+      <div class="row"><label style="min-width:230px"><span data-t="start.shoutLimit"></span><b id="shoutdb"></b></label>
+        <button class="adj" id="sdn" aria-label="" data-t-attr="aria-label:start.aria.shoutDown">−</button><button class="adj" id="sup" aria-label="" data-t-attr="aria-label:start.aria.shoutUp">+</button>
+        <span class="muted" data-t="start.shoutHint"></span></div>
+      <div class="row"><button id="adjreset" data-t="start.adjReset"></button><span id="adjnote" class="muted"></span></div>
+    </div>
+    </div>
+    <h3 data-t="menu2.group.diag"></h3>
+    <p id="modeline" class="muted"></p>
+  </section>
 </div></div>
 <div id="debug"></div>
 <div id="hint" data-t="start.pcHint"></div>
@@ -424,6 +486,32 @@
 <div id="summary" hidden></div>
 <div id="pausemenu" hidden></div>
 <div id="rotate" data-t-html="rotate"></div>
-<script type="module" src="src/main.js?v=0.6.0-pre.9.style.8"></script>
+<script>
+  // W17 S3: the splash (2.5 s, 1 s with reduced motion) is also the loading screen: it stays until the game
+  // is up, with «Завантаження…» under the logo; a tap or a key skips it. None with an invitation (?room=),
+  // a page link (?page=), ?nosplash=1 or in the tests (tests/harness.mjs; ?splash=1 brings it back).
+  {
+    const sp = document.getElementById('splash'), q = new URLSearchParams(location.search), T = window.__NOCTURNE_TEST || {};
+    const skip = q.has('room') || q.has('page') || q.get('nosplash') === '1' || (T.splash === false && q.get('splash') !== '1');
+    const done = () => {
+      if (window.__splashDone) return;
+      window.__splashDone = true;
+      dispatchEvent(new Event('splashdone'));
+      if (!sp.isConnected) return;
+      sp.classList.add('out'); setTimeout(() => sp.remove(), 320);
+    };
+    if (skip) { sp.remove(); window.__splashDone = true; }
+    else {
+      let min = false;
+      const ready = () => window.__game || document.getElementById('bootfail');
+      const tick = () => { if (ready()) done(); else setTimeout(tick, 150); };
+      setTimeout(() => { min = true; if (!ready()) document.getElementById('splashload').textContent = document.getElementById('start').textContent; tick(); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 1000 : 2500);
+      const skipNow = () => { if (ready()) done(); else if (!min) { min = true; document.getElementById('splashload').textContent = document.getElementById('start').textContent; tick(); } };
+      sp.addEventListener('pointerdown', skipNow);
+      addEventListener('keydown', skipNow, { once: true });
+    }
+  }
+</script>
+<script type="module" src="src/main.js?v=0.6.0-pre.9.style.9"></script>
 </body>
 </html>

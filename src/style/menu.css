@@ -1,0 +1,122 @@
+/* W17 «Стиль» S3 (plan-W17-style.md §3): the way into the game — the splash, the main menu and its pages,
+   the first-run microphone card, the pause menu's look. The palette's tokens (src/style/palette.js); the
+   headings' font Unbounded 800 (SIL OFL, fonts/OFL.txt), offline, Cyrillic + Latin subsets. */
+@font-face { font-family: 'Unbounded'; font-style: normal; font-weight: 800; font-display: swap;
+  src: url(../../fonts/unbounded-cyrillic-800.woff2) format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+@font-face { font-family: 'Unbounded'; font-style: normal; font-weight: 800; font-display: swap;
+  src: url(../../fonts/unbounded-latin-800.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+:root {
+  --night: #0d1322; --dusk: #18223a; --lamp: #ffb347; --alarm: #ff5468; --whisper: #7fd0ff; --paper: #efe6d4; --ink2: #05070d;
+  --head: 'Unbounded', system-ui, sans-serif;
+  --stamp: 2px 0 var(--ink2), -2px 0 var(--ink2), 0 2px var(--ink2), 0 -2px var(--ink2), 2px 2px var(--ink2), -2px -2px var(--ink2), 2px -2px var(--ink2), -2px 2px var(--ink2);
+}
+/* the menu and the pause menu take the palette (the HUD keeps its colours until S4) */
+#overlay, #pausemenu, #micask { --accent: var(--whisper); --warn: var(--lamp); --bad: var(--alarm); --card: rgba(24, 34, 58, .97); }
+
+/* ---------- the logo: HUSH in paper, JOB in the lamp's colour, an ink outline and a stamp's shadow ---------- */
+.logo { font: 800 44px/1 var(--head); letter-spacing: .02em; white-space: nowrap; position: relative; display: inline-block; }
+.logo .hush { color: var(--paper); text-shadow: var(--stamp), 5px 5px 0 var(--ink2); }
+.logo .job { color: var(--lamp); text-shadow: var(--stamp), 5px 5px 0 var(--ink2); }
+.logo .beam { position: absolute; left: 8%; right: 8%; top: 100%; height: 36px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 179, 71, .32), rgba(255, 179, 71, 0)); clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); }
+
+/* ---------- the splash (2.5 s; a tap or a key skips it; it is also the loading screen) ---------- */
+#splash { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 46px;
+  background: radial-gradient(ellipse at 50% 38%, #1b2742 0, var(--night) 62%); transition: opacity .3s; cursor: pointer; }
+#splash.out { opacity: 0; pointer-events: none; }
+#splash .logo { font-size: min(13vw, 92px); }
+#splash .logo .job { animation: job-on 2.5s steps(1, end) both; }
+#splash .logo .beam { height: min(18vw, 120px); animation: beam-in 2.5s ease-out both; transform-origin: 50% 0; }
+#splash .lamp { width: 14px; height: 14px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 22px 8px rgba(255, 179, 71, .55); animation: lamp-on 2.5s steps(1, end) both; }
+#splashload { margin: 0; min-height: 18px; color: #93a1b8; font-size: 13px; }
+@keyframes lamp-on { 0% { opacity: 0; } 12% { opacity: 1; } 16% { opacity: .2; } 20%, 100% { opacity: 1; } }
+@keyframes beam-in { 0%, 20% { opacity: 0; transform: rotate(-24deg); } 70% { opacity: 1; transform: rotate(10deg); } 100% { opacity: 1; transform: rotate(0); } }
+@keyframes job-on { 0%, 72% { color: #5b5240; } 76% { color: var(--lamp); } 79% { color: #5b5240; } 82%, 100% { color: var(--lamp); } }
+@media (prefers-reduced-motion: reduce) { #splash .logo .job, #splash .logo .beam, #splash .lamp { animation: none; } }
+
+/* ---------- the overlay: the night, the card a dusk-coloured box with an ink outline ---------- */
+#overlay { background: radial-gradient(ellipse at 50% 30%, rgba(24, 34, 58, .55), rgba(13, 19, 34, .9) 70%); }
+#overlay .card { background: rgba(24, 34, 58, .96); border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); color: var(--paper); }
+#overlay h1, #overlay h2, #overlay h3 { font-family: var(--head); font-weight: 800; letter-spacing: .01em; }
+#overlay h2 { color: var(--paper); font-size: 15px; }
+#overlay h3 { color: var(--lamp); font-size: 13px; margin: 18px 0 6px; }
+#overlay .muted { color: #9aa7bf; }
+#overlay button { border-color: var(--whisper); color: var(--whisper); }
+#overlay button.primary { background: var(--lamp); border-color: var(--ink2); color: var(--ink2); box-shadow: 3px 3px 0 var(--ink2); }
+#overlay select { font-size: 15px; background: var(--night); color: var(--paper); border: 1px solid #3a4766; border-radius: 6px; padding: 3px 4px; }
+
+/* the pages: one at a time (body.pages-all: every page, the old long card — the tests' default) */
+#overlay section[data-page][hidden] { display: none; }
+body.pages-all #overlay section[data-page] { display: block; }
+body.pages-all #overlay section[data-page] + section[data-page] { margin-top: 18px; border-top: 1px dashed #3a4766; padding-top: 8px; }
+.pg-head { display: flex; align-items: center; gap: 12px; margin: -4px 0 8px; }
+.pg-head h2 { margin: 0; font-size: 20px !important; }
+#overlay .pg-head .back { min-width: 48px; min-height: 44px; padding: 0 12px; font: 800 22px/1 var(--head); color: var(--paper); border-color: var(--ink2); background: var(--night); box-shadow: 3px 3px 0 var(--ink2); }
+body.pages-all .pg-head .back { display: none; }
+
+/* the main menu: the logo, five big buttons, the microphone line, the version and the privacy link */
+section[data-page="menu"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px 28px; align-items: center; }
+section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
+.mm-nav { display: flex; flex-direction: column; gap: 10px; }
+#overlay .mm { font: 800 17px/1.15 var(--head); padding: 13px 18px; text-align: left; border-radius: 12px; border: 2px solid var(--ink2); background: var(--night); color: var(--paper); box-shadow: 4px 4px 0 var(--ink2); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#overlay .mm.primary { background: var(--lamp); color: var(--ink2); font-size: 20px; }
+#overlay .mm:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink2); }
+#overlay .mm .mm-note { font: 600 12px system-ui, sans-serif; color: #9aa7bf; }
+#overlay .mm.primary .mm-note { color: #3a2a10; }
+.mm-mic { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--paper); }
+#overlay .mm-mic button { font-size: 14px; padding: 4px 10px; margin-left: 6px; border-color: var(--lamp); color: var(--lamp); }
+.mm-foot { grid-column: 1 / -1; margin: 0; font-size: 12px; color: #7f8aa3; display: flex; gap: 14px; flex-wrap: wrap; }
+.mm-foot #version { margin: 0; }
+@media (max-width: 640px) and (orientation: portrait) {
+  section[data-page="menu"] { grid-template-columns: 1fr; }
+  section[data-page="menu"] .mm-logo { padding-bottom: 34px; }
+  .logo { font-size: 36px; }
+}
+/* a small phone in landscape (667 x 280): no scrolling — the buttons in two columns, «Грати» across */
+@media (max-height: 420px) {
+  #overlay .card { padding: 12px 16px; max-height: calc(100vh - 16px); }
+  section[data-page="menu"] { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 8px 16px; }
+  section[data-page="menu"] .mm-logo { padding-bottom: 26px; }
+  .logo { font-size: 30px; }
+  .mm-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .mm-nav .mm.primary { grid-column: 1 / -1; }
+  #overlay .mm { font-size: 13px; padding: 8px 10px; }
+  #overlay .mm.primary { font-size: 15px; }
+  #overlay .mm .mm-note { display: none; }
+  .mm-mic { font-size: 12px; }
+}
+
+/* the cards of Тихарник and the shop's rows on the menu pages */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.lcard { padding: 10px 12px; border-radius: 10px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 3px 3px 0 var(--ink2); font-size: 13px; }
+.lcard b { display: block; font: 800 14px var(--head); color: var(--paper); margin-bottom: 4px; }
+.lcard span { display: block; color: #c9d3e3; margin: 2px 0; }
+.lcard.locked b { color: #5a6680; }
+.lcard.locked span { color: #5a6680; }
+.shoprow { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; background: var(--night); border: 2px solid var(--ink2); margin: 8px 0; }
+.shoprow .t { flex: 1; font-size: 13px; color: #c9d3e3; }
+.shoprow .t b { display: block; color: var(--paper); font-size: 14px; }
+#overlay .shoprow button { flex: none; min-width: 130px; min-height: 44px; font-size: 13px; }
+#overlay .shoprow button:not(:disabled) { background: var(--lamp); color: var(--ink2); border-color: var(--ink2); }
+
+/* the first run: «Налаштуємо мікрофон?» */
+#micask { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .78); }
+#micask[hidden] { display: none; }
+#micask .box { max-width: 460px; width: calc(100% - 32px); box-sizing: border-box; padding: 18px 20px; border-radius: 14px; background: var(--paper); color: var(--ink2); border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); }
+#micask h2 { margin: 0 0 6px; font: 800 18px var(--head); color: var(--ink2); }
+#micask p { margin: 0 0 12px; font-size: 15px; color: #2a2a2a; }
+#micask .row { gap: 8px; }
+#micask button { font-size: 15px; border-color: var(--ink2); color: var(--ink2); background: transparent; }
+#micask button.primary { background: var(--lamp); color: var(--ink2); box-shadow: 3px 3px 0 var(--ink2); }
+
+/* the pause menu (phone) in the same look: the dusk card with an ink outline, the headings' font, stamped buttons */
+#pausemenu { background: rgba(13, 19, 34, .82); }
+#pausemenu .pm-card { border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); }
+#pausemenu .pm-head h2 { font-family: var(--head); font-weight: 800; color: var(--paper); }
+#pausemenu .pm-btn { border-color: var(--ink2); background: var(--night); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+#pausemenu .pm-btn.primary { background: var(--lamp); color: var(--ink2); }
+#pausemenu .pm-btn.quiet { color: #9aa7bf; box-shadow: none; border-color: #3a4766; }
+#pausemenu .pm-btn.down { background: #2a3a5e; color: var(--paper); }
+#pausemenu .pm-btn.primary.down { background: #ffd08a; }
+#pausemenu .pm-contract { color: var(--lamp); font-family: var(--head); }
