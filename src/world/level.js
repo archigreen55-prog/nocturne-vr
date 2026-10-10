@@ -10,6 +10,7 @@ import { CollisionWorld } from './collision.js';
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
 import { lit as litMat } from '../style/materials.js';
+import { inkWeight } from '../style/ink.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;
@@ -80,6 +81,7 @@ export function colored(geo, hex) {
   const a = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { a[i * 3] = tmpColor.r; a[i * 3 + 1] = tmpColor.g; a[i * 3 + 2] = tmpColor.b; }
   g.setAttribute('color', new THREE.BufferAttribute(a, 3));
+  g.setAttribute('ink', new THREE.BufferAttribute(new Float32Array(n).fill(inkWeight(g)), 1));   // W17: the style's ink lines (style/ink.js)
   return g;
 }
 

@@ -288,6 +288,8 @@ test('net: a guest in the VR emulator (IWER Quest 3) walks with the stick; the h
   const g0 = await guest.page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));
   await guest.page.evaluate(() => window.__xrDevice.controllers.left.updateAxes('thumbstick', 0, -1));
   await wait(guest.page, 2500);
+  // software rendering of a stereo frame is slow and a frame's step is capped: walk on until 0.4 m (≤ 10 s more), the check is the same (W17)
+  await guest.page.waitForFunction((g0) => Math.hypot(window.__game.player.head.x - g0.x, window.__game.player.head.z - g0.z) > 0.4, g0, { timeout: 10000 }).catch(() => {});
   await guest.page.evaluate(() => window.__xrDevice.controllers.left.updateAxes('thumbstick', 0, 0));
   await wait(guest.page, 800);
   const g1 = await guest.page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));

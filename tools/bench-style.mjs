@@ -5,6 +5,7 @@
 //   node tools/bench-style.mjs                      this build as it is
 //   node tools/bench-style.mjs off on               ?style=off and ?style=on, alternating per page
 //   OUT=bench.json node tools/bench-style.mjs ...   also writes the numbers
+//   MAPS=dacha PRESETS=low node tools/bench-style.mjs off on   only these
 import { writeFileSync } from 'node:fs';
 import { devices } from 'playwright';
 import { startServer, launch, newContext } from '../tests/harness.mjs';
@@ -12,7 +13,7 @@ import { startServer, launch, newContext } from '../tests/harness.mjs';
 const variants = process.argv.slice(2).length ? process.argv.slice(2) : [''];
 const { server, base } = await startServer();
 const preview = base + 'preview/bench/';
-const PRESETS = ['low', 'medium', 'high'];
+const PRESETS = process.env.PRESETS ? process.env.PRESETS.split(',') : ['low', 'medium', 'high'];
 // [name, x, z, yaw | [tx, tz] (look at), floor y, pitch]
 const SPOTS = {
   dacha: [
@@ -67,7 +68,7 @@ async function page(browser, map, preset, variant) {
 const browser = await launch();
 const rows = [];
 try {
-  for (const map of Object.keys(SPOTS)) for (const preset of PRESETS) for (const v of variants) {
+  for (const map of process.env.MAPS ? process.env.MAPS.split(',') : Object.keys(SPOTS)) for (const preset of PRESETS) for (const v of variants) {
     const r = await page(browser, map, preset, v);
     rows.push(r);
     console.log(`${map.padEnd(8)} ${preset.padEnd(7)} style=${r.variant.padEnd(3)} pr ${r.pr}  programs ${r.programs}  ${r.kb} KB  ` +

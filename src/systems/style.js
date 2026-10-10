@@ -1,0 +1,76 @@
+// W17 «Стиль» (plan-W17-style.md): the night palette's sky and fog, the lamps' circles, soft shadows,
+// water; every frame the style's shared uniforms (the display brightness, the circles where a guard
+// sees you further, the line width of the quality preset) and the shadows of what moves.
+// The switch «Стиль: увімк / вимк» (start screen; «Для тестерів» from S3): off = the picture as before
+// W17. Runs after `flashlight` (the lit materials are patched) and before `brightness` (it takes the
+// fog's distances from here).
+import * as THREE from 'three';
+import { CFG } from '../config/index.js';
+import { PAL } from '../style/palette.js';
+import { STYLE_ON, styleUniforms as U, setStyle, setZones } from '../style/materials.js';
+import { buildDecor } from '../style/decor.js';
+import { quietRandom } from '../style/quiet.js';
+import { power } from '../world/devices.js';
+import { G, $ } from './state.js';
+
+let decor = null, t = 0;
+const fogBase = new THREE.Color(PAL.dusk), fogAlarm = new THREE.Color(PAL.alarm);
+const spots = [];
+
+// the circles of CFG.stealth.lamps, each on the floor of its lamp (the nearest light above it)
+function lampCircles(level) {
+  const lights = level.lampList || G.points.map((p) => [p.position.x, p.position.y, p.position.z]);
+  return CFG.stealth.lamps.map((l) => {
+    let best = null, bd = Infinity;
+    for (const L of lights) { const d = Math.hypot(L[0] - l.x, L[2] - l.z); if (d < bd) { bd = d; best = L; } }
+    return { x: l.x, z: l.z, r: l.r, y: best && best[1] > 4 ? 3 : 0 };   // the storey's floor (a fountain's rim is not a floor)
+  });
+}
+
+export const style = {
+  id: 'style',
+  init() {
+    const sel = $('stylesel');
+    if (sel) { sel.value = STYLE_ON ? 'on' : 'off'; sel.addEventListener('change', () => setStyle(sel.value === 'on')); }
+    if (!STYLE_ON) return;
+    const { scene, level } = G;
+    scene.background = new THREE.Color(PAL.night);
+    scene.fog.color.copy(fogBase);
+    scene.fog.near = CFG.style.fog.near; scene.fog.far = CFG.style.fog.far;
+    this.circles = lampCircles(level);
+    decor = G.decor = quietRandom(() => buildDecor(scene, level, this.circles, CFG.style, level.floorY ? (x, z, y) => level.floorY(x, z, y) : () => 0));   // the game's random numbers untouched
+  },
+  frame(dt) {
+    if (!STYLE_ON) return;
+    const { level, quality, scene, alert } = G;
+    const low = !!quality && quality.preset === 'low';
+    t += dt;
+    U.uStyleExp.value = G.lightK;
+    U.uStyleWarn.value = alert && G.lightK ? alert.glowGain / G.lightK : 1;   // brightness.js: warnings get k x WARN, the rest k
+    U.uStyleInk.value = low ? CFG.style.ink.pxLow : CFG.style.ink.px;
+    // the circles: the lamps (none with the breaker off); a guard's hand lamp is lit by its own light (CFG.style.bands.hand)
+    setZones(power.dark ? [] : this.circles);   // rebuilt only when they change
+    if (decor.pools) decor.pools.visible = !power.dark;
+    // the fog goes a little red in a full alarm
+    scene.fog.color.copy(fogBase).lerp(fogAlarm, CFG.style.fog.alarm * Math.max(0, Math.min(1, (alert ? alert.k : 0) - 1)));
+    // water: rings run (still on the low preset; no puddles there)
+    for (const w of decor.water) {
+      w.material.uniforms.uExp.value = G.lightK;
+      if (!low) w.material.uniforms.uTime.value = t;
+      w.visible = !(low && w.userData.puddle);
+    }
+    // the shadows of what moves
+    const B = CFG.style.blobs, floorAt = level.floorY ? (x, z, y) => level.floorY(x, z, y) : () => 0;
+    spots.length = 0;
+    for (const g of G.guards || []) spots.push({ x: g.x, z: g.z, y: g.y || 0, h: 0, r: B.guard });
+    for (const p of G.players || []) if (p.remote && !p.lost) spots.push({ x: p.head.x, z: p.head.z, y: p.floorY || 0, h: 0, r: B.friend });
+    if (!low && G.loot) for (const it of G.loot.items) {
+      if (!it.mesh || !it.mesh.visible || it.state === 'held' || it.state === 'fly' || it.delivered || it.gone) continue;
+      const x = it.mesh.position.x, z = it.mesh.position.z, y0 = floorAt(x, z, it.mesh.position.y);
+      const h = it.mesh.position.y - y0;
+      if (it.state === 'rest' && h > 0.05) continue;   // on a table: the table's shadow
+      spots.push({ x, z, y: y0, h, r: B.item });
+    }
+    decor.setBlobs(spots);
+  },
+};

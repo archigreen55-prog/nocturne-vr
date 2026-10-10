@@ -188,7 +188,7 @@ class Item {
     const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
     this.baseEmissive = this.crystal ? 0x16324a : 0x000000;
-    this.mat = lit({ emissive: this.baseEmissive });
+    this.mat = lit({ emissive: this.baseEmissive, grade: CFG.style.grade.loot });
     this.mesh = B.mesh(this.mat);
     this.mesh.name = 'loot: ' + def.id;
     this.vel = new THREE.Vector3();
