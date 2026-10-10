@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { Builder } from './level.js';
 import { CFG } from '../config/index.js';
+import { lit } from '../style/materials.js';
 
 // The house's lights (the breaker). Read where the lamps' intensity is written (systems/render.js,
 // enemies/alert.js), by the stealth read-out (game/stealth.js) and by the guard's sight (patrol.js).
@@ -57,7 +58,7 @@ export class Devices {
     power.reset();
     this.group = new THREE.Group();
     this.group.name = 'devices';
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const mat = lit();
     this.list = M.list.map((def) => {
       const B = new Builder();
       const { led } = buildDevice(def.kind, B);

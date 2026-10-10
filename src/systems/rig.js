@@ -11,6 +11,7 @@ import { Pointer } from '../ui/pointer.js';
 import { Hands } from '../loot/hands.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
+import { lit } from '../style/materials.js';
 
 export const rig = {
   id: 'rig',
@@ -23,7 +24,7 @@ export const rig = {
     {
       const geo = new THREE.BoxGeometry(0.035, 0.03, 0.11);
       geo.translate(0, -0.01, 0.02);
-      const mat = new THREE.MeshLambertMaterial({ color: 0x2b3038 });
+      const mat = lit({ vertexColors: false, color: 0x2b3038 });
       for (let i = 0; i < 2; i++) {
         const grip = renderer.xr.getControllerGrip(i);
         grip.add(new THREE.Mesh(geo, mat));

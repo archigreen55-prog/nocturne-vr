@@ -9,6 +9,7 @@
 // page loads (the texture and the numbers change, the program does not).
 // The level gives level.occluders [x0, z0, x1, z1, y0, y1] (static walls) and level.doors.
 import * as THREE from 'three';
+import { addPatch } from '../style/materials.js';
 
 const RAYS = 720;            // 0.5° per ray: at 5 m the shadow's edge is within 4 cm
 const FAR = 100;             // no wall that way
@@ -89,30 +90,29 @@ const LAMP = 'if ( uLampIndex >= 0 ) { flashLampK = lampMask( vFlashPos ); }';  
 const BEAM = 'if ( flashMask( vFlashPos ) < 0.5 ) discard;';
 
 // After flashMask's maskLit / maskBeam: the same materials also test the walls.
+// (W17: a link in the material's patch chain, after the mask's; style/materials.js)
 function wrap(material, find, replace, key, more = null) {
-  const prev = material.onBeforeCompile, prevKey = material.customProgramCacheKey;
-  material.onBeforeCompile = (shader, renderer) => {
-    prev.call(material, shader, renderer);
+  addPatch(material, key, (shader) => {
     if (!shader.fragmentShader.includes(find)) throw new Error('flashWalls: the flashlight mask code was not found');
     Object.assign(shader.uniforms, wallUniforms, lampWalls.uniforms);
     shader.fragmentShader = GLSL + shader.fragmentShader.replace(find, replace);
     if (more && shader.fragmentShader.includes(more[0])) shader.fragmentShader = shader.fragmentShader.replace(more[0], more[1]);
-  };
-  material.customProgramCacheKey = () => prevKey.call(material) + key;
-  material.needsUpdate = true;
+  });
+}
+// one lit material that already has the mask (maskLit): it also tests the walls
+export function wallsOnMaterial(m) {
+  if (!m.userData.flashMask || m.userData.flashWalls) return false;
+  m.userData.flashWalls = true;
+  // only inside the cone and the mask (elsewhere the spot light is already black)
+  wrap(m, LIT, LIT + '\n\t\tif ( directLight.color.r + directLight.color.g + directLight.color.b > 0.0 ) directLight.color *= flashWalls( vFlashPos );', '-walls',
+    [LAMP, 'if ( uLampIndex >= 0 ) { flashLampK = lampMask( vFlashPos ); if ( flashLampK > 0.0 && distance( vFlashPos.xz, uLampFrom.xz ) < 8.0 ) flashLampK *= lampWalls( vFlashPos ); }']);   // the hand lamp too (W6): only inside its rooms and within its reach
+  return true;
 }
 export function wallsOnScene(scene, beamMaterial) {
   let n = 0;
   scene.traverse((o) => {
     const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-    for (const m of mats) {
-      if (!m.userData.flashMask || m.userData.flashWalls) continue;
-      m.userData.flashWalls = true;
-      // only inside the cone and the mask (elsewhere the spot light is already black)
-      wrap(m, LIT, LIT + '\n\t\tif ( directLight.color.r + directLight.color.g + directLight.color.b > 0.0 ) directLight.color *= flashWalls( vFlashPos );', '-walls',
-        [LAMP, 'if ( uLampIndex >= 0 ) { flashLampK = lampMask( vFlashPos ); if ( flashLampK > 0.0 && distance( vFlashPos.xz, uLampFrom.xz ) < 8.0 ) flashLampK *= lampWalls( vFlashPos ); }']);   // the hand lamp too (W6): only inside its rooms and within its reach
-      n++;
-    }
+    for (const m of mats) if (wallsOnMaterial(m)) n++;
   });
   wrap(beamMaterial, BEAM, 'if ( flashMask( vFlashPos ) < 0.5 || flashWalls( vFlashPos ) < 0.5 ) discard;', '-walls');
   wallUniforms.uFlashWallOn.value = 1;

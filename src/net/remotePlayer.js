@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { Builder } from '../world/level.js';
 import { MAX_SPEED } from '../xr/player.js';
+import { lit } from '../style/materials.js';
 
 const SKIN = 0xd9c9b0;
 
@@ -32,7 +33,7 @@ export class RemotePlayer {
     const g = new THREE.Group();
     g.name = `friend ${this.id}`;
     const coat = CFG.net.thieves[this.thief] || 0x888888, dark = new THREE.Color(coat).multiplyScalar(0.55).getHex();
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const mat = lit();
     const B = new Builder();
     for (const x of [-0.1, 0.1]) B.box(x - 0.065, 0, -0.07, x + 0.065, 0.8, 0.07, 0x23262e);
     B.box(-0.22, 0.78, -0.13, 0.22, 1.38, 0.13, coat);

@@ -14,6 +14,7 @@ import { nearLamp, targetY } from '../game/stealth.js';
 import { S } from '../i18n/index.js';
 import { power } from '../world/devices.js';
 import { asList } from '../game/players.js';
+import { lit } from '../style/materials.js';
 
 const EYE = 1.62;
 const RADIUS = 0.28;
@@ -30,7 +31,7 @@ export class Patrol {
     const COAT = GC.coat || 0x2f3b52, CAP = GC.cap || 0x1d2433;
     this.group = new THREE.Group();
     this.group.name = GC.id ? `patrol ${GC.id}` : 'patrol';
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const mat = lit();
     // body: legs, coat, one arm hanging
     const B = new Builder();
     for (const x of [-0.11, 0.11]) B.box(x - 0.07, 0, -0.08, x + 0.07, 0.82, 0.08, 0x23262e);

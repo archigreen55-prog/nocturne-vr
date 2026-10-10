@@ -17,6 +17,7 @@ import { G } from './state.js';
 import { flash } from './messages.js';
 import { nearestDoor } from './doors.js';
 import { S } from '../i18n/index.js';
+import { lit } from '../style/materials.js';
 
 const _v = new THREE.Vector3();
 const local = { lastPhase: null, stats: null, spread: new Map() };
@@ -180,7 +181,7 @@ function spreadOf(it) {
       const a = i * 2.39996, r = 0.15 + (i % 5) * 0.17;
       B.add(new THREE.SphereGeometry(0.014, 6, 4).translate(Math.cos(a) * r, 0.014, Math.sin(a) * r), [0x3f8ad8, 0xe84a3a, 0x5fd38d, 0xffd166][i % 4]);
     }
-    m = B.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    m = B.mesh(lit());
     m.name = 'marbles';
     G.scene.add(m);
     local.spread.set(it, m);
@@ -197,7 +198,7 @@ export const trapsSystem = {
     for (const g of G.guards || [G.patrol]) {
       const B = new Builder();
       B.cyl(0.2, 0.16, 0.3, 0, 1.52, 0, 0x8a9098, 12);
-      g.bucketMesh = B.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }));
+      g.bucketMesh = B.mesh(lit());
       g.bucketMesh.visible = false;
       g.upper.add(g.bucketMesh);
     }

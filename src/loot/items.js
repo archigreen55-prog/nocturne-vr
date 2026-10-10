@@ -8,6 +8,7 @@ import { CFG } from '../config/index.js';
 import { playThud, playGlass } from '../audio/audio.js';
 import { playCan, playBottle } from '../audio/distractSfx.js';
 import { S } from '../i18n/index.js';
+import { lit } from '../style/materials.js';
 
 const G = 9.8;
 const _up = new THREE.Vector3();
@@ -187,7 +188,7 @@ class Item {
     const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
     this.baseEmissive = this.crystal ? 0x16324a : 0x000000;
-    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: this.baseEmissive });
+    this.mat = lit({ emissive: this.baseEmissive });
     this.mesh = B.mesh(this.mat);
     this.mesh.name = 'loot: ' + def.id;
     this.vel = new THREE.Vector3();

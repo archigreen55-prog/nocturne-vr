@@ -9,6 +9,7 @@ import { CFG } from '../config/index.js';
 import { Builder, WARDROBE } from '../world/level.js';
 import { Voice3D, playScratch, playStinger, playThud } from '../audio/audio.js';
 import { asList } from '../game/players.js';
+import { lit } from '../style/materials.js';
 
 
 export class Lurker {
@@ -38,7 +39,7 @@ export class Lurker {
       B.add(new THREE.ConeGeometry(0.018, 0.06, 4).translate(x, -0.03, -0.29), 0xf0ead8);
       B.add(new THREE.ConeGeometry(0.016, 0.05, 4).rotateX(Math.PI).translate(x + 0.025, -0.11, -0.29), 0xf0ead8);
     }
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const mat = lit();
     this.body = B.mesh(mat);
     // long arms with claws: folded away inside the wardrobe, shoot out with the lunge
     const A = new Builder();

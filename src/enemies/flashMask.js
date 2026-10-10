@@ -4,6 +4,7 @@
 // (+ the yard when it is outside or at the open back door). The visible beam cone is clipped by the
 // same mask. Cost: one extra varying and up to MAX rectangle tests per lit fragment; no extra passes.
 import * as THREE from 'three';
+import { addPatch } from '../style/materials.js';
 
 const MAX = 8;
 
@@ -73,7 +74,7 @@ function addVarying(shader) {
 export function maskLit(material) {
   if (material.userData.flashMask) return;
   material.userData.flashMask = true;
-  material.onBeforeCompile = (shader) => {
+  addPatch(material, 'flashmask-lit', (shader) => {   // W17: a link in the material's patch chain (style/materials.js)
     addVarying(shader);
     // the lamp's factor once per fragment (not once per unrolled point light): its rooms, and (flashWalls.js) its walls
     const chunk = '\tfloat flashLampK = 1.0;\n\tif ( uLampIndex >= 0 ) { flashLampK = lampMask( vFlashPos ); }\n' + THREE.ShaderChunk.lights_fragment_begin.replace(
@@ -82,29 +83,26 @@ export function maskLit(material) {
       .replace('getPointLightInfo( pointLight, geometryPosition, directLight );',
         'getPointLightInfo( pointLight, geometryPosition, directLight );\n\t\tif ( UNROLLED_LOOP_INDEX == uLampIndex ) directLight.color *= flashLampK;');
     shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', chunk);
-  };
-  material.customProgramCacheKey = () => 'flashmask-lit';
-  material.needsUpdate = true;
+  });
 }
 
 // The visible beam (unlit): fragments outside the mask are dropped.
 export function maskBeam(material) {
-  material.onBeforeCompile = (shader) => {
+  addPatch(material, 'flashmask-beam', (shader) => {
     addVarying(shader);
     shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>',
       '#include <clipping_planes_fragment>\n\tif ( flashMask( vFlashPos ) < 0.5 ) discard;');
-  };
-  material.customProgramCacheKey = () => 'flashmask-beam';
-  material.needsUpdate = true;
+  });
 }
 
-// Patch every lit material in the scene once (call after the scene is built), for this map.
+// Patch every lit material in the scene once (call after the scene is built), for this map
+// (W17: every material from style/materials.js lit(); a later one is patched by onNewLit).
 export function maskScene(scene, lv) {
   if (lv) setLevel(lv);
   let n = 0;
   scene.traverse((o) => {
     const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-    for (const m of mats) if (m.isMeshLambertMaterial && !m.userData.flashMask) { maskLit(m); n++; }
+    for (const m of mats) if (m.userData.styled && !m.userData.flashMask) { maskLit(m); n++; }
   });
   return n;
 }

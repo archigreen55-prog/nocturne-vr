@@ -9,6 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CollisionWorld } from './collision.js';
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
+import { lit as litMat } from '../style/materials.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;
@@ -480,7 +481,7 @@ export function buildLevel() {
   walls.finalize();
 
   // ---------- meshes ----------
-  const lit = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const lit = litMat();
   const staticMesh = S.mesh(lit);
   staticMesh.name = 'level';
   staticMesh.matrixAutoUpdate = false;
@@ -488,7 +489,7 @@ export function buildLevel() {
   glowMesh.name = 'glow';
   glowMesh.matrixAutoUpdate = false;
 
-  const doorMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const doorMat = litMat();
   for (const spec of doorSpecs) doors.push(new Door(spec, doorMat));
 
   const group = new THREE.Group();

@@ -15,6 +15,7 @@ import { G } from './state.js';
 import { flash } from './messages.js';
 import { score } from './traps.js';
 import { S } from '../i18n/index.js';
+import { lit } from '../style/materials.js';
 
 const _v = new THREE.Vector3(), _h = new THREE.Vector3(), _c = new THREE.Vector3();
 const local = { aim: null, mouseStart: false, mouseEnd: false, cancel: false, lastPhase: null, voices: new Map(), stats: null, arc: null };
@@ -148,7 +149,7 @@ export const distract = {
     if (M) {
       const B = new Builder();
       B.cyl(0.17, 0.15, 0.45, 0, 0, 0, 0x4a5058, 10); B.cyl(0.18, 0.18, 0.03, 0, 0.45, 0, 0x30343a, 10);
-      const bin = B.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }));
+      const bin = B.mesh(lit());
       bin.position.set(M.bin[0], (M.bin[2] || 0) * 3, M.bin[1]);
       bin.name = 'bin';
       scene.add(bin);

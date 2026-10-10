@@ -17,6 +17,7 @@ const CRATE = { x: 12.2, z: 0.2, y0: 0, kind: 'crate', size: 0.9, minZ: -0.25, m
 import { mansion as MCFG } from '../../config/mansion.js';
 import { furnish } from './furniture.js';
 import { CFG } from '../../config/index.js';
+import { lit as litMat } from '../../style/materials.js';
 
 const CFG_HEARING = CFG.hearing;
 import { S as TEXT } from '../../i18n/index.js';
@@ -264,14 +265,14 @@ export function buildMansion() {
   for (const w of walls) w.finalize();
 
   // ---------- meshes ----------
-  const lit = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const lit = litMat();
   const meshA = SA.mesh(lit), mesh0 = S0.mesh(lit), mesh1 = S1.mesh(lit);
   meshA.name = 'level'; mesh0.name = 'level: ground floor'; mesh1.name = 'level: upstairs';
   for (const m of [meshA, mesh0, mesh1]) m.matrixAutoUpdate = false;
   const glowMesh = G.mesh(new THREE.MeshBasicMaterial({ vertexColors: true }));
   glowMesh.name = 'glow';
   glowMesh.matrixAutoUpdate = false;
-  const doorMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const doorMat = litMat();
   const doors = doorSpecs.map((spec) => new Door(spec, doorMat));   // their own meshes stay unused: one instanced mesh draws all of them
   const doorMesh = instancedDoors(doors, doorMat);
   const group = new THREE.Group();

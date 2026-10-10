@@ -3,8 +3,9 @@
 // (shadow = one 256² shadow map for the flashlight only). Runs after every other system has added
 // its objects (the mask is applied to the lit materials in the scene).
 import * as THREE from 'three';
-import { maskScene, maskBeam } from '../enemies/flashMask.js';
-import { wallsOnScene } from '../enemies/flashWalls.js';
+import { maskScene, maskBeam, maskLit } from '../enemies/flashMask.js';
+import { wallsOnScene, wallsOnMaterial } from '../enemies/flashWalls.js';
+import { onNewLit } from '../style/materials.js';
 import { G, params } from './state.js';
 
 export const flashlight = {
@@ -15,7 +16,9 @@ export const flashlight = {
     if (flashMode === 'mask') {
       const masked = maskScene(scene, G.level);
       maskBeam(patrol.beam.material);
-      if (params.get('flashwalls') !== 'off') wallsOnScene(scene, patrol.beam.material);   // ...and it stops at walls (?flashwalls=off: to measure the cost)
+      const walls = params.get('flashwalls') !== 'off';
+      if (walls) wallsOnScene(scene, patrol.beam.material);   // ...and it stops at walls (?flashwalls=off: to measure the cost)
+      onNewLit((m) => { maskLit(m); if (walls) wallsOnMaterial(m); });   // W17: a lit material made later (a friend who joins) gets the same
       console.log(`flashlight room mask on ${masked} lit materials`);
     } else if (flashMode === 'shadow') {
       renderer.shadowMap.enabled = true;
