@@ -75,11 +75,12 @@ export function maskLit(material) {
   material.userData.flashMask = true;
   material.onBeforeCompile = (shader) => {
     addVarying(shader);
-    const chunk = THREE.ShaderChunk.lights_fragment_begin.replace(
+    // the lamp's factor once per fragment (not once per unrolled point light): its rooms, and (flashWalls.js) its walls
+    const chunk = '\tfloat flashLampK = 1.0;\n\tif ( uLampIndex >= 0 ) { flashLampK = lampMask( vFlashPos ); }\n' + THREE.ShaderChunk.lights_fragment_begin.replace(
       'getSpotLightInfo( spotLight, geometryPosition, directLight );',
       'getSpotLightInfo( spotLight, geometryPosition, directLight );\n\t\tdirectLight.color *= flashMask( vFlashPos );')
       .replace('getPointLightInfo( pointLight, geometryPosition, directLight );',
-        'getPointLightInfo( pointLight, geometryPosition, directLight );\n\t\tif ( UNROLLED_LOOP_INDEX == uLampIndex ) directLight.color *= lampMask( vFlashPos );');
+        'getPointLightInfo( pointLight, geometryPosition, directLight );\n\t\tif ( UNROLLED_LOOP_INDEX == uLampIndex ) directLight.color *= flashLampK;');
     shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', chunk);
   };
   material.customProgramCacheKey = () => 'flashmask-lit';

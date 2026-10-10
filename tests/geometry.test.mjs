@@ -116,13 +116,15 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
     // ---- walls: the boxes of the walls-only worlds inside the house, each with its floor height
     const H = lv.house || L.HOUSE;
     const bodyWorlds = new Set([lv.world, ...(lv.worlds || [])]);
-    const walls = [];
+    const walls = [], used = new Set();   // one mesh part per box: on a map with two floors a wall has the same footprint on both (W6)
+    const inRect = (b, R) => b.x0 >= R.minX - 0.3 && b.x1 <= R.maxX + 0.3 && b.z0 >= R.minZ - 0.3 && b.z1 <= R.maxZ + 0.3;
     for (const b of boxes) {
-      if (bodyWorlds.has(b.w) || b.x0 < H.minX - 0.3 || b.x1 > H.maxX + 0.3 || b.z0 < H.minZ - 0.3 || b.z1 > H.maxZ + 0.3) continue;
+      if (bodyWorlds.has(b.w) || !(inRect(b, H) || (lv.outbuildings || []).some((R) => inRect(b, R)))) continue;   // the house, or an outbuilding with a door (W6: the shed)
       const alongX = b.x1 - b.x0 > b.z1 - b.z0;
       if (Math.min(b.x1 - b.x0, b.z1 - b.z0) > 0.4) continue;
-      const piece = parts.find((p) => Math.abs(p.bb.min.x - b.x0) < 0.002 && Math.abs(p.bb.max.x - b.x1) < 0.002 && Math.abs(p.bb.min.z - b.z0) < 0.002 && Math.abs(p.bb.max.z - b.z1) < 0.002 && p.bb.max.y - p.bb.min.y > 2.4);
+      const piece = parts.find((p) => !used.has(p) && Math.abs(p.bb.min.x - b.x0) < 0.002 && Math.abs(p.bb.max.x - b.x1) < 0.002 && Math.abs(p.bb.min.z - b.z0) < 0.002 && Math.abs(p.bb.max.z - b.z1) < 0.002 && p.bb.max.y - p.bb.min.y > 2.4);
       if (!piece) continue;
+      used.add(piece);
       walls.push({ ...b, alongX, y0: piece.bb.min.y, y1: piece.bb.max.y, c: alongX ? (b.z0 + b.z1) / 2 : (b.x0 + b.x1) / 2, t: alongX ? b.z1 - b.z0 : b.x1 - b.x0, a: alongX ? b.x0 : b.z0, b: alongX ? b.x1 : b.z1 });
     }
     // furniture, rugs, pictures: not a wall piece, not a floor / ceiling / roof slab
@@ -140,7 +142,8 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
     // ---- 3. openings: gaps of 0.5..2.6 m between wall pieces on one line and floor; nothing in them
     // but the door, the frame (up to 1.5 cm in from each side), the lintel and the floor covering
     const lines = new Map();
-    for (const w of walls) { const k = w.alongX + ':' + w.c.toFixed(2) + ':' + w.y0.toFixed(2); (lines.get(k) || lines.set(k, []).get(k)).push(w); }
+    // the floor height rounded (+0: a -0.00 from float noise is the same floor as 0.00)
+    for (const w of walls) { const k = w.alongX + ':' + w.c.toFixed(2) + ':' + (Math.round(w.y0 * 100) / 100 + 0).toFixed(2); (lines.get(k) || lines.set(k, []).get(k)).push(w); }
     const openings = [];
     for (const ws of lines.values()) {
       ws.sort((p, q) => p.a - q.a);

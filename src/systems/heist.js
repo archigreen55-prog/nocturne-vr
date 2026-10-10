@@ -18,7 +18,7 @@ export const heist = {
   world(dt) {
     const { patrol, level, wrist, player, round, noise, mic, breath, scream, alert, loot, lurker, xrIn } = G;
     updateFlashMask(patrol.x, patrol.z, level.doors, patrol.y);
-    if (level.occluders && patrol.spot) updateFlashWalls(patrol.spot.getWorldPosition(flashFrom), level);   // a map with its wall list (the dacha; W6's mansion: the room mask only)
+    updateFlashWalls(patrol.spot.getWorldPosition(flashFrom), level);
     if (G.inVR) wrist.faceEye(player.head);
     setListener(player.head.x, player.head.y, player.head.z, player.yaw);
 

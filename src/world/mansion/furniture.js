@@ -42,7 +42,7 @@ export function furnish(ctx, FLOOR_Y) {
     const bed = (x0, z0, x1, z1, headAtMinZ = true) => {
       box(x0, 0, z0, x1, 0.5, z1, C.woodDark); box(x0 + 0.05, 0.5, z0 + 0.05, x1 - 0.05, 0.62, z1 - 0.05, C.bed);
       const hz0 = headAtMinZ ? z0 : z1 - 0.08, hz1 = headAtMinZ ? z0 + 0.08 : z1;
-      box(x0, 0, hz0, x1, 1.15, hz1, C.woodDark);
+      box(x0 - 0.01, 0, headAtMinZ ? hz0 - 0.01 : hz0, x1 + 0.01, 1.15, headAtMinZ ? hz1 : hz1 + 0.01, C.woodDark);   // headboard 1 cm proud of the frame
       box(x0 + 0.1, 0.62, headAtMinZ ? z0 + 0.1 : z1 - 0.5, (x0 + x1) / 2 - 0.05, 0.75, headAtMinZ ? z0 + 0.5 : z1 - 0.1, 0xe0dcd0);
       box((x0 + x1) / 2 + 0.05, 0.62, headAtMinZ ? z0 + 0.1 : z1 - 0.5, x1 - 0.1, 0.75, headAtMinZ ? z0 + 0.5 : z1 - 0.1, 0xe0dcd0);
       box(x0 + 0.1, 0.62, headAtMinZ ? z0 + 0.6 : z0 + 0.1, x1 - 0.1, 0.68, headAtMinZ ? z1 - 0.1 : z1 - 0.6, 0x5a6a8a);
@@ -77,12 +77,13 @@ export function furnish(ctx, FLOOR_Y) {
       else { const d = face === 'e' ? 1 : -1; box(x, yy0, z - w / 2, x + d * t, yy1, z + w / 2, C.frameGold); box(x + d * t, yy0 + 0.05, z - w / 2 + 0.05, x + d * (t + 0.005), yy1 - 0.05, z + w / 2 - 0.05, color); }
     };
     const ceilingLamp = (x, z) => { S.cyl(0.01, 0.01, 0.5, x, y0 + WALL_H - 0.5, z, C.pole, 4); S.cyl(0.08, 0.25, 0.18, x, y0 + WALL_H - 0.68, z, C.metal, 10); G.box(x - 0.07, y0 + WALL_H - 0.69, z - 0.07, x + 0.07, y0 + WALL_H - 0.67, z + 0.07, GLOW.lamp); };
-    const floorLamp = (x, z) => { S.cyl(0.02, 0.02, 1.5, x, y0, z, C.metal, 6); S.cyl(0.15, 0.22, 0.25, x, y0 + 1.5, z, 0xc8b890, 10); G.box(x - 0.1, y0 + 1.5, z - 0.1, x + 0.1, y0 + 1.52, z + 0.1, GLOW.lamp); solid(x - 0.15, z - 0.15, x + 0.15, z + 0.15, 1.75, null); };
+    const floorLamp = (x, z) => { S.cyl(0.02, 0.02, 1.5, x, y0, z, C.metal, 6); S.cyl(0.15, 0.22, 0.25, x, y0 + 1.5, z, 0xc8b890, 10); G.box(x - 0.1, y0 + 1.485, z - 0.1, x + 0.1, y0 + 1.505, z + 0.1, GLOW.lamp); solid(x - 0.15, z - 0.15, x + 0.15, z + 0.15, 1.75, null); };   // the glow 1.5 cm under the shade's rim
     const counter = (x0, z0, x1, z1) => { box(x0, 0, z0, x1, 0.86, z1, C.woodLight); box(x0 - 0.03, 0.86, z0 - 0.03, x1 + 0.03, 0.92, z1 + 0.03, C.counter); solid(x0, z0, x1, z1, 0.92); };
     const crate = (x, z, s, ry = 0, col = C.woodLight) => { S.boxAt(s, s, s, x, y0, z, col, ry); solid(x - s / 2, z - s / 2, x + s / 2, z + s / 2, s); };
     const shelves = (x0, z0, x1, z1) => {
-      box(x0, 0, z0, x1, 0.04, z1, C.woodDark);
-      for (let i = 1; i <= 4; i++) box(x0, i * 0.48, z0, x1, i * 0.48 + 0.03, z1, C.wood);
+      const e = 0.005;   // the boards 5 mm inside the corner posts' faces
+      box(x0 + e, 0, z0 + e, x1 - e, 0.04, z1 - e, C.woodDark);
+      for (let i = 1; i <= 4; i++) box(x0 + e, i * 0.48, z0 + e, x1 - e, i * 0.48 + 0.03, z1 - e, C.wood);
       for (const [x, z] of [[x0, z0], [x1 - 0.04, z0], [x0, z1 - 0.04], [x1 - 0.04, z1 - 0.04]]) box(x, 0, z, x + 0.04, 2.0, z + 0.04, C.woodDark);
       let r = Math.floor(x0 * 100 + z0 * 7) & 0x7fffffff;
       const rnd = () => ((r = (r * 16807 + 11) % 2147483647) / 2147483647);
@@ -104,7 +105,7 @@ export function furnish(ctx, FLOOR_Y) {
   const F = kit(0, ctx.S0), FB = kit(0, ctx.SA);
   // library x[-13,-6] z[-18,-12]
   F.bookcase(-12.85, -17.85, -12.45, -12.6, 'e');
-  F.bookcase(-12.4, -17.85, -6.6, -17.45, 's');
+  F.bookcase(-12.1, -17.85, -6.6, -17.45, 's');   // starts past the east case's books
   F.table(-11.8, -16.8, -10.2, -15.8, 0.76, C.woodDark, C.woodDark);
   F.chair(-11.0, -15.2, Math.PI); F.armchair(-7.6, -16.6, 2.6);
   F.floorLamp(-6.5, -17.0);
@@ -160,7 +161,7 @@ export function furnish(ctx, FLOOR_Y) {
   // anteroom x[-7,-2] z[-5,0]
   F.box(-6.85, 0, -4.8, -6.3, 0.8, -3.3, C.wood); F.solid(-6.85, -4.8, -6.3, -3.3, 0.8);   // console
   F.rug(-5.5, -3.8, -3.0, -0.8, C.rugRed);
-  F.painting(-4.5, -4.93, 'n', 0.8, 0.6, 0x6a4a3a);
+  F.painting(-6.15, -4.93, 's', 0.8, 0.6, 0x6a4a3a);   // on the anteroom's north wall (its south face), west of the arch to the hall
   F.ceilingLamp(-4.5, -2.5);
   // boiler room (a pocket) x[-2,4] z[-5,0]
   F.box(-1.85, 0, -4.85, -0.6, 1.9, -3.6, C.metal); F.solid(-1.85, -4.85, -0.6, -3.6, 1.9, null);   // the boiler

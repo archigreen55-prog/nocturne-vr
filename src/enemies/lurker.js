@@ -77,16 +77,15 @@ export class Lurker {
     this.target = new THREE.Vector3();
     this.from = new THREE.Vector3();
     const L = env.level;
-    this.room = L && L.roomAt ? L.roomAt(this.FRONT.x, this.FRONT.z, this.y0) : null;
+    this.room = L && L.roomAt ? L.roomAt(this.FRONT.x, this.FRONT.z, this.y0) : null;   // its room (on its floor, W6)
     this.reset();
   }
 
-  // (x, z) (at height y: W6 floors) is in the wardrobe's (crate's) room and nothing solid stands
-  // between it and the wardrobe
-  near(x, z, y = this.y0) {
-    const L = this.env.level, F = this.FRONT;
+  // (x, z) is in the wardrobe's room and nothing solid stands between it and the wardrobe
+  near(x, z) {
+    const L = this.env.level;
     if (!L || !L.roomAt) return true;
-    return L.roomAt(x, z, y) === this.room && !L.soundOccluded(F.x, F.z, x, z, this.y0, y);
+    return L.roomAt(x, z, this.y0) === this.room && !L.soundOccluded(this.FRONT.x, this.FRONT.z, x, z, this.y0, this.y0);
   }
 
   reset() {
@@ -109,7 +108,7 @@ export class Lurker {
 
   hear(e) {
     if (this.state !== 'dormant' || e.source !== 'player') return;
-    if (Math.hypot(e.x - this.FRONT.x, e.z - this.FRONT.z) < CFG.lurker.noiseTrigger && this.near(e.x, e.z, e.y || 0)) this.wake();
+    if (Math.hypot(e.x - this.FRONT.x, e.z - this.FRONT.z) < CFG.lurker.noiseTrigger && this.near(e.x, e.z)) this.wake();
   }
 
   wake() {
@@ -124,7 +123,7 @@ export class Lurker {
     const L = CFG.lurker;
     this.t += dt;
     const d = Math.hypot(player.head.x - this.FRONT.x, player.head.z - this.FRONT.z, (player.floorY || 0) - this.y0);
-    const near = d < L.cancel && this.near(player.head.x, player.head.z, player.floorY || 0);
+    const near = d < L.cancel && this.near(player.head.x, player.head.z);
     switch (this.state) {
       case 'dormant':
         if (d < L.trigger && near) this.wake();
@@ -177,11 +176,11 @@ export class Lurker {
     this.from.copy(this.creature.position);
     // 0.5 m in front of the face, but no further than `reach` from the wardrobe
     const h = player.head;
-    const F = this.FRONT, dx = h.x - F.x, dz = h.z - F.z, d = Math.max(0.01, Math.hypot(dx, dz));
+    const dx = h.x - this.FRONT.x, dz = h.z - this.FRONT.z, d = Math.max(0.01, Math.hypot(dx, dz));
     let reach = Math.min(CFG.lurker.reach, Math.max(0.3, d - 0.5));
     // never through a wall: shorter until the whole lunge stays in the room
-    while (reach > 0.3 && !this.near(F.x + dx / d * reach, F.z + dz / d * reach)) reach -= 0.1;
-    this.target.set(F.x + dx / d * reach, Math.max(0.6, h.y - 0.05), F.z + dz / d * reach);
+    while (reach > 0.3 && !this.near(this.FRONT.x + dx / d * reach, this.FRONT.z + dz / d * reach)) reach -= 0.1;
+    this.target.set(this.FRONT.x + dx / d * reach, Math.max(0.6, h.y - 0.05), this.FRONT.z + dz / d * reach);
     playStinger((CFG.run && CFG.run.scareK) || 1);   // the mask (shop): quieter
     if (this.env.onScare) this.env.onScare();
   }
