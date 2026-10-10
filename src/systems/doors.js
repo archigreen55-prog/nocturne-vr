@@ -27,7 +27,7 @@ export function useDoor(door, hand, time = CFG.doors.fastTime) {
   if (!door) return;
   if (G.hands.busy) { flash(S.messages.handsBusy); return; }
   if (G.isGuest && !door.locked) { G.netIntent('door', { i: G.level.doors.indexOf(door), time }); if (hand) G.xrIn.pulse(hand, 0.3, 30); return; }   // with friends the host swings it
-  door.lastUser = 'player';
+  door.lastUser = G.role === 'guard' ? 'patrol' : 'player';   // W15: the guard's own doors are no news to the guards
   const r = door.toggle(G.player.head.x, G.player.head.z, time);
   if (r === 'locked') { playKnock({ x: door.cx, y: 1, z: door.cz }); flash(S.messages.locked); if (hand) G.xrIn.pulse(hand, 0.6, 60); }
   else if (hand) G.xrIn.pulse(hand, 0.3, 30);

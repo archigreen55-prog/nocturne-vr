@@ -10,6 +10,7 @@ import { pressBoard } from './contract.js';
 import { nearestDoor, useDoor } from './doors.js';
 import { aimedDevice, useDevice } from './distract.js';
 import { placeAtDoor } from './traps.js';
+import { guardInteract, guardButton } from './humanGuard.js';
 import { S } from '../i18n/index.js';
 
 // A guest's E / «Взяти» / «Покласти»: the host decides (the item may be gone already); the item then
@@ -25,7 +26,7 @@ export const player = {
     const { breath, xrIn, player, hands, round, touch, zone, loot, move } = G;
     const active = G.active;
     // breath (A / Shift)
-    const b = breath.update(dt, active && G.breathDown);
+    const b = breath.update(dt, active && G.breathDown && G.role !== 'guard');   // W15: the guard's A is its button, not its breath
     if (b === 'start') { flash(S.messages.breathHold, 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); G.wristTimer = 0; }
     else if (b === 'end') { flash(S.messages.breathOut(breath.cool.toFixed(0)), 2, '#93a1b8'); G.wristTimer = 0; }
     else if (b === 'busy') flash(S.messages.breathBusy(breath.left.toFixed(0)), 1.5, '#93a1b8');
@@ -40,6 +41,7 @@ export const player = {
         const dev = aimedDevice();   // W2a: a device in front (nothing in hand, no item under the crosshair)
         if (dev) useDevice(dev);
         else if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
+        else if (G.role === 'guard') guardInteract();   // W15: «Схопити» / «Центральна»
         else if (G.isGuest) guestHands(hands, player, round);   // with friends: the host takes / puts it (systems/net.js)
         else if (hands.desk && placeAtDoor(hands.desk)) { /* W2b: the bucket on a door, the rope across a doorway */ }
         else hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
@@ -59,10 +61,13 @@ export const player = {
     }
     if (touch && G.playingDesktop) {
       const atVan = round.atVan(player.head);
+      const gb = G.role === 'guard' && !boardAim() ? guardButton() : null;   // W15: the guard's button
       touch.setContext({
-        interact: hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null,
+        interact: gb ? gb.label : hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null,
         door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
       });
+      if (touch.el.interact.classList.contains('off') !== !!(gb && gb.off)) touch.el.interact.classList.toggle('off', !!(gb && gb.off));
+      if (touch.el.breath.hidden !== (G.role === 'guard')) touch.el.breath.hidden = G.role === 'guard';   // the guard holds no breath
     }
     // drop-off ring: head inside with loot in hand = the loot flies into the van
     const carried = hands.heldItems().filter((it) => !it.throwable && (!it.twoHanded || hands.desk === it || (hands.two && hands.two.item === it)));   // a can is never delivered (W2a)

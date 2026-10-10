@@ -140,6 +140,7 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 
 /* throwing (W2a): the context button while aiming, the ✕ beside it (lift there = do not throw) */
 #touch .act.aim { border-color: #ffd166; background: rgba(255, 209, 102, .3); }
+#touch .tbtn.off { opacity: .45; border-style: dashed; }   /* W15: «Викликати Центральну» before the guard saw anything */
 #touch .throw-x { position: absolute; right: calc(var(--sr) + 110px); bottom: calc(var(--sb) + 172px); width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 700 22px system-ui, sans-serif; color: #ffd0d0; background: rgba(16, 22, 36, .7); border: 2px solid rgba(255, 120, 120, .6); pointer-events: none; }
 #touch .throw-x[hidden] { display: none; }
 #touch .throw-x.on { background: rgba(255, 90, 90, .45); }

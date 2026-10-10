@@ -43,7 +43,7 @@ export class NoiseSystem {
     this.log.push(e);
     if (this.log.length > 50) this.log.shift();
     for (const fn of this.listeners) fn(e);
-    if (ripple) {
+    if (ripple && (!this.filter || this.filter(e))) {   // filter: W15, the guard's screen shows only what a guard hears
       if (this.ripples.length >= MAX) this.ripples.shift();
       const run = kind === 'run';
       const r = Math.min(run ? CFG.sprint.rippleMax : CFG.ripple.maxRadius, radius * CFG.ripple.radiusK);
