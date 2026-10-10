@@ -379,7 +379,7 @@ test('VR (IWER Quest 3): grip a can, swing the hand forward and let go — it fl
     const handV = g.hands.h.right.vel.length();
     await frame();
     const v = it.vel.length(), from = it.mesh.position.clone();
-    await wait(1500);
+    for (let i = 0; i < 40 && it.state !== 'rest'; i++) await wait(150);   // the emulator's frames are slow on a busy machine: until it lands (6 s at most)
     return { held, v: +v.toFixed(2), handV: +handV.toFixed(2), thrown: it.thrown, dist: +Math.hypot(it.mesh.position.x - from.x, it.mesh.position.z - from.z).toFixed(2), state: it.state };
   });
   // the trigger at the radio
