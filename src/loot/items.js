@@ -183,6 +183,8 @@ class Item {
     this.throwable = !!def.throwable;   // a can or a bottle (W2a): not loot, not counted, never in the van
     this.bottle = def.kind === 'bottle';
     this.trap = def.trap || null;       // W2b: soap | marbles | bucket | clock | rope (a consumable from the van)
+    this.inWardrobe = !!def.inWardrobe; // W7: inside the lurker's wardrobe: taken only while it sleeps (doors ajar)
+    this.shut = false;                  // W7: set by systems/story.js while the wardrobe is closed
     const B = new Builder();
     const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
@@ -231,7 +233,7 @@ class Item {
   get value() { return this.broken ? 0 : Math.round(this.def.value * (this.damaged ? CFG.loot.damagedK : 1)); }
   get held() { return this.holders.length > 0; }
   // can a hand pick it up? (not broken, not flying, not already in the van)
-  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered && !this.carrier && !this.gone; }
+  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered && !this.carrier && !this.gone && !this.shut; }
 
   centre(out) { return out.copy(this.mesh.position).addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.mesh.quaternion), this.h / 2); }
 

@@ -66,6 +66,8 @@ export class Board {
     else if (s.phase === 'ready' && s.page === 'mic') this.drawMic(s);
     else if (s.phase === 'ready' && s.page === 'shop') this.drawShop(s);
     else if (s.phase === 'ready' && s.page === 'map' && s.maps) this.drawMap(s);
+    else if (s.phase === 'ready' && s.page === 'lurkers' && s.lurkers) this.drawLurkers(s);   // W7
+    else if (s.phase === 'ready' && s.page === 'papers' && s.papers) this.drawPapers(s);
     else if (s.phase === 'ready') this.drawContract(s);
     else this.drawRound(s);
     for (const b of this.buttons) {
@@ -138,7 +140,7 @@ export class Board {
     g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = C.locked ? '#6f8396' : '#ffd166';   // W6: a locked placeholder is grey
     g.fillText(C.name, 50, 128);
     g.font = '27px system-ui, sans-serif'; g.fillStyle = C.locked ? '#93a1b8' : '#e6ecf5';
-    if (s.story && !C.locked) { g.font = 'italic 23px system-ui, sans-serif'; wrap(g, `${s.story.lines.join(' ')} ${C.brief}`, 50, 166, W - 100, 28); }   // W2b: the customer's lines (contract 7)
+    if (s.story && !C.locked) { g.font = 'italic 23px system-ui, sans-serif'; wrap(g, `${s.story.lines.join(' ')} ${C.brief}`, 50, 166, W - 100, 28); }   // W2b, W7: the customer's lines
     else wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
     g.fillText(S.board.goal(s.goalText), 50, 262);
@@ -149,9 +151,12 @@ export class Board {
     g.fillText(S.board.records(B), 50, 374);
     if (C.needsMic && s.noMic) { g.fillStyle = '#ff9f43'; g.fillText(S.board.needsMic, 50, 408); }
     // a closed contract says what opens it (W3); the wallet on the right
-    if (s.lock) { g.fillStyle = '#ff9f43'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440); }
-    else if (s.story && s.story.crew) { g.fillStyle = '#7fc8ff'; g.font = 'italic 22px system-ui, sans-serif'; g.fillText(s.story.crew, 50, 440); }   // W2b: the crew's line
-    else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.board.pickHere, 50, 440); }
+    if (s.lock) { g.fillStyle = '#ff9f43'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440, 490); }
+    else if (s.story && s.story.crew) { g.fillStyle = '#ffd166'; g.font = 'italic 22px system-ui, sans-serif'; g.fillText(s.story.crew, 50, 440, 490); }   // W2b, W7: the crew's yellow line
+    else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.board.pickHere, 50, 440, 490); }
+    // W7 (decision R2 A): Тихарник and «Папери», small, above the bottom row
+    this.buttons.push({ id: 'lurkers', label: S.board.lurkersPage, x: 560, y: 418, w: 200, h: 44, font: 22 });
+    this.buttons.push({ id: 'papers', label: S.board.papersPage, x: 774, y: 418, w: 200, h: 44, font: 22 });
     if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffd166'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
     this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 90, h: 120, font: 48 });
     this.buttons.push({ id: 'cnext', label: '▶', x: 150, y: 470, w: 90, h: 120, font: 48 });
@@ -165,6 +170,49 @@ export class Board {
       this.buttons.push({ id: 'micpage', label: S.board.micPage, x: 580, y: 470, w: 190, h: 120, font: 28 });
       this.buttons.push({ id: 'shop', label: S.shop.button, x: 780, y: 470, w: 194, h: 120, font: 28 });
     }
+  }
+
+  // W7: Тихарник — three cards a page (game/story.js lurkerCards): a card met has its three lines, the others «???»
+  drawLurkers(s) {
+    const g = this.g, L = s.lurkers, per = 3, pages = Math.ceil(L.cards.length / per), page = Math.min(L.page, pages - 1);
+    g.textAlign = 'left'; g.font = 'bold 44px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.fillText(S.lurkers.title, 50, 80);
+    g.textAlign = 'right'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
+    g.fillText(S.lurkers.met(L.met.n, L.met.total), W - 50, 80);
+    L.cards.slice(page * per, page * per + per).forEach((c, i) => {
+      const y = 118 + i * 116;
+      g.textAlign = 'left'; g.font = 'bold 28px system-ui, sans-serif'; g.fillStyle = c.met ? '#e6ecf5' : '#5a6680';
+      g.fillText(c.name, 50, y + 26);
+      g.font = '21px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
+      if (c.met) {
+        const Lb = S.lurkers.labels;
+        g.fillText(`${Lb.wants}: ${c.wants}`, 70, y + 54, W - 120);
+        g.fillText(`${Lb.warns}: ${c.warns}`, 70, y + 80, W - 120);
+        g.fillText(`${Lb.avoid}: ${c.avoid}`, 70, y + 106, W - 120);
+      } else { g.fillStyle = '#6f8396'; g.fillText(S.lurkers.lockedHint, 70, y + 54); }
+    });
+    if (L.noMic) { g.textAlign = 'left'; g.font = '20px system-ui, sans-serif'; g.fillStyle = '#ff9f43'; g.fillText(S.lurkers.noMic, 305, 560); }
+    if (pages > 1) {
+      this.buttons.push({ id: 'lprev', label: '◀', x: 50, y: 500, w: 110, h: 100, font: 44, enabled: page > 0 });
+      this.buttons.push({ id: 'lnext', label: '▶', x: 175, y: 500, w: 110, h: 100, font: 44, enabled: page < pages - 1 });
+    }
+    this.buttons.push({ id: 'back', label: S.menu.back, x: 744, y: 500, w: 230, h: 100, font: 30 });
+  }
+  // W7: «Папери» — the notes found (place — text)
+  drawPapers(s) {
+    const g = this.g, P = s.papers;
+    g.textAlign = 'left'; g.font = 'bold 44px system-ui, sans-serif'; g.fillStyle = '#ffd166';
+    g.fillText(S.notes.title, 50, 80);
+    g.textAlign = 'right'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
+    g.fillText(S.notes.count(P.count.n, P.count.total), W - 50, 80);
+    g.textAlign = 'left';
+    if (!P.rows.length) { g.font = '26px system-ui, sans-serif'; g.fillStyle = '#93a1b8'; g.fillText(S.notes.empty, 50, 150); }
+    P.rows.slice(0, 6).forEach((r, i) => {
+      const y = 130 + i * 60;
+      g.font = '19px system-ui, sans-serif'; g.fillStyle = '#93a1b8'; g.fillText(r.where, 50, y);
+      g.font = 'italic 25px system-ui, sans-serif'; g.fillStyle = '#f0e6c8'; g.fillText(`«${r.text}»`, 50, y + 28, W - 100);
+    });
+    this.buttons.push({ id: 'back', label: S.menu.back, x: 744, y: 500, w: 230, h: 100, font: 30 });
   }
 
   // W6: the maps of the game; picking another one reloads the page with ?map=<id>
@@ -281,16 +329,24 @@ export class Board {
       g.font = '22px system-ui, sans-serif'; g.fillStyle = '#93a1b8';
       g.fillText(V.goal ? S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard') : S.board.res.goalFail(V.why.join(', ')), W / 2, 396);
     }
+    // W7: the customer's line after the round (every contract) and the crew's (the goal met), in yellow
+    if (s.storyAfter && s.storyAfter.line) {
+      const A = s.storyAfter, a = A.line + (A.crew ? '  ' : '');
+      g.font = 'italic 21px system-ui, sans-serif';
+      const wa = g.measureText(a).width, wc = A.crew ? g.measureText(A.crew).width : 0, k = Math.min(1, (W - 100) / (wa + wc)), x0 = W / 2 - (wa + wc) * k / 2;
+      g.textAlign = 'left'; g.fillStyle = '#e6d8b0'; g.fillText(a, x0, 426, wa * k);
+      if (A.crew) { g.fillStyle = '#ffd166'; g.fillText(A.crew, x0 + wa * k, 426, wc * k); }
+      g.textAlign = 'center';
+    }
     // the scream
-    g.font = 'bold 32px system-ui, sans-serif';
-    if (s.playing && s.clip) { g.fillStyle = '#ff9f43'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 440); }
+    g.font = 'bold 30px system-ui, sans-serif';
+    if (s.playing && s.clip) { g.fillStyle = '#ff9f43'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 458); }
     else if (R.shouts > 0) {
       g.fillStyle = '#ffb347';
-      g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 440);
-    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 440); }
-    g.font = '20px system-ui, sans-serif'; g.fillStyle = '#6f8396';
-    if (s.storyAfter && !s.clip) { g.font = 'italic 21px system-ui, sans-serif'; g.fillStyle = '#7fc8ff'; g.fillText(`${s.storyAfter.line} ${s.storyAfter.crew}`, W / 2, 474); }   // W2b: the customer and the crew
-    else g.fillText(S.board.res.memoryOnly, W / 2, 474);
+      g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 458);
+    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 458); }
+    g.font = '18px system-ui, sans-serif'; g.fillStyle = '#6f8396';
+    g.fillText(R.shouts > 0 && s.screamBy ? `${s.screamBy} · ${S.board.res.memoryOnly}` : S.board.res.memoryOnly, W / 2, 484, W - 80);   // W7: the thief's line under the replay
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });
     this.buttons.push({ id: 'again', label: S.board.res.newRound, x: 640, y: 495, w: 334, h: 105, enabled: true });
   }

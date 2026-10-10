@@ -12,7 +12,9 @@ import { money } from '../ui/board.js';
 import { shopPageRows, shopPages, lockText, incomeText } from './economy.js';
 import { S } from '../i18n/index.js';
 import { mapsForBoard } from '../world/maps.js';
-import { storyBefore, storyAfter, mischiefText } from './traps.js';
+import { mischiefText } from './traps.js';
+import { beforeNow, afterNow } from './story.js';
+import { screamBy, lurkerCards, lurkersMet, papers, notesCount, thief } from '../game/story.js';
 
 // Everything the board shows, as one string: the same string = nothing to redraw.
 function boardSignature(T, lv) {
@@ -25,6 +27,7 @@ function boardSignature(T, lv) {
     calib && [calib.i, calib.phase, calib.left.toFixed(1)], G.calibNotes,
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
     wallet().cash, wallet().owned.length, JSON.stringify(wallet().stock || {}), G.shopPage, lockText(contract), incomeText(), mischiefText(), G.boardPage === 'map' ? mapsForBoard(G.level.id).map((m) => m.lock) : 0,
+    G.storyPage || 0, lurkersMet().n, notesCount().n, thief(),   // W7: Тихарник, «Папери»
   ]);
 }
 const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4();
@@ -61,7 +64,9 @@ export const board = {
         wallet: S.shop.wallet(money(wallet().cash)), lock: lockText(contract), income: incomeText(),
         shop: G.boardPage === 'shop' ? { rows: shopPageRows(), page: G.shopPage, pages: shopPages() } : null,
         maps: mapsForBoard(G.level.id),   // W6
-        story: storyBefore(contract), storyAfter: storyAfter(contract, G.verdict), mischief: mischiefText(),   // W2b
+        story: beforeNow(contract), storyAfter: afterNow(), mischief: mischiefText(), screamBy: screamBy(),   // W2b, W7
+        lurkers: G.boardPage === 'lurkers' ? { cards: lurkerCards(), met: lurkersMet(), page: G.storyPage || 0, noMic: G.mic.noMic || G.mic.state !== 'on' } : null,   // W7
+        papers: G.boardPage === 'papers' ? { rows: papers(), count: notesCount() } : null,
       });
     }
   },

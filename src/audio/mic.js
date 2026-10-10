@@ -94,6 +94,15 @@ export class Mic {
   // into the microphone is not punished on top of the game's own breathing noise
   get whisperEff() { return Math.max(this.whisperDb + (this.raise || 0), this.gameInMic + CFG.mic.maskWhisper); }
   get shoutEff() { return Math.max(this.shoutDb, this.gameInMic + CFG.mic.maskShout, this.whisperEff + 3); }
+  // W7 (Шепотун): a whisper = not silence and not a voice: above your calibrated silence by
+  // CFG.story.whisperer.overFloor dB (uncalibrated: the voice boundary minus `uncalibrated`), above the
+  // game's own sound in the microphone, below the voice boundary. Levels only, no sound kept.
+  get whisperLow() {
+    const W = CFG.story.whisperer, eff = this.whisperEff;
+    const lo = this.calibrated ? Math.min(this.cal.floor + W.overFloor, eff - 2) : eff - W.uncalibrated;
+    return Math.max(lo, this.gameInMic + 3);
+  }
+  get whispering() { return this.state === 'on' && !this.noMic && this.level === 'quiet' && this.t - (this.loudT ?? -1e9) > 0.5 && this.env >= this.whisperLow && this.env < this.whisperEff; }
   get masking() { return Math.max(0, this.whisperEff - this.whisperDb - (this.raise || 0)); }   // dB the whisper boundary is raised by the game
   // auto gain the browser did not switch off (Safari often ignores the constraint)
   get agc() { try { return !!this.track && this.track.getSettings().autoGainControl === true; } catch { return false; } }
@@ -288,6 +297,7 @@ export class Mic {
     }
     if (this.t < this.shoutUntil) this.level = 'shout';
     else this.level = this.env >= this.whisperEff ? 'normal' : 'quiet';
+    if (this.level !== 'quiet') this.loudT = this.t;   // W7: the tail of a voice is not a whisper
   }
 
   // true once when a new shout has started since the last call

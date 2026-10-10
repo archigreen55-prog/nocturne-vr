@@ -254,8 +254,9 @@ test('contract 7 «Довгий вечір Петровича»: after «Рив�
     out.name = ev.name; out.goal = g.goalText(ev, g.loot.items);
     g.newRound(); g.setContract('evening'); g.sim(0.1);
     out.van = g.loot.items.filter((i) => i.trap && !i.gone).map((i) => i.trap);
-    out.info = document.getElementById('contractinfo').textContent;
-    out.before = T.storyBefore(ev);
+    const Story = await import('./src/systems/story.js');   // W7: the story lines moved there
+    out.info = document.getElementById('storybefore').textContent;
+    out.before = Story.beforeNow(ev);
     // the shop: the trap rows; buying one puts it in the van
     out.rows = E.shopRows().filter((x) => x.id.startsWith('trap:')).map((x) => x.name);
     E.buyUpgrade('trap:soap'); g.sim(0.1);
@@ -268,7 +269,7 @@ test('contract 7 «Довгий вечір Петровича»: after «Рив�
     g.sim(0.2);
     out.hud = g.progress(g.contract, g.loot.tally(), g.loot).text;
     g.player.teleport(0, 2, 0); g.sim(0.2); g.round.finish('left'); g.sim(0.3);
-    out.one = { stars: g.verdict.stars, goal: g.verdict.goal, after: T.storyAfter(g.contract, g.verdict), extra: T.mischiefText() };
+    out.one = { stars: g.verdict.stars, goal: g.verdict.goal, after: Story.afterNow(), extra: T.mischiefText() };
     // ★★ by a x3 combo
     g.newRound(); g.player.teleport(0, -2.5, 0); g.sim(0.3);
     T.score('trap'); T.score('trap'); T.score('trap');
@@ -278,7 +279,7 @@ test('contract 7 «Довгий вечір Петровича»: after «Рив�
     g.newRound(); g.player.teleport(0, -2.5, 0); g.sim(0.3);
     T.score('throw');
     g.player.teleport(0, 2, 0); g.sim(0.2); g.round.finish('left'); g.sim(0.3);
-    out.fail = { stars: g.verdict.stars, why: g.verdict.why, after: T.storyAfter(g.contract, g.verdict) };
+    out.fail = { stars: g.verdict.stars, why: g.verdict.why, after: Story.afterNow() };
     // «Без тривоги»: no traps in the van
     g.newRound(); g.setContract('quiet'); g.sim(0.1);
     out.quiet = { van: g.loot.items.filter((i) => i.trap && !i.gone).length, msg: g.flashText, limit: T.roundLimit() };
@@ -296,10 +297,10 @@ test('contract 7 «Довгий вечір Петровича»: after «Рив�
   assert.equal(r.inRound, 'phase'); assert.equal(r.trialAgain, false, 'the free soap only once');
   assert.equal(r.hud, 'Шкода: 500 / 500');
   assert.equal(r.one.goal, true); assert.equal(r.one.stars, 1);
-  assert.deepEqual(r.one.after, { line: 'Чув із Пагорбів. Шафа теж. Акт перший. pp.', crew: 'Рита: pp — це піанісимо. Він музикант.' });
+  assert.deepEqual(r.one.after, { kind: 'clean', line: 'Чув із Пагорбів. Шафа теж. Акт перший. pp.', crew: 'Рита: pp — це піанісимо. Він музикант.' });
   assert.equal(r.one.extra, 'Шкода: 500');
   assert.deepEqual(r.two, { stars: 2, bonus: true, score: 600 });
-  assert.equal(r.fail.stars, 0); assert.ok(r.fail.why.includes('шкода 30 з 500'), r.fail.why.join()); assert.equal(r.fail.after, null);
+  assert.equal(r.fail.stars, 0); assert.ok(r.fail.why.includes('шкода 30 з 500'), r.fail.why.join()); assert.deepEqual(r.fail.after, { kind: 'fail', line: 'Мети немає. Платні теж. pp.', crew: '' }, 'W7: the line after for every round; the crew only when the goal was met');
   assert.deepEqual(r.quiet, { van: 0, msg: 'У цьому контракті без пасток', limit: 0 });
   assert.ok(r.lock, 'closed until «Ривок» has a star');
   assert.deepEqual(errors, []);

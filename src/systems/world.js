@@ -23,6 +23,7 @@ import { flash, fx } from './messages.js';
 import { S } from '../i18n/index.js';
 import { throwablesFor } from '../loot/throw.js';
 import { score } from './traps.js';
+import { storyLurkerWake, storyLurkerLost } from './story.js';
 import { nearest } from '../game/players.js';
 
 export const world = {
@@ -74,7 +75,8 @@ export const world = {
         roundTime: () => (G.round.phase === 'heist' ? G.round.t : null),
         onMischief: (kind) => score(kind),   // W2b: a trick that worked (device, throw)
         say: (text, fromHost) => {
-          G.guardLine = guard && guard.name ? `${guard.name}: ${text}` : text; G.guardLineT = 3.5; G.wristTimer = 0;
+          G.guardName = (guard && guard.name) || S.guard.name;   // W7: «Петрович: …» (the mansion: Валера / Жора)
+          G.guardSaid = text; G.guardLine = `${G.guardName}: ${text}`; G.guardLineT = 3.5; G.wristTimer = 0;
           if (G.netEvent && !fromHost) G.netEvent('say', { g: G.guards.indexOf(env.self), text });   // the friends hear it too
         },
         sound: (kind, x, z, o) => {
@@ -106,7 +108,11 @@ export const world = {
     const onScare = (who) => { if (who && who !== player) return;   // a friend was scared: its own screen flashes (systems/net.js)
       if (!(CFG.run.scareK < 1)) G.comfort.flashColor(0xffffff, 0.55);   // the mask (shop): no white flash
       G.xrIn.pulse('both', 1, 250); fx('scare'); };
-    const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec }));
+    // W7: the player holds the breath (a friend's comes with its state); the dacha wardrobe has a box inside: ajar while it sleeps
+    const breathOf = (p) => (p === player ? G.breath.holding : !!(p && p.mic && p.mic.breath));
+    const boxInside = (level.items || CFG.items).some((i) => i.inWardrobe);
+    const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec, breathOf,
+      ajar: boxInside && spec === level.wardrobe ? CFG.story.wardrobe.ajar : 0, onWake: (p) => storyLurkerWake(p), onLost: (p) => storyLurkerLost(p) }));
     const lurker = G.lurker = lurkers[0];
     for (const l of lurkers) scene.add(l.group);
     const board = G.board = new Board(level.board);

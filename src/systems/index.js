@@ -43,6 +43,7 @@ import { mapView } from './mapView.js';
 import { guards } from './guards.js';
 import { brightness } from './brightness.js';
 import { net } from './net.js';
+import { story } from './story.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -71,6 +72,7 @@ export const SYSTEMS = [
   flashlight,    // the flashlight's room mask (after everything is in the scene)
   progressCode,  // start screen: progress as a code, «Навчання ще раз»
   mapView,       // W6: the player's floor decides which rooms are drawn; the point lights follow the nearest lamps
+  story,         // W7: the customer's and the crew's lines, notes, Тихарник, Шепотун, the wardrobe's box
   guards,        // W6: the second guard (its step of the frame, its lamp's mask) and the radio chatter between the two
   brightness,    // display brightness and «Надворі» (phone, PC): the picture only
 ];

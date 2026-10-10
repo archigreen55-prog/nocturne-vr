@@ -76,7 +76,7 @@ export class Brain {
     q.push({ type: 'wait', t: G.lookTime, sweep: true, label: S.guard.act.looksAround(best) });
     const spots = G.spots.filter((s) => this.roomAt(s.at[0], s.at[1], g.y) === best);
     if (spots.length && Math.random() < G.spotChance) this.queueSpot(pick(spots), false);
-    if (Math.random() < G.yawnChance) q.push({ type: 'wait', t: 3, label: S.guard.act.yawns, mods: { fovK: 0.3 }, onStart: () => this.env.sound('yawn') });
+    if (Math.random() < G.yawnChance) q.push({ type: 'wait', t: 3, label: S.guard.act.yawns, mods: { fovK: 0.3 }, onStart: () => { this.env.sound('yawn'); this.env.say(S.guard.say.yawn); } });   // W7: «Ох-хо-хо…»
   }
 
   queueSpot(s, search, front = false) {
@@ -159,7 +159,7 @@ export class Brain {
         if (this.env.loot.items.some((f) => f.prop && !f.held && Math.hypot(f.mesh.position.x - hx, f.mesh.position.z - hz) < 0.5 && Math.abs(f.mesh.position.y - hy) < 0.4
           && !(run.difficulty === 'hard' && Math.hypot(this.g.x - hx, this.g.z - hz) < 2))) continue;
         this.missing.add(it);
-        this.env.say(S.guard.say.whereIsItem(it.name.toLowerCase()));
+        this.env.say(this.missing.size === 2 ? S.guard.say.missingTwo : S.guard.say.whereIsItem(it.name.toLowerCase()));   // W7: the second one
         this.env.sound('grunt');
         this.env.alert.add(G.missingPoints, hx, hz);
         if (this.missing.size >= 2) this.agitated = true;
