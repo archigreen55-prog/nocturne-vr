@@ -12,6 +12,7 @@ import { buildDecor } from '../style/decor.js';
 import { quietRandom } from '../style/quiet.js';
 import { animateGuard, animateThief } from '../style/anim.js';
 import { power } from '../world/devices.js';
+import { lampLights } from '../game/stealth.js';
 import { G, $, params } from './state.js';
 import { startSheet } from '../style/sheet.js';
 
@@ -25,7 +26,7 @@ function lampCircles(level) {
   return CFG.stealth.lamps.map((l) => {
     let best = null, bd = Infinity;
     for (const L of lights) { const d = Math.hypot(L[0] - l.x, L[2] - l.z); if (d < bd) { bd = d; best = L; } }
-    return { x: l.x, z: l.z, r: l.r, y: best && best[1] > 4 ? 3 : 0 };   // the storey's floor (a fountain's rim is not a floor)
+    return { x: l.x, z: l.z, r: l.r, y: l.y != null ? l.y : best && best[1] > 4 ? 3 : 0 };   // the lamp's floor (a fountain's rim is not a floor)
   });
 }
 
@@ -43,6 +44,7 @@ export const style = {
     scene.fog.color.copy(fogBase);
     scene.fog.near = CFG.style.fog.near; scene.fog.far = CFG.style.fog.far;
     this.circles = lampCircles(level);
+    this.lampDoors = (level.doors || []).filter((d) => this.circles.some((c) => Math.hypot(d.hx - c.x, d.hz - c.z) < c.r + 1.5));   // the doors that can cut a circle
     decor = G.decor = quietRandom(() => buildDecor(scene, level, this.circles, CFG.style, level.floorY ? (x, z, y) => level.floorY(x, z, y) : () => 0));   // the game's random numbers untouched
   },
   frame(dt) {
@@ -54,7 +56,9 @@ export const style = {
     U.uStyleWarn.value = alert && G.lightK ? alert.glowGain / G.lightK : 1;   // brightness.js: warnings get k x WARN, the rest k
     U.uStyleInk.value = low ? CFG.style.ink.pxLow : CFG.style.ink.px;
     // the circles: the lamps (none with the breaker off); a guard's hand lamp is lit by its own light (CFG.style.bands.hand)
-    setZones(power.dark ? [] : this.circles);   // rebuilt only when they change
+    // ...cut by the walls and the closed doors as the stealth sees it (game/stealth.js lampLights)
+    const lv = G.level, doorKey = this.lampDoors.map((d) => (Math.abs(d.angle) > 0.35 ? 1 : 0)).join('');
+    setZones(power.dark ? [] : this.circles, (c, x, z) => lampLights(lv, c, x, z, c.y), doorKey);   // rebuilt only when they change
     if (decor.pools) decor.pools.visible = !power.dark;
     // the fog goes a little red in a full alarm
     scene.fog.color.copy(fogBase).lerp(fogAlarm, CFG.style.fog.alarm * Math.max(0, Math.min(1, (alert ? alert.k : 0) - 1)));

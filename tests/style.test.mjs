@@ -246,3 +246,38 @@ test('style: the character sheet (?page=figures) — every figure in the row, on
   assert.deepEqual(g.errors, []);
   await c2.close();
 });
+
+test('stealth (W17 S1 findings): a lamp lights its own floor only and not through a wall or a closed door — the dacha corridor nightlight no longer lights the hall, the mansion gallery lamp not the hall under it, the alley lamp not the study; the floor circles are cut the same way', async () => {
+  const ctx = await newContext(browser, LAND);
+  await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+  const zone = (x, z, y) => {   // the circles' map at (x, z): this floor's soft distance (≥ 0.5 inside)
+    const U = window.__game.style.uniforms, t = U.uStyleZoneTex.value.image.data, R = U.uStyleZoneRect.value;
+    const i = Math.floor((x - R.x) / R.z * 256), j = Math.floor((z - R.y) / R.w * 256);
+    return t[(j * 256 + i) * 4 + (y > 1.5 ? 1 : 0)] / 255;
+  };
+  const probe = (page, pts) => page.evaluate(({ pts, zs }) => {
+    const zone = new Function(`return ${zs}`)();
+    return pts.map(([x, z, y]) => [window.__game.style.lampLit(x, z, y), zone(x, z, y) >= 0.5]);
+  }, { pts, zs: zone.toString() });
+  // the dacha: the nightlight in the corridor (-3, -6, r 2.2)
+  const d = await open(ctx, preview + '?map=dacha');
+  assert.deepEqual(await probe(d.page, [[-3, -6, 0], [-1.95, -4.95, 0]]), [[true, true], [false, false]], 'the corridor is lit, the hall behind its wall is not');
+  // a closed door stops it too (no lamp of the maps has a door in its circle on its floor: a test lamp by the dacha's door at x -2)
+  const door = await d.page.evaluate(async () => {
+    const g = window.__game, { CFG } = await import('./src/config/index.js');
+    const dr = g.level.doors.find((o) => o.hx === -2 && Math.abs(o.hz + 2.99) < 0.01);
+    CFG.stealth.lamps.push({ x: -1.2, z: -2.5, r: 2 });
+    const shut = [g.style.lampLit(-1.2, -2.5), g.style.lampLit(-2.8, -2.5)];
+    dr.angle = 1.2;
+    const open = g.style.lampLit(-2.8, -2.5);
+    dr.angle = 0; CFG.stealth.lamps.pop();
+    return { shut, open };
+  });
+  assert.deepEqual(door, { shut: [true, false], open: true }, 'a closed door stops the lamp, an open one lets it through');
+  assert.deepEqual(d.errors, []);
+  // the mansion: the gallery lamp (5, -8.5) is upstairs; the alley lamp (15.5, -4) outside the study's wall
+  const m = await open(ctx, preview + '?map=mansion');
+  assert.deepEqual(await probe(m.page, [[5, -8.5, 3], [5, -8.5, 0], [15.5, -4, 0], [12.75, -5, 0]]), [[true, true], [false, false], [true, true], [false, false]], 'the gallery lit upstairs, not the hall under it; the alley lit, not the study');
+  assert.deepEqual(m.errors, []);
+  await ctx.close();
+});

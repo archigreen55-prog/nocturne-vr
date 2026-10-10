@@ -67,13 +67,15 @@ export const styleUniforms = {
 }
 
 // The circles' map: a 256 x 256 texture over the circles' bounding box, a soft distance in each texel
-// (0.5 = the edge), red = circles on the ground floor (y 0), green = upstairs (y 3). Rebuilt only when
-// the circles change (the breaker).
+// (0.5 = the edge), red = circles on the ground floor (y 0), green = upstairs (y 3); blue / alpha: where
+// a lamp's light reaches on that floor (not behind a wall or a closed door: `sees(circle, x, z)`, the
+// stealth's own rule), for the circles' rims (style/decor.js). Rebuilt only when the circles change (the
+// breaker) or `extra` does (the doors near a lamp).
 const ZW = 256, RAMP = 0.4;
 export const styleZones = [];   // the circles now: { x, z, r, y }
 let zoneKey = null, zoneTex = null;
-export function setZones(list) {
-  const key = list.map((c) => `${c.x},${c.z},${c.r},${c.y}`).join(';');
+export function setZones(list, sees = null, extra = '') {
+  const key = list.map((c) => `${c.x},${c.z},${c.r},${c.y}`).join(';') + '|' + extra;
   if (key === zoneKey) return;
   zoneKey = key;
   styleZones.length = 0; styleZones.push(...list);
@@ -86,13 +88,16 @@ export function setZones(list) {
     const z = z0 + (j + 0.5) * sz;
     for (let i = 0; i < ZW; i++) {
       const x = x0 + (i + 0.5) * sx;
-      let r = 0, g = 0;
+      let r = 0, g = 0, b = 0, a = 0;
       for (const c of list) {
-        const v = Math.max(0, Math.min(1, 0.5 - (Math.hypot(x - c.x, z - c.z) - c.r) / RAMP));
-        if (c.y > 1.5) g = Math.max(g, v); else r = Math.max(r, v);
+        const d = Math.hypot(x - c.x, z - c.z);
+        if (d > c.r + RAMP) continue;
+        if (sees && !sees(c, x, z)) continue;
+        const v = Math.max(0, Math.min(1, 0.5 - (d - c.r) / RAMP));
+        if (c.y > 1.5) { g = Math.max(g, v); a = 1; } else { r = Math.max(r, v); b = 1; }
       }
       const k = (j * ZW + i) * 4;
-      data[k] = Math.round(r * 255); data[k + 1] = Math.round(g * 255); data[k + 3] = 255;
+      data[k] = Math.round(r * 255); data[k + 1] = Math.round(g * 255); data[k + 2] = b * 255; data[k + 3] = a * 255;
     }
   }
   if (!zoneTex) {

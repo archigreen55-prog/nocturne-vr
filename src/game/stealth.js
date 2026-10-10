@@ -9,9 +9,18 @@ const EYE = 1.62;
 
 function angleDiff(a, b) { const d = a - b; return Math.atan2(Math.sin(d), Math.cos(d)); }
 
-export function nearLamp(x, z) {
+// W17: a lamp lights its own floor only (l.y: its floor's height; the gallery's lamp is upstairs), and
+// not through a wall or a closed door (the nightlight in the dacha's corridor no longer lights the hall)
+export function lampLights(level, l, x, z, y = 0) {
+  if (Math.hypot(x - l.x, z - l.z) >= l.r) return false;
+  if (!level) return true;
+  const ly = l.y || 0;
+  if (level.floorIndex && level.floorIndex(y) !== level.floorIndex(ly)) return false;
+  return !level.soundOccluded(l.x, l.z, x, z, ly, ly);
+}
+export function nearLamp(x, z, y = 0, level = null) {
   if (power.dark) return false;   // W2a: the breaker is off
-  return CFG.stealth.lamps.some((l) => Math.hypot(x - l.x, z - l.z) < l.r);
+  return CFG.stealth.lamps.some((l) => lampLights(level, l, x, z, y));
 }
 
 // Is (x, z) inside the patrol's flashlight beam (and not behind a wall)?
@@ -41,7 +50,7 @@ export function targetY(player) { return player.head.y - (player.crouched ? CFG.
 // patrol: the guard, or every guard of the map (W6): lit by any, hidden from all.
 export function stealthState(player, level, patrol) {
   const P = CFG.patrol, h = player.head, guards = Array.isArray(patrol) ? patrol : [patrol];
-  const lit = guards.some((g) => inBeam(g, level, h.x, h.z, player.floorY || 0)) || nearLamp(h.x, h.z);
+  const lit = guards.some((g) => inBeam(g, level, h.x, h.z, player.floorY || 0)) || nearLamp(h.x, h.z, player.floorY || 0, level);
   const range = P.sight * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1);
   const inPocket = !!(level.pockets && level.pockets.some((p) => h.x >= p.minX && h.x <= p.maxX && h.z >= p.minZ && h.z <= p.maxZ && (level.floorIndex ? level.floorIndex(player.floorY || 0) : 0) === (p.floor || 0)));
   const cover = (player.crouched && coverNear(level, h)) || inPocket;   // W6: a small room with a door hides you while its door is shut

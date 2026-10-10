@@ -110,7 +110,7 @@ export const LAMP_LIST = [
   [15.5, 2.8, -4.0, 0xffc98a, 6, 12, 0], [0, 2.8, 12, 0x9fb4ff, 3, 10, 0], [-10, 2.8, 20, 0x9fb4ff, 3, 10, 0],
 ];
 // lit spots for the stealth read-out (seen further here)
-export const LAMPS = [{ x: 15.5, z: -4.0, r: 3 }, { x: 0, z: 12, r: 3 }, { x: -10, z: 20, r: 3 }, { x: 0, z: -8.5, r: 2.5 }, { x: 5, z: -8.5, r: 2.5 }];
+export const LAMPS = [{ x: 15.5, z: -4.0, r: 3 }, { x: 0, z: 12, r: 3 }, { x: -10, z: 20, r: 3 }, { x: 0, z: -8.5, r: 2.5 }, { x: 5, z: -8.5, r: 2.5, y: 3 }];   // y: the lamp's floor (the gallery's is upstairs)
 
 // The lurker's wardrobe: in the master bedroom upstairs, against its east wall, front facing -X.
 export const WARDROBE = { x: -6.8, z: -16.8, minZ: -17.6, maxZ: -16.0, y0: 3 };

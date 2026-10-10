@@ -554,7 +554,7 @@ export class Patrol {
     const gaze = this.heading + this.headYaw;
     const ang = Math.abs(angleDiff(Math.atan2(-dx, -dz), gaze));
     // light: in the flashlight beam (or by its hand lamp) or next to a lamp you are seen further
-    const lit = (this.lampR ? d < this.lampR : ang < P.beamHalf) || nearLamp(hx, hz);
+    const lit = (this.lampR ? d < this.lampR : ang < P.beamHalf) || nearLamp(hx, hz, player.floorY || 0, this.env.level);
     const M = this.mods || {};
     const dark = power.dark && !lit ? CFG.devices.breaker.darkSightK : 1;   // W2a: the breaker is off, outside its beam
     const range = P.sight * this.sightK * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1) * dark;

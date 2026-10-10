@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PAL } from './palette.js';
+import { styleUniforms } from './materials.js';
 
 const MAX_BLOBS = 64;
 
@@ -94,6 +95,14 @@ export function buildDecor(scene, level, lamps, cfg, floorAt) {
   // ---------- the lamps' circles ----------
   const poolMat = new THREE.MeshBasicMaterial({ map: poolTexture(), color: new THREE.Color(PAL.lamp).multiplyScalar(cfg.pools.k), transparent: true,
     depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: true });
+  // the rim stops at a wall or a closed door, as the lamp's light does (the circles' map: blue / alpha)
+  poolMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uStyleZoneTex = styleUniforms.uStyleZoneTex; sh.uniforms.uStyleZoneRect = styleUniforms.uStyleZoneRect;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vPoolPos;')
+      .replace('#include <fog_vertex>', '#include <fog_vertex>\nvPoolPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPoolPos;\nuniform sampler2D uStyleZoneTex;\nuniform vec4 uStyleZoneRect;')
+      .replace('#include <map_fragment>', '#include <map_fragment>\n{ vec4 t = texture2D( uStyleZoneTex, clamp( ( vPoolPos.xz - uStyleZoneRect.xy ) / uStyleZoneRect.zw, 0.0, 1.0 ) ); diffuseColor.a *= smoothstep( 0.3, 0.7, vPoolPos.y < 2.5 ? t.b : t.a ); }');
+  };
   // a ring, not a disc: only the rim and its glow are drawn (a disc of 6 m was 28 m² of blending per lamp)
   const pools = lamps.map((l) => {
     const g = new THREE.RingGeometry(l.r * 0.8, l.r, 48, 1);
