@@ -139,8 +139,9 @@ test('the other traps (dacha): marbles — falls 3 s, then kneels and picks them
     until(() => P.stunT <= 0, 3); g.sim(0.3);
     out.blind = { label: P.queue[0] && P.queue[0].label, sightK: P.mods && P.mods.sightK, pose: P.pose };
     until(() => P.brain.angryT > 0, 15); out.bucketOff = P.pose; calm();
-    // the second bucket: you open the door
-    d.toggle(P.x, P.z); g.sim(1.5);   // closed again
+    // the second bucket: you open the door (the guard away in the library: it must not see you there)
+    park(P, -7.4, -10.4); g.alert.reset();
+    d.toggle(d.cx + 1, d.cz + 1); g.sim(1.5);   // closed again
     g.player.teleport(d.cx, d.cz, 0); g.sim(0.05);
     const b2 = trap('bucket'); T.placeAtDoor(b2);
     const s0 = mischief.score;
