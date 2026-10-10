@@ -23,6 +23,7 @@ import { newRound, caught } from './contract.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
+import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js';
 import { playThud, playGlass, playHeartbeat } from '../audio/audio.js';
 import { S } from '../i18n/index.js';
 
@@ -40,20 +41,20 @@ let lobby = null;
 
 const isHost = () => N.role === 'host';
 const send = (msg, to) => { if (N.t) { N.t.send(msg, to); N.stats.sent++; } };
-const hostPlayers = () => [{ pid: N.pid, head: G.player.head, floorY: G.player.floorY, yaw: G.player.yaw, crouched: G.player.crouched || G.player.virtualCrouch, running: G.player.running, lost: false }, ...N.remotes.values()].map((p) => (p.pid ? p : Object.assign(p, { pid: p.id })));
+const hostPlayers = () => [{ pid: N.pid, head: G.player.head, floorY: G.player.floorY, yaw: G.player.yaw, crouched: G.player.crouched || G.player.virtualCrouch, running: G.player.running, lost: false }, ...N.remotes.values()].map((p) => (p.pid ? p : Object.assign(p, { pid: p.id }))).filter((p) => p.pid !== G.guardPid);   // the guard is drawn as the guard
 const nameOf = (pid) => (pid === N.pid ? N.name : (N.info.get(pid) || {}).name || '?');
 
 function setStatus(text, bad = false) { N.status = text; N.statusBad = bad; refreshLobby(); }
 function lobbyPlayers() {
-  const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic };
-  if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, mic: (N.info.get(r.id) || {}).mic }))];
+  const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic, guard: G.guardPid === N.pid };
+  if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, mic: (N.info.get(r.id) || {}).mic, guard: G.guardPid === r.id }))];
   return N.lobbyList ? N.lobbyList.map((p) => ({ ...p, you: p.pid === N.pid })) : [me];
 }
 function refreshLobby() {
   if (!lobby) return;
-  lobby.show({ inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost });
+  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost });
 }
-function lobbyMessage() { return { type: 'lobby', players: lobbyPlayers().map(({ you, ...p }) => p) }; }
+function lobbyMessage() { return { type: 'lobby', gp: G.guardPid || '', players: lobbyPlayers().map(({ you, ...p }) => p) }; }
 
 // ---------- the room ----------
 async function open(code, role) {
@@ -84,6 +85,7 @@ function leave(quiet) {
   N.t = null; N.role = null; N.welcomed = false; N.hostPeer = null; N.lobbyList = null;
   G.net = null; G.isGuest = false; G.isHost = true;
   G.players = [G.player];
+  applyGuard(null, N.pid); G.benchT = 0;
   if (!quiet) setStatus('');
 }
 function hello(peer) {
@@ -128,7 +130,8 @@ function hostMessage(m, peer) {
     N.info.set(m.pid, { name: rp.name, thief: rp.thief, mic: !!m.mic, dev: m.dev });
     N.peerOf.set(m.pid, peer); N.pidOf.set(peer, m.pid);
     forgetSent();
-    send({ type: 'welcome', you: m.pid, map: G.level.id, host: N.name, hostPid: N.pid, snap: hostState(true, N.pid, hostPlayers()) }, peer);
+    const snap = hostState(true, N.pid, hostPlayers()); snap.hg = guardState();
+    send({ type: 'welcome', you: m.pid, map: G.level.id, host: N.name, hostPid: N.pid, snap }, peer);
     N.stats.snapshots++;
     send(lobbyMessage());
     refreshLobby();
@@ -153,7 +156,7 @@ function hostIntent(r, m) {
     if (!d) return;
     if (m.a === 'doorStop') { d.release(); return; }
     if (m.a === 'doorSwing') { d.swingTime(+m.time || CFG.doors.fastTime); return; }
-    d.lastUser = 'player';
+    d.lastUser = r.id === G.guardPid ? 'patrol' : 'player';   // the guard's own doors are no news to the guards
     d.toggle(r.head.x, r.head.z, +m.time || CFG.doors.fastTime);
   } else if (m.a === 'take') {
     const it = loot.items[m.i];
@@ -167,6 +170,12 @@ function hostIntent(r, m) {
     r.desk = null; it.netHolder = null; it.holders.length = 0;
     if (m.atVan && !it.throwable && G.round.atVan(r.head)) loot.deliver(it);
     else it.drop(new THREE.Vector3());
+  } else if (m.a === 'grab') {
+    if (r.id === G.guardPid) G.patrol.grabAsk = true;
+  } else if (m.a === 'central') {
+    if (r.id === G.guardPid && !guardCentral()) send({ type: 'ev', k: 'flash', t: S.hguard.needEvidence, c: '#93a1b8', s: 2.5 }, N.peerOf.get(r.id));
+  } else if (m.a === 'role') {
+    setGuard(r.id, !!m.guard);
   } else if (m.a === 'dev') {
     const dev = G.devices && G.devices.byId(m.id);
     if (dev) useDevice(dev);
@@ -190,7 +199,7 @@ function guestMessage(m, peer) {
   if (N.hostLost) { N.hostLost = false; setStatus(S.net.status.inRoom(N.hostName)); }
   if (m.type === 'state') guestState(m);
   else if (m.type === 'ev') guestEvent(m);
-  else if (m.type === 'lobby') { N.lobbyList = m.players; for (const p of m.players) N.info.set(p.pid, p); refreshLobby(); }
+  else if (m.type === 'lobby') { N.lobbyList = m.players; for (const p of m.players) N.info.set(p.pid, p); applyGuard(m.gp || null, N.pid); refreshLobby(); }
 }
 
 // a guest from now on: the world comes from the host
@@ -208,6 +217,7 @@ function guestState(s) {
     applyDifficulty(G.difficulty, G.contract);
     syncStartScreen(); G.boardDirty = true;
   }
+  if (s.hg) { applyGuard(s.hg[0] || null, N.pid); guardView.evidence = !!s.hg[1]; guardView.caught = s.hg[2]; guardView.thieves = s.hg[3]; guardView.gv = new Set(s.hg[4] || []); }
   const moved = guestApply(s, N.pid);
   if (moved && G.round.env.onPhase) G.round.env.onPhase(moved);
   // the other players (the host and other guests)
@@ -251,6 +261,8 @@ function guestEvent(m) {
       break;
     case 'newround': newRound(true); break;
     case 'pause': flash(S.net.hostPaused, 3, '#93a1b8'); break;
+    case 'bench': if (m.pid === N.pid) localBench(m.s); else flash(S.hguard.benched(m.name || nameOf(m.pid), m.s), 3, '#ff5c5c'); break;
+    case 'guardnote': if (G.role === 'guard') flash(m.t, 3, '#ffd166'); break;
   }
 }
 
@@ -270,7 +282,7 @@ export function netState() {
   return {
     role: N.role, code: N.code, pid: N.pid, welcomed: N.welcomed, hostLost: N.hostLost, status: N.status,
     players: lobbyPlayers().map((p) => ({ pid: p.pid, name: p.name, thief: p.thief, host: !!p.host, lost: !!p.lost })),
-    remotes: [...N.remotes.values()].map((r) => ({ pid: r.id, x: +r.head.x.toFixed(2), z: +r.head.z.toFixed(2), lost: r.lost, desk: r.desk ? r.desk.id : null, inGame: G.players.includes(r) })),
+    remotes: [...N.remotes.values()].map((r) => ({ pid: r.id, x: +r.head.x.toFixed(2), z: +r.head.z.toFixed(2), lost: r.lost, desk: r.desk ? r.desk.id : null, inGame: G.players.includes(r), drawn: !!r.group.visible, bench: r.benchT > 0 })),
     stats: { ...N.stats }, transport: N.t ? N.t.diag() : null,
   };
 }
@@ -291,6 +303,7 @@ export const net = {
   init() {
     G.net = null; G.isGuest = false; G.isHost = true;
     G.netEvent = netEvent; G.netIntent = netIntent; G.netHeld = netHeld; G.netCaught = netCaught;
+    G.netRemotes = () => [...N.remotes.values()]; G.netRemote = (pid) => N.remotes.get(pid) || null; G.netPid = () => N.pid; G.netName = () => N.name;   // W15
     N.name = loadSetting('netName', ''); N.thief = loadSetting('netThief', 'zoya');
     const box = $('netbox');
     if (!box) return;
@@ -299,6 +312,7 @@ export const net = {
       create: (name, thief) => { N.name = name; N.thief = thief; open(newCode(), 'host'); },
       join: (c, name, thief) => { N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
       leave: () => { leave(); refreshLobby(); },
+      role: (want) => netRole(want),
       solo: () => { const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
       share: async () => {
         const link = roomLink(N.code, G.level.id);
@@ -316,7 +330,15 @@ export const net = {
       N.kaTimer = setInterval(() => send({ type: 'ka' }), 1000);
     });
     // the host's voice lines, guard sounds, noises and messages for the guests (offline nothing listens)
-    G.noise.on((e) => { if (isHost() && e.source !== 'net') netEvent('noise', { x: +e.x.toFixed(2), z: +e.z.toFixed(2), y: +(e.y || 0).toFixed(2), r: +e.radius.toFixed(2), kind: e.kind }); });
+    G.noise.on((e) => {
+      if (!isHost() || e.source === 'net' || !N.t || !N.remotes.size) return;
+      const msg = { type: 'ev', k: 'noise', x: +e.x.toFixed(2), z: +e.z.toFixed(2), y: +(e.y || 0).toFixed(2), r: +e.radius.toFixed(2), kind: e.kind };
+      const ey = e.source === 'world' ? e.y : (e.who || G.player).floorY;
+      for (const [pid, r] of N.remotes) {
+        if (pid === G.guardPid && e.source !== 'patrol' && !(G.patrol.audible(e, ey) > 0)) continue;   // W15: the guard hears what a guard would
+        if (!r.lost) send(msg, N.peerOf.get(pid));
+      }
+    });
   },
 
   pre(dt, now) {
@@ -328,7 +350,8 @@ export const net = {
         const wasLost = r.lost;
         r.update(dt, t, true);
         if (r.lost && !wasLost) flash(S.net.friendLost(r.name), 2.5, '#ffb347');
-        if (t - r.lastHeard > CFG.net.peerGoneAfter * 1000) { flash(S.net.friendGone(r.name), 2.5, '#93a1b8'); dropRemote(r); N.remotes.delete(pid); N.info.delete(pid); send(lobbyMessage()); refreshLobby(); continue; }
+        if (t - r.lastHeard > CFG.net.peerGoneAfter * 1000) { flash(S.net.friendGone(r.name), 2.5, '#93a1b8'); dropRemote(r); N.remotes.delete(pid); N.info.delete(pid); if (pid === G.guardPid) applyGuard(null, N.pid); send(lobbyMessage()); refreshLobby(); continue; }
+        if (r.benchT > 0) r.benchT = Math.max(0, r.benchT - dt);   // W15: a caught thief in the van
         if (r.lost !== wasLost) { send(lobbyMessage()); refreshLobby(); }
         // its item in front of it, the way a laptop player carries one
         const it = r.desk;
@@ -338,7 +361,9 @@ export const net = {
           it.mesh.quaternion.setFromAxisAngle(UP, r.yaw);
         }
       }
-      G.players = [G.player, ...[...N.remotes.values()].filter((r) => !r.lost)];
+      // the thieves in the house: not the guard (W15), not the ones on the bench, not the silent ones
+      G.players = [...(G.guardPid === N.pid || G.benchT > 0 ? [] : [G.player]), ...[...N.remotes.values()].filter((r) => !r.lost && r.id !== G.guardPid && !(r.benchT > 0))];
+      for (const r of N.remotes.values()) if (r.id === G.guardPid) r.group.visible = false;   // its body is the guard
       // the round is over: the friends' items were stowed or lost with it (game/round.js)
       if (G.round.phase === 'result') for (const r of N.remotes.values()) if (r.desk) { r.desk.netHolder = null; r.desk = null; }
     } else {
@@ -369,6 +394,7 @@ export const net = {
     if (!N.t || !isHost() || !G.active || G.round.phase === 'result') return;
     for (const r of N.remotes.values()) {
       if (r.lost) continue;
+      if (r.id === G.guardPid || r.benchT > 0) { r.mic.shoutSeen = r.mic.shouts; continue; }
       const shout = r.mic.shouts > r.mic.shoutSeen;
       r.mic.shoutSeen = r.mic.shouts;
       voiceNoise(r, r.speak, dt, r.mic.live && !r.mic.breath && G.caughtT < 0, r.mic.level, shout, false);
@@ -379,7 +405,7 @@ export const net = {
     if (!N.t) return;
     N.sendT -= dt;
     if (isHost()) {
-      if (N.remotes.size && N.sendT <= 0) { N.sendT = 1 / CFG.net.stateHz; send(hostState(false, N.pid, hostPlayers())); }
+      if (N.remotes.size && N.sendT <= 0) { N.sendT = 1 / CFG.net.stateHz; const st = hostState(false, N.pid, hostPlayers()); st.hg = guardState(); send(st); }
     } else if (N.welcomed && N.sendT <= 0) {
       N.sendT = 1 / CFG.net.poseHz;
       const p = G.player, mic = G.mic;
@@ -405,6 +431,19 @@ export const net = {
     if (lobby && N.t && (N.lobbyTick = (N.lobbyTick || 0) + 1) % 30 === 0) refreshLobby();
   },
 };
+
+// W15: [guard pid, evidence, caught, thieves, pids the guard's screen shows]
+function guardState() { return [G.guardPid || '', guardView.evidence ? 1 : 0, guardView.caught || 0, guardView.thieves || 0, [...guardView.gv]]; }
+// W15: who plays the guard; only before the clock starts, one guard per room (host)
+function setGuard(pid, want) {
+  if (G.round.phase !== 'ready') { if (pid === N.pid) flash(S.hguard.rolesBeforeClock, 2.5, '#93a1b8'); else send({ type: 'ev', k: 'flash', t: S.hguard.rolesBeforeClock, c: '#93a1b8', s: 2.5 }, N.peerOf.get(pid)); return; }
+  if (want && G.guardPid && G.guardPid !== pid) { if (pid === N.pid) flash(S.hguard.taken, 2.5, '#93a1b8'); else send({ type: 'ev', k: 'flash', t: S.hguard.taken, c: '#93a1b8', s: 2.5 }, N.peerOf.get(pid)); return; }
+  applyGuard(want ? pid : (G.guardPid === pid ? null : G.guardPid), N.pid);
+  forgetSent();
+  send(lobbyMessage());
+  refreshLobby();
+}
+export function netRole(want) { if (isHost()) setGuard(N.pid, want); else netIntent('role', { guard: !!want }); }
 
 // a guest's own shouts (heist.js counts them; the host turns them into the noise in the house)
 // tests (__game.net) and the lobby: open a room as the host or join one as a guest

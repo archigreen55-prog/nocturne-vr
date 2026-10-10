@@ -125,6 +125,15 @@ friends' bodies are in its house. There is no server of ours and no voice chat y
 server some networks (often mobile ↔ mobile) cannot connect directly; one Wi‑Fi always works.
 Two tabs of one browser can try it with `?net=local`.
 
+«За сторожа» (W15): in the room, before the clock starts, one friend can press «Стати сторожем» and play
+the first guard instead of the AI. The guard's screen shows a thief only when the game would see it (in
+the light, or close, with a line of sight) and plays only the noises a guard would hear. «Схопити» (the
+context button; A in VR) catches a thief in reach in front; walking into one catches it too. «Викликати
+Центральну» (the full alarm) stays grey until the guard saw a thief or noticed missing loot. A caught
+thief sits in the van for 60 s. The guard wins when every thief is in the van at once or the clock beats
+them; the thieves win by delivering the goal and gathering at the van. The guard cannot come within 4 m
+of the van.
+
 ## Privacy
 
 [privacy.html](https://archigreen55-prog.github.io/nocturne-vr/privacy.html): the microphone is analysed on the device only and nothing is sent anywhere unless you open a room with friends (then only game data goes to them: name, position, the microphone level as one word, never audio);

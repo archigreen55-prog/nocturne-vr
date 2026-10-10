@@ -110,7 +110,7 @@ export const economy = {
   },
   world() {
     const { round, player } = G;
-    if (G.isGuest) return;   // with friends the host's contract is played (plan-multiplayer §5)
+    if (G.isGuest || G.role === 'guard') return;   // with friends the host's contract is played (plan-multiplayer §5); the guard is not at the van
     // leaving the van with a closed contract: play the last open one instead (before the clock starts)
     if (round.phase !== 'ready' || isOpen(G.contract) || !G.active) return;
     const V = CFG.round.vanZone;
@@ -123,7 +123,7 @@ export const economy = {
   },
   result() {
     const R = G.round.result;
-    if (G.round.phase !== 'result' || !R || !G.verdict || R === local.lastResult) return;
+    if (G.round.phase !== 'result' || !R || !G.verdict || R === local.lastResult || G.role === 'guard') return;   // W15: the guard earns no money
     local.lastResult = R;
     const got = R.kind === 'left' || R.kind === 'escaped';
     G.income = { ...creditRound({ contractId: G.contract.id, difficulty: G.difficulty, loot: got ? R.sum : 0, stars: G.verdict.stars }), got };

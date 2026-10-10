@@ -210,6 +210,7 @@ export class Patrol {
   // A running step heard in calm time (CFG.sprint.react 'fast'): no pause, «Хто там бігає?!», it goes
   // at its search speed to the step and, while it keeps hearing them, re-aims at the latest step.
   heardRun(x, z, f) {
+    if (this.manual) return;
     if (this.state === 'investigate' && this.runFollow) {
       if (this.runRetarget <= 0) { this.runRetarget = CFG.sprint.retarget; this.goTo(x, z, f); }
       return;
@@ -251,6 +252,7 @@ export class Patrol {
 
   // Full alarm with two guards (W6): stand at an exit and watch it until the alarm is over.
   post(x, z, f) {
+    if (this.manual) return;
     if (this.state === 'chase') return;
     this.interrupt();
     this.stay = true;
@@ -271,6 +273,7 @@ export class Patrol {
 
   // Full alarm raised elsewhere (a shout, the timer): run to where it came from.
   onAlarm(x, z, f) {
+    if (this.manual) return;
     this.env.sound('radio');
     this.env.say(S.guard.say.radio);
     if (this.state === 'chase') return;
@@ -300,6 +303,7 @@ export class Patrol {
   }
   // React to a noise it heard: come to look, or hunt there during a full alarm.
   reactTo(e, ey = 0) {
+    if (this.manual) return;   // W15: the human guard hears it on its own screen
     if (e.kind === 'run') this.heardRunT = 2;
     if (this.state === 'chase') return;
     if (e.device && this.brain.deviceTask(e.device)) return;   // W2a: a device: it goes to switch it off
@@ -318,6 +322,7 @@ export class Patrol {
     const alert = this.env.alert;
     players = asList(players);
     this.caughtWho = null;
+    if (this.manual) return this.manualStep(dt, players);   // W15: a friend plays this guard (below)
     if (this.stunT > 0) return this.knockedOut(dt);   // W2b: a trap: sees, hears and catches nothing
     if (!players.includes(this.target)) this.target = players[0] || null;
     if (!this.target) return null;
@@ -558,7 +563,7 @@ export class Patrol {
     // crouched, it has to see your face, not just the top of your head behind the furniture
     const visible = d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz);
     const feel = d < P.feelDist && !this.env.level.soundOccluded(this.x, this.z, hx, hz);
-    return { visible, feel, d, range };
+    return { visible, feel, d, range, lit };
   }
 
   // Vision check (10 Hz): the player it notices most becomes the target; updates the detection meter
@@ -622,5 +627,87 @@ export class Patrol {
     this.drawBar(0);
     this.place();
     return null;
+  }
+
+  // ---------- W15: a friend plays this guard («За сторожа», plan-multiplayer §2 (в)) ----------
+  // The body above (built in the constructor) is drawn as before; here only what the human guard does.
+  // No mind (brain.js) runs: the pose comes from the guard player's own body (manualPose, set by
+  // systems/humanGuard.js). What the guard sees is counted by the same rule as for the AI guard (look()),
+  // but its screen shows a thief only in the light or close (CFG.humanGuard.darkSight); missing loot is
+  // noticed by the same rule as brain.watch(). It catches by the button (grab) or by walking into a thief.
+  setManual(on) {
+    this.manual = !!on;
+    this.manualPose = null; this.grabAsk = false; this.humanSees = new Set();
+    this.evidence = null; this.evidenceItem = null; this.caughtCount = 0;
+    if (!on) this.reset();
+    else { this.interrupt(); this.state = 'task'; this.queue.length = 0; this.path = []; this.stunT = 0; this.pose = null; this.meter = 0; this.visible = false; this.setMark(null); this.drawBar(0); }
+  }
+
+  // Returns 'caught' (this.caughtWho) or null, like update().
+  manualStep(dt, players) {
+    const H = CFG.humanGuard, M = this.manualPose;
+    this.stunT = 0; this.pose = null;   // traps do not knock a human guard down (yet)
+    if (M) {
+      this.speed = dt > 0 ? Math.min(6, Math.hypot(M.x - this.x, M.z - this.z) / dt) : 0;
+      this.x = M.x; this.z = M.z; this.y = M.floorY || 0; this.heading = M.yaw; this.headYaw = 0;
+    }
+    // 10 times a second: whom it sees (its screen draws only them) and what is missing
+    this.aiT += dt;
+    if (this.aiT >= AI_DT) {
+      this.aiT = 0;
+      this.humanSees = new Set(players.filter((p) => { const r = this.look(p); return r.visible && (r.lit || r.d < H.darkSight); }));
+      if (this.manualArmed && this.humanSees.size && !this.evidence) this.evidence = 'seen';   // evidence counts only while the clock runs
+      if (this.manualArmed && !this.evidence) this.manualWatch();
+    }
+    // walking into a thief catches it; the button catches one in reach in front of it (only while the clock runs)
+    if (!this.manualArmed) { this.grabAsk = false; players = []; }
+    for (const p of players) {
+      if (Math.hypot(p.head.x - this.x, p.head.z - this.z, (p.floorY || 0) - this.y) < H.autoGrab) return this.manualCaught(p);
+    }
+    if (this.grabAsk) {
+      this.grabAsk = false;
+      const t = this.grabTarget(players);
+      if (t) return this.manualCaught(t);
+      this.missed = (this.missed || 0) + 1;
+    }
+    // its steps and voice where it is (for everybody else's ears)
+    if (this.speed > 0.2) {
+      this.stepAcc += this.speed * dt;
+      if (this.stepAcc > (this.speed > 1.7 ? 0.9 : 0.7)) { this.stepAcc = 0; playStep(this.voice, this.speed > 1.7 ? 1.3 : 0.9); }
+    }
+    const L = this.env.listener();
+    this.voice.setOccluded(this.env.level.soundOccluded(L.x, L.z, this.x, this.z));
+    this.voice.setPos(this.x, this.y + 1.0, this.z);
+    this.setMark(null); this.drawBar(0);
+    this.place();
+    return null;
+  }
+  manualCaught(p) { this.caughtWho = p; this.caughtCount++; this.evidence = this.evidence || 'seen'; return 'caught'; }
+
+  // the thief «Схопити» reaches: close, in front, not behind a wall
+  grabTarget(players) {
+    const H = CFG.humanGuard;
+    let best = null, bestD = H.grabDist;
+    for (const p of players) {
+      const dx = p.head.x - this.x, dz = p.head.z - this.z, d = Math.hypot(dx, dz, (p.floorY || 0) - this.y);
+      if (d > bestD) continue;
+      if (d > 0.3 && Math.abs(angleDiff(Math.atan2(-dx, -dz), this.heading + this.headYaw)) > H.grabHalfAngle) continue;
+      if (this.env.level.losBlocked(this.x, this.y + EYE, this.z, p.head.x, targetY(p), p.head.z)) continue;
+      best = p; bestD = d;
+    }
+    return best;
+  }
+
+  // missing loot, by the AI guard's rule (brain.watch): an item it can see the place of is not there
+  manualWatch() {
+    for (const it of this.env.loot.items) {
+      if (it.throwable || it.trap || it.prop || it.heavy || !it.def.pos) continue;
+      const [hx, hy, hz] = it.def.pos, p = it.mesh.position;
+      const there = !it.delivered && it.state === 'rest' && Math.hypot(p.x - hx, p.z - hz) < 0.5 && Math.abs(p.y - hy) < 0.3;
+      if (there || !this.brain.canSee(hx, hy + 0.2, hz)) continue;
+      if (this.env.loot.items.some((f) => f.prop && !f.held && Math.hypot(f.mesh.position.x - hx, f.mesh.position.z - hz) < 0.5 && Math.abs(f.mesh.position.y - hy) < 0.4)) continue;
+      this.evidence = 'missing'; this.evidenceItem = it.name;
+      return;
+    }
   }
 }

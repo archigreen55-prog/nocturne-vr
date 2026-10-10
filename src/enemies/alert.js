@@ -39,7 +39,7 @@ export class Alert {
 
   add(points, x, z) {
     this.lastKnown = { x, z };
-    if (this.full) return;
+    if (this.full || this.manualOnly) return;   // W15: a human guard decides on the alarm itself
     this.suspicion += points;
     if (this.suspicion >= CFG.alert.full) this.setFull(S.cause.noise, x, z);
   }
@@ -47,6 +47,7 @@ export class Alert {
   setFull(cause, x, z) {
     if (x !== undefined) this.lastKnown = { x, z };
     if (this.full) return;
+    if (this.manualOnly && (cause === S.cause.noise || cause === S.cause.shout)) return;   // W15: noise does not ring by itself
     this.full = true;
     this.cause = cause;
     if (this.onFull) this.onFull(cause, x, z);
