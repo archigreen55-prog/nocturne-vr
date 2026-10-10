@@ -9,6 +9,7 @@ import { boardAim } from './phone.js';
 import { pressBoard } from './contract.js';
 import { nearestDoor, useDoor } from './doors.js';
 import { aimedDevice, useDevice } from './distract.js';
+import { placeAtDoor } from './traps.js';
 import { S } from '../i18n/index.js';
 
 export const player = {
@@ -32,6 +33,7 @@ export const player = {
         const dev = aimedDevice();   // W2a: a device in front (nothing in hand, no item under the crosshair)
         if (dev) useDevice(dev);
         else if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
+        else if (hands.desk && placeAtDoor(hands.desk)) { /* W2b: the bucket on a door, the rope across a doorway */ }
         else hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
       }
       hands.updateDesk(player.head, player.yaw, player.lookPitch);

@@ -38,6 +38,7 @@ import { startScreen } from './startScreen.js';
 import { flashlight } from './flashlight.js';
 import { progressCode } from './progressCode.js';
 import { distract } from './distract.js';
+import { trapsSystem } from './traps.js';
 import { mapView } from './mapView.js';
 import { guards } from './guards.js';
 import { brightness } from './brightness.js';
@@ -59,6 +60,7 @@ export const SYSTEMS = [
   player,        // act: breath, walking, hands, doors, the drop-off ring
   tutorial,      // act: the first-run tutorial (phone, PC)
   economy,       // the wallet and the shop; world: a closed contract is not played; result: the round's money
+  trapsSystem,   // W2b: traps from the van (placing, springing, the alarm clock), mischief points and combos
   distract,      // W2a: throwing (phone, PC: aim, arc), the devices (radio, phone, breaker), a can on the guard's head
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
   board,         // present: the board

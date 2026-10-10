@@ -8,10 +8,13 @@ import { S } from '../i18n/index.js';
 const G = 9.8;
 
 // The map's cans and bottles as item definitions (loot/items.js builds them with the loot).
+// W2b: + the traps' pool (each kind as many as a round may hold; hidden until bought and in the van).
 export function throwablesFor(mapId) {
   const M = CFG.throw.maps[mapId];
-  if (!M) return [];
-  return M.items.map((d) => ({ ...d, mesh: d.kind, throwable: true, value: 0, name: d.kind === 'bottle' ? S.throw.bottle : S.throw.can }));
+  const cans = M ? M.items.map((d) => ({ ...d, mesh: d.kind, throwable: true, value: 0, name: d.kind === 'bottle' ? S.throw.bottle : S.throw.can })) : [];
+  const T = CFG.traps, n = T.limit * 2, pool = [];
+  for (const kind of T.order) for (let i = 0; i < n; i++) pool.push({ id: `trap_${kind}${i}`, kind: 'light', trap: kind, mesh: kind === 'clock' ? 'alarm' : kind, throwable: true, value: 0, name: S.traps.names[kind], pos: [0, -20, 0], yaw: 0 });
+  return cans.concat(pool);
 }
 
 // The aimed throw: CFG.throw.aim.speed along the view's yaw, at the view's pitch + `up`, clamped.

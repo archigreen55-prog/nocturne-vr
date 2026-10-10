@@ -4,6 +4,7 @@
 import { CFG } from '../config/index.js';
 import { progress } from '../game/contracts.js';
 import { stealthState } from '../game/stealth.js';
+import { mischief } from '../game/mischief.js';
 import { G } from './state.js';
 import { fx } from './messages.js';
 import { S } from '../i18n/index.js';
@@ -25,8 +26,10 @@ export const panel = {
       G.wasHidden = st.hidden;
       G.guardLineT -= 0.1;
       const guardText = G.guardLineT > 0 ? S.hud.guardSays(G.guardLine) : CFG.run.showGuard && round.phase !== 'result' ? S.hud.guardDoes(patrol.activity) : '';
+      let goal = round.phase === 'result' ? null : progress(G.contract, T, loot);
+      if (goal && mischief.score && !G.contract.goal.mischief) goal = { ...goal, text: `${goal.text} · ${S.traps.score(mischief.score)}` };   // W2b: mischief on any contract
       const pnl = {
-        stealth: st, goal: round.phase === 'result' ? null : progress(G.contract, T, loot), guardText,
+        stealth: st, goal, guardText,
         vanSum: T.sum, vanCount: T.inVan, speaking: G.speakT >= CFG.mic.normalAfter && !breath.holding,
         door: dragging ? { creak: dragging.door.creak } : null,
         mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch, run: G.run,

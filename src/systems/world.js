@@ -22,6 +22,7 @@ import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { S } from '../i18n/index.js';
 import { throwablesFor } from '../loot/throw.js';
+import { score } from './traps.js';
 
 export const world = {
   id: 'world',
@@ -69,6 +70,7 @@ export const world = {
       const env = {
         level, nav, alert, listener, loot, guard, secondary,
         roundTime: () => (G.round.phase === 'heist' ? G.round.t : null),
+        onMischief: (kind) => score(kind),   // W2b: a trick that worked (device, throw)
         say: (text) => { G.guardLine = guard && guard.name ? `${guard.name}: ${text}` : text; G.guardLineT = 3.5; G.wristTimer = 0; },
         sound: (kind, x, z, o) => {
           const L = player.head, v = env.self.voice;

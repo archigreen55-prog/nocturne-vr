@@ -158,6 +158,7 @@ export class Patrol {
     // running (CFG.sprint): it goes to look fast and follows the steps; on hard it dashes in a chase
     this.runFollow = false; this.runRetarget = 0; this.runLineT = 0; this.heardRunT = 0;
     this.dashLeft = CFG.sprint.guardSprint.time; this.dashWinded = 0; this.dashRest = 0; this.dashing = false;
+    this.stunT = 0; this.pose = null;   // W2b: knocked out by a trap; the pose drawn (flip / kneel / bucket)
     this.setMark(null);
     this.drawBar(0);
     this.place();
@@ -284,7 +285,7 @@ export class Patrol {
   // How loud a noise is to it: 0 = not heard, up to 1 right next to it. ey: the height of the noise
   // (W6: floors; a noise on another floor is muffled by the slab, except through the stair well).
   audible(e, ey = 0) {
-    if (e.source === 'patrol') return 0;
+    if (e.source === 'patrol' || this.stunT > 0) return 0;   // W2b: knocked out by a trap: hears nothing
     const d = Math.hypot(e.x - this.x, e.z - this.z, ey - this.y);
     // difficulty, habits (tea, toilet, phone: hears worse), a whistling kettle next to it
     let r = e.radius * CFG.hearing.radiusK * (this.mods && this.mods.hearK ? this.mods.hearK : 1);
@@ -312,6 +313,7 @@ export class Patrol {
   update(dt, player) {
     const P = CFG.patrol;
     const alert = this.env.alert;
+    if (this.stunT > 0) return this.knockedOut(dt);   // W2b: a trap: sees, hears and catches nothing
     this.timer += dt;
     // vision at 10 Hz
     this.aiT += dt;
@@ -563,5 +565,32 @@ export class Patrol {
     this.group.position.set(this.x, this.y + bob - (this.sitting ? 0.45 : 0), this.z);
     this.group.rotation.y = this.heading;
     this.upper.rotation.y = this.headYaw;
+    // W2b: a trap's pose — lying feet up, on its knees (picking marbles up), the bucket on its head
+    const P = this.pose;
+    this.group.rotation.order = 'YXZ';
+    this.group.rotation.x = P === 'flip' ? -1.45 : 0;
+    if (P === 'flip') this.group.position.y += 0.25;
+    else if (P === 'kneel') this.group.position.y -= 0.42;
+    if (this.bucketMesh) this.bucketMesh.visible = P === 'bucket';
+  }
+
+  // ---------- W2b: knocked out by a trap ----------
+  // For s seconds: lies (or stands blind) in `pose`, sees and hears nothing, catches nobody; then its
+  // Brain queues what follows (find the flashlight, pick the marbles up, take the bucket off, ...).
+  knockOut(kind, s, pose) {
+    this.wasChasing = (this.state === 'chase' || this.state === 'hunt') && !!this.lastSeen;   // after it, it goes where it saw you last
+    this.interrupt();
+    this.state = 'task'; this.queue.length = 0; this.path = [];
+    this.stunT = s; this.stunKind = kind; this.pose = pose;
+    this.speed = 0; this.visible = false; this.meter = 0; this.timer = 0; this.stay = false;
+    this.setMark(null);
+  }
+  knockedOut(dt) {
+    this.stunT -= dt;
+    this.speed = 0; this.visible = false;
+    if (this.stunT <= 0) { this.stunT = 0; this.pose = null; this.brain.afterTrap(this.stunKind); }
+    this.drawBar(0);
+    this.place();
+    return null;
   }
 }

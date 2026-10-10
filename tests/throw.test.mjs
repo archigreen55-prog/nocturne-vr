@@ -30,7 +30,7 @@ test('W2a: the cans and bottles stand on both maps (not loot: not in the sum, ne
     await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque */ } });
     const { page, errors } = await open(ctx, url);
     runs[name] = await page.evaluate(() => {
-      const g = window.__game, T = g.loot.items.filter((i) => i.throwable);
+      const g = window.__game, T = g.loot.items.filter((i) => i.throwable && !i.trap);
       g.sim(1);
       return {
         id: g.level.id, n: T.length, kinds: T.map((i) => i.kind), still: T.every((i) => i.state === 'rest'),

@@ -135,6 +135,8 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 .pm-shop.soon .pm-shop-text { opacity: .55; }
 .pm-shop .pm-buy { flex: none; width: 150px; min-height: 44px; font-size: 13px; }
 .sm-income { color: #ffd166; font-weight: 700; font-size: 14px; margin: 2px 0 4px; }
+.sm-story { color: #c9d3e3; font-style: italic; font-size: 13px; margin: 4px 0 0; }
+.sm-crew { color: #7fc8ff; font-style: italic; font-size: 13px; margin: 0 0 4px; }   /* W2b: the customer and the crew */
 
 /* throwing (W2a): the context button while aiming, the ✕ beside it (lift there = do not throw) */
 #touch .act.aim { border-color: #ffd166; background: rgba(255, 209, 102, .3); }

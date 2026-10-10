@@ -13,6 +13,7 @@ import { syncStartScreen } from './startScreen.js';
 import { switchMap, applyMapConfig } from '../world/maps.js';
 import { summaryState } from './phone.js';
 import { shopPress } from './economy.js';
+import { newRoundTraps, reloadVan } from './traps.js';
 import { S } from '../i18n/index.js';
 
 export function newRound() {
@@ -23,6 +24,7 @@ export function newRound() {
   if (summary) { summary.hide(); board.mesh.visible = true; }
   loot.reset(); hands.reset(); level.reset(); for (const g of G.guards || [patrol]) g.reset(); for (const l of G.lurkers || [lurker]) l.reset(); G.alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
+  newRoundTraps();   // W2b: the van loaded from the stock again, the points from zero
   G.caughtT = -1; G.resultT = -1;
   board.placeAtStand();
   player.virtualCrouch = false;
@@ -37,12 +39,14 @@ export function setContract(id) {
   if (G.round.phase !== 'ready') return;
   G.contract = contractById(id); G.contractId = G.contract.id; saveSetting('contract', G.contractId);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
+  reloadVan();   // W2b: another contract / difficulty: another number of traps
   syncStartScreen(); G.boardDirty = true;
 }
 export function setDifficulty(id) {
   if (G.round.phase !== 'ready') return;
   G.difficulty = id; saveSetting('difficulty', id);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
+  reloadVan();   // W2b: another contract / difficulty: another number of traps
   syncStartScreen(); G.boardDirty = true;
 }
 async function calibrateInVR() {
