@@ -54,7 +54,7 @@ export const controls = {
     if (ctl.crouch) player.virtualCrouch = !player.virtualCrouch;
     move.x = ctl.move.x; move.y = ctl.move.y;
     G.breathDown = ctl.breath;
-    if (G.playingDesktop && (ctl.look.x || ctl.look.y)) player.look(ctl.look.x / 0.0025, ctl.look.y / 0.0025);   // touch: rad -> look()'s px
+    if (G.playingDesktop && !G.guardStunned && (ctl.look.x || ctl.look.y)) player.look(ctl.look.x / 0.0025, ctl.look.y / 0.0025);   // touch: rad -> look()'s px
     if (G.playingDesktop && ctl.boardPress && G.caughtT < 0) pressBoard(ctl.boardPress);
     if (G.inVR) {
       const act = xrIn.read(renderer.xr.getSession(), dt);
@@ -75,7 +75,7 @@ export const controls = {
     } else if (!G.playingDesktop) {
       move.x = move.y = 0;
     }
-    if (!active || G.caughtT >= 0) { move.x = move.y = 0; }
+    if (!active || G.caughtT >= 0 || G.guardStunned) { move.x = move.y = 0; }   // W15: a trap knocked the guard player down
   },
   frame() { G.keys.endFrame(); },
 };

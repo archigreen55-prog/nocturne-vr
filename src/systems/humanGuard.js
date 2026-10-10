@@ -17,7 +17,7 @@ import { loadSetting, saveSetting } from '../settings.js';
 import { money } from '../ui/board.js';
 import { S } from '../i18n/index.js';
 
-const H = { evidence: false, caught: 0, thieves: 0, gv: new Set(), lastPhase: null, benchShown: -1, fenceT: 0, said: null, breathWas: false, resultSaved: null, missed: 0 };
+const H = { evidence: false, caught: 0, thieves: 0, gv: new Set(), lastPhase: null, benchShown: -1, fenceT: 0, said: null, breathWas: false, resultSaved: null, missed: 0, stunT: 0, stunKind: null, stunShown: -1 };
 export const guardView = H;   // what the guard's device knows (from the host on a guest)
 export const isGuard = () => G.role === 'guard';
 
@@ -45,6 +45,7 @@ function setRole(role) {
     if (G.noise) G.noise.filter = (e) => e.source === 'patrol' || P.audible(e, e.source === 'world' ? e.y : (e.who || me).floorY) > 0;
   } else {
     if (G.noise) G.noise.filter = null;
+    if (G.guardStunned) { G.guardStunned = false; H.stunT = 0; G.comfort.fade = 0; }
     P.body.material.visible = true;
     if (G.level) { const S0 = G.level.spawn; me.teleport(S0.x, S0.z, S0.yaw); }
   }
@@ -64,6 +65,7 @@ export function guardButton() {
   return { label: S.hguard.central, off: !H.evidence || G.round.phase !== 'heist' || G.alert.full };
 }
 export function guardInteract() {
+  if (G.guardStunned) { H.stunShown = -1; return; }   // lying: the «лежу N с» line again
   if (nearThief()) { if (G.isGuest) G.netIntent('grab'); else G.patrol.grabAsk = true; return; }
   if (!H.evidence) { flash(S.hguard.needEvidence, 2.5, '#93a1b8'); return; }
   if (G.isGuest) G.netIntent('central'); else guardCentral();
@@ -113,7 +115,7 @@ export function guardResultText() {
 export const humanGuard = {
   id: 'humanGuard',
   init() {
-    G.role = 'thief'; G.guardPid = null; G.humanGuard = false; G.benchT = 0;
+    G.role = 'thief'; G.guardPid = null; G.humanGuard = false; G.benchT = 0; G.guardStunned = false;
     G.onBench = onBench; G.guardHudText = () => S.hguard.hud(H.caught, H.thieves, H.evidence);
   },
   input() {
@@ -138,6 +140,7 @@ export const humanGuard = {
       if (src) G.patrol.manualPose = { x: src.head.x, z: src.head.z, floorY: src.floorY || 0, yaw: src.yaw };
       G.patrol.manualArmed = round.phase === 'heist' || round.phase === 'escape';   // nobody is caught before the clock or after the end
       H.evidence = !!G.patrol.evidence; H.caught = G.patrol.caughtCount || 0;
+      H.stunT = G.patrol.stunT || 0; H.stunKind = H.stunT > 0 ? G.patrol.stunKind : null;   // a trap knocked it down
       H.gv = new Set([...(G.patrol.humanSees || [])].map((p) => (p === player ? G.netPid() : p.id)));
       // the guard's device hears «зникло» / «бачу» once
       if (G.patrol.evidence && H.said !== G.patrol.evidence) {
@@ -151,6 +154,13 @@ export const humanGuard = {
         if (H.missed) { if (isGuard()) flash(S.hguard.missed, 1.5, '#93a1b8'); else if (G.netEvent) G.netEvent('guardnote', { t: S.hguard.missed }); }
       }
     }
+    // a trap knocked the guard down: no walking, no looking round, no buttons; «лежу N с» every second
+    const was = G.guardStunned;
+    G.guardStunned = isGuard() && H.stunT > 0;
+    if (G.guardStunned) {
+      const left = Math.ceil(H.stunT), say = S.hguard.stunned[H.stunKind];
+      if (left !== H.stunShown && say) { H.stunShown = left; flash(say(left), 1.2, '#ffb347'); }
+    } else if (was) { H.stunShown = -1; flash(S.hguard.up, 1.5, '#5fd38d'); G.comfort.fadeRate = 2.5; }   // the dark goes in 0.4 s
     // the guard keeps away from the van (the thieves' drop-off ring is beside it)
     if (isGuard() && round.phase !== 'result') {
       const V = CFG.round.vanZone, d = Math.hypot(player.head.x - V.x, player.head.z - V.z), F = CFG.humanGuard.vanFence;
@@ -204,6 +214,14 @@ export const humanGuard = {
       P.body.material.visible = false;
       P.setMark(null); P.drawBar(0); P.place();
       for (const r of list) r.group.visible = !r.lost && H.gv.has(r.id);
+      // knocked down: the camera on the floor looking up (soap), low looking down (marbles, rope), the
+      // bucket's dark; in VR only the dark (the headset's view is never turned for the player)
+      if (G.guardStunned) {
+        const pose = CFG.humanGuard.traps[H.stunKind] ? CFG.humanGuard.traps[H.stunKind].pose : 'flip', cam = G.camera;
+        if (!G.inVR && pose === 'flip') { cam.position.y = 0.35; cam.rotation.set(1.3, me.lookYaw, 0, 'YXZ'); }
+        else if (!G.inVR && pose === 'kneel') { cam.position.y = 0.8; cam.rotation.set(-0.75, me.lookYaw, 0, 'YXZ'); }
+        G.comfort.fade = (G.inVR ? CFG.humanGuard.vrDark : CFG.humanGuard.stunDark)[pose] || 0; G.comfort.fadeRate = 0;
+      }
     }
   },
 };

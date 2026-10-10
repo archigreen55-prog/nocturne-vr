@@ -133,6 +133,8 @@ context button; A in VR) catches a thief in reach in front; walking into one cat
 thief sits in the van for 60 s. The guard wins when every thief is in the van at once or the clock beats
 them; the thieves win by delivering the goal and gathering at the van. The guard cannot come within 4 m
 of the van.
+Traps knock the guard player down like the AI guard (soap: on its back, marbles and the rope: on its
+knees, the bucket: on its head): «лежу N с» on its screen, its controls off meanwhile.
 
 ## Privacy
 

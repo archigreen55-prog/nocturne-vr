@@ -646,7 +646,16 @@ export class Patrol {
   // Returns 'caught' (this.caughtWho) or null, like update().
   manualStep(dt, players) {
     const H = CFG.humanGuard, M = this.manualPose;
-    this.stunT = 0; this.pose = null;   // traps do not knock a human guard down (yet)
+    // a trap knocked it down (systems/traps.js): it lies / kneels / stands in the bucket where it fell,
+    // sees, hears and catches nothing; the guard player's controls are off meanwhile (systems/humanGuard.js)
+    if (this.stunT > 0) {
+      this.stunT -= dt;
+      this.speed = 0; this.grabAsk = false; this.humanSees = new Set();
+      if (this.stunT <= 0) { this.stunT = 0; this.pose = null; }
+      this.setMark(null); this.drawBar(0);
+      this.place();
+      return null;
+    }
     if (M) {
       this.speed = dt > 0 ? Math.min(6, Math.hypot(M.x - this.x, M.z - this.z) / dt) : 0;
       this.x = M.x; this.z = M.z; this.y = M.floorY || 0; this.heading = M.yaw; this.headYaw = 0;
