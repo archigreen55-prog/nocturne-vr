@@ -29,6 +29,8 @@ async function until(pages, fn, arg, seconds = 6) {
 // host + guest in one room; the lurkers asleep (they are not part of this)
 async function room(code, ctxOpts = { viewport: { width: 1000, height: 700 } }, guestOpts = {}) {
   const ctx = await newContext(browser, ctxOpts);
+  // traps in the host's van (W2b): its wallet before the game starts
+  if (guestOpts.stock) await ctx.addInitScript((stock) => { try { localStorage.setItem('nocturne.wallet', JSON.stringify({ cash: 0, earned: 0, spent: 0, owned: [], paid: {}, log: [], stock, trialSoap: false })); } catch { /* opaque */ } }, guestOpts.stock);
   const host = await open(ctx, base + '?net=local');
   await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
   const guest = await open(ctx, base + '?net=local');
@@ -244,8 +246,7 @@ test('guard: the guard\'s phone by finger (Pixel landscape) — grey «Викл�
   const b2 = await G(guest.page, () => { const b = document.querySelector('#touch .act'); return { t: b.textContent, off: b.classList.contains('off') }; });
   assert.deepEqual(b2, { t: 'Схопити', off: false });
   await tapAct();
-  await run(pages, 0.8);
-  const benched = await G(host.page, async () => { const { G: S } = await import('./src/systems/state.js'); return S.benchT > 0; });
+  const benched = await until([guest.page, host.page], async () => { const { G: S } = await import('./src/systems/state.js'); return S.benchT > 0; }, null, 4);   // the intent reaches the host in real time
   assert.equal(benched, true, 'caught by finger');
   assert.deepEqual(host.errors, []);
   assert.deepEqual(guest.errors, []);
@@ -282,4 +283,118 @@ test('guard: the guard\'s phone by finger (Pixel landscape) — grey «Викл�
   assert.deepEqual(vh.errors, []);
   assert.deepEqual(vg.errors, []);
   await vctx.close();
+});
+
+// W15 + traps: in the host's page, a trap of `kind` from the van put down at (x, z) / on door d (as if placed there)
+const TRAP = `
+  window.__t = (() => {
+    const g = window.__game;
+    const trap = (kind) => g.loot.items.find((i) => i.trap === kind && !i.gone && !i.armed);
+    const put = (kind, x, z) => { const it = trap(kind); it.inVan = false; it.held = false; it.state = 'rest'; it.vel.set(0, 0, 0); it.mesh.position.set(x, 0, z); return it; };
+    const onDoor = (kind, d) => { const it = trap(kind); it.inVan = false; it.held = false; it.state = 'rest'; it.vel.set(0, 0, 0); it.door = d; it.angle0 = d.angle; it.armed = true; it.mesh.position.set(d.cx, d.y0 + (kind === 'bucket' ? 2.08 : 0.02), d.cz); return it; };
+    return { g, trap, put, onDoor };
+  })();`;
+const STOCK = { soap: 1, marbles: 1, bucket: 1, rope: 1 };
+
+test('guard + traps: soap and marbles knock the guest guard down like the AI guard — its «лежу N с», the camera on the floor, no walking, catches nobody meanwhile; the combo and the points', async () => {
+  const { ctx, host, guest, pages } = await room('602214', undefined, { stock: STOCK });
+  await G(host.page, () => { window.__game.CFG.traps.limit = 5; window.__game.newRound(); window.__game.playing = true; for (const l of window.__game.lurkers) l.update = () => {}; for (const p of window.__game.guards.slice(1)) p.update = () => null; });
+  await run(pages, 0.6);
+  await pressGuardButton(guest.page);
+  await run(pages, 0.8);
+  assert.equal(await G(guest.page, async () => { const { G: S } = await import('./src/systems/state.js'); return S.role; }), 'guard');
+  const inVan = await G(host.page, () => window.__game.loot.items.filter((i) => i.trap && !i.gone).map((i) => i.trap).sort());
+  assert.deepEqual(inVan, ['bucket', 'marbles', 'rope', 'soap'], 'the traps are in the van');
+  // the clock: the host's thief walks out; the guard stands in the yard
+  await G(host.page, () => window.__game.player.teleport(-4, 1.6, Math.PI));
+  await G(guest.page, () => window.__game.player.teleport(-1, 4, 0));
+  await run(pages, 1);
+  assert.equal(await G(host.page, () => window.__game.round.phase), 'heist');
+  // soap right under the guard: it slips — flat on its back, 6 s (medium), +100
+  await host.page.evaluate(TRAP);
+  const soap = await G(host.page, async () => { const { mischief } = await import('./src/game/mischief.js'); const P = window.__t.g.patrol; window.__t.put('soap', P.x, P.z + 0.1); window.__t.g.sim(0.1); return { stunT: +P.stunT.toFixed(1), pose: P.pose, manual: P.manual, score: mischief.score }; });
+  assert.deepEqual(soap, { stunT: 5.9, pose: 'flip', manual: true, score: 100 }, 'the guard slipped like the AI guard');
+  // the guest guard's own screen: «лежу N с», the camera on the floor looking up, the dark; no walking
+  const down = await until(pages, async () => { const { G: S } = await import('./src/systems/state.js'); return S.guardStunned && { flash: window.__game.flashText, fade: +S.comfort.fade.toFixed(2), camY: +S.camera.position.y.toFixed(2), pitch: +S.camera.rotation.x.toFixed(2) }; });
+  assert.ok(down && /^Послизнувся на милі — лежиш ще \d с$/.test(down.flash), JSON.stringify(down));
+  assert.deepEqual([down.fade, down.camY, down.pitch], [0.35, 0.35, 1.3], 'the camera lies on the floor looking at the ceiling');
+  const walk = async () => G(guest.page, async () => {
+    const { G: S } = await import('./src/systems/state.js'), p = S.player, x0 = p.head.x, z0 = p.head.z;
+    S.playingDesktop = true; window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }));
+    for (let i = 0; i < 10; i++) window.__game.sim(0.05);
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); window.__game.sim(0.02); S.playingDesktop = false;
+    return +Math.hypot(p.head.x - x0, p.head.z - z0).toFixed(2);
+  });
+  assert.equal(await walk(), 0, 'no walking while down');
+  // the thieves see it lying (the same pose as the AI guard)
+  assert.equal(await G(host.page, () => window.__game.guards[0].pose), 'flip');
+  // the host's thief right next to the lying guard: not caught; the button does nothing either
+  await G(host.page, () => { const P = window.__game.patrol; window.__game.player.teleport(P.x + 0.35, P.z, 0); });
+  await G(guest.page, async () => { const { guardInteract } = await import('./src/systems/humanGuard.js'); guardInteract(); });
+  await run(pages, 1);
+  assert.equal(await G(host.page, async () => { const { G: S } = await import('./src/systems/state.js'); return S.benchT; }), 0, 'catches nobody while down');
+  await G(host.page, () => window.__game.player.teleport(-4, 1.6, Math.PI));
+  // up again after 6 s: «Знову на ногах», the dark goes, it walks
+  const up = await until(pages, async () => { const { G: S } = await import('./src/systems/state.js'); return !S.guardStunned && window.__game.flashText; }, null, 8);
+  assert.equal(up, 'Знову на ногах');
+  await run(pages, 0.6);
+  assert.ok((await G(guest.page, async () => { const { G: S } = await import('./src/systems/state.js'); S.comfort.update(0.5, 0, false); return S.comfort.fade; })) < 0.05, 'the dark is gone (the frame loop fades it out; a test tab may get no frames)');
+  assert.ok(await walk() > 0.1, 'walks again');
+  // marbles within the combo window: on its knees, 5 s; the combo x2 (+200)
+  const marbles = await G(host.page, async () => { const { mischief } = await import('./src/game/mischief.js'); const P = window.__t.g.patrol; window.__t.put('marbles', P.x, P.z + 0.2); window.__t.g.sim(0.1); return { stunT: +P.stunT.toFixed(1), pose: P.pose, score: mischief.score, best: mischief.best }; });
+  assert.deepEqual(marbles, { stunT: 4.9, pose: 'kneel', score: 300, best: 2 }, 'combo x2 as with the AI guard');
+  const knees = await until(pages, async () => { const { G: S } = await import('./src/systems/state.js'); return S.guardStunned && /Кульки! На колінах ще \d с/.test(window.__game.flashText) && { camY: +S.camera.position.y.toFixed(2), pitch: +S.camera.rotation.x.toFixed(2) }; });
+  assert.deepEqual(knees, { camY: 0.8, pitch: -0.75 }, 'on its knees, looking at the floor');
+  assert.equal(await G(host.page, () => window.__game.guards[0].pose), 'kneel');
+  // once up, walking into the thief catches it again
+  await until(pages, async () => { const { G: S } = await import('./src/systems/state.js'); return !S.guardStunned; }, null, 7);
+  await G(host.page, () => { const P = window.__game.patrol; window.__game.player.teleport(P.x + 0.3, P.z, 0); });
+  const caught = await until([guest.page, host.page], async () => { const { G: S } = await import('./src/systems/state.js'); return S.benchT > 0; });
+  assert.equal(caught, true, 'up again: it catches');
+  assert.deepEqual(host.errors, [], 'host errors');
+  assert.deepEqual(guest.errors, [], 'guest errors');
+  await ctx.close();
+});
+
+test('guard + traps: the host plays the guard — the bucket on a door (its dark), the rope in a doorway; the guest thief sees the poses', async () => {
+  const { ctx, host, guest, pages } = await room('602215', undefined, { stock: STOCK });
+  await G(host.page, () => { window.__game.CFG.traps.limit = 5; window.__game.newRound(); window.__game.playing = true; for (const l of window.__game.lurkers) l.update = () => {}; for (const p of window.__game.guards.slice(1)) p.update = () => null; });
+  await run(pages, 0.6);
+  await pressGuardButton(host.page);
+  await run(pages, 0.8);
+  await G(guest.page, () => window.__game.player.teleport(-4, 1.6, 0));
+  await run(pages, 1);
+  assert.equal(await G(host.page, () => window.__game.round.phase), 'heist');
+  await host.page.evaluate(TRAP);
+  // the bucket on a ground-floor door; the guard opens it: the bucket on its head
+  const b = await G(host.page, async () => {
+    const t = window.__t, g = t.g, d = g.level.doors.find((x) => !x.locked && x.floor === 0 && !g.level.doors.some((y) => y !== x && Math.hypot(y.cx - x.cx, y.cz - x.cz) < 3));
+    t.onDoor('bucket', d);
+    g.player.teleport(d.cx + Math.sin(d.base) * 0.8, d.cz + Math.cos(d.base) * 0.8, 0); g.sim(0.2);
+    g.useDoor(d); for (let i = 0; i < 10; i++) g.sim(0.1);
+    const { G: S } = await import('./src/systems/state.js');
+    return { pose: g.patrol.pose, stunT: +g.patrol.stunT.toFixed(1), down: S.guardStunned, fade: +S.comfort.fade.toFixed(2), flash: g.flashText };
+  });
+  assert.equal(b.pose, 'bucket', JSON.stringify(b));
+  assert.equal(b.down, true);
+  assert.equal(b.fade, 0.93, 'the bucket\'s dark');
+  assert.ok(/^Відро на голові — нічого не видно ще \d с$/.test(b.flash), b.flash);
+  const seen = await until(pages, () => window.__game.guards[0].pose === 'bucket');
+  assert.equal(seen, true, 'the thief sees the bucket on the guard\'s head');
+  await until([guest.page, host.page], async () => { const { G: S } = await import('./src/systems/state.js'); return !S.guardStunned; }, null, 8);
+  // the rope across another doorway; the guard walks through it: it trips, on its knees 3 s
+  const r = await G(host.page, async () => {
+    const t = window.__t, g = t.g, d = g.level.doors.filter((x) => !x.locked && x.floor === 0)[1];
+    t.onDoor('rope', d);
+    const nx = Math.sin(d.base + Math.PI / 2), nz = Math.cos(d.base + Math.PI / 2);   // across the doorway
+    let hit = null;
+    for (let k = -1; k <= 1 && !hit; k += 0.1) { g.player.teleport(d.cx + nx * k, d.cz + nz * k, 0); g.sim(0.05); if (g.patrol.stunT > 0) hit = { pose: g.patrol.pose, stunT: +g.patrol.stunT.toFixed(1) }; }
+    return hit;
+  });
+  assert.ok(r && r.pose === 'kneel' && r.stunT > 2.5, JSON.stringify(r));
+  assert.ok(/^Перечепився через мотузку — встаєш ще \d с$/.test(await G(host.page, () => window.__game.flashText)));
+  assert.equal(await until(pages, () => window.__game.guards[0].pose === 'kneel'), true, 'the thief sees it on its knees');
+  assert.deepEqual(host.errors, [], 'host errors');
+  assert.deepEqual(guest.errors, [], 'guest errors');
+  await ctx.close();
 });

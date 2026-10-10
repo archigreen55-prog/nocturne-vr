@@ -217,7 +217,7 @@ function guestState(s) {
     applyDifficulty(G.difficulty, G.contract);
     syncStartScreen(); G.boardDirty = true;
   }
-  if (s.hg) { applyGuard(s.hg[0] || null, N.pid); guardView.evidence = !!s.hg[1]; guardView.caught = s.hg[2]; guardView.thieves = s.hg[3]; guardView.gv = new Set(s.hg[4] || []); }
+  if (s.hg) { applyGuard(s.hg[0] || null, N.pid); guardView.evidence = !!s.hg[1]; guardView.caught = s.hg[2]; guardView.thieves = s.hg[3]; guardView.gv = new Set(s.hg[4] || []); guardView.stunT = +s.hg[5] || 0; guardView.stunKind = s.hg[6] || null; }
   const moved = guestApply(s, N.pid);
   if (moved && G.round.env.onPhase) G.round.env.onPhase(moved);
   // the other players (the host and other guests)
@@ -432,8 +432,8 @@ export const net = {
   },
 };
 
-// W15: [guard pid, evidence, caught, thieves, pids the guard's screen shows]
-function guardState() { return [G.guardPid || '', guardView.evidence ? 1 : 0, guardView.caught || 0, guardView.thieves || 0, [...guardView.gv]]; }
+// W15: [guard pid, evidence, caught, thieves, pids the guard's screen shows, knocked down s, by which trap]
+function guardState() { return [G.guardPid || '', guardView.evidence ? 1 : 0, guardView.caught || 0, guardView.thieves || 0, [...guardView.gv], +(guardView.stunT || 0).toFixed(2), guardView.stunKind || '']; }
 // W15: who plays the guard; only before the clock starts, one guard per room (host)
 function setGuard(pid, want) {
   if (G.round.phase !== 'ready') { if (pid === N.pid) flash(S.hguard.rolesBeforeClock, 2.5, '#93a1b8'); else send({ type: 'ev', k: 'flash', t: S.hguard.rolesBeforeClock, c: '#93a1b8', s: 2.5 }, N.peerOf.get(pid)); return; }

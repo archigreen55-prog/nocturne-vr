@@ -129,7 +129,9 @@ const posOf = (it) => ({ x: it.mesh.position.x, y: it.mesh.position.y + 0.2, z: 
 const occ = (it) => { const h = G.player.head, p = it.mesh.position; return G.level.soundOccluded(h.x, h.z, p.x, p.z); };
 function spring(it, g) {
   const K = CFG.traps.kinds[it.trap], k = CFG.traps.stunK[G.difficulty] || 1;
-  g.knockOut(it.trap, K.stun * k, K.pose);
+  const H = g.manual && CFG.humanGuard.traps[it.trap];   // W15: a friend plays this guard — its own «лежу N с»
+  if (H) g.knockOut(it.trap, H.s * k, H.pose);
+  else g.knockOut(it.trap, K.stun * k, K.pose);
   g.env.say(g.brain.trapLine(it.trap));
   const at = posOf(it), o = occ(it);
   if (it.trap === 'soap') playSlip(at, o); else if (it.trap === 'marbles') playMarbles(at, o); else if (it.trap === 'bucket') playBucket(at, o); else playTrip(at, o);
@@ -241,7 +243,7 @@ export const trapsSystem = {
         continue;
       }
       // you on your own soap / marbles
-      if (K.place === 'floor') {
+      if (K.place === 'floor' && G.role !== 'guard') {   // W15: the guard player is the guard below
         const dp = Math.hypot(player.head.x - p.x, player.head.z - p.z);
         if (dp > K.radius + 0.3) it.playerClear = true;
         else if (it.playerClear && dp < K.radius && Math.abs((player.floorY || 0) - p.y) < 0.6) { it.playerClear = false; selfTrip(it); }
@@ -264,7 +266,7 @@ export const trapsSystem = {
         const cx = it.door ? it.door.cx : p.x, cz = it.door ? it.door.cz : p.z;
         const d = Math.hypot(g.x - cx, g.z - cz), r = K.radius || 0;
         if (it.trap === 'bucket') continue;   // the door does it
-        if (g.brain.trapsHit.has(it.trap) && d < r + T.seeAhead && !it.avoided) {   // the same kind again: it sees it
+        if (!g.manual && g.brain.trapsHit.has(it.trap) && d < r + T.seeAhead && !it.avoided) {   // the same kind again: it sees it (a human guard: with its own eyes)
           it.avoided = true; local.stats.avoided++;
           g.brain.avoidTrap(it, () => consume(it));
           continue;
