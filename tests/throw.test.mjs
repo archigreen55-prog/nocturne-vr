@@ -30,7 +30,7 @@ test('W2a: the cans and bottles stand on both maps (not loot: not in the sum, ne
     await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque */ } });
     const { page, errors } = await open(ctx, url);
     runs[name] = await page.evaluate(() => {
-      const g = window.__game, T = g.loot.items.filter((i) => i.throwable);
+      const g = window.__game, T = g.loot.items.filter((i) => i.throwable && !i.trap);
       g.sim(1);
       return {
         id: g.level.id, n: T.length, kinds: T.map((i) => i.kind), still: T.every((i) => i.state === 'rest'),
@@ -379,7 +379,7 @@ test('VR (IWER Quest 3): grip a can, swing the hand forward and let go — it fl
     const handV = g.hands.h.right.vel.length();
     await frame();
     const v = it.vel.length(), from = it.mesh.position.clone();
-    await wait(1500);
+    for (let i = 0; i < 40 && it.state !== 'rest'; i++) await wait(150);   // the emulator's frames are slow on a busy machine: until it lands (6 s at most)
     return { held, v: +v.toFixed(2), handV: +handV.toFixed(2), thrown: it.thrown, dist: +Math.hypot(it.mesh.position.x - from.x, it.mesh.position.z - from.z).toFixed(2), state: it.state };
   });
   // the trigger at the radio

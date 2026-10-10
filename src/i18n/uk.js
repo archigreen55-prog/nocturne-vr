@@ -148,6 +148,8 @@ export default {
       peeks: 'зазирає в кімнату',
       closesDoor: 'зачиняє двері',
       closesBehind: 'зачиняє за собою двері',
+      flashlight: 'шукає ліхтарик',   // story-texts-uk.md §4.1 (W2b: the soap)
+      marbles: 'збирає кульки',
     },
     say: {
       tea: 'Піду чаю зроблю…',
@@ -158,6 +160,7 @@ export default {
       whereIsItem: (item) => `Де ${item}?!`,
       whoOpened: 'Хто відчинив двері?',
       radio: 'Центральна, у будинку злодій! Потрібна підмога!',
+      flashlight: 'Де мій ліхтарик?! Щойно ж був…',   // story-texts-uk.md §4.1 (W2b: after the soap)
     },
     state: {
       chase: 'женеться за тобою!',
@@ -268,6 +271,7 @@ export default {
       name: 'На час',
       brief: '$2,500 за 3 хвилини. Перші 60 с сторож п\'є чай.',
     },
+    evening: { name: 'Довгий вечір Петровича', brief: 'Лут не рахується. 500 очок шкоди: пастки, кидки, пристрої. Без синців.' },   // W2b; story-texts-uk.md §7, рішення 7 (а)
   },
   cause: {
     missingLoot: 'зник лут',
@@ -289,6 +293,9 @@ export default {
     noShout: 'без жодного крику',
     bonusIntact: 'нічого не пошкодити й не розбити',
     bonusClean: 'без тривоги й без крику',
+    mischief: (n) => `${n} очок шкоди`,                                   // W2b: contract 7
+    mischiefProgress: (n, need) => `Шкода: ${n} / ${need}`,
+    bonusMischief: (n, k) => `${n} очок або комбо ×${k}`,
     itemProgress: (item, done) => `${item}: ${done ? 'у фургоні ✓' : 'ще ні'}`,
     floorItems: (n) => `винеси ${n} речі з 2-го поверху`,
     floorProgress: (n, need) => `з 2-го поверху: ${n} з ${need}`,
@@ -298,6 +305,7 @@ export default {
     why: {
       noItem: 'потрібної речі немає у фургоні',
       sum: (got, need) => `${got} з ${need}`,
+      mischief: (got, need) => `шкода ${got} з ${need}`,
       alarm: 'була тривога',
       noMic: 'без мікрофона не зараховується',
       shouted: 'ти кричав',
@@ -877,7 +885,7 @@ export default {
     sweeps: 'збирає скло',
   },
   devices: {
-    names: { radio: 'радіо', phone: 'телефон', handset: 'трубку', breaker: 'щиток' },
+    names: { radio: 'радіо', phone: 'телефон', handset: 'трубку', breaker: 'щиток', clock: 'будильник' },
     button: { radio: 'Радіо', phone: 'Телефон', handset: 'Подзвонити', breaker: 'Щиток' },
     goesOff: (name) => `іде вимикати ${name}`,
     switchesOff: (name) => `вимикає ${name}`,
@@ -903,4 +911,46 @@ export default {
     lightsBack: 'Світло знову є',
     radioDark: 'Що там зі світлом?! Ти на щиток?',
   },
+  // ---------- traps: репліки сторожів на пастки (W2b; story-texts-uk.md §4.5, story-bible.md §5) ----------
+  traps: {
+    petrovych: {
+      soap: 'Ой!.. Хто мило розлив?!',
+      marbles: 'Горіхи?! У холі?!',
+      bucket: 'Відро?! Серйозно?!',
+      rope: 'Хто натягнув?!',
+      alarmClock: 'Сьома?! Яка сьома…',
+      again: 'Не цього разу.',
+    },
+    valera: { any: 'Згідно з інструкцією… ой!', soap: 'Пункт сім: не ковзати.', again: 'Не цього разу. Пункт вісім.' },
+    zhora: { any: 'Та ну, чесно?!', marbles: 'Кульки?! Я на них… ой.' },
+    act: { lies: 'лежить', bucket: 'знімає відро', marbles: 'збирає кульки', rope: 'розплутує мотузку', angry: 'злий: тінь злізла з плеча' },
+    combo: (n) => `комбо ×${n}`,
+    masterpiece: 'Шедевр',
+    score: (n) => `Шкода: ${n}`,
+    // інтерфейс W2b (магазин, фургон, підказки)
+    names: { soap: 'Мило', marbles: 'Кульки', bucket: 'Відро', clock: 'Будильник', rope: 'Мотузка' },
+    effects: {
+      soap: 'Сторож послизнеться (≈ 11 с)',
+      marbles: 'Впаде й збиратиме кульки (≈ 18 с)',
+      bucket: 'На двері: відро на голову (≈ 9 с)',
+      clock: 'Задзвонить через 30 с, сторож піде шукати',
+      rope: 'У дверний проріз: спіткнеться (3 с)',
+    },
+    stock: (n) => `у запасі ×${n}`,
+    perRound: (n) => `на раунд до ${n}`,
+    title: 'Пастки',
+    placed: (name) => `${name}: поставлено`,
+    noDoor: 'Це — на двері: підійди до дверей',
+    bucketFell: 'Відро впало. Не на того',
+    selfSlip: 'Ой! Своє ж…',
+    noTraps: 'У цьому контракті без пасток',
+    notHere: 'Тут не можна',   // сходи, меблі (мило, кульки, мотузка), фургон
+  },
+  // ---------- story / crew: лише контракт 7 (W2b); повні розділи — сесія W7 (story-texts-uk.md §1, §2) ----------
+  story: {
+    before: { evening: ['Петрович має забути про спокій.', 'Зробіть ніч найгучнішою в його житті.', 'Не для вас. Для шафи. Без синців. pp.'] },
+    after: { evening: { done: 'Чув із Пагорбів. Шафа теж. Акт перший. pp.' } },
+    crew: { evening: { before: { who: 'zoya', line: 'Без синців. Фроле, це про тебе.' }, after: { who: 'rita', line: 'pp — це піанісимо. Він музикант.' } } },
+  },
+  crew: { names: { zoya: 'Зоя', frol: 'Фрол', rita: 'Рита', nazar: 'Назар' } },
 };

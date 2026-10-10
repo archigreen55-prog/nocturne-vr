@@ -138,7 +138,8 @@ export class Board {
     g.textAlign = 'left'; g.font = 'bold 58px system-ui, sans-serif'; g.fillStyle = C.locked ? '#6f8396' : '#ffd166';   // W6: a locked placeholder is grey
     g.fillText(C.name, 50, 128);
     g.font = '27px system-ui, sans-serif'; g.fillStyle = C.locked ? '#93a1b8' : '#e6ecf5';
-    wrap(g, C.brief, 50, 172, W - 100, 34);
+    if (s.story && !C.locked) { g.font = 'italic 23px system-ui, sans-serif'; wrap(g, `${s.story.lines.join(' ')} ${C.brief}`, 50, 166, W - 100, 28); }   // W2b: the customer's lines (contract 7)
+    else wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
     g.fillText(S.board.goal(s.goalText), 50, 262);
     g.fillText(S.board.bonus(s.bonusText), 50, 296);
@@ -149,6 +150,7 @@ export class Board {
     if (C.needsMic && s.noMic) { g.fillStyle = '#ff9f43'; g.fillText(S.board.needsMic, 50, 408); }
     // a closed contract says what opens it (W3); the wallet on the right
     if (s.lock) { g.fillStyle = '#ff9f43'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440); }
+    else if (s.story && s.story.crew) { g.fillStyle = '#7fc8ff'; g.font = 'italic 22px system-ui, sans-serif'; g.fillText(s.story.crew, 50, 440); }   // W2b: the crew's line
     else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.board.pickHere, 50, 440); }
     if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffd166'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
     this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 90, h: 120, font: 48 });
@@ -267,6 +269,7 @@ export class Board {
     if (R.broken) extra.push(S.board.res.broken(R.broken));
     if (R.seen) extra.push(S.board.res.seen(R.seen));
     if (R.scares) extra.push(S.board.res.scared(R.scares));
+    if (s.mischief) extra.push(s.mischief);   // W2b: mischief points, the best combo
     if (extra.length) g.fillText(extra.join(' · '), W / 2, 330);
     // the money for the wallet (W3)
     if (s.income) { g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#ffd166'; g.fillText(s.income, W / 2, 300); }
@@ -286,7 +289,8 @@ export class Board {
       g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 440);
     } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 440); }
     g.font = '20px system-ui, sans-serif'; g.fillStyle = '#6f8396';
-    g.fillText(S.board.res.memoryOnly, W / 2, 474);
+    if (s.storyAfter && !s.clip) { g.font = 'italic 21px system-ui, sans-serif'; g.fillStyle = '#7fc8ff'; g.fillText(`${s.storyAfter.line} ${s.storyAfter.crew}`, W / 2, 474); }   // W2b: the customer and the crew
+    else g.fillText(S.board.res.memoryOnly, W / 2, 474);
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });
     this.buttons.push({ id: 'again', label: S.board.res.newRound, x: 640, y: 495, w: 334, h: 105, enabled: true });
   }

@@ -76,6 +76,25 @@ function buildItem(id, B) {
       B.cyl(0.015, 0.015, 0.07, 0, 0.24, 0, 0x2f6a3a, 8);
       B.cyl(0.039, 0.039, 0.07, 0, 0.06, 0, 0xd8c890, 10);
       return { h: 0.31, r: 0.045 };
+    // W2b: traps (consumables from the van; not loot)
+    case 'soap':
+      B.box(-0.045, 0, -0.03, 0.045, 0.025, 0.03, 0xf2d4e8);
+      return { h: 0.03, r: 0.05 };
+    case 'marbles':      // a little bag; laid down, the marbles spread (systems/traps.js)
+      B.cyl(0.05, 0.06, 0.08, 0, 0, 0, 0x7a5a3a, 8); B.cyl(0.02, 0.05, 0.03, 0, 0.08, 0, 0x5a3a22, 8);
+      return { h: 0.11, r: 0.06 };
+    case 'bucket':
+      B.cyl(0.15, 0.12, 0.26, 0, 0, 0, 0x8a9098, 12); B.cyl(0.152, 0.152, 0.015, 0, 0.25, 0, 0x5a6068, 12);
+      return { h: 0.27, r: 0.15 };
+    case 'alarm':        // the alarm clock trap (the mantel clock is 'clock', loot)
+      B.cyl(0.055, 0.055, 0.035, 0, 0.035, 0, 0xc84a3a, 14);
+      B.add(new THREE.CylinderGeometry(0.045, 0.045, 0.005, 14).rotateX(Math.PI / 2).translate(0, 0.06, 0.02), 0xe8e0c8);
+      for (const x of [-0.035, 0.035]) B.cyl(0.02, 0.02, 0.012, x, 0.1, 0, 0xc8ccd2, 8);
+      B.box(-0.04, 0, -0.01, 0.04, 0.03, 0.01, 0x3a3a3a);
+      return { h: 0.12, r: 0.06 };
+    case 'rope':
+      B.cyl(0.06, 0.06, 0.05, 0, 0, 0, 0xb89a6a, 10); B.cyl(0.03, 0.03, 0.052, 0, 0, 0, 0x8a7048, 8);
+      return { h: 0.05, r: 0.06 };
     case 'crystal':
       B.cyl(0.05, 0.035, 0.05, 0, 0, 0, 0xa8dcff);
       B.cyl(0.07, 0.05, 0.12, 0, 0.05, 0, 0xa8dcff);
@@ -163,6 +182,7 @@ class Item {
     this.prop = !!def.prop;             // not loot (W6: the fake painting in the van): not counted
     this.throwable = !!def.throwable;   // a can or a bottle (W2a): not loot, not counted, never in the van
     this.bottle = def.kind === 'bottle';
+    this.trap = def.trap || null;       // W2b: soap | marbles | bucket | clock | rope (a consumable from the van)
     const B = new Builder();
     const { h, r } = buildItem(def.mesh || def.id, B);
     this.h = h; this.r = r;
@@ -394,6 +414,10 @@ export class Loot {
     // W2a: a can clatters (its own noise kind, heard further than a dropped item); a bottle breaks
     if (it.throwable) {
       it.landedAt = { x: p.x, y: p.y, z: p.z };
+      if (it.trap) {   // W2b: a trap lands with a soft thud (systems/traps.js arms it where it lies)
+        if (speed >= CFG.loot.quietLanding) { playThud(pos, occ, Math.min(1, speed / 6), false); env.noise.emit(p.x, p.z, CFG.loot.noiseRadius.light * 0.6, 'drop', { y: p.y + 0.02, source: 'world' }); }
+        return;
+      }
       const T = CFG.throw;
       if (it.bottle && speed > T.bottle.breakSpeed) {
         it.broken = true; it.state = 'broken';

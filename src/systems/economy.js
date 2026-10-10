@@ -6,7 +6,8 @@
 // crosshair) and the phone's pause menu; buying only before the clock starts. «Відкрити все» on
 // previews and with ?debug (start screen). The logic is game/economy.js; the numbers CFG.shop.
 import { CFG } from '../config/index.js';
-import { wallet, ensureWallet, creditRound, buy, upgrade, lockOf, isOpen, openAll, openAllAllowed, setOpenAll } from '../game/economy.js';
+import { wallet, ensureWallet, creditRound, buy, upgrade, lockOf, isOpen, openAll, openAllAllowed, setOpenAll, buyTrap } from '../game/economy.js';
+import { reloadVan, roundLimit } from './traps.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { money } from '../ui/board.js';
 import { playCash } from '../audio/audio.js';
@@ -28,16 +29,25 @@ export function shopRows() {
     const effect = S.shop.effects[u.id](u.teaExtra ?? u.stamina ?? u.quietSpeed);
     const button = state === 'soon' ? S.shop.soon : state === 'owned' ? S.shop.owned : state === 'need' ? S.shop.need(money(u.price - w.cash)) : S.shop.buy(money(u.price));
     return { id: u.id, name: S.shop.names[u.id], effect, price: money(u.price), state, button, enabled: state === 'buy' && G.round.phase === 'ready' };
-  });
+  }).concat(CFG.traps.order.map((kind) => {   // W2b: traps, consumables (bought again and again)
+    const T = CFG.traps.kinds[kind], n = w.stock[kind] || 0, state = w.cash >= T.price ? 'buy' : 'need';
+    const button = state === 'need' ? S.shop.need(money(T.price - w.cash)) : S.shop.buy(money(T.price));
+    return { id: 'trap:' + kind, name: `${S.traps.names[kind]} · ${S.traps.stock(n)}`, effect: S.traps.effects[kind], price: money(T.price), state, button, enabled: state === 'buy' && G.round.phase === 'ready', consumable: true };
+  }));
 }
-export const shopPages = () => Math.ceil(CFG.shop.upgrades.length / ROWS);
+export const shopPages = () => Math.ceil((CFG.shop.upgrades.length + CFG.traps.order.length) / ROWS);   // + the traps (W2b)
 export const shopPageRows = () => shopRows().slice(G.shopPage * ROWS, G.shopPage * ROWS + ROWS);
 
 // Buy from the board or the menu; the message says what happened. Returns true when bought.
 export function buyUpgrade(id) {
-  const r = buy(id, G.round.phase);
-  const name = S.shop.names[id] || id;
-  if (r.ok) {
+  const trap = id.startsWith('trap:') ? id.slice(5) : null;   // W2b: a trap for the stock
+  const r = trap ? buyTrap(trap, G.round.phase) : buy(id, G.round.phase);
+  const name = trap ? S.traps.names[trap] : S.shop.names[id] || id;
+  if (r.ok && trap) {
+    playCash();
+    flash(`${S.shop.bought(name)} · ${S.traps.perRound(roundLimit())}`, 2.5, '#5fd38d');
+    reloadVan();
+  } else if (r.ok) {
     applyDifficulty(G.difficulty, G.contract);   // the numbers from their base again, with the new upgrade: in effect from this round
     if (G.run) G.run.reset();                    // e.g. the sneakers: full (longer) stamina
     playCash();

@@ -31,6 +31,7 @@ export function wallet() {
   w.owned = Array.isArray(w.owned) ? w.owned : [];
   w.paid = w.paid && typeof w.paid === 'object' ? w.paid : {};
   w.log = Array.isArray(w.log) ? w.log : [];
+  w.stock = w.stock && typeof w.stock === 'object' ? w.stock : {};   // W2b: traps bought and not used yet { kind: n }
   for (const k of ['cash', 'earned', 'spent']) w[k] = Number.isFinite(w[k]) ? w[k] : 0;
   return w;
 }
@@ -79,6 +80,34 @@ export function buy(id, phase) {
   return { ok: true };
 }
 
+// ---------- traps: consumables (W2b; W3 decision R2: «витратні — разом із пастками») ----------
+export const stockOf = (kind) => wallet().stock[kind] || 0;
+// Buy one trap: like an upgrade, only before the clock starts. Returns { ok } or { ok: false, why, need }.
+export function buyTrap(kind, phase) {
+  const T = CFG.traps.kinds[kind];
+  if (!T) return { ok: false, why: 'unknown' };
+  if (phase !== 'ready') return { ok: false, why: 'phase' };
+  const w = wallet();
+  if (w.cash < T.price) return { ok: false, why: 'cash', need: T.price - w.cash };
+  w.cash -= T.price; w.spent += T.price; w.stock[kind] = (w.stock[kind] || 0) + 1;
+  note(w, 'buy', -T.price, kind);
+  save(w);
+  return { ok: true };
+}
+// a trap that worked (or that the guard picked up) is gone from the stock
+export function spendTrap(kind) {
+  const w = wallet();
+  if (!(w.stock[kind] > 0)) return;
+  w.stock[kind]--; save(w);
+}
+// decision R2 A: one free soap for the first round of contract 7 (once)
+export function trialSoap() {
+  const w = wallet();
+  if (w.trialSoap) return false;
+  w.trialSoap = true; w.stock.soap = (w.stock.soap || 0) + 1; save(w);
+  return true;
+}
+
 // ---------- what is open ----------
 // «Відкрити все» (open everything): only on a preview or with ?debug, for the owner's tests; the main
 // site ignores a saved value.
@@ -105,9 +134,10 @@ export function lockOf(c) {
   if (!mapOpen(map)) {
     return { map, need: CFG.shop.unlock.maps[map], have: starsBefore(map) };
   }
-  // the previous contract of its map that can be played (W6's placeholders, `locked`, give no stars)
+  // the previous contract of its map that can be played (W6's placeholders, `locked`, give no stars);
+  // a contract may name its own (W2b decision R8 A: contract 7 opens after a star on contract 5)
   const same = LISTS[map] || [], i = same.findIndex((x) => x.id === c.id);
-  const prev = same.slice(0, Math.max(0, i)).reverse().find((x) => !x.locked);
+  const prev = c.after ? same.find((x) => x.id === c.after) : same.slice(0, Math.max(0, i)).reverse().find((x) => !x.locked);
   if (!prev) return null;
   return bestOf(prev.id) >= CFG.shop.unlock.chainStars ? null : { after: prev };
 }

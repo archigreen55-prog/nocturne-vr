@@ -5,6 +5,7 @@
 import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { money } from '../ui/board.js';
+import { mischief } from './mischief.js';
 import { S } from '../i18n/index.js';
 
 export const contracts = () => CFG.contracts;
@@ -27,17 +28,19 @@ export function goalText(c, items) {
   if (G.floorItems) parts.push(S.goal.floorItems(G.floorItems.n));
   if (G.swap) parts.push(S.goal.swap(nameOf(items, G.swap.item)));
   if (G.sum) parts.push(S.goal.sum(money(G.sum)));
+  if (G.mischief) parts.push(S.goal.mischief(G.mischief));   // W2b: contract 7
   if (G.noAlarm) parts.push(S.goal.noAlarm);
   if (G.noShout) parts.push(S.goal.noShout);
   return parts.join(', ');
 }
-export const bonusText = (c) => (c.bonus === 'intact' ? S.goal.bonusIntact : S.goal.bonusClean);
+export const bonusText = (c) => (c.bonus === 'intact' ? S.goal.bonusIntact : c.bonus === 'mischief' ? S.goal.bonusMischief(CFG.traps.evening.bonus, CFG.traps.evening.comboStars) : S.goal.bonusClean);
 
 // Progress toward the goal during the round, for the wrist and the board.
 export function progress(c, tally, loot) {
   if (c.locked) return { done: false, text: S.goal.locked(c.locked) };
   if (c.goal.floorItems) { const n = floorDelivered(loot, c.goal.floorItems); return { done: n >= c.goal.floorItems.n, text: S.goal.floorProgress(n, c.goal.floorItems.n) }; }
   if (c.goal.swap) { const w = swapState(loot, c.goal.swap); return { done: w.placed && w.delivered, text: S.goal.swapProgress(w.placed, w.delivered) }; }
+  if (c.goal.mischief) return { done: mischief.score >= c.goal.mischief, text: S.goal.mischiefProgress(mischief.score, c.goal.mischief) };   // W2b
   if (c.goal.item) {
     const it = loot.items.find((i) => i.id === c.goal.item);
     return { done: !!(it && it.delivered), text: S.goal.itemProgress(it ? it.name : c.goal.item, !!(it && it.delivered)) };
@@ -61,11 +64,15 @@ export function evaluate(c, r, ctx) {
     else if (noticed) { goal = false; why.push(S.goal.why.swapSeen); }
   }
   if (G.sum && r.sum < G.sum) { goal = false; why.push(S.goal.why.sum(money(r.sum), money(G.sum))); }
+  if (G.mischief && mischief.score < G.mischief) { goal = false; why.push(S.goal.why.mischief(mischief.score, G.mischief)); }   // W2b: the loot does not count
   if (G.noAlarm && ctx.alarmed) { goal = false; why.push(S.goal.why.alarm); }
   if (G.noShout && (r.shouts > 0 || ctx.noMic)) { goal = false; why.push(ctx.noMic ? S.goal.why.noMic : S.goal.why.shouted); }
   if (!got) why.unshift(r.kind === 'caught' ? S.goal.why.caught : S.goal.why.late);
   // clean: no full alarm and no shout (without a microphone only the alarm counts)
-  const bonus = c.bonus === 'intact' ? r.damaged === 0 && r.broken === 0 : !ctx.alarmed && r.shouts === 0;
+  const E = CFG.traps.evening;
+  const bonus = c.bonus === 'intact' ? r.damaged === 0 && r.broken === 0
+    : c.bonus === 'mischief' ? mischief.score >= E.bonus || mischief.best >= E.comboStars   // W2b, decision R7 A
+      : !ctx.alarmed && r.shouts === 0;
   const stars = goal ? 1 + (bonus ? 1 : 0) + (bonus && ctx.difficulty === 'hard' ? 1 : 0) : 0;
   return { goal, bonus, stars, why };
 }

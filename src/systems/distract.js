@@ -13,6 +13,7 @@ import { Builder } from '../world/level.js';
 import { RadioVoice, playSwitch, playBreaker, playHouseRing, playOuch } from '../audio/distractSfx.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
+import { score } from './traps.js';
 import { S } from '../i18n/index.js';
 
 const _v = new THREE.Vector3(), _h = new THREE.Vector3(), _c = new THREE.Vector3();
@@ -221,7 +222,7 @@ export const distract = {
         const h = p.y - g.y;
         if (Math.hypot(p.x - g.x, p.z - g.z) > H.radius || h < H.height[0] || h > H.height[1]) continue;
         it.hitGuard = true; it.vel.x *= -0.25; it.vel.z *= -0.25;
-        local.stats.hits++;
+        local.stats.hits++; score('hit');   // W2b: mischief points
         g.env.say(S.throw.ouch); playOuch(g.voice);
         G.alert.add(H.points, g.x, g.z);
         const f = it.thrownFrom;

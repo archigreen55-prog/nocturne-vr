@@ -31,6 +31,8 @@ export class Brain {
     this.noticedDoors = new Set();
     this.agitated = false;
     this.cansFound = 0;             // W2a: thrown cans it has tidied away this round
+    this.trapsHit = new Set();      // W2b: the kinds of trap it fell for this round (the same kind again: it sees it)
+    this.angryT = 0;                // W2b: s left of being angry after a trap (x CFG.traps.after.angryK)
     // habits of this round (difficulty picks which; each at its time +- jitter)
     const H = G.habits, run = CFG.run || {};
     this.habits = (run.habits || []).map((id) => ({ id, ...H[id], at: H[id].at + (Math.random() * 2 - 1) * G.jitter, done: false }));
@@ -38,7 +40,7 @@ export class Brain {
     if (run.teaAtStart) this.habits.unshift({ id: 'tea0', ...H.tea, at: 0, dur: run.teaAtStart, done: false });
   }
 
-  get speedK() { return this.agitated ? CFG.guard.agitatedK : 1; }
+  get speedK() { return (this.agitated ? CFG.guard.agitatedK : 1) * (this.angryT > 0 ? CFG.traps.after.angryK : 1); }   // W2b: angry after a trap
 
   // ---------- planning ----------
   plan() {
@@ -143,6 +145,7 @@ export class Brain {
 
   watch(dt) {
     this.clock += dt;
+    if (this.angryT > 0) this.angryT -= dt;
     const G = this.cfg, run = CFG.run || {}, g = this.g;
     // loot missing from its place
     if (run.noticeMissing) {
@@ -205,7 +208,8 @@ export class Brain {
     g.interrupt();
     g.state = 'task';
     const q = g.queue, face = [dev.x, dev.z], name = T.names[dev.kind];
-    q.push({ type: 'walk', to: dev.stand, dev, maxT: 30, label: T.goesOff(name), onStart: say(n >= 2 ? T.again[dev.kind] : T.line[dev.kind]) });
+    q.push({ type: 'walk', to: dev.stand, dev, maxT: 30, label: T.goesOff(name), onStart: say(dev.kind === 'clock' ? this.trapLine('clock') : n >= 2 ? T.again[dev.kind] : T.line[dev.kind]) });   // W2b: the alarm clock (a trap)
+    if (this.env.onMischief) this.env.onMischief('device');   // W2b: it went to switch it off
     if (dev.kind === 'radio') q.push({ type: 'wait', t: D.radio.dance, dev, face, label: T.dances, onStart: say(T.danceLine) });
     if (dev.kind === 'phone') {
       const talk = { type: 'wait', t: D.phone.talk, dev, face, talk: true, label: T.talks, mods: { hearK: D.phone.hearK, fovK: D.phone.fovK } };
@@ -228,25 +232,59 @@ export class Brain {
   // swept up. Returns true when it queued that.
   tidyUp(x, z) {
     const g = this.g, T = CFG.throw, D = CFG.devices, W = S.throw, map = T.maps[this.env.level.id] || T.maps.dacha;
-    const it = this.env.loot.items.find((i) => i.throwable && i.landedAt && !i.found && !i.gone && !i.carrier && !i.held && (i.state === 'rest' || i.state === 'broken')
+    const it = this.env.loot.items.find((i) => i.throwable && !i.trap && i.landedAt && !i.found && !i.gone && !i.carrier && !i.held && (i.state === 'rest' || i.state === 'broken')
       && Math.hypot(i.mesh.position.x - x, i.mesh.position.z - z) < T.findRadius && Math.abs(i.mesh.position.y - g.y) < 1.6);
     if (!it) return false;
     it.found = true;
     const p = it.mesh.position, at = [p.x, p.z, g.y > 1.5 ? 1 : 0], face = [p.x, p.z], q = g.queue;
     const L = D.levels[(CFG.run || {}).difficulty] || D.levels.medium;
     if (it.broken) {   // a bottle: «Тут хтось є!», it sweeps the glass up
-      q.push({ type: 'walk', to: at, item: it, maxT: 20, label: W.toGlass, onStart: () => this.env.say(W.glassLine) });
+      if (this.env.onMischief) this.env.onMischief('throw');
+    q.push({ type: 'walk', to: at, item: it, maxT: 20, label: W.toGlass, onStart: () => this.env.say(W.glassLine) });
       q.push({ type: 'wait', t: T.bottle.sweep, item: it, face, label: W.sweeps, onEnd: () => { it.gone = true; if (it.shards) it.shards.visible = false; } });
       q.push({ type: 'wait', t: T.bottle.look, sweep: true, label: S.guard.act.searches, search: true });
       return true;
     }
     this.cansFound++;
     const again = this.cansFound >= 2;
+    if (this.env.onMischief) this.env.onMischief('throw');   // W2b: a throw that drew it away
     q.push({ type: 'walk', to: at, item: it, maxT: 20, label: W.toCan, onStart: () => this.env.say(again ? W.whoAgain : W.who) });
     q.push({ type: 'wait', t: 1.2, item: it, face, label: W.picksUp, onStart: () => this.env.alert.add((again ? T.can.again : T.can.found) * L.pointsK, p.x, p.z), onEnd: () => { it.carrier = g; it.state = 'held'; } });
     q.push({ type: 'walk', to: map.binStand, item: it, maxT: T.carryTimeout, label: W.carries });
     q.push({ type: 'wait', t: 0.8, item: it, face: [map.bin[0], map.bin[1]], label: W.carries, onEnd: () => { it.carrier = null; it.gone = true; it.state = 'rest'; it.mesh.visible = false; } });
     if (again && L.search) this.queueNear(x, z);
     return true;
+  }
+
+  // ---------- W2b: traps ----------
+  // who it is, for its lines (story-texts-uk.md §4.5): Petrovych on the dacha, Valera / Zhora in the mansion
+  get who() { return (this.env.guard && this.env.guard.id) || 'petrovych'; }
+  trapLine(kind) {
+    const L = S.traps[this.who] || S.traps.petrovych;
+    return L[kind === 'clock' ? 'alarmClock' : kind] || L.any || S.traps.petrovych[kind];
+  }
+  // A trap knocked it out (patrol.knockOut) and it is up again: what the trap leaves it to do, then it
+  // is angry (CFG.traps.after: suspicion, faster for a while; never a full alarm by itself).
+  afterTrap(kind) {
+    const T = CFG.traps, K = T.kinds[kind] || {}, A = K.after, g = this.g, q = g.queue, act = S.traps.act;
+    this.trapsHit.add(kind);
+    const angry = () => { this.angryT = T.after.angryFor; this.env.alert.add(T.after.points, g.x, g.z); };
+    if (kind === 'bucket') {   // blind with the bucket on: a few steps anywhere, bumping, then it takes it off
+      const a = Math.random() * Math.PI * 2;
+      q.push({ type: 'walk', to: [g.x + Math.sin(a) * 2, g.z + Math.cos(a) * 2, g.floor], slow: true, maxT: K.blind, label: act.bucket, mods: { sightK: 0, hearK: 0.2, fovK: 0.1 }, onStart: () => { g.pose = 'bucket'; } });
+      q.push({ type: 'wait', t: K.off, label: act.bucket, mods: { sightK: 0, hearK: 0.3 }, onEnd: () => { g.pose = null; angry(); } });
+    } else if (A) {
+      const flashlight = A.act === 'flashlight';
+      q.push({ type: 'wait', t: A.t, sweep: !flashlight, label: flashlight ? S.guard.act.flashlight : act.marbles, mods: { sightK: A.sightK || 1, hearK: A.hearK || 1, fovK: A.fovK || 1 },
+        onStart: () => { g.pose = A.pose || null; if (flashlight && this.who === 'petrovych') this.env.say(S.guard.say.flashlight); }, onEnd: () => { g.pose = null; angry(); } });
+    } else angry();
+    q.push({ type: 'wait', t: 1.5, sweep: true, label: act.angry,
+      onEnd: () => { if (g.wasChasing && g.lastSeen) { g.wasChasing = false; g.queue.length = 0; g.state = 'hunt'; g.goTo(g.lastSeen.x, g.lastSeen.z); } } });   // a chase cut short: where it saw you last
+  }
+  // The same kind of trap again (decision R5 A): it sees it, «Не цього разу», and picks it up (a few s).
+  avoidTrap(it, onGone) {
+    const g = this.g, L = S.traps[this.who] || S.traps.petrovych;
+    g.interrupt(); g.state = 'task'; g.queue.length = 0;
+    g.queue.push({ type: 'wait', t: CFG.traps.againDelay, face: [it.mesh.position.x, it.mesh.position.z], label: S.guard.act.searches, onStart: () => this.env.say(L.again || S.traps.petrovych.again), onEnd: onGone });
   }
 }

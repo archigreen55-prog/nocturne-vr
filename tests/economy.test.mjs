@@ -131,7 +131,7 @@ test('the shop: not enough money, buying, owned, not during the round; upgrades 
   await ctx.close();
 });
 
-test('contracts open by stars: a new player has 2–5 closed (🔒, what opens them); a star on 1 opens 2; leaving the van with a closed one plays the last open one; the mansion needs 8★', async () => {
+test('contracts open by stars: a new player has 2–5 and 7 closed (🔒, what opens them); a star on 1 opens 2; leaving the van with a closed one plays the last open one; the mansion needs 8★', async () => {
   const { ctx, page, errors } = await econ();
   const r = await page.evaluate(async () => {
     const g = window.__game, E = await import('./src/game/economy.js'), C = await import('./src/game/contracts.js'), out = {};
@@ -153,12 +153,12 @@ test('contracts open by stars: a new player has 2–5 closed (🔒, what opens t
     out.mansion8 = E.mapOpen('mansion');
     return out;
   });
-  assert.deepEqual(r.open, [true, false, false, false, false]);
-  assert.deepEqual(r.options, [false, true, true, true, true], 'the start screen list marks them');
+  assert.deepEqual(r.open, [true, false, false, false, false, false]);   // W2b: + contract 7
+  assert.deepEqual(r.options, [false, true, true, true, true, true], 'the start screen list marks them');
   assert.equal(r.shown, 'clock', '▶ shows the next contract (to see what opens next)');
   assert.equal(r.lockLine, true, 'with what opens it');
   assert.deepEqual(r.played, { id: 'first', phase: 'heist' }, 'but the round plays the last open one');
-  assert.deepEqual(r.after, [true, true, false, false, false]);
+  assert.deepEqual(r.after, [true, true, false, false, false, false]);
   assert.equal(r.mansion7, false); assert.equal(r.mansion8, true);
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -223,7 +223,7 @@ test('«Відкрити все»: not on the main site (even if saved); on a pr
     });
     runs.push(r);
     assert.equal(r.shown, allowed, `${url}: the switch ${allowed ? 'is' : 'is not'} there`);
-    if (allowed) assert.deepEqual([r.after, r.mansion], [5, true], `${url}: everything open`);
+    if (allowed) assert.deepEqual([r.after, r.mansion], [6, true], `${url}: everything open`);
     else assert.deepEqual([r.before, r.mansion], [1, false], `${url}: a saved value is ignored`);
     assert.deepEqual(errors, []);
     await ctx.close();
