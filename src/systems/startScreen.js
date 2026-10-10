@@ -39,7 +39,8 @@ export const reportText = () => {
   const { touch, renderer, mic, frameStats, perf, round, quality, gyro, battery } = G;
   return buildReport({
     version: VERSION, mode: G.MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
-    game: { phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1) },
+    game: { phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1),
+      run: G.runStats && { ...G.runStats, vrRun: G.vrRun } },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
     screen: touch ? {
       ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused: G.paused, pauses: pauseLog.slice(-10),
       feedback: G.feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),

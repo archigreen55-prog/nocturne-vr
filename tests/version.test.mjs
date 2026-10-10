@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newContext, watchErrors } from './harness.mjs';
-import { browser, test, LAND, siteCopy, swReady } from './runner.mjs';
+import { browser, test, LAND, siteCopy, swReady, swUpdatedTo } from './runner.mjs';
 
 const SEQUENCE = ['0.6.0-pre.9.w0.2', '0.6.0-pre.9.t5.1', '0.6.0-pre.10', '0.6.0-pre.10.run.1', '0.6.0-pre.11'];
 const shown = (page) => page.evaluate(() => document.getElementById('version').textContent);
@@ -57,16 +57,7 @@ test('versions of parallel branches (0.6.0-pre.9.w0.2 -> …t5.1 -> pre.10 -> pr
       page = await ctx.newPage();
       await page.goto(site.base);
       await page.waitForFunction((v) => window.__game && document.getElementById('version').textContent.includes(v), v, { timeout: 30000, polling: 200 });
-      const swVersion = await page.evaluate(async (want) => {
-        const ask = () => new Promise((res) => {
-          if (!navigator.serviceWorker.controller) return res(null);
-          navigator.serviceWorker.addEventListener('message', (e) => res(e.data && e.data.version), { once: true });
-          navigator.serviceWorker.controller.postMessage('version');
-          setTimeout(() => res(null), 1000);
-        });
-        for (let i = 0; i < 30; i++) { const got = await ask(); if (got === want) return got; await new Promise((r) => setTimeout(r, 500)); }
-        return 'timeout';
-      }, v);
+      const swVersion = await swUpdatedTo(page, v);
       assert.equal(swVersion, v, `the worker updated to ${v}`);
       // the new worker deletes the old caches when it takes over (activate): wait for that
       const keys = await page.evaluate(async ([p, want]) => {

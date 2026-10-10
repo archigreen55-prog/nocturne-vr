@@ -176,6 +176,37 @@ export async function swReady(page) {
   await page.waitForFunction(() => navigator.serviceWorker.controller && window.__game, null, { timeout: 30000, polling: 200 });
 }
 
+// After a new deploy: the page's service worker becomes that version. The browser finds the new worker
+// on its own after a navigation (this also asks it to: registration.update()), installs it and, as sw.js
+// calls skipWaiting(), activates it. Polled from here in short calls: a long-running script in the page
+// (one evaluate that waits inside the page) holds the new worker in "waiting" for as long as it runs
+// (seen: 2 minutes), which is what made the old in-page wait time out under load. The version is asked
+// only once nothing is waiting. Returns the version, or 'timeout <last states>'.
+export async function swUpdatedTo(page, want, timeoutMs = 120000) {
+  const until = Date.now() + timeoutMs, trace = [];
+  for (let n = 0; Date.now() < until; n++) {
+    const st = await page.evaluate(async ([want, poke]) => {
+      const SW = navigator.serviceWorker, reg = await SW.getRegistration();
+      const pending = !!(reg && (reg.installing || reg.waiting));
+      if (!pending && poke && reg) { try { await reg.update(); } catch { /* offline: try again later */ } }
+      let got = null;
+      if (!pending && SW.controller) {
+        got = await new Promise((res) => {
+          const done = (v) => { SW.removeEventListener('message', on); clearTimeout(t); res(v); };
+          const on = (e) => done(e.data && e.data.version);
+          const t = setTimeout(() => done(null), 1000);
+          SW.addEventListener('message', on);
+          SW.controller.postMessage('version');
+        });
+      }
+      return { got, installing: !!(reg && reg.installing), waiting: !!(reg && reg.waiting) };
+    }, [want, n % 10 === 0]).catch((e) => ({ error: String(e.message || e).slice(0, 60) }));
+    if (st.got === want) return want;
+    trace.push(st); if (trace.length > 6) trace.shift();
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return 'timeout ' + JSON.stringify(trace);
+}
 
 // The run loop (tests/run.mjs): ONLY=word runs the tests whose name contains it.
 export async function runAll() {

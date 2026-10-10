@@ -78,10 +78,12 @@ export class Hud {
     this.style('eye', e.eye, 'color', st.eye === 'closed' ? '#5fd38d' : st.eye === 'half' ? '#ffd166' : st.lit ? '#ff5c5c' : '#ffb347');
     this.text('stance', e.stance, st.eye === 'closed' ? S.hud.hidden : S.hud.stanceRange(s.stance, st.range.toFixed(1)));
     // steps / hands / room
-    const steps = s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet;
+    // running (W1): «Кроки: БІГ» while running, «Захекався N с» while out of breath (always shown)
+    const R = s.run, running = !!(R && R.running), winded = R && R.winded > 0;
+    const steps = winded ? S.sprint.winded(Math.ceil(R.winded)) : running ? S.sprint.stepsRun : s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet;
     this.text('steps', e.steps, steps);
-    this.style('steps', e.steps, 'color', s.stepsAudible ? '#ffb347' : '#5fd38d');
-    this.shown('steps', e.steps, steps, now, s.stepsAudible);
+    this.style('steps', e.steps, 'color', winded ? '#93a1b8' : running ? '#ff6a3d' : s.stepsAudible ? '#ffb347' : '#5fd38d');
+    this.shown('steps', e.steps, steps, now, s.stepsAudible || running || winded);
     this.text('hold', e.hold, s.holding ? S.hud.holding(s.holding) : '');
     this.shown('hold', e.hold, s.holding, now);
     this.text('room', e.room, s.room);

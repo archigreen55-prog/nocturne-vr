@@ -98,6 +98,22 @@ body.phone-playing { overscroll-behavior: none; }
 .sm-buttons .quiet { min-height: 42px; font-size: 14px; }
 #rotate { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; background: #0a0f1c; color: #e6ecf5; font-size: 18px; line-height: 1.5; }
 body.portrait-block #rotate { display: flex; }
+
+/* running (W1): red circle while running, the 🔒 over the joystick, the auto-run ghost, the stamina arc
+   along the joystick's lower half (the thumb is up while running, the lower half stays visible) */
+#touch .joy.run { border-color: rgba(255, 106, 61, .85); }
+#touch .joy.run .joy-knob { background: rgba(255, 122, 26, .8); }
+#touch .joy.ghost { opacity: .4; }
+#touch .joy-stamina { position: absolute; inset: -7px; border-radius: 50%; display: none; pointer-events: none;
+  background: conic-gradient(from 90deg, #ffb347 calc(var(--s, 1) * 180deg), rgba(255, 255, 255, .12) 0 180deg, transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); }
+#touch .joy-stamina.shown { display: block; }
+#touch .joy.winded .joy-stamina { background: conic-gradient(from 90deg, #6a7385 calc(var(--s, 1) * 180deg), rgba(255, 255, 255, .12) 0 180deg, transparent 0); }
+#touch .joy-lock { position: absolute; width: var(--ls, 44px); height: var(--ls, 44px); margin: calc(var(--ls, 44px) / -2) 0 0 calc(var(--ls, 44px) / -2);
+  box-sizing: border-box; border-radius: 50%; border: 2px solid rgba(255, 179, 71, .7); background: rgba(16, 22, 36, .55); display: flex; align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1; opacity: .4; pointer-events: none; }
+#touch .joy-lock[hidden] { display: none; }
+#touch .joy-lock.on { opacity: 1; background: rgba(255, 122, 26, .45); border-color: #ff7a1a; }
 /* ---------- «Надворі» (systems/brightness.js): a high-contrast HUD for bright daylight ---------- */
 body.outdoor #hud { text-shadow: none; }
 body.outdoor #hud .hud-tl, body.outdoor #hud .hud-tc, body.outdoor #hud .hud-tr, body.outdoor #hud .hud-msg:not(:empty) {
