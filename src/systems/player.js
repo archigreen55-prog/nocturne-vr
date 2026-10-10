@@ -9,6 +9,7 @@ import { boardAim } from './phone.js';
 import { pressBoard } from './contract.js';
 import { nearestDoor, useDoor } from './doors.js';
 import { aimedDevice, useDevice } from './distract.js';
+import { aimedNote, readNote } from './story.js';
 import { placeAtDoor } from './traps.js';
 import { S } from '../i18n/index.js';
 
@@ -38,7 +39,9 @@ export const player = {
       // the context button: an item under the crosshair first, else a board button under it («Натиснути»)
       if (ctl.interact) {
         const dev = aimedDevice();   // W2a: a device in front (nothing in hand, no item under the crosshair)
-        if (dev) useDevice(dev);
+        const note = !hands.deskAim ? aimedNote() : null;   // W7: a note in front (read on this device only)
+        if (note) readNote(note);
+        else if (dev) useDevice(dev);
         else if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
         else if (G.isGuest) guestHands(hands, player, round);   // with friends: the host takes / puts it (systems/net.js)
         else if (hands.desk && placeAtDoor(hands.desk)) { /* W2b: the bucket on a door, the rope across a doorway */ }
@@ -60,7 +63,7 @@ export const player = {
     if (touch && G.playingDesktop) {
       const atVan = round.atVan(player.head);
       touch.setContext({
-        interact: hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null,
+        interact: hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedNote() ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null,
         door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
       });
     }

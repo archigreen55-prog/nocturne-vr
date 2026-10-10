@@ -23,6 +23,7 @@ import { newRound, caught } from './contract.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
+import { storyNetEcho } from './story.js';
 import { playThud, playGlass, playHeartbeat } from '../audio/audio.js';
 import { S } from '../i18n/index.js';
 
@@ -139,6 +140,7 @@ function hostMessage(m, peer) {
   if (m.type === 'pose') {
     r.push({ x: +m.x, z: +m.z, y: +m.y, fy: +m.fy, yaw: +m.yaw, pitch: +m.pitch, cr: m.cr, sp: +m.sp, run: m.run });
     r.mic.live = !!m.ml; r.mic.level = m.lv || 'quiet'; r.mic.breath = !!m.br;
+    r.mic.whisper = !!m.wh;   // W7: the guest whispers (Шепотун hears it; an older guest without the field: never)
     if (m.sh > r.mic.shouts) r.mic.shouts = m.sh;
   } else if (m.type === 'act') hostIntent(r, m);
   else if (m.type === 'bye') { r.lastHeard = 0; }
@@ -239,6 +241,7 @@ function guestEvent(m) {
     }
     case 'flash': flash(m.t, m.s || 2.5, m.c); break;
     case 'say': { const g = G.guards[m.g]; if (g) g.env.say(m.text, true); break; }
+    case 'wecho': storyNetEcho(m, m.who === N.pid); break;   // W7: Шепотун's echo (yours: its card)
     case 'gsnd': { const g = G.guards[m.g]; if (g) g.env.sound(m.kind, m.x, m.z, m.o || {}); break; }
     case 'caught':
       if (m.pid === N.pid) caught(G.player);
@@ -385,7 +388,8 @@ export const net = {
       const p = G.player, mic = G.mic;
       send({ type: 'pose', x: +p.head.x.toFixed(3), z: +p.head.z.toFixed(3), y: +p.head.y.toFixed(3), fy: +(p.floorY || 0).toFixed(3), yaw: +p.yaw.toFixed(3), pitch: +(p.lookPitch || 0).toFixed(3),
         cr: p.crouched || p.virtualCrouch ? 1 : 0, sp: +p.speed.toFixed(2), run: p.running ? 1 : 0,
-        ml: mic.state === 'on' && !mic.noMic ? 1 : 0, lv: mic.level, br: G.breath.holding ? 1 : 0, sh: N.shouts || 0 }, N.hostPeer);
+        ml: mic.state === 'on' && !mic.noMic ? 1 : 0, lv: mic.level, br: G.breath.holding ? 1 : 0, sh: N.shouts || 0,
+        wh: mic.whispering ? 1 : 0 }, N.hostPeer);   // W7: whispering now (a level, not a sound): the host's Шепотун
     }
     // a guest: what the host's world sounds like (guards' steps, the siren, the heartbeat while escaping)
     if (G.isGuest) {

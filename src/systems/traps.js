@@ -24,19 +24,7 @@ const newStats = () => ({ placed: {}, sprung: {}, avoided: 0, self: 0 });
 const isTrap = (it) => !!it.trap;
 const floorsY = () => (G.level.floorIndex ? [0, 3] : [0]);   // the floor heights a floor trap may lie on (W6: two)
 
-// ---------- texts around a round (story-texts-uk.md: so far only contract 7 has them; W7 adds the rest) ----------
-const crewLine = (o) => (o ? `${S.crew.names[o.who] || o.who}: ${o.line}` : '');
-// the customer's lines before a contract and the crew's line under them
-export function storyBefore(c = G.contract) {
-  const lines = (S.story && S.story.before[c.id]) || null;
-  return lines ? { lines, crew: crewLine(S.story.crew[c.id] && S.story.crew[c.id].before) } : null;
-}
-// after the round: the customer's line and the crew's when the goal was met (story-texts-uk.md §9.2: `done`)
-export function storyAfter(c, verdict) {
-  const A = S.story && S.story.after[c.id];
-  if (!A || !verdict || !verdict.goal) return null;
-  return { line: A.done || '', crew: crewLine(S.story.crew[c.id] && S.story.crew[c.id].after) };
-}
+// ---------- the mischief line (the customer's and the crew's lines: systems/story.js, W7) ----------
 // «Шкода: 340 · комбо ×2» (empty while nothing has scored)
 export function mischiefText() {
   if (!mischief.score) return '';

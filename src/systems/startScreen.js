@@ -22,7 +22,8 @@ import { setContract, setDifficulty, goHome, newRound } from './contract.js';
 import { syncWallet, lockText } from './economy.js';
 import { wallet, openAll } from '../game/economy.js';
 import { distractReport } from './distract.js';
-import { trapsReport, storyBefore } from './traps.js';
+import { trapsReport } from './traps.js';
+import { beforeNow, storyReport } from './story.js';
 import { S } from '../i18n/index.js';
 
 export function syncStartScreen() {
@@ -30,11 +31,33 @@ export function syncStartScreen() {
   $('contract').value = contract.id;
   $('difficulty').value = difficulty;
   const b = bestStars(contract.id);
-  const st = storyBefore(contract);   // W2b: the customer's lines (contract 7)
-  $('contractinfo').textContent = (st ? `${st.lines.join(' ')} ${st.crew} — ` : '') + S.start.contractInfo(contract.brief, goalText(contract, G.loot.items), bonusText(contract),
+  storyLines(contract);   // W7: the customer's lines and the crew's, an element of their own
+  $('contractinfo').textContent = S.start.contractInfo(contract.brief, goalText(contract, G.loot.items), bonusText(contract),
     ['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', '))
     + (lockText(contract) ? ` ${lockText(contract)}` : '');
   syncWallet();   // the wallet line, 🔒 on closed contracts (systems/economy.js)
+}
+// W7: new elements of the start screen with ids of their own, put next to the existing ones (W17
+// rebuilds the start screen into pages: it moves #storybefore / #headphones where it wants)
+function storyEl(id, anchorId, where) {
+  let el = document.getElementById(id);
+  if (el) return el;
+  const a = document.getElementById(anchorId);
+  if (!a) return null;
+  el = document.createElement('p'); el.id = id; el.className = 'muted';
+  a.insertAdjacentElement(where, el);
+  return el;
+}
+function storyLines(contract) {
+  const el = storyEl('storybefore', 'contractinfo', 'beforebegin');
+  if (!el) return;
+  const st = beforeNow(contract);
+  el.hidden = !st;
+  el.replaceChildren();
+  if (!st) return;
+  const lines = document.createElement('i'); lines.textContent = st.lines.join(' ');
+  el.append(lines);
+  if (st.crew) { const c = document.createElement('span'); c.className = 'crewline'; c.style.color = '#ffd166'; c.textContent = ' ' + st.crew; el.append(c); }
 }
 function showMode() {
   const MODE = G.MODE;
@@ -49,7 +72,7 @@ export const reportText = () => {
     game: { phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1),
       run: G.runStats && { ...G.runStats, vrRun: G.vrRun },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
       wallet: { ...wallet(), paid: undefined, openAll: openAll() },   // W3: cash, earned, spent, owned, the last entries
-      distract: distractReport(), mischief: trapsReport() },   // W2b: traps placed / sprung / avoided, points, combos, stock   // W2a: throws, hits, devices used, the windows they gave
+      distract: distractReport(), mischief: trapsReport(), story: storyReport() },   // W7: notes, cards, the whisperer, the crew's lines   // W2b: traps placed / sprung / avoided, points, combos, stock   // W2a: throws, hits, devices used, the windows they gave
     screen: touch ? {
       ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused: G.paused, pauses: pauseLog.slice(-10),
       feedback: G.feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),
@@ -61,6 +84,8 @@ export const reportText = () => {
 export const startScreen = {
   id: 'startScreen',
   init() {
+    const hp = storyEl('headphones', 'buttons', 'afterend');   // W7: «Грай у навушниках…» (story-bible §9, risk 16)
+    if (hp) hp.textContent = S.start.headphones;
     const { touch, mic, scream, renderer, round, comfort, gyro } = G;
     for (const c of CFG.contracts) $('contract').add(new Option(c.name, c.id));
     $('contract').addEventListener('change', () => { if (round.phase === 'ready') setContract($('contract').value); else syncStartScreen(); });

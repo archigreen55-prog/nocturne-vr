@@ -30,7 +30,7 @@ export class Summary {
     left.append(el('div', 'sm-sub', good ? S.board.res.kept(R.inVan, R.total, fmtTime(R.time, true)) : S.board.res.lost(fmtTime(R.time, true))));
     if (s.income) left.append(el('div', 'sm-income', s.income));   // the money for the wallet (W3)
     if (s.mischief) left.append(el('div', 'sm-income', s.mischief));   // W2b: mischief points
-    if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b: the customer and the crew (contract 7)
+    if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b, W7: the customer and the crew (every contract)
     const list = el('div', 'sm-list scroll');
     if (!R.list.length) list.append(el('div', 'sm-empty', S.summary.nothing));
     for (const it of R.list) {

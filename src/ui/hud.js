@@ -129,8 +129,8 @@ export class Hud {
     // message line: the latest message, else the guard
     let msg = s.msg, color = s.msgColor;
     if (!msg && s.guardText) {
-      msg = s.guardText; color = '#9fb3c8';
-      this.shown('guard', e.msg, s.guardText, now, s.guardSpeech);
+      msg = s.guardText; color = s.crewSpeech ? '#ffd166' : '#9fb3c8';   // W7: the crew's line is yellow
+      this.shown('guard', e.msg, s.guardText, now, s.guardSpeech || s.crewSpeech);
     } else e.msg.classList.remove('gone');
     this.text('msg', e.msg, msg || '');
     this.style('msg', e.msg, 'color', color || '#ffd166');
