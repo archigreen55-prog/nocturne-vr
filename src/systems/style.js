@@ -12,7 +12,8 @@ import { buildDecor } from '../style/decor.js';
 import { quietRandom } from '../style/quiet.js';
 import { animateGuard, animateThief } from '../style/anim.js';
 import { power } from '../world/devices.js';
-import { G, $ } from './state.js';
+import { G, $, params } from './state.js';
+import { startSheet } from '../style/sheet.js';
 
 let decor = null, t = 0;
 const fogBase = new THREE.Color(PAL.dusk), fogAlarm = new THREE.Color(PAL.alarm);
@@ -31,6 +32,9 @@ function lampCircles(level) {
 export const style = {
   id: 'style',
   init() {
+    // the character sheet (?page=figures): the owner approves the figures' look; it takes the frame loop
+    // over once the page has started (main.js sets its loop after every system's init)
+    if (params.get('page') === 'figures') setTimeout(() => { G.sheet = startSheet(); }, 0);
     const sel = $('stylesel');
     if (sel) { sel.value = STYLE_ON ? 'on' : 'off'; sel.addEventListener('change', () => setStyle(sel.value === 'on')); }
     if (!STYLE_ON) return;

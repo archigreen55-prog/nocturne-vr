@@ -145,7 +145,7 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
   const figs = async (map, st) => {
     const ctx = await newContext(browser, LAND);
     await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
-    const o = await open(ctx, preview + `?map=${map}&style=${st}`);
+    const o = await open(ctx, preview + `?map=${map}&style=${st}&figures=on`);   // the figures stay off in the game until the owner approves them
     return { ctx, ...o };
   };
   const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
@@ -215,6 +215,34 @@ test('style: the game\'s random numbers are not touched — the style on or off,
     await ctx.close();
     return n;
   };
-  const off = await count('?style=off'), on = await count('?style=on');
+  const off = await count('?style=off'), on = await count('?style=on'), figs = await count('?style=on&figures=on');
   assert.deepEqual(on, off, `Math.random calls (loaded, after drawing): style on ${on}, off ${off}`);
+  assert.deepEqual(figs, off, `Math.random calls with the new figures: ${figs}, style off ${off}`);
+});
+
+test('style: the character sheet (?page=figures) — every figure in the row, one in three views, the four thieves at 8 m; the light under a lamp, in the shadow, in the alarm; old / new; the game keeps its old figures until the owner approves (CFG.style.figures)', async () => {
+  const ctx = await newContext(browser, LAND);
+  const { page, errors } = await open(ctx, preview + '?page=figures');
+  await page.waitForFunction(() => window.__game.style.sheet, null, { timeout: 30000 });
+  const ids = () => page.evaluate(() => window.__game.style.sheet.cast.map((c) => `${c.id}:${c.isNew ? 'new' : 'old'}`));
+  assert.deepEqual(await ids(), ['petrovych', 'valera', 'zhora', 'zoya', 'frol', 'ritaWine', 'ritaPowder', 'nazar', 'shafnyk'].map((id) => `${id}:new`), 'the whole cast, new');
+  const press = async (k) => { await page.tap(`button[data-k="${k}"]`); await page.waitForTimeout(300); };
+  for (const k of ['shadow', 'alarm', 'lamp', 'walk', 'look']) await press(k);
+  assert.equal(await page.evaluate(() => window.__game.style.uniforms.uStyleZoneOn.value), 1, 'under the lamp: the «you are seen» step');
+  await press('ver');
+  assert.ok((await ids()).every((s) => /:old$/.test(s) || s.startsWith('shafnyk')), 'old figures');
+  await press('ver'); await press('one');
+  assert.equal((await ids()).length, 4, 'one figure: three views and one that moves');
+  await press('far');
+  assert.deepEqual(await ids(), ['zoya', 'frol', 'ritaWine', 'nazar'].map((id) => `${id}:new`), 'the four thieves');
+  assert.ok(await page.evaluate(() => Math.abs(window.__game.style.sheet.camera.position.z + 8) < 0.01), 'at 8 m');
+  assert.equal(await page.evaluate(() => window.__game.style.uniforms.uStyleZoneOn.value), 0, 'in the shadow');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // the game: the old figures until the owner approves the new ones
+  const c2 = await newContext(browser, LAND);
+  const g = await open(c2, preview);
+  assert.equal(await g.page.evaluate(() => !!window.__game.patrol.fig), false, 'the game keeps the old guard (CFG.style.figures = false)');
+  assert.deepEqual(g.errors, []);
+  await c2.close();
 });

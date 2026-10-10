@@ -35,7 +35,7 @@ export function exposeDebugApi(simulate) {
     get run() { return g.run; }, get runStats() { return g.runStats; }, keys: g.keys, get vrRun() { return g.vrRun; },   // running (systems/sprint.js)
     brightness: { state: brightnessState, step: brightnessStep, outdoor: toggleOutdoor },
     net: { state: netState, sim: netSim, open: netOpen, leave: netLeave, get players() { return g.players; }, get isGuest() { return !!g.isGuest; } },   // W8a: friends
-    style: { on: STYLE_ON, lit, uniforms: styleUniforms, zones: styleZones, get decor() { return g.decor; } },   // W17: the style switch and the material factory
+    style: { on: STYLE_ON, lit, uniforms: styleUniforms, zones: styleZones, get decor() { return g.decor; }, get sheet() { return g.sheet; } },   // W17: the style switch and the material factory
     sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
   };
 }

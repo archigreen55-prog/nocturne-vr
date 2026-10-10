@@ -6,15 +6,20 @@
 // The switch «Стиль: вимк» keeps the old figures: restyle*() below do nothing then, and the old code
 // that builds them (enemies/patrol.js, enemies/lurker.js, net/remotePlayer.js) stays until W17 is
 // tested (the owner's rule; removed in a separate step after S5).
+// The owner approves the figures' look first (style/sheet.js, ?page=figures): until then the game keeps
+// the old figures even with the style on (CFG.style.figures = false); ?figures=on shows the new ones.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { colored } from '../world/level.js';
 import { lit, STYLE_ON } from './materials.js';
+import { CFG } from '../config/index.js';
 import { PAL } from './palette.js';
 import { quietRandom } from './quiet.js';
 
 const BONES = ['root', 'hips', 'torso', 'head', 'armL', 'armR', 'legL', 'legR', 'poz'];
 const PARENT = { hips: 'root', torso: 'hips', head: 'torso', armL: 'torso', armR: 'torso', legL: 'hips', legR: 'hips', poz: 'torso' };
+const fq = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('figures') : null;
+export const FIGURES_ON = STYLE_ON && (fq === 'on' || (fq !== 'off' && !!CFG.style.figures));
 let EMPTY = null;   // made on first use, with crypto's random numbers (a module-level geometry would move the game's sequence even with the style off)
 
 // A figure's parts: each shape in the figure's space (feet at y = 0, facing -Z), on one bone.
@@ -98,10 +103,16 @@ export function buildFigure(recipe) {
   return { root, mesh, hull, bones, rest, pivots: piv, headY: piv.hy || 1.66 };   // headY: the head's centre
 }
 
-// ---------- the recipes: the owner's character art (nocturne-vr-docs: art/characters/*.jpg) ----------
+// ---------- the recipes: the owner's references (nocturne-vr-docs: concept/characters/*.jpg) ----------
 // Simple shapes after the art: each keeps its silhouette, its colours and one or two props that say who
 // it is. Faces: white eyes with dark pupils, brows, a nose; the moves add the rest (style/anim.js).
-const SKIN_PALE = 0xf2dfc4, NAVY = 0x1f2a44, NAVY_D = 0x161d30, RED = 0xd9544a, GINGER = 0xe6a24c, LBLUE = 0x8fc0e8, CREAM = PAL.paper, GOLD = 0xe8b448;
+const SKIN_PALE = 0xf2dfc4, NAVY = 0x1f2a44, NAVY_D = 0x161d30, GINGER = 0xe6a24c, CREAM = PAL.paper, GOLD = 0xe8b448;
+// the owner's colours: close to the references, the reds muted (never the alarm's #ff5468), the guards a
+// step lighter than the walls (they must not sink into the night)
+const TERRA = 0xb05a42, BORDO = 0x7e3442, NOSE = 0xcf7e6a;   // armbands, beanie, headphones / small dark reds / a round nose
+const GUARD_NAVY = 0x55679a, GUARD_NAVY2 = 0x4d6094, GUARD_CAP = 0x3e4f7c, GUARD_LEGS = 0x34446a;   // a step lighter than the walls
+const LILAC = 0xa48fd8, BLUE_OV = 0x6fa2d6, TEAL = 0x3c5f6a;
+export const RITA = { wine: 0x8c3a4a, powder: 0xd9a0a8 };   // two muted reds for Rita: the owner picks (CFG.style.rita)
 // legs, shoes, torso (a box, or a ball when round), a head; returns the bones' pivots
 function body(P, o) {
   const { legH, hipW, legW, torsoW, torsoH, torsoD, headR, coat, legs, skin = SKIN_PALE, shoe = NAVY_D, sole = null } = o;
@@ -169,20 +180,20 @@ export const RECIPES = {
   // Петрович: very round in a quilted navy jacket, a flat cap, a big ginger moustache, a red nose, sleepy
   // eyes with bags, a red armband, an orange thermos at the belt, the flashlight
   petrovych(P) {
-    const c = body(P, { legH: 0.6, hipW: 0.11, legW: 0.08, torsoW: 0.72, torsoH: 0.7, torsoD: 0.6, headR: 0.21, coat: 0x26324f, legs: NAVY_D, round: true });
+    const c = body(P, { legH: 0.6, hipW: 0.11, legW: 0.08, torsoW: 0.72, torsoH: 0.7, torsoD: 0.6, headR: 0.21, coat: GUARD_NAVY, legs: GUARD_LEGS, round: true });
     const { top, hy, headR: r } = c;
     for (const y of [0.85, 1.02, 1.18]) ring(P, 'torso', 0.33 * Math.sqrt(Math.max(0.2, 1 - ((y - 0.93) / 0.4) ** 2)), 0.008, 0, y, 0, NAVY_D, false, { hull: false });   // the quilting
-    P.box('torso', -0.34, 0.74, -0.3, 0.34, 0.8, 0.3, NAVY_D);                 // the belt
+    ring(P, 'torso', 0.315, 0.035, 0, 0.77, 0, NAVY_D);                        // the belt
     P.cyl('torso', 0.055, 0.055, 0.22, 0.3, 0.66, 0.12, 0xf0a040);            // the thermos
-    P.cyl('torso', 0.058, 0.058, 0.05, 0.3, 0.88, 0.12, RED, 'y', { hull: false });
-    face(P, hy, r, { look: 'sleepy', nose: RED, noseR: 0.28, bags: true, brows: GINGER });
+    P.cyl('torso', 0.058, 0.058, 0.05, 0.3, 0.88, 0.12, TERRA, 'y', { hull: false });
+    face(P, hy, r, { look: 'sleepy', nose: NOSE, noseR: 0.28, bags: true, brows: GINGER });
     P.ball('head', r * 0.36, -r * 0.3, hy - r * 0.34, -r * 0.82, GINGER, 1.4, 0.75, 0.7);   // the moustache
     P.ball('head', r * 0.36, r * 0.3, hy - r * 0.34, -r * 0.82, GINGER, 1.4, 0.75, 0.7);
-    P.cyl('head', r * 1.18, r * 1.05, 0.08, 0, hy + r * 0.62, 0.02, NAVY);    // the flat cap
-    P.box('head', -r * 0.75, hy + r * 0.62, -r * 1.5, r * 0.75, hy + r * 0.62 + 0.025, -r * 0.6, NAVY);
-    armDown(P, 'armL', -0.38, top - 0.08, 0.38, 0.075, 0x26324f);
-    armForward(P, 'armR', 0.36, top - 0.08, 1.31, 0.5, 0.075, 0x26324f);
-    band(P, 'armR', 0.36, top - 0.18, 0.075, RED);
+    P.cyl('head', r * 1.18, r * 1.05, 0.08, 0, hy + r * 0.62, 0.02, GUARD_CAP);    // the cap
+    P.box('head', -r * 0.75, hy + r * 0.62, -r * 1.5, r * 0.75, hy + r * 0.62 + 0.025, -r * 0.6, GUARD_CAP);
+    armDown(P, 'armL', -0.38, top - 0.08, 0.38, 0.075, GUARD_NAVY);
+    armForward(P, 'armR', 0.36, top - 0.08, 1.31, 0.5, 0.075, GUARD_NAVY);
+    band(P, 'armR', 0.36, top - 0.18, 0.075, TERRA);
     flashlight(P, 'armR', 0.045, 0.24);
     c.poz = pozikhailo(P, -0.22, top - 0.04);
     return c;
@@ -190,7 +201,7 @@ export const RECIPES = {
   // Валера: broad and square, navy with a paper stripe across the chest, a gold badge, a red armband, a
   // peaked cap with a badge, a heavy jaw, a grumpy look, the BIG flashlight with a red ring
   valera(P) {
-    const c = body(P, { legH: 0.84, hipW: 0.13, legW: 0.09, torsoW: 0.74, torsoH: 0.72, torsoD: 0.42, headR: 0.19, coat: NAVY, legs: NAVY_D, sole: 0x8fb2d6 });
+    const c = body(P, { legH: 0.84, hipW: 0.13, legW: 0.09, torsoW: 0.74, torsoH: 0.72, torsoD: 0.42, headR: 0.19, coat: GUARD_NAVY2, legs: GUARD_LEGS, sole: 0x8fb2d6 });
     const { top, hy, headR: r } = c;
     P.box('torso', -0.375, 1.2, -0.215, 0.375, 1.28, 0.215, CREAM, { hull: false });   // the stripe
     P.box('torso', -0.2, 1.36, -0.222, -0.14, 1.42, -0.212, GOLD, { hull: false });     // the badge
@@ -199,28 +210,28 @@ export const RECIPES = {
     face(P, hy, r, { look: 'open', nose: 0xe8c8a8, browsLow: 0.12, bags: true });
     P.box('head', -r * 0.7, hy - r * 1.05, -r * 0.75, r * 0.7, hy - r * 0.35, r * 0.4, SKIN_PALE);   // the jaw
     P.box('head', -r * 0.3, hy - r * 0.62, -r * 0.78, r * 0.3, hy - r * 0.56, -r * 0.74, 0x8a5048, { hull: false });   // a firm mouth
-    P.cyl('head', r * 1.15, r * 0.98, 0.12, 0, hy + r * 0.55, 0, NAVY);       // the cap
+    P.cyl('head', r * 1.15, r * 0.98, 0.12, 0, hy + r * 0.55, 0, GUARD_CAP);  // the cap with a cockade
     P.box('head', -r * 0.8, hy + r * 0.55, -r * 1.55, r * 0.8, hy + r * 0.55 + 0.025, -r * 0.7, NAVY_D);
     P.box('head', -0.03, hy + r * 0.75, -r * 1.12, 0.03, hy + r * 0.95, -r * 1.08, GOLD, { hull: false });
-    armDown(P, 'armL', -0.43, top - 0.05, 0.5, 0.09, NAVY);
-    band(P, 'armL', -0.43, top - 0.16, 0.09, RED);
-    armForward(P, 'armR', 0.43, top - 0.05, 1.31, 0.5, 0.09, NAVY);
-    flashlight(P, 'armR', 0.07, 0.36, RED);
+    armDown(P, 'armL', -0.43, top - 0.05, 0.5, 0.09, GUARD_NAVY2);
+    band(P, 'armL', -0.43, top - 0.16, 0.09, TERRA);
+    armForward(P, 'armR', 0.43, top - 0.05, 1.31, 0.5, 0.09, GUARD_NAVY2);
+    flashlight(P, 'armR', 0.07, 0.36, BORDO);
     c.poz = pozikhailo(P, -0.24, top);
     return c;
   },
   // Жора: long, thin and stooping, a mustard hoodie with the hood up over a cap, red headphones round the
   // neck, the phone in one hand (its screen glows), the hand lamp in the other, white trainers
   zhora(P) {
-    const c = body(P, { legH: 0.9, hipW: 0.08, legW: 0.065, torsoW: 0.46, torsoH: 0.6, torsoD: 0.3, headR: 0.18, coat: 0xa8742c, legs: NAVY, shoe: CREAM, sole: RED });
+    const c = body(P, { legH: 0.9, hipW: 0.08, legW: 0.065, torsoW: 0.46, torsoH: 0.6, torsoD: 0.3, headR: 0.18, coat: 0xa8742c, legs: GUARD_NAVY2, shoe: CREAM, sole: TERRA });
     const { top, hy, headR: r } = c;
-    for (const s of [-1, 1]) P.ball(s < 0 ? 'legL' : 'legR', 0.022, s * 0.08, 0.07, -0.12, RED, 1, 1, 1, { hull: false });   // the dots on the trainers
+    for (const s of [-1, 1]) P.ball(s < 0 ? 'legL' : 'legR', 0.022, s * 0.08, 0.07, -0.12, TERRA, 1, 1, 1, { hull: false });   // the dots on the trainers
     face(P, hy, r, { look: 'sad', bags: true, brows: NAVY_D });
     P.box('head', -r * 0.95, hy + r * 0.3, -r * 0.95, r * 0.95, hy + r * 0.55, -r * 0.6, NAVY_D);   // the fringe under the cap
     P.box('head', -r * 0.8, hy + r * 0.62, -r * 1.45, r * 0.8, hy + r * 0.66, -r * 0.7, NAVY_D);    // the cap's brim
     P.ball('head', r * 1.25, 0, hy + r * 0.15, r * 0.25, 0xa8742c, 1, 1.05, 1.05);                  // the hood, up
-    ring(P, 'torso', 0.16, 0.03, 0, top + 0.02, 0, RED);                                            // headphones
-    for (const s of [-1, 1]) P.ball('torso', 0.055, s * 0.15, top + 0.03, -0.05, RED);
+    ring(P, 'torso', 0.16, 0.03, 0, top + 0.02, 0, TERRA);                                          // headphones
+    for (const s of [-1, 1]) P.ball('torso', 0.055, s * 0.15, top + 0.03, -0.05, TERRA);
     armDown(P, 'armL', -0.28, top - 0.04, 0.48, 0.055, 0xa8742c, SKIN_PALE);
     P.box('armL', -0.32, top - 0.6, -0.11, -0.24, top - 0.45, -0.09, NAVY_D);                       // the phone
     P.box('armL', -0.315, top - 0.59, -0.115, -0.245, top - 0.46, -0.112, PAL.whisper, { hull: false });   // its screen
@@ -233,51 +244,52 @@ export const RECIPES = {
     c.poz = pozikhailo(P, -0.17, top - 0.02);
     return c;
   },
-  zoya: (P) => thief(P, 'zoya'), frol: (P) => thief(P, 'frol'), rita: (P) => thief(P, 'rita'), nazar: (P) => thief(P, 'nazar'), malyi: (P) => thief(P, 'malyi'),
+  zoya: (P) => thief(P, 'zoya'), frol: (P) => thief(P, 'frol'), rita: (P) => thief(P, 'rita', CFG.style.rita), nazar: (P) => thief(P, 'nazar'), malyi: (P) => thief(P, 'malyi'),
+  ritaWine: (P) => thief(P, 'rita', 'wine'), ritaPowder: (P) => thief(P, 'rita', 'powder'),   // the sheet shows both
 };
 
 // The crew after the art. THIEF_COLOURS: each one's colour for the lobby and the names (S4)
-export const THIEF_COLOURS = { zoya: GINGER, frol: LBLUE, rita: 0xe0505a, nazar: 0x3f7480, malyi: 0x9ccc3c };
-function thief(P, who) {
+export const THIEF_COLOURS = { zoya: LILAC, frol: BLUE_OV, rita: RITA.wine, nazar: TEAL, malyi: 0x9ccc3c };
+function thief(P, who, variant = 'wine') {
   if (who === 'zoya') {   // small: a ginger bun, big round glasses, a light-blue cardigan with red trim, a dark skirt, a book; «Тссс»
-    const c = body(P, { legH: 0.52, hipW: 0.07, legW: 0.05, torsoW: 0.42, torsoH: 0.5, torsoD: 0.3, headR: 0.18, coat: LBLUE, legs: SKIN_PALE, shoe: NAVY_D });
+    const c = body(P, { legH: 0.52, hipW: 0.07, legW: 0.05, torsoW: 0.42, torsoH: 0.5, torsoD: 0.3, headR: 0.18, coat: LILAC, legs: SKIN_PALE, shoe: NAVY_D });
     const { top, hy, headR: r } = c;
     P.cyl('hips', 0.17, 0.26, 0.42, 0, 0.18, 0, NAVY_D);                                   // the skirt
-    for (const s of [-1, 1]) P.box('torso', s * 0.06 - 0.02, 0.52, -0.155, s * 0.06 + 0.02, top, -0.145, RED, { hull: false });   // trim
+    for (const s of [-1, 1]) P.box('torso', s * 0.06 - 0.02, 0.52, -0.155, s * 0.06 + 0.02, top, -0.145, BORDO, { hull: false });   // trim
     P.box('torso', -0.04, 0.6, -0.152, 0.04, top - 0.02, -0.148, NAVY, { hull: false });   // the blouse
     face(P, hy, r, { look: 'open', nose: 0xf0c8b0, noseR: 0.16, brows: GINGER });
     for (const s of [-1, 1]) ring(P, 'head', r * 0.3, 0.012, s * r * 0.36, hy + r * 0.12, -r * 0.92, NAVY_D, true, { hull: false });   // glasses
     P.ball('head', r * 1.02, 0, hy + r * 0.2, r * 0.05, GINGER, 1, 0.85, 1);                // the hair
     P.ball('head', r * 0.55, 0, hy + r * 1.05, r * 0.15, GINGER);                           // the bun
-    armDown(P, 'armL', -0.26, top - 0.04, 0.38, 0.055, LBLUE);
-    band(P, 'armL', -0.26, top - 0.38, 0.055, RED);
+    armDown(P, 'armL', -0.26, top - 0.04, 0.38, 0.055, LILAC);
+    band(P, 'armL', -0.26, top - 0.38, 0.055, BORDO);
     P.box('armL', -0.31, top - 0.5, -0.09, -0.22, top - 0.32, 0.04, 0xc08a3a);             // the book
-    armDown(P, 'armR', 0.26, top - 0.04, 0.38, 0.055, LBLUE);
-    band(P, 'armR', 0.26, top - 0.38, 0.055, RED);
+    armDown(P, 'armR', 0.26, top - 0.04, 0.38, 0.055, LILAC);
+    band(P, 'armR', 0.26, top - 0.38, 0.055, BORDO);
     c.shush = true;
     return c;
   }
   if (who === 'frol') {   // huge and round: a red beanie, the movers' blanket round the shoulders, light-blue overalls, bare arms, big gloves, a coil of rope
-    const c = body(P, { legH: 0.78, hipW: 0.15, legW: 0.11, torsoW: 0.9, torsoH: 0.82, torsoD: 0.66, headR: 0.2, coat: LBLUE, legs: 0x26324f, shoe: NAVY_D, sole: 0x8fb2d6, round: true });
+    const c = body(P, { legH: 0.78, hipW: 0.15, legW: 0.11, torsoW: 0.9, torsoH: 0.82, torsoD: 0.66, headR: 0.2, coat: BLUE_OV, legs: 0x26324f, shoe: NAVY_D, sole: 0x8fb2d6, round: true });
     const { top, hy, headR: r } = c;
     P.ball('torso', 0.42, 0, top - 0.24, 0.02, 0x1c2333, 1, 0.55, 0.78);                   // the T-shirt above the bib
-    for (const s of [-1, 1]) P.box('torso', s * 0.16 - 0.025, top - 0.42, -0.31, s * 0.16 + 0.025, top - 0.12, -0.27, LBLUE, { hull: false });   // straps
+    for (const s of [-1, 1]) P.box('torso', s * 0.16 - 0.025, top - 0.42, -0.31, s * 0.16 + 0.025, top - 0.12, -0.27, BLUE_OV, { hull: false });   // straps
     ring(P, 'torso', 0.36, 0.1, 0, top - 0.04, 0.02, CREAM);                                // the blanket
     ring(P, 'torso', 0.36, 0.104, 0, top - 0.04, 0.02, NAVY, false, { hull: false });       // its stripe
     P.box('torso', -0.32, top - 0.62, 0.22, 0.32, top, 0.36, CREAM);                        // ...and down the back
     face(P, hy, r, { look: 'open', nose: 0xe8c0a0, noseR: 0.24, brows: NAVY_D });
     P.ball('head', r * 0.8, 0, hy - r * 0.55, -r * 0.35, 0xc8a890, 1, 0.55, 0.9);           // stubble
-    P.cyl('head', r * 0.95, r * 1.02, r * 0.75, 0, hy + r * 0.38, 0, RED);                  // the beanie
-    P.cyl('head', r * 1.05, r * 1.05, r * 0.22, 0, hy + r * 0.38, 0, 0xb84038);
+    P.cyl('head', r * 0.95, r * 1.02, r * 0.75, 0, hy + r * 0.38, 0, TERRA);                // the beanie
+    P.cyl('head', r * 1.05, r * 1.05, r * 0.22, 0, hy + r * 0.38, 0, 0x8e4634);
     armDown(P, 'armL', -0.5, top - 0.1, 0.52, 0.1, SKIN_PALE, NAVY_D);
     armDown(P, 'armR', 0.5, top - 0.1, 0.52, 0.1, SKIN_PALE, NAVY_D);
     ring(P, 'armR', 0.12, 0.022, 0.5, top - 0.85, 0, 0xf0a040, true);                       // the rope
     return c;
   }
   if (who === 'rita') {   // slim: a red jacket with tails, a big dark ponytail, a black domino mask, a light-blue scarf, dark trousers, boots with red soles
-    const c = body(P, { legH: 0.82, hipW: 0.08, legW: 0.06, torsoW: 0.4, torsoH: 0.56, torsoD: 0.26, headR: 0.17, coat: 0xe0505a, legs: 0x14182a, shoe: NAVY_D, sole: RED });
+    const c = body(P, { legH: 0.82, hipW: 0.08, legW: 0.06, torsoW: 0.4, torsoH: 0.56, torsoD: 0.26, headR: 0.17, coat: RITA[variant], legs: 0x14182a, shoe: NAVY_D, sole: BORDO });
     const { top, hy, headR: r } = c;
-    P.box('torso', -0.2, 0.62, 0.0, 0.2, 0.84, 0.13, 0xe0505a);                             // the tails
+    P.box('torso', -0.2, 0.62, 0.0, 0.2, 0.84, 0.13, RITA[variant]);                             // the tails
     for (const y of [1.08, 1.2, 1.32]) P.box('torso', -0.05, y, -0.135, 0.05, y + 0.022, -0.128, CREAM, { hull: false });   // frogging
     P.box('torso', -0.205, 0.84, -0.135, 0.205, 0.9, 0.135, NAVY_D);                       // the belt
     face(P, hy, r, { look: 'open', nose: 0xf0c8b0, noseR: 0.15, brows: NAVY_D });
@@ -285,27 +297,27 @@ function thief(P, who) {
     P.ball('head', r * 1.03, 0, hy + r * 0.2, r * 0.08, NAVY_D, 1, 0.82, 1);                // the hair
     P.ball('head', r * 0.75, 0, hy + r * 1.35, r * 1.0, NAVY_D, 0.9, 1.6, 0.9);             // the ponytail
     P.box('head', -r * 0.1, hy + r * 0.8, r * 1.4, r * 0.1, hy + r * 1.9, r * 1.55, CREAM, { hull: false });   // its highlight
-    P.cyl('head', r * 0.25, r * 0.25, r * 0.2, 0, hy + r * 0.72, r * 0.62, RED);            // the hair tie
+    P.cyl('head', r * 0.25, r * 0.25, r * 0.2, 0, hy + r * 0.72, r * 0.62, BORDO);          // the hair tie
     ring(P, 'torso', 0.12, 0.04, 0, top + 0.02, 0, 0xbfe0f0);                               // the scarf
     P.box('torso', 0.1, top - 0.12, 0.05, 0.3, top - 0.04, 0.12, 0xbfe0f0);
-    armDown(P, 'armL', -0.24, top - 0.04, 0.44, 0.05, 0xe0505a);
+    armDown(P, 'armL', -0.24, top - 0.04, 0.44, 0.05, RITA[variant]);
     band(P, 'armL', -0.24, top - 0.42, 0.05, 0xf0a040);
-    armDown(P, 'armR', 0.24, top - 0.04, 0.44, 0.05, 0xe0505a);
+    armDown(P, 'armR', 0.24, top - 0.04, 0.44, 0.05, RITA[variant]);
     band(P, 'armR', 0.24, top - 0.42, 0.05, 0xf0a040);
     return c;
   }
   if (who === 'nazar') {   // a dark teal hoodie with the hood up, a dark fringe, tired eyes, a red notebook held to the chest
-    const c = body(P, { legH: 0.82, hipW: 0.09, legW: 0.07, torsoW: 0.5, torsoH: 0.58, torsoD: 0.3, headR: 0.18, coat: 0x2f4a54, legs: 0x1c2333, shoe: 0x26324f, sole: CREAM });
+    const c = body(P, { legH: 0.82, hipW: 0.09, legW: 0.07, torsoW: 0.5, torsoH: 0.58, torsoD: 0.3, headR: 0.18, coat: TEAL, legs: 0x1c2333, shoe: 0x26324f, sole: CREAM });
     const { top, hy, headR: r } = c;
-    P.box('torso', -0.15, 0.86, -0.16, 0.15, 1.0, -0.15, 0x26404a, { hull: false });       // the pocket
+    P.box('torso', -0.15, 0.86, -0.16, 0.15, 1.0, -0.15, 0x30505a, { hull: false });       // the pocket
     for (const s of [-1, 1]) P.box('torso', s * 0.05 - 0.008, top - 0.2, -0.16, s * 0.05 + 0.008, top - 0.02, -0.152, CREAM, { hull: false });   // strings
     face(P, hy, r, { look: 'sleepy', bags: true, brows: NAVY_D });
     P.box('head', -r * 0.95, hy + r * 0.3, -r * 0.95, r * 0.95, hy + r * 0.62, -r * 0.6, PAL.ink);   // the fringe
-    P.ball('head', r * 1.28, 0, hy + r * 0.12, r * 0.28, 0x2f4a54, 1, 1.05, 1.05);          // the hood
-    armDown(P, 'armL', -0.29, top - 0.04, 0.42, 0.06, 0x2f4a54, SKIN_PALE);
-    P.box('armL', -0.34, top - 0.56, -0.1, -0.22, top - 0.36, -0.06, RED);                  // the notebook
+    P.ball('head', r * 1.28, 0, hy + r * 0.12, r * 0.28, TEAL, 1, 1.05, 1.05);          // the hood
+    armDown(P, 'armL', -0.29, top - 0.04, 0.42, 0.06, TEAL, SKIN_PALE);
+    P.box('armL', -0.34, top - 0.56, -0.1, -0.22, top - 0.36, -0.06, BORDO);                // the notebook
     P.box('armL', -0.335, top - 0.555, -0.107, -0.225, top - 0.365, -0.1, CREAM, { hull: false });
-    armDown(P, 'armR', 0.29, top - 0.04, 0.42, 0.06, 0x2f4a54, SKIN_PALE);
+    armDown(P, 'armR', 0.29, top - 0.04, 0.42, 0.06, TEAL, SKIN_PALE);
     c.book = true;
     return c;
   }
@@ -330,7 +342,7 @@ function hideOld(mesh) {
 // a guard (enemies/patrol.js): the old body / upper stay as the anchors of the lamp, the beam and the
 // bucket (they keep turning with the gaze); the figure turns its torso the same way (style/anim.js)
 export function restyleGuard(p, GC = {}) {
-  if (!STYLE_ON) return;
+  if (!FIGURES_ON) return;
   const id = RECIPES[GC.id] ? GC.id : 'petrovych';
   const fig = quietRandom(() => buildFigure(RECIPES[id]));   // the game's random numbers untouched (style/quiet.js)
   hideOld(p.body); hideOld(p.upper);
@@ -341,44 +353,48 @@ export function restyleGuard(p, GC = {}) {
 }
 // a friend (net/remotePlayer.js)
 export function restyleFriend(rp) {
-  if (!STYLE_ON) return;
+  if (!FIGURES_ON) return;
   const fig = quietRandom(() => buildFigure(RECIPES[rp.thief] || RECIPES.zoya));
   hideOld(rp.body); hideOld(rp.headMesh);
   rp.group.add(fig.root);
   rp.fig = fig; fig.kind = 'thief'; fig.who = rp.thief; fig.phase = 0;
 }
 
-// the lurker (enemies/lurker.js; the wardrobe's and the garage crate's), Шафник, after the owner's art:
-// a lump of shadow with big whisper-coloured eyes (dark pupils), a round open mouth with four rounded
-// teeth, long thin arms with four-fingered hands. Its parts keep their pivots, so the lurker's own
-// animation (telegraph, lunge, sleep) moves them as before.
-export function restyleLurker(L) {
-  if (!STYLE_ON) return;
-  quietRandom(() => lurkerLook(L));
-}
-function lurkerLook(L) {
+// the lurker (enemies/lurker.js; the wardrobe's and the garage crate's), Шафник, after the owner's
+// reference: a lump of shadow in the wardrobe's gap with big whisper-coloured eyes WITHOUT pupils (it is
+// blind), a round open mouth with four rounded teeth, long thin arms with four-fingered hands; a sock
+// hangs on the wardrobe's door. Its parts keep their pivots, so the lurker's own animation (telegraph,
+// lunge, sleep) moves them as before.
+export function lurkerGeometries() {
   const B = (parts) => { const g = mergeGeometries(parts.map(([geo, col]) => colored(geo, col)), false); parts.forEach(([geo]) => geo.dispose()); return g; };
   const lump = new THREE.SphereGeometry(0.3, 14, 10); lump.scale(1.05, 0.95, 0.9);
   const mouth = new THREE.SphereGeometry(0.11, 10, 8); mouth.scale(1.2, 0.8, 0.4); mouth.translate(0, -0.08, -0.25);
   const teeth = [-1, 1].flatMap((s) => [new THREE.SphereGeometry(0.025, 6, 5).translate(s * 0.05, -0.03, -0.29), new THREE.SphereGeometry(0.022, 6, 5).translate(s * 0.045, -0.13, -0.29)]);
-  L.body.geometry = B([[lump, 0x141a2c], [mouth, 0x07090f], ...teeth.map((t) => [t, PAL.paper])]);
-  const arms = [];
+  const body = B([[lump, 0x141a2c], [mouth, 0x07090f], ...teeth.map((t) => [t, PAL.paper])]);
+  const armParts = [];
   for (const s of [-1, 1]) {
-    arms.push([new THREE.CylinderGeometry(0.018, 0.028, 0.75, 6).rotateX(Math.PI / 2).translate(s * 0.27, -0.05, -0.38), 0x141a2c]);
-    arms.push([new THREE.SphereGeometry(0.04, 7, 5).scale(1.3, 0.6, 1).translate(s * 0.27, -0.05, -0.77), 0x141a2c]);   // the palm
+    armParts.push([new THREE.CylinderGeometry(0.018, 0.028, 0.75, 6).rotateX(Math.PI / 2).translate(s * 0.27, -0.05, -0.38), 0x141a2c]);
+    armParts.push([new THREE.SphereGeometry(0.04, 7, 5).scale(1.3, 0.6, 1).translate(s * 0.27, -0.05, -0.77), 0x141a2c]);   // the palm
     for (let f = 0; f < 4; f++) {   // four long fingers, spread
       const a = (f - 1.5) * 0.32;
-      arms.push([new THREE.CylinderGeometry(0.008, 0.012, 0.12, 5).rotateX(Math.PI / 2).rotateY(a).translate(s * 0.27 + Math.sin(a) * 0.08, -0.05, -0.79 - Math.cos(a) * 0.06), 0x141a2c]);
+      armParts.push([new THREE.CylinderGeometry(0.008, 0.012, 0.12, 5).rotateX(Math.PI / 2).rotateY(a).translate(s * 0.27 + Math.sin(a) * 0.08, -0.05, -0.79 - Math.cos(a) * 0.06), 0x141a2c]);
     }
   }
-  L.arms.geometry = B(arms);
-  const eyes = [-1, 1].flatMap((s) => [
-    [new THREE.SphereGeometry(0.075, 12, 9).scale(1, 1.1, 0.6).translate(s * 0.1, 0.09, -0.24), PAL.whisper],
-    [new THREE.SphereGeometry(0.03, 8, 6).scale(1, 1, 0.5).translate(s * 0.1 - s * 0.012, 0.075, -0.285), PAL.ink],   // pupils, a little cross-eyed
-  ]);
-  L.eyes.geometry = B(eyes);
-  // its outline: the lump grown a little, back faces
-  const hull = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10).scale(1.05 * 1.07, 0.95 * 1.07, 0.9 * 1.07), hullMaterial());
-  hull.name = 'style: wardrobe outline';
-  L.body.add(hull);
+  const arms = B(armParts);
+  const eyes = B([-1, 1].map((s) => [new THREE.SphereGeometry(0.075, 12, 9).scale(1, 1.1, 0.6).translate(s * 0.1, 0.09, -0.24), PAL.whisper]));   // blind: no pupils
+  // the sock on the door (in the door leaf's space: lurker.js D1, the knob at x -0.03, y 0.9..1.1, z 0.66..0.7)
+  const sock = B([[new THREE.BoxGeometry(0.03, 0.26, 0.09).translate(-0.035, 0.8, 0.66), TERRA], [new THREE.BoxGeometry(0.03, 0.07, 0.15).translate(-0.035, 0.7, 0.62), TERRA], [new THREE.BoxGeometry(0.032, 0.04, 0.092).translate(-0.035, 0.91, 0.66), CREAM]]);
+  return { body, arms, eyes, sock };
 }
+export function restyleLurker(L) {
+  if (!FIGURES_ON) return;
+  quietRandom(() => {
+    const g = lurkerGeometries();
+    L.body.geometry = g.body; L.arms.geometry = g.arms; L.eyes.geometry = g.eyes;
+    const hull = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10).scale(1.05 * 1.07, 0.95 * 1.07, 0.9 * 1.07), hullMaterial());   // its outline
+    hull.name = 'style: wardrobe outline';
+    L.body.add(hull);
+    if (L.door1 && L.kind !== 'crate') { const sock = new THREE.Mesh(g.sock, L.body.material); sock.name = 'style: sock'; L.door1.add(sock); }
+  });
+}
+export { hullMaterial };
