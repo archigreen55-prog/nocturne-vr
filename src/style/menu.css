@@ -130,3 +130,6 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 #overlay .portraits button:disabled { opacity: .55; }
 #netlist li::marker { color: var(--tc, currentColor); font-size: 1.4em; }
 @media (max-height: 420px) { .portraits { grid-template-columns: repeat(4, minmax(0, 84px)); } }
+
+/* S4: the live scene behind the menu (src/style/menuScene.js) shows through */
+body.menu-live #overlay { background: radial-gradient(ellipse at 50% 40%, rgba(13, 19, 34, .1), rgba(13, 19, 34, .55) 75%); }

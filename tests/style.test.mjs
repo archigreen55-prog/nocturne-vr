@@ -405,3 +405,44 @@ test('style (S4): the HUD, the board and the flashes in the palette (no green); 
   assert.deepEqual(errors, [], JSON.stringify(errors));
   await ctx2.close();
 });
+
+test('style (S4): the live scene behind the menu — a camera of its own circles the house (at most 30 pictures a second, half the resolution, one still frame on «низька»), the game\'s camera untouched, the resolution back for the round; «Стиль: вимк»: the game\'s camera and resolution', async () => {
+  const frames = (page, ms) => page.evaluate((ms) => new Promise((done) => { const r = window.__game.renderer.info.render; const a = r.frame; setTimeout(() => done(r.frame - a), ms); }), ms);
+  const ctx = await newContext(browser, LAND, { menu: true });
+  let { page, errors } = await open(ctx, preview);
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  if (await page.$('#micask:not([hidden])')) await page.click('#asklater');
+  // its own camera, at most 30 pictures a second, the game's camera where it was
+  const cam0 = await page.evaluate(() => window.__game.camera.position.toArray());
+  const n = await frames(page, 2000);
+  assert.ok(n >= 2 && n <= 64, `the menu's scene: at most 30 pictures a second (${n} in 2 s; the cloud's software renderer is slower)`);
+  const full = () => page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); return [G.renderer.getPixelRatio(), G.quality ? G.quality.pr : Math.min(devicePixelRatio, 1.5)]; });
+  { const [now, game] = await full(); assert.equal(now, game / 2, 'behind the overlay at half the resolution'); }
+  const moved = await page.evaluate(async () => {
+    const { menuView } = await import('./src/style/menuScene.js');
+    const at = async () => { for (let i = 0; i < 40; i++) { const c = menuView(performance.now()); if (c) return c !== window.__game.camera && c.position.clone(); await new Promise((r) => setTimeout(r, 20)); } return null; };
+    const a = await at(); await new Promise((r) => setTimeout(r, 1000)); const b = await at();
+    return a && b && { y: a.y, step: Math.hypot(a.x - b.x, a.z - b.z) };
+  });
+  assert.ok(moved && moved.y > 5 && moved.step > 0.1 && moved.step < 2, `a camera of its own above the house, slowly circling: ${JSON.stringify(moved)}`);
+  assert.deepEqual(await page.evaluate(() => window.__game.camera.position.toArray()), cam0, 'the game\'s camera untouched');
+  // «низька»: one still frame
+  const still = await page.evaluate(async () => {
+    const { G } = await import('./src/systems/state.js');
+    const q = G.quality, was = q.preset; q.preset = 'low';   // the phone's preset (perf/quality.js), for these 2 s
+    return new Promise((done) => setTimeout(() => { const r = G.renderer.info.render, a = r.frame; setTimeout(() => { q.preset = was; done(r.frame - a); }, 1500); }, 300));
+  });
+  assert.ok(still <= 1, `«низька»: a still frame (${still} pictures in 1.5 s)`);
+  await page.evaluate(() => window.__game.start.play());
+  await page.waitForFunction(() => !document.body.classList.contains('menu-live'));
+  { const [now, game] = await full(); assert.equal(now, game, 'playing: the game\'s resolution back'); }
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx.close();
+  const ctx2 = await newContext(browser, LAND, { menu: true });
+  ({ page, errors } = await open(ctx2, preview + '?style=off'));
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  assert.equal(await page.evaluate(() => window.__game.renderer.getPixelRatio()), await page.evaluate(() => (window.__game.quality ? window.__game.quality.pr : Math.min(devicePixelRatio, 1.5))), 'style off: the full resolution');
+  assert.equal(await page.evaluate(async () => (await import('./src/style/menuScene.js')).menuView(performance.now())), null, 'style off: the game\'s camera');
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx2.close();
+});

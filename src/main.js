@@ -5,6 +5,7 @@ import { G, params } from './systems/state.js';
 import { rotateBlocked } from './systems/flatScreen.js';
 import { exposeDebugApi } from './systems/debugApi.js';
 import { applyTexts } from './i18n/index.js';
+import { menuView } from './style/menuScene.js';
 
 applyTexts();   // the start screen's static texts (index.html data-t) from the language file
 for (const s of SYSTEMS) if (s.init) s.init();
@@ -34,12 +35,13 @@ function frame(now, xrFrame) {
   comfort.update(dt, player.speed, G.inVR || params.has('vignette'));
 
   // a paused phone redraws only a few times a second (battery, heat)
-  const draw = !G.paused || now - G.lastRender > 150;
+  const menu = menuView(now);   // W17 S4: the live scene behind the menu (style/menuScene.js): its camera, false = no picture now, null = the game's
+  const draw = menu !== false && (!G.paused || now - G.lastRender > 150);
   if (draw) {
     G.lastRender = now;
     gpu.poll();
     gpu.begin();
-    renderer.render(scene, camera);
+    renderer.render(scene, menu || camera);
     gpu.end();
     perf.calls = renderer.info.render.calls;
     perf.tris = renderer.info.render.triangles;
