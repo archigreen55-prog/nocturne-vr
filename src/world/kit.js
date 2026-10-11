@@ -105,5 +105,8 @@ export function van(S, G, x, z, yaw) {
   for (const [g, col, glow] of tmp.parts) { g.applyMatrix4(T); (glow ? G : S).add(g, col); }
   const corner = (px, pz) => new THREE.Vector3(px, 0, pz).applyMatrix4(T);
   const rect = (a, b) => { const p = corner(a[0], a[1]), q = corner(b[0], b[1]); return { minX: Math.min(p.x, q.x), maxX: Math.max(p.x, q.x), minZ: Math.min(p.z, q.z), maxZ: Math.max(p.z, q.z) }; };
-  return { body: rect([x0, z0], [x1, z1]), cargo: { ...rect([x0 + 0.1, z0 + 0.05], [x1 - 0.1, z1 - 1.45]), y: 0.4 } };
+  // the swung-out rear doors (W18): a body walks into them, not through them — their footprints, 0.32 m
+  // out from the side and 0.93 m along it (the leaf turned by 1.9 rad about its hinge)
+  const doorRects = [-1, 1].map((s) => { const hx = s < 0 ? x0 : x1; return rect([hx, z0], [hx + s * 0.98 * -Math.cos(1.9), z0 + 0.98 * Math.sin(1.9)]); });
+  return { body: rect([x0, z0], [x1, z1]), cargo: { ...rect([x0 + 0.1, z0 + 0.05], [x1 - 0.1, z1 - 1.45]), y: 0.4 }, doors: doorRects };
 }
