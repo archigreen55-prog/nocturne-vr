@@ -12,6 +12,7 @@ import { shopRows, buyUpgrade } from './economy.js';
 import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
+import { dressLobby } from '../style/portraits.js';   // S4: the thieves' portraits in the lobby
 
 const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'testers'];
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
@@ -25,6 +26,7 @@ function show(page) {
   if (page === 'lurkers') renderLurkers();
   if (page === 'menu') renderMenu();
   if (page === 'play') renderPlay();
+  if (page === 'friends') dressLobby();
   const card = document.querySelector('#overlay .card');
   if (card) card.scrollTop = 0;
 }
@@ -150,10 +152,16 @@ export const menu = {
     for (const b of document.querySelectorAll('#overlay [data-back]')) b.addEventListener('click', back);
     addEventListener('popstate', (e) => show((e.state && e.state.page) || 'menu'));
     wireMicAsk();
+    // the board's titles and clock use the headings' font: draw it again once the font is in (S4)
+    if (document.fonts && document.fonts.load) document.fonts.load('800 40px Unbounded').then(() => { G.boardDirty = true; }, () => {});
     // the page to open: ?page=…, an invitation (?room=) opens «Грати з друзями»
     const want = params.get('page');
     const first = PAGES.includes(want) ? want : params.has('room') ? 'friends' : 'menu';
-    try { history.replaceState({ page: first }, '', location.href); } catch { /* opaque origin */ }
+    // a deep link gets the main menu under it in the history: «←» (and Android's «Назад») land there, not off the game
+    try {
+      if (first === 'menu') history.replaceState({ page: 'menu' }, '', location.href);
+      else { history.replaceState({ page: 'menu' }, '', pageUrl('menu')); history.pushState({ page: first }, '', pageUrl(first)); }
+    } catch { /* opaque origin */ }
     show(first);
     // the overlay shown again (a pause, the round's end, out of VR): back to the main menu
     let wasHidden = false;

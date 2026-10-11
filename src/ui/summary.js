@@ -5,6 +5,7 @@
 import { bindPress } from './press.js';
 import { fmtTime, money } from './board.js';
 import { S } from '../i18n/index.js';
+import { UI } from '../style/palette.js';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
@@ -74,11 +75,11 @@ export class Summary {
     if (!this.refs) return;
     const { scream, play, R } = this.refs;
     let text, color;
-    if (s.playing && s.clip) { text = S.board.res.screamAt(fmtTime(s.clip.t, true)); color = '#ff9f43'; }
+    if (s.playing && s.clip) { text = S.board.res.screamAt(fmtTime(s.clip.t, true)); color = UI.alarm; }
     else if (R.shouts > 0) {
       text = s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—');
-      color = '#ffb347';
-    } else { text = s.noMic ? S.board.mic.noMic : S.board.res.noShouts; color = '#7fc8ff'; }
+      color = UI.lamp;
+    } else { text = s.noMic ? S.board.mic.noMic : S.board.res.noShouts; color = UI.whisper; }
     const key = text + (s.playing ? '|p' : '') + (s.clip ? '|c' : '');
     if (key === this.refs.last) return;
     this.refs.last = key;

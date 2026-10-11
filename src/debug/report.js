@@ -126,7 +126,7 @@ export function copyReport(text) {
   const fail = () => sheet.status(S.report.copyFailed, '#ffd166');
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => sheet.status(S.report.copied(text.length), '#5fd38d'), fail);
+      navigator.clipboard.writeText(text).then(() => sheet.status(S.report.copied(text.length), '#7fd0ff'), fail);
     } else fail();
   } catch { fail(); }
 }

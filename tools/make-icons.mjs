@@ -3,42 +3,48 @@
 //   icon-maskable-512.png                Android adaptive icon (the picture inside the safe circle)
 //   apple-touch-icon-180.png             iPhone "На початковий екран"
 //   node tools/make-icons.mjs
+// W17 «Стиль» S4 (plan-W17-style.md §3.8, decision 9): the monogram «HJ» (H in paper, J in the lamp's colour,
+// an ink outline and a stamp's shadow, the headings' font Unbounded 800 from fonts/) on the night, under a
+// flashlight's beam. The maskable one keeps it all inside the safe circle.
 import { chromium } from 'playwright';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const font = readFileSync(join(root, 'fonts', 'unbounded-latin-800.woff2')).toString('base64');
 const browser = await chromium.launch();
 const page = await browser.newPage();
+await page.evaluate(async (font) => {
+  const f = new FontFace('Unbounded', `url(data:font/woff2;base64,${font})`, { weight: '800' });
+  document.fonts.add(await f.load());
+}, font);
 const draw = (size, pad) => page.evaluate(([size, pad]) => {
   const c = document.createElement('canvas'); c.width = c.height = size;
   const g = c.getContext('2d'), s = size * (1 - 2 * pad), o = size * pad, X = (v) => o + v * s;
-  const bg = g.createRadialGradient(size * 0.7, size * 0.25, 0, size * 0.5, size * 0.5, size * 0.75);
-  bg.addColorStop(0, '#1d2a4a'); bg.addColorStop(1, '#070b16');
+  const bg = g.createRadialGradient(size * 0.5, size * 0.42, 0, size * 0.5, size * 0.5, size * 0.75);
+  bg.addColorStop(0, '#1b2742'); bg.addColorStop(1, '#0d1322');   // the night (src/style/palette.js UI.night)
   g.fillStyle = bg; g.fillRect(0, 0, size, size);
-  // crescent moon
-  g.fillStyle = '#ffd98a';
-  g.beginPath(); g.arc(X(0.7), X(0.27), s * 0.16, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#16213c';
-  g.beginPath(); g.arc(X(0.76), X(0.22), s * 0.145, 0, Math.PI * 2); g.fill();
-  // stars
-  g.fillStyle = '#c9d3e3';
-  for (const [x, y, r] of [[0.18, 0.18, 0.012], [0.32, 0.1, 0.008], [0.45, 0.24, 0.01], [0.9, 0.5, 0.008]]) { g.beginPath(); g.arc(X(x), X(y), s * r, 0, Math.PI * 2); g.fill(); }
-  // house
-  g.fillStyle = '#02040a';
-  g.beginPath();
-  g.moveTo(X(0.12), X(0.92)); g.lineTo(X(0.12), X(0.6)); g.lineTo(X(0.42), X(0.38)); g.lineTo(X(0.72), X(0.6)); g.lineTo(X(0.72), X(0.92)); g.closePath(); g.fill();
-  g.fillRect(X(0.56), X(0.42), s * 0.07, s * 0.14);   // chimney
-  g.fillRect(X(0), X(0.92), s, s * 0.08);
-  // one lit window, and the flashlight beam
-  g.fillStyle = '#ffb347'; g.fillRect(X(0.25), X(0.66), s * 0.11, s * 0.1);
-  g.fillStyle = 'rgba(255, 220, 140, 0.18)';
-  g.beginPath(); g.moveTo(X(0.48), X(0.72)); g.lineTo(X(0.98), X(0.6)); g.lineTo(X(0.98), X(0.86)); g.closePath(); g.fill();
-  g.fillStyle = '#5fd38d'; g.beginPath(); g.arc(X(0.48), X(0.72), s * 0.022, 0, Math.PI * 2); g.fill();
+  // the flashlight's beam from the bottom left, over the letters
+  const beam = g.createLinearGradient(X(0.12), X(0.92), X(0.85), X(0.25));
+  beam.addColorStop(0, 'rgba(255, 179, 71, 0.42)'); beam.addColorStop(1, 'rgba(255, 179, 71, 0)');
+  g.fillStyle = beam;
+  g.beginPath(); g.moveTo(X(0.13), X(0.9)); g.lineTo(X(0.62), X(0.06)); g.lineTo(X(1.02), X(0.5)); g.closePath(); g.fill();
+  // HJ: the stamp's shadow, the ink outline, then the letters
+  const fs = s * 0.44, y = X(0.56);
+  g.font = `800 ${fs}px Unbounded`; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  const wH = g.measureText('H').width, wJ = g.measureText('J').width, gap = fs * 0.02, x0 = size / 2 - (wH + gap + wJ) / 2;
+  const letters = [['H', x0, '#efe6d4'], ['J', x0 + wH + gap, '#ffb347']];
+  g.fillStyle = '#05070d'; g.strokeStyle = '#05070d'; g.lineWidth = fs * 0.09;
+  for (const [t, x] of letters) { g.fillText(t, x + fs * 0.07, y + fs * 0.07); g.strokeText(t, x + fs * 0.07, y + fs * 0.07); }
+  for (const [t, x] of letters) g.strokeText(t, x, y);
+  for (const [t, x, col] of letters) { g.fillStyle = col; g.fillText(t, x, y); }
+  // the lamp: where the beam starts
+  g.fillStyle = '#ffb347'; g.strokeStyle = '#05070d'; g.lineWidth = s * 0.012;
+  g.beginPath(); g.arc(X(0.15), X(0.88), s * 0.035, 0, Math.PI * 2); g.fill(); g.stroke();
   return c.toDataURL('image/png').split(',')[1];
 }, [size, pad]);
-for (const [name, size, pad] of [['icon-192.png', 192, 0], ['icon-512.png', 512, 0], ['icon-maskable-512.png', 512, 0.1], ['apple-touch-icon-180.png', 180, 0]]) {
+for (const [name, size, pad] of [['icon-192.png', 192, 0.04], ['icon-512.png', 512, 0.04], ['icon-maskable-512.png', 512, 0.12], ['apple-touch-icon-180.png', 180, 0.04]]) {
   writeFileSync(join(root, 'icons', name), Buffer.from(await draw(size, pad), 'base64'));
   console.log('icons/' + name);
 }

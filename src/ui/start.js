@@ -89,7 +89,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
       rec.textContent = mode === 'none'
         ? S.start.rec.none
         : S.start.rec.works({ worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder' }[mode] || mode);
-      rec.style.color = mode === 'none' ? '#ff9f43' : '#5fd38d';
+      rec.style.color = mode === 'none' ? '#ffb347' : '#7fd0ff';   // W17: the microphone is the whisper's colour
     }
   });
 
@@ -123,7 +123,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
       step.textContent = '';
       const line = (r) => S.start.verify.line({ quiet: S.start.verify.quiet, normal: S.start.verify.normal, shout: S.start.verify.shout }[r.id], r.skipped, LBL[r.got], r.ok);
       $('verifyres').textContent = `${res.results.map(line).join(' · ')}. ${res.notes.join(' ')}`;
-      $('verifyres').style.color = res.results.every((r) => r.ok) ? '#5fd38d' : '#ffb347';
+      $('verifyres').style.color = res.results.every((r) => r.ok) ? '#7fd0ff' : '#ffb347';
       showState();
     });
     bindPress($('soundtest'), () => { if (playGame) playGame(); });

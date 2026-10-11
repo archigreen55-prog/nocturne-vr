@@ -66,7 +66,7 @@ export class WristPanel {
     g.clearRect(0, 0, W, H);
     g.fillStyle = holding ? 'rgba(8, 22, 44, 0.94)' : s.alertLevel === 2 ? 'rgba(40, 8, 10, 0.92)' : 'rgba(12, 16, 24, 0.9)';
     roundRect(g, 4, 4, W - 8, H - 8, 28); g.fill();
-    g.strokeStyle = holding ? '#4fb3ff' : ['#3d4a63', '#b07a2a', '#ff3b3b'][s.alertLevel || 0];
+    g.strokeStyle = holding ? '#7fd0ff' : ['#2b3858', '#b07a2a', '#ff5468'][s.alertLevel || 0];
     g.lineWidth = holding ? 10 : 5; g.stroke();
     g.textBaseline = 'alphabetic';
 
@@ -74,9 +74,9 @@ export class WristPanel {
     const cx = 66, cy = 70, r = 40;
     g.lineWidth = 10;
     g.strokeStyle = '#26314a'; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
-    g.strokeStyle = holding ? '#4fb3ff' : b.state === 'cooldown' ? '#6a7385' : '#c9d3e3';
+    g.strokeStyle = holding ? '#7fd0ff' : b.state === 'cooldown' ? '#6a7385' : '#d6cfbf';
     g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * b.ring); g.stroke();
-    g.fillStyle = holding ? '#4fb3ff' : '#c9d3e3'; g.textAlign = 'center';
+    g.fillStyle = holding ? '#7fd0ff' : '#d6cfbf'; g.textAlign = 'center';
     if (b.state === 'ready') { g.font = 'bold 30px system-ui, sans-serif'; g.fillText('A', cx, cy + 11); }
     else { g.font = 'bold 26px system-ui, sans-serif'; g.fillText(b.left.toFixed(b.left < 10 ? 1 : 0), cx, cy + 9); }
 
@@ -85,13 +85,13 @@ export class WristPanel {
     g.textAlign = 'center';
     if (holding) {
       // holding the breath: the game does not hear the mic at all
-      g.fillStyle = '#4fb3ff'; g.font = 'bold 50px system-ui, sans-serif'; g.fillText(S.wrist.breathHeld, 300, 80);
-      g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#9fd4ff';
+      g.fillStyle = '#7fd0ff'; g.font = 'bold 50px system-ui, sans-serif'; g.fillText(S.wrist.breathHeld, 300, 80);
+      g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#bfe6ff';
       g.fillText(S.wrist.breathLeft(b.left.toFixed(1)), 300, 120);
       if (mic.state === 'on') {
         const x0 = 30, bw = W - 60, y = 142;
-        g.fillStyle = '#16324f'; g.fillRect(x0, y, bw, 24);
-        g.fillStyle = '#2e6aa0'; g.fillRect(x0, y + 5, bw * mic.barPos(mic.env), 14);
+        g.fillStyle = '#1d3446'; g.fillRect(x0, y, bw, 24);
+        g.fillStyle = '#3d6f99'; g.fillRect(x0, y + 5, bw * mic.barPos(mic.env), 14);
       }
     } else if (mic.state === 'on') {
       const lv = LEVELS[mic.level];
@@ -99,16 +99,16 @@ export class WristPanel {
       // bar: zones, thresholds, level
       const x0 = 30, x1 = W - 30, y = 120, h = 36, bw = x1 - x0;
       const pw = mic.barPos(mic.whisperDb), ps = mic.barPos(mic.shoutDb);
-      g.fillStyle = '#1f3b2b'; g.fillRect(x0, y, bw * pw, h);
-      g.fillStyle = '#3f3a1c'; g.fillRect(x0 + bw * pw, y, bw * (ps - pw), h);
-      g.fillStyle = '#4a1c1c'; g.fillRect(x0 + bw * ps, y, bw * (1 - ps), h);
+      g.fillStyle = '#1d3446'; g.fillRect(x0, y, bw * pw, h);
+      g.fillStyle = '#4a3a1f'; g.fillRect(x0 + bw * pw, y, bw * (ps - pw), h);
+      g.fillStyle = '#4d1f2a'; g.fillRect(x0 + bw * ps, y, bw * (1 - ps), h);
       g.fillStyle = lv.color; g.fillRect(x0, y + 7, bw * mic.barPos(mic.env), h - 14);
       g.fillStyle = '#ffffff';
       g.fillRect(x0 + bw * pw - 2, y - 5, 4, h + 10);
       g.fillRect(x0 + bw * ps - 2, y - 5, 4, h + 10);
       const problem = mic.problem;
       g.font = problem ? 'bold 22px system-ui, sans-serif' : '22px system-ui, sans-serif';
-      g.fillStyle = problem ? '#ff5c5c' : '#6f8396';
+      g.fillStyle = problem ? '#ff5468' : '#6f8396';
       g.textAlign = problem ? 'center' : 'left';
       g.fillText(problem || S.hud.micDb(mic.env.toFixed(0), s.speaking), problem ? W / 2 : x0, y + h + 26);
     } else {
@@ -120,17 +120,17 @@ export class WristPanel {
 
     // --- clock and alarm ---
     g.textAlign = 'left'; g.font = 'bold 56px system-ui, sans-serif';
-    g.fillStyle = s.phase === 'escape' ? '#ff4d4d' : s.clock < 60 ? '#ffb347' : '#e6ecf5';
+    g.fillStyle = s.phase === 'escape' ? '#ff5468' : s.clock < 60 ? '#ffb347' : '#efe6d4';
     g.fillText(s.phase === 'result' ? '—:—' : fmtTime(s.clock), 30, 244);
     g.textAlign = 'right'; g.font = 'bold 30px system-ui, sans-serif';
-    g.fillStyle = ['#5fd38d', '#ffb347', '#ff4d4d'][s.alertLevel || 0];
+    g.fillStyle = ['#7fd0ff', '#ffb347', '#ff5468'][s.alertLevel || 0];
     g.fillText(s.phase === 'escape' ? S.board.toVan : [S.board.alert.calm, S.board.alert.check, S.board.alert.alarm][s.alertLevel || 0], W - 30, 238);
 
     // --- body: steps, crouch; hands; the van ---
     g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
     // running (W1): the word and the stamina bar under it (shown while not full)
     const R = s.run, running = !!(R && R.running), winded = R && R.winded > 0;
-    g.fillStyle = winded ? '#93a1b8' : running ? '#ff6a3d' : s.stepsAudible ? '#ffb347' : '#5fd38d';
+    g.fillStyle = winded ? '#9aa7bf' : running ? '#ffb347' : s.stepsAudible ? '#ffb347' : '#7fd0ff';
     g.fillText(winded ? S.sprint.winded(Math.ceil(R.winded)) : running ? S.sprint.stepsRun : s.stepsAudible ? S.hud.stepsLoud : S.hud.stepsQuiet, 30, 284);
     if (R && (running || R.fraction < 0.999)) {
       g.fillStyle = 'rgba(255, 255, 255, 0.15)'; g.fillRect(30, 292, 180, 6);
@@ -139,24 +139,24 @@ export class WristPanel {
     // visibility: eye open (seen from afar) / half (crouched) / closed (hidden behind cover)
     const st = s.stealth;
     if (st) {
-      const color = st.eye === 'closed' ? '#5fd38d' : st.eye === 'half' ? '#ffd166' : st.lit ? '#ff5c5c' : '#ffb347';
+      const color = st.eye === 'closed' ? '#7fd0ff' : st.eye === 'half' ? '#d6cfbf' : st.lit ? '#ffb347' : '#efe6d4';
       const text = st.eye === 'closed' ? S.hud.hidden : S.hud.stanceRange(s.virtualCrouch ? S.wrist.crouchedB : s.crouched ? S.hud.crouched : S.hud.standing, st.range.toFixed(1));
       g.textAlign = 'right'; g.fillStyle = color; g.font = 'bold 24px system-ui, sans-serif';
       g.fillText(text, W - 30, 284);
       drawEye(g, W - 30 - g.measureText(text).width - 32, 276, st.eye, color);
     }
-    g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#c9d3e3';
+    g.textAlign = 'left'; g.font = '24px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
     g.fillText(s.holding ? S.hud.holding(s.holding) : s.room, 30, 320);
     if (s.holding) { g.textAlign = 'right'; g.fillStyle = '#6f8396'; g.fillText(s.room, W - 30, 320); }
     g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif';
-    if (s.goal) { g.fillStyle = s.goal.done ? '#5fd38d' : '#c9d3e3'; g.fillText(S.hud.goal(s.goal.text, s.goal.done), 30, 360); }
-    else { g.fillStyle = '#5fd38d'; g.fillText(S.wrist.van(money(s.vanSum || 0), s.vanCount || 0), 30, 360); }
+    if (s.goal) { g.fillStyle = s.goal.done ? '#efe6d4' : '#d6cfbf'; g.fillText(S.hud.goal(s.goal.text, s.goal.done), 30, 360); }
+    else { g.fillStyle = '#ffb347'; g.fillText(S.wrist.van(money(s.vanSum || 0), s.vanCount || 0), 30, 360); }
 
     // --- FPS block ---
     if (this.showFps) {
       const target = s.hz || 72;
       g.textAlign = 'left';
-      g.fillStyle = s.fps >= target - 2 ? '#6fe06f' : s.fps >= target * 0.8 ? '#ffd166' : '#ff5c5c';
+      g.fillStyle = s.fps >= target - 2 ? '#6fe06f' : s.fps >= target * 0.8 ? '#ffb347' : '#ff5468';
       g.font = 'bold 30px system-ui, sans-serif';
       g.fillText(`${Math.round(s.fps)} FPS`, 30, 400);
       g.font = '18px system-ui, sans-serif'; g.fillStyle = '#9fb3c8';
@@ -168,13 +168,13 @@ export class WristPanel {
 
     // --- door hint while dragging a door, else the message line ---
     let msg = s.msg, color = s.msgColor;
-    if (!msg && s.guardText) { msg = s.guardText; color = s.crewSpeech ? '#ffd166' : '#9fb3c8'; }   // W7: the crew's line is yellow
+    if (!msg && s.guardText) { msg = s.guardText; color = s.crewSpeech ? '#ffb347' : '#9fb3c8'; }   // W7: the crew's line is yellow
     if (s.door) {
       msg = s.door.creak > 0 ? S.wrist.doorCreaks(s.door.creak > 0.5) : S.wrist.doorQuiet;
-      color = s.door.creak > 0 ? (s.door.creak > 0.5 ? '#ff5c5c' : '#ffb347') : '#5fd38d';
+      color = s.door.creak > 0 ? (s.door.creak > 0.5 ? '#ff5468' : '#ffb347') : '#7fd0ff';
     }
     if (msg) {
-      g.textAlign = 'center'; g.fillStyle = color || '#ffd166';
+      g.textAlign = 'center'; g.fillStyle = color || '#ffb347';
       let size = 34;
       do { g.font = `bold ${size}px system-ui, sans-serif`; size -= 2; } while (g.measureText(msg).width > W - 50 && size > 16);
       g.fillText(msg, W / 2, 454);

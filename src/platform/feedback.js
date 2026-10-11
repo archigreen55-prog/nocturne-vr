@@ -10,7 +10,7 @@ import { playHiddenCue } from '../audio/audio.js';
 // name -> { vib: pattern (ms), flash: colour, ms: flash length, cue: play the soft sound on iPhone }
 const EVENTS = {
   stepsLoud: { vib: 12, flash: '#ffd166', ms: 160, weak: true },   // the joystick crossed the "quiet" ring
-  hidden: { vib: 22, flash: '#5fd38d', ms: 320, cue: true },       // behind cover: the eye closed
+  hidden: { vib: 22, flash: '#7fd0ff', ms: 320, cue: true },       // behind cover: the eye closed (W17: the whisper's colour)
   heartbeat: { vib: [55, 55, 35], flash: '#ff4d4d', ms: 420, weak: true },
   shout: { vib: [90, 50, 90], flash: '#ff4d4d', ms: 500 },
   alarm: { vib: [160, 90, 160, 90, 320], flash: '#ff3b3b', ms: 700 },

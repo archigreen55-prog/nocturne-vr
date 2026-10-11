@@ -365,3 +365,43 @@ test('Шафник at rest (the owner\'s sample): the dacha\'s wardrobe blue wit
   assert.deepEqual(off.errors, []);
   await c2.close();
 });
+
+test('style (S4): the HUD, the board and the flashes in the palette (no green); the lobby\'s portraits pick the thief; the icon, the manifest and privacy.html in the night\'s colours; «←» from a page link lands on the menu; «Стиль: вимк» keeps the old lobby', async () => {
+  // no green left in the UI (decision 10): the microphone's scale whisper / lamp / alarm
+  for (const f of ['src/ui/hud.js', 'src/ui/wrist.js', 'src/ui/board.js', 'src/ui/summary.js', 'src/ui/start.js', 'src/audio/mic.js', 'src/platform/feedback.js']) {
+    assert.doesNotMatch(await readFile(join(ROOT, f), 'utf8'), /#5fd38d|#3ddc84|#7ee787/i, `${f}: no green`);
+  }
+  const { LEVELS } = await import(new URL('../src/audio/mic.js', import.meta.url)).catch(() => ({}));
+  if (LEVELS) assert.deepEqual([LEVELS.quiet.color, LEVELS.normal.color, LEVELS.shout.color], ['#7fd0ff', '#ffb347', '#ff5468']);
+  const man = JSON.parse(await readFile(join(ROOT, 'manifest.webmanifest'), 'utf8'));
+  assert.deepEqual([man.theme_color, man.background_color], ['#0d1322', '#0d1322'], 'the manifest: the night');
+  assert.match(await readFile(join(ROOT, 'index.html'), 'utf8'), /<meta name="theme-color" content="#0d1322">/);
+  const priv = await readFile(join(ROOT, 'privacy.html'), 'utf8');
+  assert.match(priv, /class="logo"[^>]*><span class="hush">HUSH<\/span> <span class="job">JOB<\/span>/, 'privacy.html: the logo');
+  assert.match(priv, /font-family: 'Unbounded'[^}]*fonts\/unbounded-cyrillic-800\.woff2/, 'privacy.html: the headings\' font, offline');
+  assert.doesNotMatch(priv, /<script/, 'privacy.html: no JS');
+  assert.match(await readFile(join(ROOT, 'tools/make-icons.mjs'), 'utf8'), /\['H', x0, '#efe6d4'\], \['J', x0 \+ wH \+ gap, '#ffb347'\]/, 'the icon: HJ, J in the lamp\'s colour');
+
+  const ctx = await newContext(browser, LAND, { menu: true });
+  let { page, errors } = await open(ctx, preview + '?page=friends');
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  // the lobby: four portraits, a tap picks the thief (the lobby's own select follows), the room's list marked in the thief's colour
+  await page.waitForFunction(() => document.querySelectorAll('#netportraits img[src^="data:image/png"]').length === 4);
+  const lens = await page.evaluate(() => [...document.querySelectorAll('#netportraits img')].map((i) => i.src.length));
+  assert.ok(lens.every((n) => n > 4000), `the portraits are pictures: ${lens}`);
+  await page.click('#netportraits button[data-thief="frol"]');
+  assert.deepEqual(await page.evaluate(() => [document.getElementById('netthief').value, document.querySelector('#netportraits .on').dataset.thief]), ['frol', 'frol']);
+  // a link straight to a page (?page=friends): «←» lands on the main menu, not off the game (S3's history had nothing under it)
+  await page.click('#overlay section[data-page="friends"] [data-back]');
+  await page.waitForFunction(() => !location.search.includes('page=') && !document.querySelector('#overlay section[data-page="menu"]').hidden);
+  assert.ok(await page.evaluate(() => !!window.__game), '«←» stays in the game');
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx.close();
+  // «Стиль: вимк»: the lobby as it was
+  const ctx2 = await newContext(browser, LAND, { menu: true });
+  ({ page, errors } = await open(ctx2, preview + '?page=friends&style=off'));
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  assert.equal(await page.$$eval('#netportraits', (a) => a.length), 0, 'style off: no portraits');
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx2.close();
+});

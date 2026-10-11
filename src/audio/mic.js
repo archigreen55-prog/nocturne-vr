@@ -24,9 +24,9 @@ const why = (e) => (e && e.name === 'NotAllowedError' ? S.mic.err.denied
 const GAME_HOLD = 0.25, GAME_FALL = 40;
 
 export const LEVELS = {
-  quiet: { label: S.mic.level.quiet, color: '#5fd38d' },
-  normal: { label: S.mic.level.normal, color: '#ffd166' },
-  shout: { label: S.mic.level.shout, color: '#ff4d4d' },
+  quiet: { label: S.mic.level.quiet, color: '#7fd0ff' },   // W17: whisper
+  normal: { label: S.mic.level.normal, color: '#ffb347' },   // lamp
+  shout: { label: S.mic.level.shout, color: '#ff5468' },   // alarm
 };
 
 export class Mic {
