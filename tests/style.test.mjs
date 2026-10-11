@@ -145,7 +145,7 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
   const figs = async (map, st) => {
     const ctx = await newContext(browser, LAND);
     await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
-    const o = await open(ctx, preview + `?map=${map}&style=${st}&figures=on`);   // the figures stay off in the game until the owner approves them
+    const o = await open(ctx, preview + `?map=${map}&style=${st}`);
     return { ctx, ...o };
   };
   const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
@@ -232,12 +232,12 @@ test('style: the game\'s random numbers are not touched — the style on or off,
   assert.deepEqual(figs, off, `Math.random calls with the new figures: ${figs}, style off ${off}`);
 });
 
-test('style: the character sheet (?page=figures) — every figure in the row, one in three views, the four thieves at 8 m; the light under a lamp, in the shadow, in the alarm; old / new; the game keeps its old figures until the owner approves (CFG.style.figures)', async () => {
+test('style: the character sheet (?page=figures) — every figure in the row, one in three views, the four thieves at 8 m; the light under a lamp, in the shadow, in the alarm; old / new; the sample beside the figure; the game shows the new figures (CFG.style.figures)', async () => {
   const ctx = await newContext(browser, LAND);
   const { page, errors } = await open(ctx, preview + '?page=figures');
   await page.waitForFunction(() => window.__game.style.sheet, null, { timeout: 30000 });
   const ids = () => page.evaluate(() => window.__game.style.sheet.cast.map((c) => `${c.id}:${c.isNew ? 'new' : 'old'}`));
-  assert.deepEqual(await ids(), ['petrovych', 'valera', 'zhora', 'zoya', 'frol', 'ritaWine', 'ritaPowder', 'nazar', 'shafnyk'].map((id) => `${id}:new`), 'the whole cast, new');
+  assert.deepEqual(await ids(), ['petrovych', 'valera', 'zhora', 'zoya', 'frol', 'rita', 'nazar', 'shafnyk'].map((id) => `${id}:new`), 'the whole cast, new');
   const press = async (k) => { await page.tap(`button[data-k="${k}"]`); await page.waitForTimeout(300); };
   for (const k of ['shadow', 'alarm', 'lamp', 'walk', 'look']) await press(k);
   assert.equal(await page.evaluate(() => window.__game.style.uniforms.uStyleZoneOn.value), 1, 'under the lamp: the «you are seen» step');
@@ -251,15 +251,15 @@ test('style: the character sheet (?page=figures) — every figure in the row, on
   await press('next');
   assert.equal((await ids())[1], 'valera:new', '▶ the next character');
   await press('far');
-  assert.deepEqual(await ids(), ['zoya', 'frol', 'ritaWine', 'nazar'].map((id) => `${id}:new`), 'the four thieves');
+  assert.deepEqual(await ids(), ['zoya', 'frol', 'rita', 'nazar'].map((id) => `${id}:new`), 'the four thieves');
   assert.ok(await page.evaluate(() => Math.abs(window.__game.style.sheet.camera.position.z + 8) < 0.01), 'at 8 m');
   assert.equal(await page.evaluate(() => window.__game.style.uniforms.uStyleZoneOn.value), 0, 'in the shadow');
   assert.deepEqual(errors, []);
   await ctx.close();
-  // the game: the old figures until the owner approves the new ones
+  // the game: the new figures (the owner approved them); ?figures=off hides them
   const c2 = await newContext(browser, LAND);
   const g = await open(c2, preview);
-  assert.equal(await g.page.evaluate(() => !!window.__game.patrol.fig), false, 'the game keeps the old guard (CFG.style.figures = false)');
+  assert.equal(await g.page.evaluate(() => window.__game.patrol.fig && window.__game.patrol.fig.who), 'petrovych', 'the game shows the new guard (CFG.style.figures)');
   assert.deepEqual(g.errors, []);
   await c2.close();
 });
@@ -297,4 +297,42 @@ test('stealth (W17 S1 findings): a lamp lights its own floor only and not throug
   assert.deepEqual(await probe(m.page, [[5, -8.5, 3], [5, -8.5, 0], [15.5, -4, 0], [12.75, -5, 0]]), [[true, true], [false, false], [true, true], [false, false]], 'the gallery lit upstairs, not the hall under it; the alley lit, not the study');
   assert.deepEqual(m.errors, []);
   await ctx.close();
+});
+
+// The owner's rule: the old look stays for good — «Стиль: вимк» (Для тестерів) is the game as it was, its
+// world and its figures, whatever changes later in the old code; the sheet's «старий / новий» too.
+test('style off is the game as it was, for good — both maps: no style object in the scene, no style patch on a material, the old guards, the old lurkers, an old friend; the switch is on «Для тестерів» and brings the new look back', async () => {
+  for (const map of ['dacha', 'mansion']) {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + `?map=${map}&style=off`);
+    const r = await page.evaluate(async () => {
+      const g = window.__game, styled = [], patched = new Set();
+      g.scene.traverse((o) => {
+        if (/^style:/.test(o.name)) styled.push(o.name);
+        for (const m of [].concat(o.material || [])) if (m.userData && m.userData.patches && m.userData.patches.some((p) => p.key === 'style')) patched.add(m.type);
+      });
+      const tri = (m) => (m && m.geometry && m.geometry.attributes.position ? m.geometry.attributes.position.count : 0);
+      const guards = (g.guards || [g.patrol]).map((p) => ({ fig: !!p.fig, body: tri(p.body) > 0, upper: tri(p.upper) > 0 }));
+      const lurkers = (g.lurkers || [g.lurker]).filter(Boolean).map((L) => ({ outline: !!L.body.getObjectByName('style: wardrobe outline'), sock: !!(L.door1 && L.door1.getObjectByName('style: sock')), eyes: tri(L.eyes) > 0 }));
+      const { RemotePlayer } = await import('./src/net/remotePlayer.js');
+      const rp = new RemotePlayer({ id: 'o', name: 'Оля', thief: 'rita' });
+      const friend = { fig: !!rp.fig, body: tri(rp.body) > 0, head: tri(rp.headMesh) > 0 };
+      return { styled, patched: [...patched], guards, lurkers, friend, bg: g.scene.background.getHex(), on: g.style.on };
+    });
+    assert.equal(r.on, false);
+    assert.deepEqual(r.styled, [], `${map}: no style object in the scene`);
+    assert.deepEqual(r.patched, [], `${map}: no material carries the style's shader patch`);
+    assert.ok(r.guards.length && r.guards.every((x) => !x.fig && x.body && x.upper), `${map}: the old guards ${JSON.stringify(r.guards)}`);
+    assert.ok(r.lurkers.length && r.lurkers.every((x) => !x.outline && !x.sock && x.eyes), `${map}: the old lurkers ${JSON.stringify(r.lurkers)}`);
+    assert.deepEqual(r.friend, { fig: false, body: true, head: true }, `${map}: an old friend`);
+    assert.equal(r.bg, 0x0a0f1c, `${map}: the old night sky`);
+    // the switch: on «Для тестерів», saved, the new look after the reload
+    assert.equal(await page.evaluate(() => document.getElementById('stylesel').closest('section').dataset.page), 'testers');
+    await page.selectOption('#stylesel', 'on');
+    await page.waitForFunction(() => window.__game && window.__game.style && window.__game.style.on === true && window.__game.patrol, null, { timeout: 30000 });
+    assert.equal(await page.evaluate(() => !!(window.__game.guards || [window.__game.patrol])[0].fig), true, `${map}: «Стиль: увімк» brings the new figures back`);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
 });

@@ -11,7 +11,7 @@ import { G } from '../systems/state.js';
 import { S } from '../i18n/index.js';
 import { PAL } from './palette.js';
 import { lit, styleUniforms as U, setZones } from './materials.js';
-import { makeFigure, lurkerGeometries, hullMaterial, RITA, TURN, SOCK_AT } from './figures.js';
+import { makeFigure, lurkerGeometries, hullMaterial, TURN, SOCK_AT } from './figures.js';
 import { kit, TOON } from './toon.js';
 import { animateGuard, animateThief } from './anim.js';
 import { RemotePlayer } from '../net/remotePlayer.js';
@@ -21,10 +21,10 @@ import { quietRandom } from './quiet.js';
 // who stands on the sheet: [id, kind, the old figure's description]
 const CAST = [
   ['petrovych', 'guard', {}], ['valera', 'guard', {}], ['zhora', 'guard', { coat: 0x4a3b2f, cap: 0x3a2a22, lamp: true }],
-  ['zoya', 'thief', 'zoya'], ['frol', 'thief', 'frol'], ['ritaWine', 'thief', 'rita'], ['ritaPowder', 'thief', 'rita'], ['nazar', 'thief', 'nazar'],
+  ['zoya', 'thief', 'zoya'], ['frol', 'thief', 'frol'], ['rita', 'thief', 'rita'], ['nazar', 'thief', 'nazar'],
   ['shafnyk', 'lurker', null],
 ];
-const FAR = ['zoya', 'frol', 'ritaWine', 'nazar'];   // the four thieves at 8 m
+const FAR = ['zoya', 'frol', 'rita', 'nazar'];   // the four thieves at 8 m
 
 // ---------- the old figures (copies of the builds in enemies/patrol.js and enemies/lurker.js, for comparing only) ----------
 function oldGuard(GC) {
@@ -102,7 +102,7 @@ function makeOne(id, kind, old, isNew) {
   }
   const fig = makeFigure(id);
   const root = new THREE.Group(); root.add(fig.root);
-  fig.who = id === 'ritaWine' || id === 'ritaPowder' ? 'rita' : id;
+  fig.who = id;
   if (kind === 'guard') return { root, kind, id, fig, p: { fig, speed: 0, phase: 0, queue: [], upper: { rotation: { y: 0 } }, state: 'task', brain: { angryT: 0 }, pose: null, sitting: false } };
   return { root, kind, id, fig, rp: { fig, speed: 0, lookPitch: 0, crouched: false, desk: null, lost: false } };
 }
@@ -112,7 +112,7 @@ function makeOne(id, kind, old, isNew) {
 function makeSample(id, kind) {
   if (kind === 'lurker') { const t = TOON.wardrobe(kit(false)), root = new THREE.Group(); t.root.rotation.y = Math.PI; root.add(t.root); return { root, kind, id, sample: true }; }
   const base = id.startsWith('rita') ? 'rita' : id;
-  const t = TOON[base](kit(false), id === 'ritaWine' ? RITA.wine : id === 'ritaPowder' ? RITA.powder : undefined);
+  const t = TOON[base](kit(false));   // the sample as it is (its colours)
   const root = new THREE.Group(); root.add(t.root);
   if (TURN.has(base)) t.root.rotation.y = Math.PI; else t.root.scale.z = -1;
   return { root, kind, id, sample: true };
@@ -152,15 +152,28 @@ export function startSheet() {
     setZones(L === 'shadow' ? [] : [{ x: c.x, z: c.z, r: 40, y: 0 }]);   // under the lamp = the «you are seen» step
     scene.fog.color.setHex(PAL.dusk); if (L === 'alarm') scene.fog.color.lerp(new THREE.Color(PAL.alarm), 0.25);
   }
+  // the screen band of row r (below the toolbar), in CSS pixels from the top
+  let rows = 1;
+  function bandRect(r) {
+    const top = Math.min(innerHeight * 0.35, (bar.offsetHeight || 40) + 12), h = (innerHeight - top) / rows;
+    return { x: 0, y: top + r * h, w: innerWidth, h };
+  }
   function rebuild() {
     for (const c of cast) scene.remove(c.root);
     labelBox.textContent = ''; cast = []; labels = [];
     const cmp = st.mode === 'cmp';
     const list = st.mode === 'far' ? CAST.filter((c) => FAR.includes(c[0])) : st.mode === 'one' || cmp ? [CAST[st.pick], CAST[st.pick], CAST[st.pick], CAST[st.pick]] : CAST;
     const gap = st.mode === 'far' ? 1.1 : st.mode === 'one' ? 1.4 : cmp ? (CAST[st.pick][2] === null || CAST[st.pick][0] === 'frol' ? 1.6 : 1.25) : 1.35;
+    // a phone held upright: the cast in rows (3 a row; 2 for one figure, the sample and the far four), each
+    // row in its own band of the screen, so the figures are big and fill it
+    const portrait = innerHeight > innerWidth * 1.1;
+    const perRow = portrait && st.mode !== 'far' ? (list.length <= 4 ? 2 : 3) : list.length;   // the far four stay side by side
+    rows = Math.ceil(list.length / perRow);
     quietRandom(() => list.forEach(([id, kind, old], i) => {
       const one = cmp && i % 2 === 0 ? makeSample(id, kind) : makeOne(id, kind, old, st.isNew);
-      const x = -(i - (list.length - 1) / 2) * gap;   // the camera looks along +Z: the list reads left to right
+      const inRow = Math.min(perRow, list.length - Math.floor(i / perRow) * perRow), k = i % perRow;
+      const x = -(k - (inRow - 1) / 2) * gap;   // the camera looks along +Z: a row reads left to right
+      one.row = Math.floor(i / perRow);
       one.root.position.set(x, 0, 0);
       one.yaw0 = st.mode === 'one' ? [0, Math.PI / 2, Math.PI, 0][i] : cmp ? [0, 0, -0.7, -0.7][i] : 0;
       one.moving = cmp ? false : st.mode !== 'one' || i === 3;
@@ -170,11 +183,13 @@ export function startSheet() {
       lab.textContent = st.mode === 'one' ? T.views[i] : cmp ? `${T.names[id]} · ${i % 2 ? T.game : T.sample}` : T.names[id];
       labelBox.appendChild(lab); labels.push(lab);
     }));
-    // the camera: the row in view; the far row 8 m away
-    const width = (list.length - 1) * gap + 1.6;
-    const dist = st.mode === 'far' ? 8 : Math.max(3.2, width / 2 / Math.tan((camera.fov * Math.PI) / 360) / Math.max(0.6, camera.aspect) + 0.6);
-    camera.position.set(0, st.mode === 'far' ? 1.6 : 1.35, -dist);
-    camera.lookAt(0, st.mode === 'far' ? 1.0 : 1.05, 0);
+    // the camera: a row fills its band (its width, and 2.5 m of height); the far row 8 m away
+    const band = bandRect(0);
+    camera.aspect = band.w / band.h; camera.updateProjectionMatrix();
+    const width = (perRow - 1) * gap + 1.6, t = Math.tan((camera.fov * Math.PI) / 360);
+    const dist = st.mode === 'far' ? 8 : Math.max(2.4, width / 2 / t / camera.aspect + 0.6, 1.3 / t + 0.6);
+    camera.position.set(0, st.mode === 'far' ? 1.6 : 1.25, -dist);
+    camera.lookAt(0, st.mode === 'far' ? 1.0 : 1.1, 0);
     lamp.position.set(0, 2.9, -1.2);
     setLight();
     if (st.mode === 'far') document.title = T.far;
@@ -231,11 +246,22 @@ export function startSheet() {
         one.fig.bones.head.rotation.y = look ? Math.sin(st.t * 0.9) * 0.8 : 0;
       } else if (one.old && one.root.userData.upper) one.root.userData.upper.rotation.y = look ? Math.sin(st.t * 0.9) * 0.9 : 0;
     }
-    if (camera.aspect !== innerWidth / innerHeight) { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); rebuild(); }
-    renderer.render(scene, camera);
+    if (frame.w !== innerWidth || frame.h !== innerHeight) { frame.w = innerWidth; frame.h = innerHeight; renderer.setSize(innerWidth, innerHeight); rebuild(); }
+    // the whole screen in the night first, then each row in its band
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(PAL.night); renderer.clear();
+    renderer.setScissorTest(true);
+    for (let r = 0; r < rows; r++) {
+      const b = bandRect(r), y = innerHeight - b.y - b.h;   // WebGL counts from the bottom
+      for (const one of cast) one.root.visible = one.row === r;
+      renderer.setViewport(b.x, y, b.w, b.h); renderer.setScissor(b.x, y, b.w, b.h);
+      renderer.render(scene, camera);
+    }
+    renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
+    for (const one of cast) one.root.visible = true;
     cast.forEach((one, i) => {
+      const b = bandRect(one.row);
       V.set(one.root.position.x, -0.12, 0).project(camera);
-      labels[i].style.left = `${(V.x + 1) / 2 * innerWidth}px`; labels[i].style.top = `${(1 - V.y) / 2 * innerHeight}px`;
+      labels[i].style.left = `${b.x + (V.x + 1) / 2 * b.w}px`; labels[i].style.top = `${Math.min(b.y + b.h - 16, b.y + (1 - V.y) / 2 * b.h)}px`;
     });
   }
   rebuild(); paint();

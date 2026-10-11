@@ -59,7 +59,8 @@ export function kit(game, far = false) {
   const K = { game, far };
   const F = far ? 0.55 : 1;   // the far figure: about half the segments again
   const sg = (n, k, min) => (game ? Math.max(far ? Math.min(min, 5) : min, Math.round(n * k * F)) : n);
-  K.M = (color, opts = {}) => (game ? { color, glow: false } : refMat(color, opts));
+  K.recolor = null;   // the game's colours where the owner changed the sample's (style/figures.js OWNER)
+  K.M = (color, opts = {}) => (game ? { color: (K.recolor && K.recolor[color]) || color, glow: false } : refMat(color, opts));
   K.glow = (color) => (game ? { color, glow: true } : new THREE.MeshBasicMaterial({ color }));
   // the game's coarser bodies of revolution enclose the sample's (K.lathe); the rings that lie on them
   // without an outline (a belt, the quilting, Zoya's trim, the blanket's stripes) grow as much

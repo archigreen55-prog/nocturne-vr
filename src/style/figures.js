@@ -7,7 +7,8 @@
 //
 // The switch «Стиль: вимк» keeps the old figures: restyle*() below do nothing then, and the old code
 // that builds them (enemies/patrol.js, enemies/lurker.js, net/remotePlayer.js) stays until W17 is
-// tested (the owner's rule; removed in a separate step after S5).
+// kept for good: «Стиль: вимк» (Для тестерів) shows the game as it was — the old world and the old
+// figures — and the sheet's «старий / новий» too (the owner's rule; tests/style.test.mjs holds it).
 // The owner approves the figures' look first (style/sheet.js, ?page=figures): until then the game keeps
 // the old figures even with the style on (CFG.style.figures = false); ?figures=on shows the new ones.
 import * as THREE from 'three';
@@ -31,11 +32,20 @@ const hex = (c) => (typeof c === 'string' ? parseInt(c.slice(1), 16) : c);
 
 // Rita's jacket: the owner picks on the sheet (CFG.style.rita) — wine or powder pink, saturated like the
 // sample's red but never the alarm's #ff5468
-export const RITA = { wine: '#a83a52', powder: '#e6a0ae' };
+export const RITA = { raspberry: '#c76d80', wine: '#a83a52', powder: '#e6a0ae' };   // the owner picked raspberry pink (between the two)
 // each thief's colour for the lobby and the names (S4): the sample's
-export const THIEF_COLOURS = { zoya: 0x8ec5ea, frol: 0x8fc0e8, rita: hex(RITA.wine), nazar: 0x3a6068 };
+export const THIEF_COLOURS = { zoya: 0xa48fd8, frol: 0x8fc0e8, rita: hex(RITA.raspberry), nazar: 0x3a6068 };
+// the owner's changes to the sample's colours (the sheet's sample keeps the originals): Zoya lilac, not
+// light blue (she must not be taken for Frol or for the whisper's colour); the guards a step lighter, so
+// they do not sink into the night in the shadow
+export const OWNER = {
+  zoya: { '#8ec5ea': '#a48fd8' },
+  petrovych: { '#41537a': '#56699b', '#2a3452': '#37446a', '#2d3a5c': '#3b4a74', '#2f3d5e': '#3d4d76', '#4b5a7c': '#5d6d92' },
+  valera: { '#36486f': '#4a5e8e', '#28344f': '#35446a', '#46557a': '#58698f', '#2a3756': '#384872' },
+  zhora: { '#2c3a5c': '#3a4b74' },
+};
 // the figures the game and the sheet know
-export const FIGURES = ['petrovych', 'valera', 'zhora', 'zoya', 'frol', 'rita', 'ritaWine', 'ritaPowder', 'nazar'];
+export const FIGURES = ['petrovych', 'valera', 'zhora', 'zoya', 'frol', 'rita', 'nazar'];
 // the sample's figures face +Z, the game's -Z: most are mirrored front to back (the hand with the
 // flashlight stays on the right, where the game's beam starts); Zhora and Nazar are turned round instead
 // (their lantern / notebook then lands in the hand style/anim.js moves)
@@ -68,7 +78,8 @@ function pushOut(g, t) {
 export function toonParts(id, far = false) {
   const base = id.startsWith('rita') ? 'rita' : id;
   const K = kit(true, far);
-  const jacket = id === 'ritaWine' ? RITA.wine : id === 'ritaPowder' ? RITA.powder : id === 'rita' ? RITA[CFG.style.rita] || RITA.wine : undefined;
+  K.recolor = OWNER[base] || null;
+  const jacket = base === 'rita' ? RITA[CFG.style.rita] || RITA.raspberry : undefined;
   const t = TOON[base](K, jacket);
   const turn = TURN.has(base);
   const S = turn ? new THREE.Matrix4().makeRotationY(Math.PI) : new THREE.Matrix4().makeScale(1, 1, -1);
