@@ -9,8 +9,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CollisionWorld } from './collision.js';
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
-import { lit as litMat } from '../style/materials.js';
+import { lit as litMat, STYLE_ON } from '../style/materials.js';
 import { inkWeight } from '../style/ink.js';
+import { quietRandom } from '../style/quiet.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;
@@ -394,9 +395,11 @@ export function buildLevel() {
   S.box(6.78, 0, -13.9, 8.82, 1.15, -13.82, C.woodDark); solid(6.8, -13.9, 8.8, -11.6, 0.68);
   for (const x of [6.25, 9.35]) { S.box(x - 0.25, 0, -13.85, x + 0.25, 0.55, -13.35, C.wood); solid(x - 0.25, -13.85, x + 0.25, -13.35, 0.55); }
   // wardrobe: open-front shell (the lurker sits inside; its doors are in enemies/lurker.js)
-  S.box(9.8, 0, -10.2, 9.85, 2.05, -8.6, C.woodDark); S.box(9.25, 0, -10.15, 9.8, 0.08, -8.65, C.woodDark);   // back and floor between the other panels
-  S.box(9.25, 2.05, -10.2, 9.85, 2.1, -8.6, C.woodDark);
-  S.box(9.25, 0, -10.2, 9.8, 2.05, -10.15, C.woodDark); S.box(9.25, 0, -8.65, 9.8, 2.05, -8.6, C.woodDark);
+  const WD = STYLE_ON ? 0x34436a : C.woodDark;   // W17 «Стиль»: Шафник's blue wardrobe with a crown (the owner's sample); off: as before
+  S.box(9.8, 0, -10.2, 9.85, 2.05, -8.6, WD); S.box(9.25, 0, -10.15, 9.8, 0.08, -8.65, WD);   // back and floor between the other panels
+  S.box(9.25, 2.05, -10.2, 9.85, 2.1, -8.6, WD);
+  S.box(9.25, 0, -10.2, 9.8, 2.05, -10.15, WD); S.box(9.25, 0, -8.65, 9.8, 2.05, -8.6, WD);
+  if (STYLE_ON) quietRandom(() => { S.box(9.18, 2.1, -10.28, 9.9, 2.2, -8.52, 0x2a3756); S.box(9.2, 2.2, -9.75, 9.45, 2.32, -9.05, 0x2a3756); S.box(9.22, 2.32, -9.6, 9.4, 2.38, -9.2, 0x2a3756); });   // the crown (three's ids from crypto: the game's random numbers untouched)
   S.box(9.3, 1.85, -10.15, 9.78, 1.87, -8.65, C.soot);
   G.box(9.79, 0.08, -10.14, 9.8, 2.04, -8.66, 0x06070a);      // unlit dark back inside
   solid(9.22, -10.2, 9.85, -8.6, 2.1, null);
