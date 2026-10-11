@@ -11,7 +11,7 @@ import { STYLE_ON, styleUniforms as U, setStyle, setZones } from '../style/mater
 import { buildDecor } from '../style/decor.js';
 import { quietRandom } from '../style/quiet.js';
 import { animateGuard, animateThief } from '../style/anim.js';
-import { FAR } from '../style/figures.js';
+import { FAR, dressLurker, lurkerRest } from '../style/figures.js';
 import { power } from '../world/devices.js';
 import { lampLights } from '../game/stealth.js';
 import { G, $, params } from './state.js';
@@ -51,6 +51,7 @@ export const style = {
     scene.background = new THREE.Color(PAL.night);
     scene.fog.color.copy(fogBase);
     scene.fog.near = CFG.style.fog.near; scene.fog.far = CFG.style.fog.far;
+    for (const L of G.lurkers || [G.lurker]) if (L) dressLurker(L, level.id);   // Шафник at rest: arms out of the gap; the dacha's blue doors
     this.circles = lampCircles(level);
     this.lampDoors = (level.doors || []).filter((d) => this.circles.some((c) => Math.hypot(d.hx - c.x, d.hz - c.z) < c.r + 1.5));   // the doors that can cut a circle
     decor = G.decor = quietRandom(() => buildDecor(scene, level, this.circles, CFG.style, level.floorY ? (x, z, y) => level.floorY(x, z, y) : () => 0));   // the game's random numbers untouched
@@ -90,6 +91,7 @@ export const style = {
     }
     decor.setBlobs(spots);
     // S2: the figures move (bones only; the game reads none of it)
+    for (const L of G.lurkers || [G.lurker]) if (L) lurkerRest(L);
     for (const g of G.guards || []) if (g.fig) { animateGuard(g, dt, t); lodOf(g.fig); }
     for (const p of G.players || []) if (p.fig) { animateThief(p, dt); lodOf(p.fig); }
   },

@@ -55,9 +55,10 @@ const oldThief = (thief) => RemotePlayer.prototype.build.call({ id: 'sheet', thi
 
 // a wardrobe with its doors open and the lurker in the gap (the old look: the game's own lurker meshes)
 function wardrobe(isNew) {
-  const g = new THREE.Group(), B = new Builder();
-  B.box(-0.5, 0.08, 0.0, 0.5, 2.1, 0.62, 0x3b2d25);               // the carcass, its front at z = 0
-  B.box(-0.55, 2.1, -0.04, 0.55, 2.22, 0.66, 0x2e231d);           // the crown
+  const g = new THREE.Group(), B = new Builder(), WOOD = isNew ? 0x34436a : 0x3b2d25, TOP = isNew ? 0x2a3756 : 0x2e231d;   // new: the dacha's blue wardrobe (world/level.js)
+  B.box(-0.5, 0.08, 0.0, 0.5, 2.1, 0.62, WOOD);                   // the carcass, its front at z = 0
+  B.box(-0.55, 2.1, -0.04, 0.55, 2.22, 0.66, TOP);                // the cornice
+  if (isNew) { B.box(-0.35, 2.22, 0.0, 0.35, 2.34, 0.25, TOP); B.box(-0.2, 2.34, 0.02, 0.2, 2.4, 0.2, TOP); }   // the crown
   B.box(-0.5, 0, 0, -0.42, 0.08, 0.6, 0x2e231d); B.box(0.42, 0, 0, 0.5, 0.08, 0.6, 0x2e231d);   // feet
   B.box(-0.46, 0.12, 0.02, 0.46, 2.06, 0.05, 0x07090f);           // the dark inside
   const mat = lit();
@@ -66,7 +67,7 @@ function wardrobe(isNew) {
   // z = 0), turned so it spans the front and swung open towards the camera
   const door = (s) => {
     const D = new Builder();
-    D.box(-0.015, 0.08, 0, 0.015, 2.04, 0.5, 0x4a3a2e);
+    D.box(-0.015, 0.08, 0, 0.015, 2.04, 0.5, isNew ? 0x34436a : 0x4a3a2e);
     D.box(-0.03, 0.9, 0.4, -0.015, 1.1, 0.44, 0xc2a15a);
     const m = new THREE.Group(); m.add(D.mesh(mat));
     m.position.set(s * 0.5, 0, 0); m.rotation.y = -s * (Math.PI / 2 + 1.2);
@@ -80,11 +81,14 @@ function wardrobe(isNew) {
     const L = lurkerGeometries();
     const body = new THREE.Mesh(L.body, mat), arms = new THREE.Mesh(L.arms, mat), eyes = new THREE.Mesh(L.eyes, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
     body.add(new THREE.Mesh(L.bodyHull, hullMaterial())); arms.add(new THREE.Mesh(L.armsHull, hullMaterial())); eyes.add(new THREE.Mesh(L.eyesHull, hullMaterial()));
-    arms.rotation.x = 0.35; arms.scale.z = 0.55;   // reaching out of the gap, down (the lunge stretches them in the game)
-    creature.add(body, eyes, arms);
+    creature.add(body, eyes);   // the eyes in the gap (in the game: when it wakes; the lunge brings its arms out)
     const sock = new THREE.Mesh(L.sock, mat);
     sock.add(new THREE.Mesh(L.sockHull, hullMaterial()));
-    sock.position.set(SOCK_AT[0], SOCK_AT[1], SOCK_AT[2] - 0.25);   // on the left door's knob (the game's door is wider)
+    const rest = new THREE.Mesh(L.rest, mat);   // the arms hanging out of the gap at rest (in the game: while it sleeps)
+    rest.add(new THREE.Mesh(L.restHull, hullMaterial()));
+    rest.position.set(0, 0, -0.03); rest.rotation.y = Math.PI;
+    g.add(rest);
+    sock.position.set(SOCK_AT[0], SOCK_AT[1], SOCK_AT[2] - 0.25); sock.rotation.y = -Math.PI / 2;   // on the left door's knob (the game's door is wider)
     d1.add(sock);
   } else if (G.lurker) {
     for (const m of [G.lurker.body, G.lurker.arms, G.lurker.eyes]) creature.add(new THREE.Mesh(m.geometry, m.material));

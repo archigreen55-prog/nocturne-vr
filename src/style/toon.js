@@ -410,5 +410,12 @@ export function shafnyk(K) {
     for (let f = 0; f < 4; f++) P(K.taper([[s * 0.28, -0.08, -0.8], [s * (0.28 + (f - 1.5) * 0.03), -0.1, -0.9], [s * (0.28 + (f - 1.5) * 0.05), -0.16, -0.97]], 0.012, 0.006, 8), M('#0d1220'), arms, [0, 0, 0], { ol: 0.005 });
   }
   P(K.taper([[0, 0.2, 0], [0, -0.05, 0.01], [0.07, -0.12, 0.02]], 0.04, 0.035, 12), M('#d8505a'), sock, [0, 0, 0], { ol: 0.006 });
-  return { eyes, arms, sock };
+  // at rest the long arms hang out of the gap between the doors and down the front, as in the sample (in
+  // the wardrobe front's space: x across, +Z out of the wardrobe, y up from its floor)
+  const rest = new THREE.Group();
+  for (const s of [-1, 1]) {
+    P(K.taper([[s * 0.02, 1.28, -0.06], [s * 0.1, 1.2, 0.08], [s * 0.24, 0.9, 0.14], [s * 0.3, 0.5, 0.12], [s * 0.34, 0.32, 0.16]], 0.03, 0.018, 24), M('#0d1220'), rest, [0, 0, 0], { ol: 0.008 });
+    for (let f = 0; f < 4; f++) P(K.taper([[s * 0.34, 0.32, 0.16], [s * (0.35 + f * 0.012), 0.2, 0.17 + (f - 1.5) * 0.035], [s * (0.36 + f * 0.016), 0.12, 0.19 + (f - 1.5) * 0.05]], 0.012, 0.006, 8), M('#0d1220'), rest, [0, 0, 0], { ol: 0.005 });
+  }
+  return { eyes, arms, sock, rest };
 }

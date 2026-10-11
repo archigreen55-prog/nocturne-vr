@@ -238,8 +238,8 @@ export function lurkerGeometries() {
   const lump = plain(new THREE.SphereGeometry(0.3, 10, 7).scale(1.05, 0.95, 0.9));
   const lumpHull = lump.clone(); pushOut(lumpHull, 0.014);
   const S = shafnyk(kit(true));
-  const eyes = bakeGroup(S.eyes), arms = bakeGroup(S.arms), sock = bakeGroup(S.sock);
-  return { body: colored(lump, 0x0d1220), bodyHull: lumpHull, arms: arms.geo, armsHull: arms.hull, eyes: eyes.geo, eyesHull: eyes.hull, sock: sock.geo, sockHull: sock.hull };
+  const eyes = bakeGroup(S.eyes), arms = bakeGroup(S.arms), sock = bakeGroup(S.sock), rest = bakeGroup(S.rest);
+  return { body: colored(lump, 0x0d1220), bodyHull: lumpHull, arms: arms.geo, armsHull: arms.hull, eyes: eyes.geo, eyesHull: eyes.hull, sock: sock.geo, sockHull: sock.hull, rest: rest.geo, restHull: rest.hull };
 }
 // where the sock hangs in the lurker's door leaf (lurker.js D1: the knob at x -0.03, y 0.9..1.1, z 0.66..0.7)
 export const SOCK_AT = [-0.04, 0.82, 0.66];
@@ -252,10 +252,37 @@ export function restyleLurker(L) {
     outline(g.bodyHull, 'style: wardrobe outline', L.body);
     outline(g.armsHull, 'style: arms outline', L.arms);
     outline(g.eyesHull, 'style: eyes outline', L.eyes);
-    if (L.door1 && L.kind !== 'crate') {
-      const sock = new THREE.Mesh(g.sock, L.body.material); sock.name = 'style: sock'; sock.position.fromArray(SOCK_AT); L.door1.add(sock);
-      outline(g.sockHull, 'style: sock outline', sock);
-    }
   });
+}
+// After the lurker is built (systems/style.js): at rest Шафник's arms hang out of the gap between the doors
+// (the sample); awake, his own moves take over. On the dacha his wardrobe is blue (the map's shell:
+// world/level.js; its doors: here). Nothing the game reads changes.
+const WOOD_OLD = new THREE.Color(0x3b2d25), WOOD_BLUE = new THREE.Color(0x34436a);
+export function dressLurker(L, levelId) {
+  if (L.kind === 'crate' || L.restArms) return;
+  if (STYLE_ON && levelId === 'dacha') for (const d of [L.door1, L.door2]) d.traverse((m) => {
+    const c = m.isMesh && m.geometry.attributes.color;
+    if (!c) return;
+    for (let i = 0; i < c.count; i++) if (Math.abs(c.getX(i) - WOOD_OLD.r) < 0.004 && Math.abs(c.getY(i) - WOOD_OLD.g) < 0.004 && Math.abs(c.getZ(i) - WOOD_OLD.b) < 0.004) c.setXYZ(i, WOOD_BLUE.r, WOOD_BLUE.g, WOOD_BLUE.b);
+    c.needsUpdate = true;
+  });
+  if (!FIGURES_ON) return;
+  quietRandom(() => {
+    const g = lurkerGeometries(), W = L.spec;
+    // the sock on the door (the doors exist only now: restyleLurker runs before the lurker makes them)
+    const sock = new THREE.Mesh(g.sock, L.body.material); sock.name = 'style: sock'; sock.position.fromArray(SOCK_AT); sock.rotation.y = -Math.PI / 2; L.door1.add(sock);   // the sample's door faces +Z, the leaf's room side is -X
+    sock.add(new THREE.Mesh(g.sockHull, hullMaterial()));
+    const rest = new THREE.Mesh(g.rest, L.body.material);
+    rest.add(new THREE.Mesh(g.restHull, hullMaterial()));
+    rest.name = 'style: resting arms';
+    rest.position.set(W.x - 0.03, L.y0, (W.minZ + W.maxZ) / 2);   // the doors' gap; the front faces -X
+    rest.rotation.y = -Math.PI / 2;
+    L.group.add(rest);
+    L.restArms = rest;
+  });
+}
+// each frame: the hanging arms only while it sleeps (the creature shows when it wakes)
+export function lurkerRest(L) {
+  if (L.restArms) L.restArms.visible = !L.creature.visible && (L.state === 'dormant' || L.state === 'cooldown');
 }
 export { hullMaterial };

@@ -336,3 +336,26 @@ test('style off is the game as it was, for good — both maps: no style object i
     await ctx.close();
   }
 });
+
+test('Шафник at rest (the owner\'s sample): the dacha\'s wardrobe blue with a crown, a sock on the door, the arms hanging out of the gap while it sleeps — gone when it wakes, its lunge as before; style off: none of it', async () => {
+  const ctx = await newContext(browser, LAND);
+  const { page, errors } = await open(ctx, preview + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, L = g.lurker, c = new g.THREE.Color();
+    const door = L.door1.children[0].geometry.attributes.color; c.setRGB(door.getX(0), door.getY(0), door.getZ(0));
+    const rest = L.door1.parent.getObjectByName('style: resting arms');
+    g.renderer.render(g.scene, g.camera);
+    const before = { rest: !!rest && rest.visible, sock: !!L.door1.getObjectByName('style: sock'), door: c.getHex() };
+    L.wake(); g.sim(0.05);
+    for (let i = 0; i < 50 && rest.visible; i++) await new Promise((res) => setTimeout(res, 100));   // the style's frame hides them
+    return { ...before, awake: rest.visible, state: L.state };
+  });
+  assert.deepEqual(r, { rest: true, sock: true, door: 0x34436a, awake: false, state: 'telegraph' });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  const c2 = await newContext(browser, LAND);
+  const off = await open(c2, preview + '?map=dacha&style=off');
+  assert.deepEqual(await off.page.evaluate(() => { const L = window.__game.lurker; return [!!L.group.getObjectByName('style: resting arms'), !!L.door1.getObjectByName('style: sock')]; }), [false, false]);
+  assert.deepEqual(off.errors, []);
+  await c2.close();
+});
