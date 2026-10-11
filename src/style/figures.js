@@ -1,20 +1,19 @@
 // W17 «Стиль» S2 (plan-W17-style.md §2): the characters after the owner's approved sample (style/toon.js:
 // the sample's own recipes — big heads, big light eyes with pupils and lids, round bodies of revolution,
 // capsules and spheres, the accessories). Each figure is baked into one SkinnedMesh on "rigid bones" (every
-// part follows one bone with weight 1), its outline (the sample's inverted hull: each part pushed out along
-// its normals, back faces, ink) and its glowing bits (a lens, a lantern, a phone's screen): 3 draw calls,
-// no model files, no loader. The figures move by style/anim.js; the game's logic never reads them.
+// part follows one bone with weight 1) with its outline (the sample's inverted hull: each part pushed out along
+// its normals, ink) and its glowing bits (a lens, a lantern, a phone's screen) in the same geometry: one draw
+// call, no model files, no loader. The figures move by style/anim.js; the game's logic never reads them.
 //
-// The switch «Стиль: вимк» keeps the old figures: restyle*() below do nothing then, and the old code
-// that builds them (enemies/patrol.js, enemies/lurker.js, net/remotePlayer.js) stays until W17 is
-// kept for good: «Стиль: вимк» (Для тестерів) shows the game as it was — the old world and the old
-// figures — and the sheet's «старий / новий» too (the owner's rule; tests/style.test.mjs holds it).
-// The owner approves the figures' look first (style/sheet.js, ?page=figures): until then the game keeps
-// the old figures even with the style on (CFG.style.figures = false); ?figures=on shows the new ones.
+// The switch «Стиль: вимк» keeps the old figures for good: restyle*() below do nothing then, and the old
+// code that builds them (enemies/patrol.js, enemies/lurker.js, net/remotePlayer.js) stays. «Стиль: вимк»
+// (Для тестерів) shows the game as it was — the old world and the old figures — and the sheet's «старий /
+// новий» too (the owner's rule; tests/style.test.mjs holds it). The owner approved the figures
+// (CFG.style.figures = true); ?figures=off shows the old ones with the style on.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { colored } from '../world/level.js';
-import { lit, STYLE_ON } from './materials.js';
+import { lit, addPatch, STYLE_ON } from './materials.js';
 import { CFG } from '../config/index.js';
 import { PAL } from './palette.js';
 import { quietRandom } from './quiet.js';
@@ -27,7 +26,19 @@ export const FIGURES_ON = STYLE_ON && (fq === 'on' || (fq !== 'off' && !!CFG.sty
 let EMPTY = null;   // made on first use, with crypto's random numbers (a module-level geometry would move the game's sequence even with the style off)
 
 const hullMaterial = () => new THREE.MeshBasicMaterial({ color: PAL.ink, side: THREE.BackSide, fog: true });
-const glowMaterial = () => new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+// A figure is one draw call (S4: the mansion's budget): its outline and its lights are triangles of the same
+// geometry with aFlat = 1, drawn in their own colour as it is (unlit and fogged, as the old hull and glow
+// materials were); the outline's triangles are turned round, so this front-side material draws their back.
+function figureMaterial() {
+  const m = lit({ grade: 0, lift: CFG.style.figureLift });   // the characters keep their colours (the dusk grade is the world's)
+  addPatch(m, 'flat', (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aFlat;\nvarying float vFlat;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFlat = aFlat;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vFlat;')
+      .replace('#include <opaque_fragment>', '#include <opaque_fragment>\nif ( vFlat > 0.5 ) gl_FragColor.rgb = vColor.rgb;');
+  }, 20);
+  return m;
+}
 const hex = (c) => (typeof c === 'string' ? parseInt(c.slice(1), 16) : c);
 
 // Rita's jacket: the owner picks on the sheet (CFG.style.rita) — wine or powder pink, saturated like the
@@ -128,12 +139,13 @@ export function toonParts(id, far = false) {
 // one geometry with the skin attributes (every part on its bone, weight 1)
 function skinMerge(list) {
   if (!list.length) return null;
-  const geos = list.map(({ geo, color, bone }) => {
+  const geos = list.map(({ geo, color, bone, flat = 0 }) => {
     const g = colored(geo, color);
     g.attributes.ink.array.fill(0);   // figures get the outline, not face lines
     const n = g.attributes.position.count, b = BONES.indexOf(bone);
     g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(n * 4).map((_, i) => (i % 4 === 0 ? b : 0)), 4));
     g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Float32Array(n * 4).map((_, i) => (i % 4 === 0 ? 1 : 0)), 4));
+    g.setAttribute('aFlat', new THREE.Float32BufferAttribute(new Float32Array(n).fill(flat), 1));
     return g;
   });
   const out = mergeGeometries(geos, false);
@@ -141,7 +153,7 @@ function skinMerge(list) {
   return out;
 }
 
-// A figure: { root, mesh, hull, glow, bones, rest, pivots, headY, lens, lod(far) }. Two levels of detail on
+// A figure: { root, mesh, bones, rest, pivots, headY, lens, lod(far) }. Two levels of detail on
 // one skeleton: near, and from FAR metres one with about half the segments (style system: by the distance
 // to the camera). Off screen a figure is not drawn (a fixed bounding sphere that holds every pose).
 export const FAR = 9;
@@ -162,23 +174,19 @@ export function makeFigure(id) {
   const bound = new THREE.Sphere(new THREE.Vector3(0, 1, 0), 1.6);
   let first = null;
   const level = ({ parts }) => {
-    const mesh = new THREE.SkinnedMesh(skinMerge(parts.filter((p) => !p.glow)), lit({ grade: 0, lift: CFG.style.figureLift }));   // the characters keep their colours (the dusk grade is the world's)
+    const body = parts.filter((p) => !p.glow), lights = parts.filter((p) => p.glow).map((p) => ({ ...p, flat: 1 }));
+    const ink = parts.filter((p) => p.hull).map((p) => { flipWinding(p.hull); return { ...p, geo: p.hull, color: PAL.ink, flat: 1 }; });
+    const mesh = new THREE.SkinnedMesh(skinMerge([...body, ...lights, ...ink]), figureMaterial());
     if (!first) { first = mesh; mesh.add(bones.root); mesh.updateMatrixWorld(true); mesh.bind(skeleton); skeleton.computeBoneTexture(); }   // the bone texture now, not at the first frame: its name takes Math.random (style/quiet.js)
     else mesh.bind(skeleton, first.bindMatrix);
-    const hull = new THREE.SkinnedMesh(skinMerge(parts.filter((p) => p.hull).map((p) => ({ ...p, geo: p.hull, color: PAL.ink }))), hullMaterial());
-    hull.bind(skeleton, first.bindMatrix);
-    const lights = parts.filter((p) => p.glow);
-    let glow = null;
-    if (lights.length) { glow = new THREE.SkinnedMesh(skinMerge(lights), glowMaterial()); glow.bind(skeleton, first.bindMatrix); }
-    const out = [mesh, hull, glow].filter(Boolean);
-    for (const m of out) { m.boundingSphere = bound; root.add(m); }
+    mesh.boundingSphere = bound; root.add(mesh);
     for (const p of parts) { p.geo.dispose(); if (p.hull) p.hull.dispose(); }
-    return { mesh, hull, glow, all: out };
+    return { mesh, all: [mesh] };
   };
   const N = level(near), F = level(far);
   for (const m of F.all) m.visible = false;
   const rest = Object.fromEntries(BONES.map((n) => [n, bones[n].position.clone()]));
-  const fig = { root, mesh: N.mesh, hull: N.hull, glow: N.glow, far: F, near: N, bones, rest, pivots: piv, headY: piv.hy || 1.66, lens: near.lens, isFar: false };
+  const fig = { root, mesh: N.mesh, far: F, near: N, bones, rest, pivots: piv, headY: piv.hy || 1.66, lens: near.lens, isFar: false };
   fig.lod = (isFar) => { if (isFar === fig.isFar) return; fig.isFar = isFar; for (const m of N.all) m.visible = !isFar; for (const m of F.all) m.visible = isFar; };
   return fig;
 }
@@ -278,11 +286,16 @@ export function dressLurker(L, levelId) {
     rest.position.set(W.x - 0.03, L.y0, (W.minZ + W.maxZ) / 2);   // the doors' gap; the front faces -X
     rest.rotation.y = -Math.PI / 2;
     L.group.add(rest);
+    rest.userData.sock = sock;
     L.restArms = rest;
   });
 }
-// each frame: the hanging arms only while it sleeps (the creature shows when it wakes)
-export function lurkerRest(L) {
-  if (L.restArms) L.restArms.visible = !L.creature.visible && (L.state === 'dormant' || L.state === 'cooldown');
+// each frame: the hanging arms only while it sleeps (the creature shows when it wakes); the arms and the
+// sock only near the camera on the lurker's floor (small things in a room: not drawn from the garden)
+export function lurkerRest(L, cam) {
+  if (!L.restArms) return;
+  const near = !cam || (Math.abs(cam.y - L.y0 - 1.5) < 2.5 && Math.hypot(cam.x - L.spec.x, cam.z - (L.spec.minZ + L.spec.maxZ) / 2) < FAR);
+  L.restArms.visible = near && !L.creature.visible && (L.state === 'dormant' || L.state === 'cooldown');
+  L.restArms.userData.sock.visible = near;
 }
 export { hullMaterial };

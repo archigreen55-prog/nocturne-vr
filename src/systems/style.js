@@ -91,7 +91,8 @@ export const style = {
     }
     decor.setBlobs(spots);
     // S2: the figures move (bones only; the game reads none of it)
-    for (const L of G.lurkers || [G.lurker]) if (L) lurkerRest(L);
+    G.camera.getWorldPosition(camAt);
+    for (const L of G.lurkers || [G.lurker]) if (L) lurkerRest(L, camAt);
     for (const g of G.guards || []) if (g.fig) { animateGuard(g, dt, t); lodOf(g.fig); }
     for (const p of G.players || []) if (p.fig) { animateThief(p, dt); lodOf(p.fig); }
   },

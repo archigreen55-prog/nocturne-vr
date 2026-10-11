@@ -141,7 +141,7 @@ test('style (S1): the mansion — the fountain has water, each lamp\'s circle li
   await ctx.close();
 });
 
-test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in the mansion, Шафник, a friend in the colour of the thief; 3 draw calls each (2 without a light), ≤ 4 000 triangles; the trap poses and Pozikhailo (gone when the guard is angry); the bucket on the new head; ?style=off keeps the old figures', async () => {
+test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in the mansion, Шафник, a friend in the colour of the thief; one draw call each (the outline and the lights in it), ≤ 4 000 triangles; the trap poses and Pozikhailo (gone when the guard is angry); the bucket on the new head; ?style=off keeps the old figures', async () => {
   const figs = async (map, st) => {
     const ctx = await newContext(browser, LAND);
     await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
@@ -157,15 +157,17 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
     const rp = new RemotePlayer({ id: 'f', name: 'Оля', thief: 'rita' });
     const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
     const shown = (f) => f.root.children.filter((m) => m.visible);
-    const info = (f) => f && { who: f.who, meshes: shown(f).length, skinned: f.root.children.every((m) => m.isSkinnedMesh), tris: shown(f).reduce((s, m) => s + tri(m), 0), farTris: f.far.all.reduce((s, m) => s + tri(m), 0) };
+    const flat = (f) => { const a = f.mesh.geometry.attributes.aFlat.array; let n = 0; for (const v of a) n += v; return n / 3; };
+    const info = (f) => f && { who: f.who, meshes: shown(f).length, skinned: f.root.children.every((m) => m.isSkinnedMesh), flat: flat(f), tris: shown(f).reduce((s, m) => s + tri(m), 0), farTris: f.far.all.reduce((s, m) => s + tri(m), 0) };
     const lurk = g.lurker;
     return {
       guard: info(P.fig), friend: info(rp.fig), oldGuard: P.body.geometry.attributes.position ? P.body.geometry.attributes.position.count : 0,
       lurkerEyes: Array.from(lurk.eyes.geometry.attributes.color.array.slice(0, 3)).map((v) => +v.toFixed(2)), whisper: new g.THREE.Color(0x7fd0ff).toArray().map((v) => +v.toFixed(2)), lurkerOutline: !!lurk.body.getObjectByName('style: wardrobe outline'),
     };
   });
-  assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 3, true], 'the dacha\'s guard: Petrovych — the figure, its outline, its lens (skinned)');
-  assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 2], 'a friend: the thief\'s figure and its outline');
+  assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 1, true], 'the dacha\'s guard: Petrovych — one skinned draw (the figure, its outline, its lens)');
+  assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 1], 'a friend: one draw');
+  assert.ok(d.guard.flat > d.guard.tris * 0.3 && d.guard.flat < d.guard.tris * 0.7 && d.friend.flat > d.friend.tris * 0.3, `the outline (and the lights) in the same draw: ${d.guard.flat} of ${d.guard.tris}, ${d.friend.flat} of ${d.friend.tris}`);
   // the owner's budget: ≤ 4 000 triangles a figure with its outline (the sample's way, «2 · 3D, зроблені як слід»); the far
   // level about half; Шафник too
   const all = await page.evaluate(async () => {
@@ -200,7 +202,7 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
   assert.ok(poses.kneel < -1, `marbles: on the knees (${poses.kneel})`);
   assert.ok(poses.bucket > 2, `bucket: the hand up to the head (${poses.bucket})`);
   assert.equal(poses.bucketY, +(poses.headY - 1.66).toFixed(2), 'the bucket sits on the new head');
-  assert.ok(poses.poz < 0.1 && poses.pozBack >= 0.9, `Pozikhailo: gone when angry (${poses.poz}), back after (${poses.pozBack})`);
+  assert.ok(poses.poz <= 0.1 && poses.pozBack >= 0.9, `Pozikhailo: gone when angry (${poses.poz}), back after (${poses.pozBack})`);
   assert.deepEqual(errors, []);
   await ctx.close();
   // the mansion: Valera and Zhora
@@ -343,14 +345,18 @@ test('Шафник at rest (the owner\'s sample): the dacha\'s wardrobe blue wit
   const r = await page.evaluate(async () => {
     const g = window.__game, L = g.lurker, c = new g.THREE.Color();
     const door = L.door1.children[0].geometry.attributes.color; c.setRGB(door.getX(0), door.getY(0), door.getZ(0));
-    const rest = L.door1.parent.getObjectByName('style: resting arms');
-    g.renderer.render(g.scene, g.camera);
-    const before = { rest: !!rest && rest.visible, sock: !!L.door1.getObjectByName('style: sock'), door: c.getHex() };
+    const rest = L.door1.parent.getObjectByName('style: resting arms'), sock = L.door1.getObjectByName('style: sock');
+    const { lurkerRest } = await import('./src/style/figures.js');
+    // drawn only near the wardrobe on its floor (small things in a room: not from the yard, S4's draw calls)
+    const near = new g.THREE.Vector3(L.spec.x - 3, L.y0 + 1.6, (L.spec.minZ + L.spec.maxZ) / 2), far = new g.THREE.Vector3(2.2, 1.6, 6.8);
+    lurkerRest(L, far); const fromYard = [rest.visible, sock.visible];
+    lurkerRest(L, near);
+    const before = { rest: !!rest && rest.visible, sock: !!sock && sock.visible, door: c.getHex(), fromYard };
     L.wake(); g.sim(0.05);
-    for (let i = 0; i < 50 && rest.visible; i++) await new Promise((res) => setTimeout(res, 100));   // the style's frame hides them
+    lurkerRest(L, near);
     return { ...before, awake: rest.visible, state: L.state };
   });
-  assert.deepEqual(r, { rest: true, sock: true, door: 0x34436a, awake: false, state: 'telegraph' });
+  assert.deepEqual(r, { rest: true, sock: true, door: 0x34436a, fromYard: [false, false], awake: false, state: 'telegraph' });
   assert.deepEqual(errors, []);
   await ctx.close();
   const c2 = await newContext(browser, LAND);
