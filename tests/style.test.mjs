@@ -141,7 +141,7 @@ test('style (S1): the mansion — the fountain has water, each lamp\'s circle li
   await ctx.close();
 });
 
-test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in the mansion, Шафник, a friend in the colour of the thief; 2 draw calls each, few triangles; the trap poses and Pozikhailo (gone when the guard is angry); the bucket on the new head; ?style=off keeps the old figures', async () => {
+test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in the mansion, Шафник, a friend in the colour of the thief; 3 draw calls each (2 without a light), ≤ 4 000 triangles; the trap poses and Pozikhailo (gone when the guard is angry); the bucket on the new head; ?style=off keeps the old figures', async () => {
   const figs = async (map, st) => {
     const ctx = await newContext(browser, LAND);
     await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
@@ -156,29 +156,30 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
     const { RemotePlayer } = await import('./src/net/remotePlayer.js');
     const rp = new RemotePlayer({ id: 'f', name: 'Оля', thief: 'rita' });
     const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
-    const info = (f) => f && { who: f.who, meshes: f.root.children.length, skinned: f.root.children.every((m) => m.isSkinnedMesh), tris: f.root.children.reduce((s, m) => s + tri(m), 0) };
+    const shown = (f) => f.root.children.filter((m) => m.visible);
+    const info = (f) => f && { who: f.who, meshes: shown(f).length, skinned: f.root.children.every((m) => m.isSkinnedMesh), tris: shown(f).reduce((s, m) => s + tri(m), 0), farTris: f.far.all.reduce((s, m) => s + tri(m), 0) };
     const lurk = g.lurker;
     return {
       guard: info(P.fig), friend: info(rp.fig), oldGuard: P.body.geometry.attributes.position ? P.body.geometry.attributes.position.count : 0,
       lurkerEyes: Array.from(lurk.eyes.geometry.attributes.color.array.slice(0, 3)).map((v) => +v.toFixed(2)), whisper: new g.THREE.Color(0x7fd0ff).toArray().map((v) => +v.toFixed(2)), lurkerOutline: !!lurk.body.getObjectByName('style: wardrobe outline'),
     };
   });
-  assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 2, true], 'the dacha\'s guard: Petrovych, one skinned mesh + its outline');
-  assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 2], 'a friend: the thief\'s figure');
-  assert.ok(d.guard.tris <= 1500 && d.friend.tris <= 1500, `triangles with the outline: guard ${d.guard.tris}, friend ${d.friend.tris}`);
-  // the owner's budget: ≤ 1 500 triangles a figure with its outline (the mansion with 4 friends stays under 45 000); Шафник too
+  assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 3, true], 'the dacha\'s guard: Petrovych — the figure, its outline, its lens (skinned)');
+  assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 2], 'a friend: the thief\'s figure and its outline');
+  // the owner's budget: ≤ 4 000 triangles a figure with its outline (the sample's way, «2 · 3D, зроблені як слід»); the far
+  // level about half; Шафник too
   const all = await page.evaluate(async () => {
-    const { buildFigure, RECIPES, lurkerGeometries } = await import('./src/style/figures.js');
-    const tri = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+    const { makeFigure, FIGURES, lurkerGeometries } = await import('./src/style/figures.js');
+    const tri = (g) => (g ? (g.index ? g.index.count : g.attributes.position.count) / 3 : 0);
     const out = {};
-    for (const id of Object.keys(RECIPES)) { const f = buildFigure(RECIPES[id]); out[id] = tri(f.mesh.geometry) + tri(f.hull.geometry); }
-    const L = lurkerGeometries(), hull = window.__game.lurker.body.getObjectByName('style: wardrobe outline');
-    out.shafnyk = ['body', 'arms', 'eyes', 'sock'].reduce((s, k) => s + tri(L[k]), 0) + tri(hull.geometry);
+    for (const id of FIGURES) { const f = makeFigure(id); out[id] = [f.near.all.reduce((s, m) => s + tri(m.geometry), 0), f.far.all.reduce((s, m) => s + tri(m.geometry), 0)]; }
+    const L = lurkerGeometries();
+    out.shafnyk = [['body', 'bodyHull', 'arms', 'armsHull', 'eyes', 'eyesHull', 'sock', 'sockHull'].reduce((s, k) => s + tri(L[k]), 0), 0];
     return out;
   });
-  for (const [id, n] of Object.entries(all)) assert.ok(n <= 1500, `${id}: ${n} triangles with the outline`);
+  for (const [id, [near, far]] of Object.entries(all)) { assert.ok(near <= 4000, `${id}: ${near} triangles with the outline`); assert.ok(far <= near * 0.8, `${id} far: ${far}`); }
   assert.equal(d.oldGuard, 0, 'the old figure is not drawn');
-  assert.deepEqual(d.lurkerEyes, d.whisper, 'Шафник\'s eyes: Шепіт (0x7fd0ff), as in the art');
+  assert.deepEqual(d.lurkerEyes, d.whisper, 'Шафник\'s eyes: Шепіт (0x7fd0ff), as in the sample');
   assert.ok(d.lurkerOutline, 'Шафник has an outline');
   // poses: soap = feet up, the bucket on the head; angry = Pozikhailo leaves
   const poses = await page.evaluate(async () => {
@@ -244,6 +245,11 @@ test('style: the character sheet (?page=figures) — every figure in the row, on
   assert.ok((await ids()).every((s) => /:old$/.test(s) || s.startsWith('shafnyk')), 'old figures');
   await press('ver'); await press('one');
   assert.equal((await ids()).length, 4, 'one figure: three views and one that moves');
+  // the owner's sample next to the game's figure, the same view and light
+  await press('cmp');
+  assert.deepEqual(await page.evaluate(() => window.__game.style.sheet.cast.map((c) => `${c.id}:${c.sample ? 'sample' : 'game'}`)), ['petrovych:sample', 'petrovych:game', 'petrovych:sample', 'petrovych:game']);
+  await press('next');
+  assert.equal((await ids())[1], 'valera:new', '▶ the next character');
   await press('far');
   assert.deepEqual(await ids(), ['zoya', 'frol', 'ritaWine', 'nazar'].map((id) => `${id}:new`), 'the four thieves');
   assert.ok(await page.evaluate(() => Math.abs(window.__game.style.sheet.camera.position.z + 8) < 0.01), 'at 8 m');

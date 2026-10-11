@@ -1159,7 +1159,8 @@ export default {
     off: 'вимк (як раніше)',
     // лист персонажів (?page=figures): власник затверджує вигляд
     sheet: {
-      modeAll: 'Усі', modeOne: 'Один: 3 ракурси', modeFar: '4 злодії, 8 м',
+      modeAll: 'Усі', modeOne: 'Один: 3 ракурси', modeCmp: 'Зразок поруч', modeFar: '4 злодії, 8 м',
+      sample: 'зразок', game: 'гра',
       lamp: 'Під лампою', shadow: 'У тіні', alarm: 'Тривога',
       walk: 'Хода', look: 'Огляд', spin: 'Крутити',
       isNew: 'Новий (натисни: старий)', isOld: 'Старий (натисни: новий)',
@@ -1167,7 +1168,7 @@ export default {
       views: ['спереду', 'збоку', 'ззаду', 'хода й огляд'],
       names: {
         petrovych: 'Петрович', valera: 'Валера', zhora: 'Жора', zoya: 'Зоя', frol: 'Фрол',
-        ritaWine: 'Рита (бордо)', ritaPowder: 'Рита (пудра)', nazar: 'Назар', shafnyk: 'Шафник',
+        rita: 'Рита', ritaWine: 'Рита (бордо)', ritaPowder: 'Рита (рожева)', nazar: 'Назар', shafnyk: 'Шафник',
       },
     },
   },

@@ -32,7 +32,7 @@ export function animateGuard(p, dt, t) {
   const pose = p.pose, habit = pose ? null : habitOf(p), chase = p.state === 'chase' || p.state === 'hunt';
   const P0 = f.pivots;
   let legL = sw, legR = -sw, armLx = -sw * 0.8, armLz = 0.08, torsoX = (chase ? -0.18 : 0) + (P0.slouch || 0), headX = P0.slouch ? -0.25 : 0, headZ = 0;
-  if (f.who === 'zhora' && !chase) { armLx = 1.1; armLz = 0.35; }   // Zhora reads his phone
+  if (f.who === 'zhora' && !chase) { armLx = 1.45; armLz = 0.5; }   // Zhora reads his phone (the sample's pose)
   if (pose === 'flip') { legL = 0.7; legR = 0.45; armLx = 1.2; armLz = -0.9; headX = -0.2; }
   else if (pose === 'kneel') { legL = -1.45; legR = -1.45; torsoX = -0.35; armLx = 0.9 + 0.3 * Math.sin(t * 6); armLz = 0.1; headX = -0.3; }
   else if (pose === 'bucket') { armLx = 2.7 + 0.25 * Math.sin(t * 9); armLz = 0.35; legL = 0.15 * Math.sin(t * 5); legR = -legL; }

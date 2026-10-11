@@ -3,7 +3,8 @@
 export const style = {
   on: true,   // the style switch's default («Стиль: увімк»); ?style=off / on and the saved setting override it
   figures: false,   // the new characters in the game: off until the owner approves them on the sheet (?page=figures); ?figures=on shows them
-  rita: 'wine',     // Rita's muted red in the game: 'wine' (burgundy) or 'powder' (powder pink); the sheet shows both
+  rita: 'wine',     // Rita's jacket in the game: 'wine' or 'powder' (pink); the sheet shows both, the owner picks
+  figureLift: 0.3,  // a figure's shadow side keeps this share of the lit step in a lamp's circle (the sample's toon shadow)
   // three steps of light, in irradiance (what a white surface would get; x the display brightness)
   bands: {
     mid: 0.2,                     // from here a surface is in half-light (moon, a lamp's reach)

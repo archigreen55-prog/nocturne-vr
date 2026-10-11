@@ -3,13 +3,16 @@
 // style: all in a row turning slowly, or one in three views (front, side, back) plus one that walks
 // and looks around, or the four thieves side by side 8 m away (do they read apart?). The light: under
 // a lamp, in the shadow, in the alarm. «Старий / новий» swaps in the figures the game has had so far.
+// «Зразок поруч»: the owner's approved sample (style/toon.js as the sample builds it) next to the game's
+// figure, in the same view and light — front and three-quarter, one character at a time.
 // The game itself does not run on this page (the sheet takes the frame loop over).
 import * as THREE from 'three';
 import { G } from '../systems/state.js';
 import { S } from '../i18n/index.js';
 import { PAL } from './palette.js';
 import { lit, styleUniforms as U, setZones } from './materials.js';
-import { buildFigure, RECIPES, lurkerGeometries, hullMaterial } from './figures.js';
+import { makeFigure, lurkerGeometries, hullMaterial, RITA, TURN, SOCK_AT } from './figures.js';
+import { kit, TOON } from './toon.js';
 import { animateGuard, animateThief } from './anim.js';
 import { RemotePlayer } from '../net/remotePlayer.js';
 import { Builder } from '../world/level.js';
@@ -76,11 +79,12 @@ function wardrobe(isNew) {
   if (isNew) {
     const L = lurkerGeometries();
     const body = new THREE.Mesh(L.body, mat), arms = new THREE.Mesh(L.arms, mat), eyes = new THREE.Mesh(L.eyes, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
-    body.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 7).scale(1.05 * 1.07, 0.95 * 1.07, 0.9 * 1.07), hullMaterial()));
+    body.add(new THREE.Mesh(L.bodyHull, hullMaterial())); arms.add(new THREE.Mesh(L.armsHull, hullMaterial())); eyes.add(new THREE.Mesh(L.eyesHull, hullMaterial()));
     arms.rotation.x = 0.35; arms.scale.z = 0.55;   // reaching out of the gap, down (the lunge stretches them in the game)
     creature.add(body, eyes, arms);
     const sock = new THREE.Mesh(L.sock, mat);
-    sock.position.set(0, 0, -0.25);   // on the left door's knob (the game's door is wider)
+    sock.add(new THREE.Mesh(L.sockHull, hullMaterial()));
+    sock.position.set(SOCK_AT[0], SOCK_AT[1], SOCK_AT[2] - 0.25);   // on the left door's knob (the game's door is wider)
     d1.add(sock);
   } else if (G.lurker) {
     for (const m of [G.lurker.body, G.lurker.arms, G.lurker.eyes]) creature.add(new THREE.Mesh(m.geometry, m.material));
@@ -96,11 +100,22 @@ function makeOne(id, kind, old, isNew) {
     const root = kind === 'guard' ? oldGuard(old) : oldThief(old);
     return { root, kind, id, old: true };
   }
-  const fig = buildFigure(RECIPES[id]);
+  const fig = makeFigure(id);
   const root = new THREE.Group(); root.add(fig.root);
   fig.who = id === 'ritaWine' || id === 'ritaPowder' ? 'rita' : id;
   if (kind === 'guard') return { root, kind, id, fig, p: { fig, speed: 0, phase: 0, queue: [], upper: { rotation: { y: 0 } }, state: 'task', brain: { angryT: 0 }, pose: null, sitting: false } };
   return { root, kind, id, fig, rp: { fig, speed: 0, lookPitch: 0, crouched: false, desk: null, lost: false } };
+}
+
+// the owner's sample of the same character, as the sample page builds it (its segments, toon steps, outline);
+// turned to face the camera the way the game's figure is (mirrored front to back, or turned round)
+function makeSample(id, kind) {
+  if (kind === 'lurker') { const t = TOON.wardrobe(kit(false)), root = new THREE.Group(); t.root.rotation.y = Math.PI; root.add(t.root); return { root, kind, id, sample: true }; }
+  const base = id.startsWith('rita') ? 'rita' : id;
+  const t = TOON[base](kit(false), id === 'ritaWine' ? RITA.wine : id === 'ritaPowder' ? RITA.powder : undefined);
+  const root = new THREE.Group(); root.add(t.root);
+  if (TURN.has(base)) t.root.rotation.y = Math.PI; else t.root.scale.z = -1;
+  return { root, kind, id, sample: true };
 }
 
 export function startSheet() {
@@ -140,18 +155,19 @@ export function startSheet() {
   function rebuild() {
     for (const c of cast) scene.remove(c.root);
     labelBox.textContent = ''; cast = []; labels = [];
-    const list = st.mode === 'far' ? CAST.filter((c) => FAR.includes(c[0])) : st.mode === 'one' ? [CAST[st.pick], CAST[st.pick], CAST[st.pick], CAST[st.pick]] : CAST;
-    const gap = st.mode === 'far' ? 1.1 : st.mode === 'one' ? 1.4 : 1.35;
+    const cmp = st.mode === 'cmp';
+    const list = st.mode === 'far' ? CAST.filter((c) => FAR.includes(c[0])) : st.mode === 'one' || cmp ? [CAST[st.pick], CAST[st.pick], CAST[st.pick], CAST[st.pick]] : CAST;
+    const gap = st.mode === 'far' ? 1.1 : st.mode === 'one' ? 1.4 : cmp ? (CAST[st.pick][2] === null || CAST[st.pick][0] === 'frol' ? 1.6 : 1.25) : 1.35;
     quietRandom(() => list.forEach(([id, kind, old], i) => {
-      const one = makeOne(id, kind, old, st.isNew);
+      const one = cmp && i % 2 === 0 ? makeSample(id, kind) : makeOne(id, kind, old, st.isNew);
       const x = -(i - (list.length - 1) / 2) * gap;   // the camera looks along +Z: the list reads left to right
       one.root.position.set(x, 0, 0);
-      one.yaw0 = st.mode === 'one' ? [0, Math.PI / 2, Math.PI, 0][i] : 0;
-      one.moving = st.mode !== 'one' || i === 3;
+      one.yaw0 = st.mode === 'one' ? [0, Math.PI / 2, Math.PI, 0][i] : cmp ? [0, 0, -0.7, -0.7][i] : 0;
+      one.moving = cmp ? false : st.mode !== 'one' || i === 3;
       scene.add(one.root); cast.push(one);
       const lab = document.createElement('div');
       lab.style.cssText = 'position:absolute;transform:translate(-50%,0);text-align:center;white-space:nowrap;text-shadow:0 1px 2px #000';
-      lab.textContent = st.mode === 'one' ? T.views[i] : T.names[id];
+      lab.textContent = st.mode === 'one' ? T.views[i] : cmp ? `${T.names[id]} · ${i % 2 ? T.game : T.sample}` : T.names[id];
       labelBox.appendChild(lab); labels.push(lab);
     }));
     // the camera: the row in view; the far row 8 m away
@@ -178,13 +194,14 @@ export function startSheet() {
     return b;
   };
   const paint = () => {
-    const on = { all: st.mode === 'all', one: st.mode === 'one', far: st.mode === 'far', lamp: st.light === 'lamp', shadow: st.light === 'shadow', alarm: st.light === 'alarm', walk: st.walk, look: st.look, spin: st.spin };
+    const on = { all: st.mode === 'all', one: st.mode === 'one', cmp: st.mode === 'cmp', far: st.mode === 'far', lamp: st.light === 'lamp', shadow: st.light === 'shadow', alarm: st.light === 'alarm', walk: st.walk, look: st.look, spin: st.spin };
     for (const [k, b] of Object.entries(buttons)) if (k in on) { b.style.background = on[k] ? '#ffb347' : 'transparent'; b.style.color = on[k] ? '#0d1322' : ''; }
     buttons.ver.textContent = st.isNew ? T.isNew : T.isOld;
-    buttons.next.hidden = buttons.prev.hidden = st.mode !== 'one';
+    buttons.next.hidden = buttons.prev.hidden = st.mode !== 'one' && st.mode !== 'cmp';
   };
   btn('all', T.modeAll, () => { st.mode = 'all'; rebuild(); });
   btn('one', T.modeOne, () => { st.mode = 'one'; rebuild(); });
+  btn('cmp', T.modeCmp, () => { st.mode = 'cmp'; rebuild(); });
   btn('prev', '◀', () => { st.pick = (st.pick + CAST.length - 1) % CAST.length; rebuild(); });
   btn('next', '▶', () => { st.pick = (st.pick + 1) % CAST.length; rebuild(); });
   btn('far', T.modeFar, () => { st.mode = 'far'; st.light = 'shadow'; rebuild(); });
@@ -223,5 +240,5 @@ export function startSheet() {
   }
   rebuild(); paint();
   renderer.setAnimationLoop(frame);
-  return { state: st, get cast() { return cast.map((c) => ({ id: c.id, kind: c.kind, isNew: !c.old })); }, scene, camera, rebuild, setLight };
+  return { state: st, get cast() { return cast.map((c) => ({ id: c.id, kind: c.kind, isNew: !c.old, sample: !!c.sample })); }, scene, camera, rebuild, setLight };
 }

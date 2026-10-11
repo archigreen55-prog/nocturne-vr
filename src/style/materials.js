@@ -142,6 +142,7 @@ uniform vec2 uStyleInkFar;
 uniform vec3 uStyleInkColor;
 uniform vec3 uStyleTint;
 uniform float uStyleGrade;
+uniform float uStyleLift;   // the figures: their shadow side keeps this much of the step their place is lit to (0: the world)
 varying vec2 vStyleUv;
 varying float vStyleInk;
 varying vec3 vStylePos;
@@ -188,6 +189,7 @@ const STYLE_BANDS = `
 		float litK = max( spotK, styleStep( uStyleHand, eHand ) );
 		litK = max( litK, styleZone( vStylePos ) * step( 0.004, eLamp ) );   // a lamp's circle, where a lamp shines
 		float lvl = mix( mix( uStyleLevels.x, uStyleLevels.y, midK ), uStyleLevels.z * mix( 1.0, uStyleWarn, spotK ), litK ) * uStyleExp;
+		lvl = max( lvl, uStyleLift * mix( uStyleLevels.y, uStyleLevels.z, styleZone( vStylePos ) ) * uStyleExp );
 		reflectedLight.directDiffuse = lightAll * ( lvl / max( eAll * uStyleExp, 1e-4 ) );
 		reflectedLight.indirectDiffuse = vec3( 0.0 );
 	}
@@ -200,9 +202,10 @@ const STYLE_INK = `
 		outgoingLight = mix( outgoingLight, uStyleInkColor * uStyleExp, edge );
 	}
 `;
-function stylePatch(shader, grade) {
+function stylePatch(shader, grade, lift) {
   Object.assign(shader.uniforms, styleUniforms);
   shader.uniforms.uStyleGrade = grade;
+  shader.uniforms.uStyleLift = lift;
   const must = (src, find, what) => { if (!src.includes(find)) throw new Error(`style: ${what} not found in the shader`); };
   let v = shader.vertexShader, f = shader.fragmentShader;
   must(v, '#include <project_vertex>', 'project_vertex');
@@ -229,13 +232,15 @@ export function onNewLit(fn) { late.push(fn); }
 
 // A lit material: vertex colours by default (the Builder's parts carry their colour).
 // grade: how far its colours go to the night palette (CFG.style.grade; loot keeps more of its own).
-export function lit({ grade = CFG.style.grade.world, ...params } = {}) {
+// lift: a figure's shadow side keeps that share of the light step where it stands (the sample's toon: its
+// darkest step is about a quarter of the lit one); the world keeps 0 (its steps are the stealth's)
+export function lit({ grade = CFG.style.grade.world, lift = 0, ...params } = {}) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, ...params });
   m.userData.styled = true;
   if (STYLE_ON) {
-    const g = { value: grade };
-    m.userData.grade = g;
-    addPatch(m, 'style', (shader) => stylePatch(shader, g), 10);
+    const g = { value: grade }, l = { value: lift };
+    m.userData.grade = g; m.userData.lift = l;
+    addPatch(m, 'style', (shader) => stylePatch(shader, g, l), 10);
   }
   for (const fn of late) fn(m);
   return m;

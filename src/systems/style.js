@@ -11,12 +11,20 @@ import { STYLE_ON, styleUniforms as U, setStyle, setZones } from '../style/mater
 import { buildDecor } from '../style/decor.js';
 import { quietRandom } from '../style/quiet.js';
 import { animateGuard, animateThief } from '../style/anim.js';
+import { FAR } from '../style/figures.js';
 import { power } from '../world/devices.js';
 import { lampLights } from '../game/stealth.js';
 import { G, $, params } from './state.js';
 import { startSheet } from '../style/sheet.js';
 
 let decor = null, t = 0;
+// a figure far from the camera draws its lighter level (style/figures.js FAR; 1 m of hysteresis)
+const camAt = new THREE.Vector3(), figAt = new THREE.Vector3();
+function lodOf(f) {
+  G.camera.getWorldPosition(camAt); f.root.getWorldPosition(figAt);
+  const d = camAt.distanceTo(figAt);
+  if (d > FAR + 0.5) f.lod(true); else if (d < FAR - 0.5) f.lod(false);
+}
 const fogBase = new THREE.Color(PAL.dusk), fogAlarm = new THREE.Color(PAL.alarm);
 const spots = [];
 
@@ -82,7 +90,7 @@ export const style = {
     }
     decor.setBlobs(spots);
     // S2: the figures move (bones only; the game reads none of it)
-    for (const g of G.guards || []) if (g.fig) animateGuard(g, dt, t);
-    for (const p of G.players || []) if (p.fig) animateThief(p, dt);
+    for (const g of G.guards || []) if (g.fig) { animateGuard(g, dt, t); lodOf(g.fig); }
+    for (const p of G.players || []) if (p.fig) { animateThief(p, dt); lodOf(p.fig); }
   },
 };
