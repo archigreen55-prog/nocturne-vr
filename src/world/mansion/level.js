@@ -191,6 +191,7 @@ export function buildMansion() {
       rail(1, x0, z0, x1, z1);
     }
     for (const x of [B.minX, B.maxX]) S.box(x - 0.08, 0, B.maxZ - 0.08, x + 0.08, y1, B.maxZ + 0.08, C.wallExt);   // posts under it
+    furniture.push({ minX: B.minX - 0.04, maxX: B.maxX + 0.04, minZ: B.maxZ - 0.04, maxZ: B.maxZ + 0.04, h: y1 + 1.0, top: y1 + 1.0, floor: 1 });   // W18: the front parapet's top is a surface (the binoculars lie on it)
   }
 
   // ---------- the wardrobe of the lurker (master bedroom, upstairs) ----------
@@ -408,13 +409,17 @@ export function buildMansion() {
     },
     // Line of sight between eye a and target b: the floor-2 slab blocks it except through the stair
     // well; a line through the well is checked on each floor in turn.
+    // The points are eyes and targets at their own heights: the floor whose walls apply is the one
+    // whose level is below the point (W18 fix: floorIndex() splits at 1.5 m, so a ground-floor guard's
+    // eye at 1.62 m was checked against the upstairs walls).
     losBlocked(ax, ay, az, bx, by, bz) {
+      const under = (y) => { let f = 0; for (let j = 1; j < FLOOR_Y.length; j++) if (y >= FLOOR_Y[j] - 0.3) f = j; return f; };   // 30 cm under a level: still that floor (the slab's thickness)
       if ((ay - SLAB_MID) * (by - SLAB_MID) < 0) {
         const t = (SLAB_MID - ay) / (by - ay), cx = ax + (bx - ax) * t, cz = az + (bz - az) * t;
         if (!inWell(cx, cz)) return true;
-        return losOnFloor(floorIndex(ay), ax, ay, az, cx, SLAB_MID, cz) || losOnFloor(floorIndex(by), cx, SLAB_MID, cz, bx, by, bz);
+        return losOnFloor(under(ay), ax, ay, az, cx, SLAB_MID, cz) || losOnFloor(under(by), cx, SLAB_MID, cz, bx, by, bz);
       }
-      return losOnFloor(floorIndex(ay), ax, ay, az, bx, by, bz);
+      return losOnFloor(under(ay), ax, ay, az, bx, by, bz);
     },
     reset() { for (const d of doors) d.reset(); },
   };

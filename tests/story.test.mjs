@@ -148,7 +148,7 @@ test('Petrovych by name: «Петрович: «…»» and on easy «Петро�
     g.sim(10); out.houseAgain = window.__said.filter((t) => t === 'Ну що, хато, подрімаємо?').length;
     // two items gone from their place, the guard sees both places
     window.__said.length = 0;
-    const st = g.loot.items.find((i) => i.id === 'statuette'), can = g.loot.items.find((i) => i.id === 'candelabrum');
+    const st = g.loot.items.find((i) => i.id === 'painting'), can = g.loot.items.find((i) => i.id === 'vase');   // W18: the statuette and the candelabrum are trinkets the guard does not miss on medium
     for (const it of [st, can]) it.mesh.position.set(0, -10, 0);
     P.brain.canSee = () => true; g.CFG.run.noticeMissing = true; g.CFG.run.missingToAlarm = 9;
     P.brain.watch(0.1); P.brain.watch(0.1);
