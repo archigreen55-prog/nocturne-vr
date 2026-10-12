@@ -44,7 +44,7 @@ test('W2a: the cans and bottles stand on both maps (not loot: not in the sum, ne
   assert.equal(runs.dacha.n, 6); assert.equal(runs.mansion.n, 8);
   assert.deepEqual(runs.dacha.floating, [], 'every dacha can / bottle stands on something');
   assert.deepEqual(runs.mansion.floating, [], 'every mansion can / bottle stands on something');
-  assert.equal(runs.dacha.total, 8, 'the loot count is the 8 items, not the cans');
+  assert.equal(runs.dacha.total, 14, 'the loot count is the 14 items (8 + 6 small ones of W18), not the cans');
   assert.deepEqual(runs.dacha.devices, ['radio', 'phone', 'handset', 'breaker']);
   assert.deepEqual(runs.mansion.devices, ['radio', 'radio2', 'phone', 'handset', 'breaker']);
   assert.deepEqual(runs.dacha.errors, []); assert.deepEqual(runs.mansion.errors, []);

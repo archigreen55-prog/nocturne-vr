@@ -28,6 +28,7 @@ export class Brain {
     for (const r of Object.keys(G.rooms)) this.lastVisit[r] = -Math.random() * 60;
     this.clock = 0;                 // own time, for room weights
     this.missing = new Set();       // items it has noticed gone
+    this.missingW = 0;              // W18: their weight (a trinket on hard = half)
     this.noticedDoors = new Set();
     this.agitated = false;
     this.cansFound = 0;             // W2a: thrown cans it has tidied away this round
@@ -151,6 +152,7 @@ export class Brain {
     if (run.noticeMissing) {
       for (const it of this.env.loot.items) {
         if (this.missing.has(it) || it.throwable) continue;   // a can is not loot (W2a)
+        if (it.small && run.difficulty !== 'hard') continue;   // W18: a trinket is not remembered, except on hard
         const [hx, hy, hz] = it.def.pos;
         const p = it.mesh.position;
         const there = !it.delivered && it.state === 'rest' && Math.hypot(p.x - hx, p.z - hz) < 0.5 && Math.abs(p.y - hy) < 0.3;
@@ -159,11 +161,13 @@ export class Brain {
         if (this.env.loot.items.some((f) => f.prop && !f.held && Math.hypot(f.mesh.position.x - hx, f.mesh.position.z - hz) < 0.5 && Math.abs(f.mesh.position.y - hy) < 0.4
           && !(run.difficulty === 'hard' && Math.hypot(this.g.x - hx, this.g.z - hz) < 2))) continue;
         this.missing.add(it);
-        this.env.say(this.missing.size === 2 ? S.guard.say.missingTwo : S.guard.say.whereIsItem(it.name.toLowerCase()));   // W7: the second one
+        const w = it.small ? CFG.loot.small.hardWeight : 1;   // W18: on hard a trinket counts half an item
+        this.missingW = (this.missingW || 0) + w;
+        this.env.say(Math.round(this.missingW) === 2 && w === 1 ? S.guard.say.missingTwo : S.guard.say.whereIsItem(it.name.toLowerCase()));   // W7: the second one
         this.env.sound('grunt');
-        this.env.alert.add(G.missingPoints, hx, hz);
-        if (this.missing.size >= 2) this.agitated = true;
-        if (this.missing.size >= run.missingToAlarm) { this.env.alert.setFull(S.cause.missingLoot, hx, hz); return; }
+        this.env.alert.add(G.missingPoints * w, hx, hz);
+        if (this.missingW >= 2) this.agitated = true;
+        if (this.missingW >= run.missingToAlarm) { this.env.alert.setFull(S.cause.missingLoot, hx, hz); return; }
         // search the room where it stood
         const room = this.roomAt(hx, hz, hy);
         g.queue.length = 0;
