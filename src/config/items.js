@@ -34,7 +34,7 @@ export const items = [
   { id: 'clock', name: S.items.clock, kind: 'medium', value: 1500, pos: [1.5, 1.3, -13.55], yaw: 0 },
   { id: 'crystal', name: S.items.crystal, kind: 'crystal', value: 2000, pos: [4.76, 0.7, -7.38], yaw: 0 },
   // ---------- W18: small loot in the rooms that had none (plan-W18 §B.3) ----------
-  { id: 'teapot', name: S.items.teapot, kind: 'light', value: 150, pos: [-9.55, 0.92, -1.6], yaw: 0.4, small: true },            // kitchen counter by the fridge (the radio device sits on the other counter)
+  { id: 'teapot', name: S.items.teapot, kind: 'light', value: 150, pos: [-9.55, 0.92, -3.4], yaw: 0.4, small: true },            // west kitchen counter, 2.5 m from the fridge note (E there must read the note, not grab) (the radio device sits on the other counter)
   { id: 'watch', name: S.items.watch, kind: 'light', value: 200, pos: [3.6, 0.8, -6.75], yaw: 0.3, small: true },               // corridor console
   { id: 'perfume', name: S.items.perfume, kind: 'light', value: 130, pos: [9.35, 0.55, -13.6], yaw: 0, small: true, fragile: true },   // bedroom, the east nightstand (the handset device sits on the west one)
   { id: 'jar', name: S.items.jar, kind: 'light', value: 120, pos: [5.2, 0.7, -3.6], yaw: 0, small: true },                     // pantry shelf table
