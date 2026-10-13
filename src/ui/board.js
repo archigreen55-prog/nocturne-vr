@@ -131,12 +131,41 @@ export class Board {
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 410, y: 500, w: 564, h: 100, enabled: !!s.clip && !s.playing });
   }
 
+  // W19 (plan-W19-campaign.md §2.4): on a phone / PC the contract page is the customer's note «pp.» —
+  // the level, the lines, the crew's line, the goal, what is new, the records; «Поїхали» and «Карта…».
+  // The level is picked in the menu (VR keeps the old page until the board's map, stage E2).
+  drawNote(s) {
+    const g = this.g, C = s.contract, N = s.note, st = s.story;
+    g.textAlign = 'left'; g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#9aa7bf';
+    g.fillText(`${S.campaign.level(N.n)} · ${N.act}`.toUpperCase(), 50, 62);
+    g.textAlign = 'right'; g.fillText(N.noClock ? S.campaign.noClock : S.board.timeLeft(fmtTime(s.clock)), W - 50, 62, 440);
+    g.textAlign = 'left'; g.font = `800 44px ${HEAD}`; g.fillStyle = '#ffb347';
+    g.fillText(C.name, 50, 128);
+    let y = 172;
+    g.font = 'italic 25px system-ui, sans-serif'; g.fillStyle = '#e6d8b0';
+    y = wrap(g, st && st.lines.length ? st.lines.join(' ') : C.brief, 50, y, W - 100, 31) + 34;
+    if (st && st.crew) { g.font = 'italic 23px system-ui, sans-serif'; g.fillStyle = '#ffb347'; g.fillText(st.crew, 50, y, W - 100); y += 40; }
+    g.font = '25px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
+    g.fillText(S.board.goal(s.goalText), 50, Math.max(y, 290), W - 100); y = Math.max(y, 290) + 34;
+    if (C.bonus !== 'none') { g.fillText(S.board.bonus(s.bonusText), 50, y, W - 100); y += 34; }
+    if (N.isNew.length) { g.font = 'bold 24px system-ui, sans-serif'; g.fillStyle = '#7fc8ff'; g.fillText(S.campaign.isNew(N.isNew.join(', ')), 50, y, W - 100); }
+    g.fillStyle = '#9aa7bf'; g.font = '24px system-ui, sans-serif';
+    g.fillText(S.board.records(s.best || {}), 50, 408, W - 340);
+    if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffb347'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
+    if (s.lock) { g.fillStyle = '#ffb347'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 448, W - 100); }
+    else if (C.needsMic && s.noMic) { g.fillStyle = '#ffb347'; g.font = '24px system-ui, sans-serif'; g.fillText(S.board.needsMic, 50, 448, W - 100); }
+    else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.campaign.goHint, 50, 448, W - 100); }
+    this.buttons.push({ id: 'go', label: S.campaign.go, x: 50, y: 470, w: 600, h: 120, font: 44, enabled: !s.lock });
+    this.buttons.push({ id: 'levels', label: S.campaign.map, x: 670, y: 470, w: 304, h: 120, font: 32 });
+  }
+
   // Before the round (at the van): pick the contract and the difficulty; the microphone page.
   drawContract(s) {
+    if (s.note && !s.vr) { this.drawNote(s); return; }   // W19
     const g = this.g, C = s.contract;
     g.textAlign = 'left';
     g.font = 'bold 26px system-ui, sans-serif'; g.fillStyle = '#9aa7bf';
-    g.fillText(S.board.contractN(s.contractIndex + 1, s.contractCount), 50, 62);
+    g.fillText(s.note ? `${S.campaign.level(s.note.n)} · ${s.note.act}`.toUpperCase() : S.board.contractN(s.contractIndex + 1, s.contractCount), 50, 62);   // W19: the level's number
     g.textAlign = 'right'; g.fillText(S.board.timeLeft(fmtTime(s.clock)), W - 50, 62);
     g.textAlign = 'left'; g.font = `800 44px ${HEAD}`; g.fillStyle = C.locked ? '#6f8396' : '#ffb347';   // W6: a locked placeholder is grey
     g.fillText(C.name, 50, 128);
@@ -328,7 +357,8 @@ export class Board {
       g.font = 'bold 34px system-ui, sans-serif'; g.fillStyle = V.stars ? '#ffb347' : '#ffb347';
       g.fillText(`${s.contract.name}: ${'★'.repeat(V.stars)}${'☆'.repeat(3 - V.stars)}${V.newBest ? S.board.res.newBest : ''}`, W / 2, 368);
       g.font = '22px system-ui, sans-serif'; g.fillStyle = '#9aa7bf';
-      g.fillText(V.goal ? S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard') : S.board.res.goalFail(V.why.join(', ')), W / 2, 396);
+      g.fillText(V.goal && s.contract.bonus === 'none' && s.next ? S.campaign.accepted(s.next.n)   // W19: the rehearsal
+        : V.goal ? S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard') : S.board.res.goalFail(V.why.join(', ')), W / 2, 396);
     }
     // W7: the customer's line after the round (every contract) and the crew's (the goal met), in yellow
     if (s.storyAfter && s.storyAfter.line) {
@@ -349,7 +379,8 @@ export class Board {
     g.font = '18px system-ui, sans-serif'; g.fillStyle = '#6f8396';
     g.fillText(R.shouts > 0 && s.screamBy ? `${s.screamBy} · ${S.board.res.memoryOnly}` : S.board.res.memoryOnly, W / 2, 484, W - 80);   // W7: the thief's line under the replay
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });
-    this.buttons.push({ id: 'again', label: S.board.res.newRound, x: 640, y: 495, w: 334, h: 105, enabled: true });
+    if (s.next) this.buttons.push({ id: 'nextlvl', label: S.campaign.next(s.next.n), x: 640, y: 495, w: 334, h: 105, font: 32 });   // W19: the next level
+    else this.buttons.push({ id: 'again', label: S.board.res.newRound, x: 640, y: 495, w: 334, h: 105, enabled: true });
   }
 }
 
@@ -360,6 +391,7 @@ function wrap(g, text, x, y, maxW, lh) {
     if (g.measureText(t).width > maxW && line) { g.fillText(line, x, y); y += lh; line = word; } else line = t;
   }
   if (line) g.fillText(line, x, y);
+  return y;   // the last line's baseline (W19)
 }
 
 function roundRect(g, x, y, w, h, r) {

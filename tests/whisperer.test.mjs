@@ -155,8 +155,10 @@ test('Шепотун on the phone and in VR (IWER Quest 3): a whisper by the fir
   // in VR the head follows the headset's frames: teleport, then whisper in real time
   await v.page.evaluate(async (H) => { eval(H); const { g, park } = window.__w; window.__wi = (await import('./src/audio/whisperSfx.js')).whisperInfo; park(g.patrol, -6, -2.5); g.player.teleport(1.5, -11.3, 0); }, H);
   await v.page.waitForTimeout(800);
+  // whisper until the grate answers with dust (its telegraph), at most 6 s: the headset's frames come at
+  // their own pace, a fixed 1.2 s was sometimes too short to be heard
   await v.page.evaluate(() => { window.__db = -48; });
-  await v.page.waitForTimeout(1200);
+  await v.page.waitForFunction(() => { const d = window.__game.scene.getObjectByName('whisperer dust'); return d && d.visible; }, null, { timeout: 6000, polling: 50 }).catch(() => {});
   await v.page.evaluate(() => { window.__db = -62; });
   await v.page.waitForFunction(() => window.__wi.count > 0, null, { timeout: 15000, polling: 200 }).catch(() => {});
   const vr = await v.page.evaluate(async () => ({ echoes: (await import('./src/audio/whisperSfx.js')).whisperInfo.count, card: (await import('./src/game/story.js')).hasMet('whisperer') }));

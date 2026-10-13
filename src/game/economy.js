@@ -116,9 +116,9 @@ export const openAll = () => openAllAllowed() && loadSetting('openAll', false) =
 export function setOpenAll(on) { if (openAllAllowed()) saveSetting('openAll', !!on); }
 
 const mapOf = (c) => c.map || MAPS.find((m) => LISTS[m].some((x) => x.id === c.id)) || 'dacha';
-const bestOf = (id) => { const b = bestStars(id); return Math.max(b.easy || 0, b.medium || 0, b.hard || 0); };
-// stars on a map: the best of each of its contracts (any difficulty)
-export const mapStars = (map) => (LISTS[map] || []).reduce((n, c) => n + bestOf(c.id), 0);
+export const bestOf = (id) => { const b = bestStars(id); return Math.max(b.easy || 0, b.medium || 0, b.hard || 0); };
+// stars on a map: the best of each of its contracts (any difficulty); W19: not the rehearsal's (`practice`)
+export const mapStars = (map) => (LISTS[map] || []).reduce((n, c) => n + (c.practice ? 0 : bestOf(c.id)), 0);
 // A map is open once the stars on the maps before it reach its threshold (CFG.shop.unlock.maps).
 export const starsBefore = (map) => MAPS.slice(0, Math.max(0, MAPS.indexOf(map))).reduce((n, m) => n + mapStars(m), 0);
 export function mapOpen(map) {
@@ -139,6 +139,9 @@ export function lockOf(c) {
   const same = LISTS[map] || [], i = same.findIndex((x) => x.id === c.id);
   const prev = c.after ? same.find((x) => x.id === c.after) : same.slice(0, Math.max(0, i)).reverse().find((x) => !x.locked);
   if (!prev) return null;
-  return bestOf(prev.id) >= CFG.shop.unlock.chainStars ? null : { after: prev };
+  // W19 (decision R10 A): a level put in before the ones already won (`campaign`: the rehearsal, «Шафа»)
+  // counts as passed once a later contract of the map has a star — an old player is not sent back
+  const later = !!prev.campaign && same.slice(same.indexOf(prev) + 1).some((x) => bestOf(x.id) >= CFG.shop.unlock.chainStars);
+  return bestOf(prev.id) >= CFG.shop.unlock.chainStars || later ? null : { after: prev };
 }
 export const isOpen = (c) => !lockOf(c);

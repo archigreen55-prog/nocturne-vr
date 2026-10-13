@@ -46,6 +46,7 @@ import { net } from './net.js';
 import { style } from './style.js';
 import { story } from './story.js';
 import { menu } from './menu.js';
+import { campaign } from './campaign.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -67,6 +68,7 @@ export const SYSTEMS = [
   economy,       // the wallet and the shop; world: a closed contract is not played; result: the round's money
   trapsSystem,   // W2b: traps from the van (placing, springing, the alarm clock), mischief points and combos
   distract,      // W2a: throwing (phone, PC: aim, arc), the devices (radio, phone, breaker), a can on the guard's head
+  campaign,      // W19: what this level has (cans, devices), the board's note and its buttons
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
   board,         // present: the board
   panel,         // frame: wrist panel / HUD

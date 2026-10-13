@@ -10,7 +10,7 @@ import { UI } from '../style/palette.js';
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
 export class Summary {
-  // h: { play(), again(), menu(), report() }
+  // h: { play(), again(), next() (W19: «Далі: рівень N»), menu(), report() }
   constructor(root, h) {
     this.root = root; this.h = h;
     root.hidden = true;
@@ -52,7 +52,7 @@ export class Summary {
       right.append(el('div', 'sm-stars' + (V.stars ? '' : ' none'), `${'★'.repeat(V.stars)}${'☆'.repeat(3 - V.stars)}`));
       if (V.newBest) right.append(el('div', 'sm-record', S.summary.newBest));
       right.append(el('div', 'sm-sub', V.goal
-        ? S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard')
+        ? (s.next && s.practice ? S.campaign.accepted(s.next.n) : S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard'))
         : S.board.res.goalFail(V.why.join(', '))));
     }
     const scream = el('div', 'sm-scream');
@@ -60,7 +60,7 @@ export class Summary {
     const row = el('div', 'sm-buttons');
     const mk = (label, fn, cls = '') => { const b = el('button', 'sm-btn ' + cls, label); b.type = 'button'; bindPress(b, fn); return b; };
     const play = mk(S.board.listen, () => this.h.play());
-    const again = mk(S.board.res.newRound, () => this.h.again(), 'primary');
+    const again = s.next ? mk(S.campaign.next(s.next.n), () => this.h.next(), 'primary') : mk(S.board.res.newRound, () => this.h.again(), 'primary');   // W19: the next level
     row.append(again, play, mk(S.summary.menu, () => this.h.menu(), 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
     right.append(row);
     card.append(left, right);

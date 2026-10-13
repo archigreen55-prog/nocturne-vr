@@ -14,7 +14,7 @@ import { restyleLurker } from '../style/figures.js';
 
 
 export class Lurker {
-  // env: { level, onScare(), breathOf(player), onWake(player), onLost(player), ajar }
+  // env: { level, onScare(), breathOf(player), onWake(player), onLost(player), ajar, asleep() (W19: below its level it never wakes) }
   //   W7: breathOf — that player holds the breath (then in the telegraph it loses them); ajar — the doors
   //   stay this open while it sleeps (a wardrobe with a box inside, story-bible §4.3)
   constructor(env) {
@@ -113,7 +113,7 @@ export class Lurker {
   }
 
   hear(e) {
-    if (this.state !== 'dormant' || e.source !== 'player') return;
+    if (this.state !== 'dormant' || e.source !== 'player' || (this.env.asleep && this.env.asleep())) return;   // W19: asleep below its level
     if (Math.hypot(e.x - this.FRONT.x, e.z - this.FRONT.z) < CFG.lurker.noiseTrigger && this.near(e.x, e.z)) this.wake();
   }
 
@@ -143,7 +143,7 @@ export class Lurker {
     const player = this.victim = m.p, d = m.d, near = m.near;
     switch (this.state) {
       case 'dormant':
-        if (d < L.trigger && near) this.wake();
+        if (d < L.trigger && near && !(this.env.asleep && this.env.asleep())) this.wake();   // W19: asleep below its level (shut, quiet)
         break;
       case 'telegraph': {
         // doors rattle, eyes glow in the gap

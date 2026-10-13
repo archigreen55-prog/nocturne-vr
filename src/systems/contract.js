@@ -14,6 +14,8 @@ import { switchMap, applyMapConfig } from '../world/maps.js';
 import { summaryState } from './phone.js';
 import { shopPress } from './economy.js';
 import { newRoundTraps, reloadVan } from './traps.js';
+import { applyLevel, campaignPress } from './campaign.js';
+import { CLASSIC, currentLevel } from '../game/campaign.js';
 import { S } from '../i18n/index.js';
 
 // fromHost: a guest starts a new round only when the host does (systems/net.js)
@@ -27,6 +29,7 @@ export function newRound(fromHost = false) {
   loot.reset(); hands.reset(); level.reset(); for (const g of G.guards || [patrol]) g.reset(); for (const l of G.lurkers || [lurker]) l.reset(); G.alert.reset();
   round.reset(); scream.clear(); breath.reset(); noise.clear(); siren.set(false);
   newRoundTraps();   // W2b: the van loaded from the stock again, the points from zero
+  applyLevel();      // W19: the cans, the devices of this level
   G.caughtT = -1; G.resultT = -1;
   board.placeAtStand();
   player.virtualCrouch = false;
@@ -44,6 +47,7 @@ export function setContract(id) {
   G.contract = contractById(id); G.contractId = G.contract.id; saveSetting('contract', G.contractId);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   reloadVan();   // W2b: another contract / difficulty: another number of traps
+  applyLevel();  // W19
   syncStartScreen(); G.boardDirty = true;
 }
 export function setDifficulty(id) {
@@ -74,7 +78,7 @@ async function micOnInVR() {
 export function pressBoard(id) {
   const { round, mic, scream } = G;
   const all = CFG.contracts, i = all.indexOf(G.contract);
-  if (G.isGuest && ['leave', 'again', 'cprev', 'cnext', 'diff', 'mappage'].includes(id)) { flash(S.net.hostDecides, 2, '#93a1b8'); G.boardDirty = true; return; }   // the host's round
+  if (G.isGuest && ['leave', 'again', 'cprev', 'cnext', 'diff', 'mappage', 'nextlvl'].includes(id)) { flash(S.net.hostDecides, 2, '#93a1b8'); G.boardDirty = true; return; }   // the host's round
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
   else if (id === 'play') scream.play();
   else if (id === 'again') newRound();
@@ -89,6 +93,7 @@ export function pressBoard(id) {
   else if (id === 'lnext') G.storyPage = Math.min(Math.ceil(CFG.story.lurkers.length / 3) - 1, (G.storyPage || 0) + 1);
   else if (id.startsWith('map:')) { if (round.phase === 'ready') switchMap(id.slice(4)); }
   else if (id === 'back') G.boardPage = 'contract';
+  else if (campaignPress(id, { newRound, setContract })) { /* W19: «Поїхали», «Карта…», «Далі: рівень N» (systems/campaign.js) */ }
   else if (shopPress(id)) { /* the shop (systems/economy.js) */ }
   else if (id === 'cal') calibrateInVR();
   else if (id === 'micon') micOnInVR();
@@ -123,7 +128,8 @@ export const contract = {
   // applied before the guard is built
   init() {
     applyMapConfig();   // W6: the map's contracts and timers
-    G.contractId = loadSetting('contract', 'first'); G.difficulty = loadSetting('difficulty', 'medium');
+    // W19: a new player starts at the rehearsal (level 0), a returning one where the ladder stands
+    G.contractId = loadSetting('contract', CLASSIC ? 'first' : currentLevel().id); G.difficulty = loadSetting('difficulty', 'medium');
     if (!DIFFS.includes(G.difficulty)) G.difficulty = 'medium';
     G.contract = contractById(G.contractId);
     applyDifficulty(G.difficulty, G.contract);

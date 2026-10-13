@@ -76,10 +76,14 @@ export class Devices {
         on: false, uses: 0, dead: false, claimed: null, t: 0, noiseT: 0, ringing: false, talking: false, delayT: -1,
       };
     });
+    this.enabled = true;
     this.reset();
   }
 
   byId(id) { return this.list.find((d) => d.id === id) || null; }
+
+  // W19: not on this level yet (config/campaign.js devices) — not there at all: hidden, out of reach
+  setEnabled(on) { this.enabled = on; this.group.visible = on; }
 
   reset() {
     power.reset();
@@ -94,6 +98,7 @@ export class Devices {
 
   // VR: the device within reach of the hand (3D distance to its middle)
   nearHand(p) {
+    if (!this.enabled) return null;
     let best = null, bestD = CFG.devices.reach;
     for (const d of this.list) {
       const dd = Math.hypot(p.x - d.x, p.y - (d.y + 0.08), p.z - d.z);
@@ -103,6 +108,7 @@ export class Devices {
   }
   // phone / PC: the device in front of the eyes (like the items: within aimReach, roughly ahead)
   aimed(head, yaw, floorY = 0) {
+    if (!this.enabled) return null;
     let best = null, bestD = CFG.devices.aimReach;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     for (const d of this.list) {

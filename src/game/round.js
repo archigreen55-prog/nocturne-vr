@@ -60,10 +60,11 @@ export class Round {
     if (this.phase === 'ready') {
       if (players.some((p) => Math.hypot(p.head.x - R.vanZone.x, p.head.z - R.vanZone.z) > R.startDist)) {
         this.phase = 'heist';
-        this.env.onMessage(S.round.clockStarts, '#ffd166', 3);
+        this.env.onMessage(R.noClock ? S.campaign.noClock : S.round.clockStarts, '#ffd166', 3);   // W19: the rehearsal's clock stands
         this.env.onPhase('heist');
       }
     } else if (this.phase === 'heist') {
+      if (R.noClock) return;   // W19: the rehearsal — no time, no warning, leave whenever
       this.t += dt;
       if (this.t >= R.warnAt && !this.warned) {
         this.warned = true;

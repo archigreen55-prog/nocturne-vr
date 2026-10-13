@@ -22,6 +22,7 @@ import { G } from './state.js';
 import { flash, fx } from './messages.js';
 import { S } from '../i18n/index.js';
 import { throwablesFor } from '../loot/throw.js';
+import { unlocked } from '../game/campaign.js';
 import { score } from './traps.js';
 import { storyLurkerWake, storyLurkerLost } from './story.js';
 import { nearest } from '../game/players.js';
@@ -111,7 +112,8 @@ export const world = {
     // W7: the player holds the breath (a friend's comes with its state); the dacha wardrobe has a box inside: ajar while it sleeps
     const breathOf = (p) => (p === player ? G.breath.holding : !!(p && p.mic && p.mic.breath));
     const boxInside = (level.items || CFG.items).some((i) => i.inWardrobe);
-    const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec, breathOf,
+    const asleep = () => !unlocked('wardrobe', G.contract);   // W19: Шафник from level 3 on (config/campaign.js)
+    const lurkers = G.lurkers = (level.lurkers || [level.wardrobe]).map((spec) => new Lurker({ level, onScare, spec, breathOf, asleep,
       ajar: boxInside && spec === level.wardrobe ? CFG.story.wardrobe.ajar : 0, onWake: (p) => storyLurkerWake(p), onLost: (p) => storyLurkerLost(p) }));
     const lurker = G.lurker = lurkers[0];
     for (const l of lurkers) scene.add(l.group);
