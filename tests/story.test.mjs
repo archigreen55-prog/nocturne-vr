@@ -100,8 +100,12 @@ test('the board and the start screen: the customer\'s lines and Zoya\'s on contr
   // the newest drawn state after `fn` changed something
   const drawn = async (fn) => {
     await page.evaluate((fn) => { window.__seen.length = 0; if (fn) (0, eval)(fn)(); const g = window.__game; g.player.teleport(2.2, 6.8, 2.92); g.player.lookYaw = 2.92; }, fn ? fn.toString() : null);
-    await page.waitForTimeout(400);   // the camera follows the teleport on the next frames (the board is drawn only in view)
-    await page.evaluate(async () => { const B = await import('./src/systems/board.js'), { G } = await import('./src/systems/state.js'); G.boardDirty = true; G.lastBoardSig = null; B.board.present(0.3); });
+    // the camera follows the teleport on the next frames (the board is drawn only in view): draw until it is
+    for (let i = 0; i < 10; i++) {
+      await page.waitForTimeout(i ? 200 : 400);
+      const ok = await page.evaluate(async () => { const B = await import('./src/systems/board.js'), { G } = await import('./src/systems/state.js'); G.boardDirty = true; G.lastBoardSig = null; B.board.present(0.3); return window.__seen.length > 0; });
+      if (ok) break;
+    }
     return page.evaluate(() => { const s = window.__seen.at(-1); return { ...s, ids: window.__game.board.buttons.map((b) => b.id), contract: null, mic: null, tally: null, verdict: s.verdict && { goal: s.verdict.goal }, result: s.result && { kind: s.result.kind } }; });
   };
   const b0 = await drawn();
