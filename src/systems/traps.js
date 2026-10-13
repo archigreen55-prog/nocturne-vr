@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { stockOf, spendTrap, trialSoap } from '../game/economy.js';
 import { mischief } from '../game/mischief.js';
+import { unlocked } from '../game/campaign.js';
 import { inCargo } from '../loot/items.js';
 import { Builder } from '../world/level.js';
 import { playSlip, playMarbles, playBucket, playTrip, playAlarmClock } from '../audio/trapSfx.js';
@@ -51,6 +52,7 @@ function loadVan() {
   const z = c.rear === 'max' ? c.maxZ - 0.18 : c.minZ + 0.18;
   let n = 0;
   for (const kind of CFG.traps.order) {
+    if (!unlocked('trap:' + kind, G.contract)) continue;   // W19: not on this level yet (decision R3 B)
     const k = Math.min(stockOf(kind), lim - n);
     const pool = items.filter((i) => i.trap === kind);
     for (let i = 0; i < k && i < pool.length; i++, n++) {
@@ -61,7 +63,7 @@ function loadVan() {
       it.inVan = true;
     }
   }
-  if (!lim && CFG.traps.order.some((k) => stockOf(k) > 0)) flash(S.traps.noTraps, 3, '#93a1b8');
+  if (!lim && CFG.traps.order.some((k) => stockOf(k) > 0 && unlocked('trap:' + k, G.contract))) flash(S.traps.noTraps, 3, '#93a1b8');
   return n;
 }
 

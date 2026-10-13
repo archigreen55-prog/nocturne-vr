@@ -23,6 +23,7 @@ import { restartTutorial } from './tutorial.js';
 import { openProgress } from './progressCode.js';
 import { brightnessStep, toggleOutdoor, brightnessLabel, outdoorLabel } from './brightness.js';
 import { shopRows, buyUpgrade, lockText, incomeText } from './economy.js';
+import { nextOpen } from './campaign.js';
 import { mischiefText } from './traps.js';
 import { beforeNow, afterNow } from './story.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
@@ -85,6 +86,7 @@ function pauseAuto(reason) { if (G.touch && G.playingDesktop && !G.inVR && !G.pa
 export const summaryState = () => ({
   result: G.round.result, verdict: G.verdict, contractName: G.contract.name, difficulty: G.difficulty, bonusText: bonusText(G.contract),
   clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: G.mic.noMic, income: incomeText(), mischief: mischiefText(), story: afterNow(),
+  next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
 });
 // phone: the board button under the crosshair (decision A + B: tap the board or aim and press «Натиснути»)
 export const boardAim = () => (G.touch && G.playingDesktop && G.caughtT < 0 && !G.paused && !(G.summary && G.summary.isOpen) ? G.pointer.hover.desk : null);
@@ -133,6 +135,7 @@ export const phone = {
     G.summary = touch ? new Summary($('summary'), {
       play: () => pressBoard('play'),
       again: () => pressBoard('again'),
+      next: () => pressBoard('nextlvl'),
       menu: () => pauseOpen('user'),
       report: () => copyReport(reportText()),
     }) : null;

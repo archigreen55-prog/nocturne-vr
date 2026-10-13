@@ -44,6 +44,12 @@ export class Brain {
 
   // ---------- planning ----------
   plan() {
+    // W19, the rehearsal: back to the armchair each time it has nothing else to do; it sees only close by
+    if ((CFG.run || {}).armchairAtStart && this.cfg.habits.armchair) {
+      const A = CFG.campaign.armchair;
+      this.queueHabit({ id: 'armchair', ...this.cfg.habits.armchair, dur: A.dur, sightK: A.sightK, hearK: A.hearK, fovK: A.fovK });
+      return;
+    }
     const t = this.env.roundTime();
     if (t !== null) {
       const h = this.habits.find((x) => !x.done && t >= x.at);

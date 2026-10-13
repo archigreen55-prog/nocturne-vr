@@ -8,6 +8,7 @@
 import { CFG } from '../config/index.js';
 import { wallet, ensureWallet, creditRound, buy, upgrade, lockOf, isOpen, openAll, openAllAllowed, setOpenAll, buyTrap } from '../game/economy.js';
 import { reloadVan, roundLimit } from './traps.js';
+import { reached, levelOf, CLASSIC } from '../game/campaign.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { money } from '../ui/board.js';
 import { playCash } from '../audio/audio.js';
@@ -29,13 +30,13 @@ export function shopRows() {
     const effect = S.shop.effects[u.id](u.teaExtra ?? u.stamina ?? u.quietSpeed);
     const button = state === 'soon' ? S.shop.soon : state === 'owned' ? S.shop.owned : state === 'need' ? S.shop.need(money(u.price - w.cash)) : S.shop.buy(money(u.price));
     return { id: u.id, name: S.shop.names[u.id], effect, price: money(u.price), state, button, enabled: state === 'buy' && G.round.phase === 'ready' };
-  }).concat(CFG.traps.order.map((kind) => {   // W2b: traps, consumables (bought again and again)
+  }).concat(CFG.traps.order.filter((kind) => reached('trap:' + kind)).map((kind) => {   // W2b: traps, consumables (bought again and again); W19: from their level on
     const T = CFG.traps.kinds[kind], n = w.stock[kind] || 0, state = w.cash >= T.price ? 'buy' : 'need';
     const button = state === 'need' ? S.shop.need(money(T.price - w.cash)) : S.shop.buy(money(T.price));
     return { id: 'trap:' + kind, name: `${S.traps.names[kind]} · ${S.traps.stock(n)}`, effect: S.traps.effects[kind], price: money(T.price), state, button, enabled: state === 'buy' && G.round.phase === 'ready', consumable: true };
   }));
 }
-export const shopPages = () => Math.ceil((CFG.shop.upgrades.length + CFG.traps.order.length) / ROWS);   // + the traps (W2b)
+export const shopPages = () => Math.ceil(shopRows().length / ROWS);   // + the traps (W2b; W19: those already reached)
 export const shopPageRows = () => shopRows().slice(G.shopPage * ROWS, G.shopPage * ROWS + ROWS);
 
 // Buy from the board or the menu; the message says what happened. Returns true when bought.
@@ -86,7 +87,8 @@ export function syncWallet() {
   const sel = $('contract');
   if (sel) for (const o of sel.options) {
     const c = CFG.contracts.find((x) => x.id === o.value);
-    if (c) o.textContent = (isOpen(c) ? '' : S.shop.lockShort + ' ') + c.name;
+    const l = !CLASSIC && levelOf(o.value);   // W19: the level's number in front (the menu's map: stage E2)
+    if (c) o.textContent = (isOpen(c) ? '' : S.shop.lockShort + ' ') + (l ? `${l.n}. ` : '') + c.name;
   }
 }
 

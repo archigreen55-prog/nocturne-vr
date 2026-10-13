@@ -221,8 +221,8 @@ export const story = {
     for (const it of loot.items) if (it.inWardrobe) it.shut = !open && !it.held && !it.delivered && it.state === 'rest' && Math.hypot(it.mesh.position.x - it.def.pos[0], it.mesh.position.z - it.def.pos[2]) < 0.3;
     if (round.phase !== 'heist' && round.phase !== 'escape') return;
     const W = G.lurker;
-    // «У шафі щось блищить»: once a round, close to the shut wardrobe with the box inside
-    if (!local.boxHint && !(G.flashT > 0) && W && W.env.ajar && W.state === 'dormant' && loot.items.some((it) => it.inWardrobe && it.shut) && Math.hypot(player.head.x - W.FRONT.x, player.head.z - W.FRONT.z) < 2) {
+    // «У шафі щось блищить»: once a round, close to the shut wardrobe with the box inside (W19: not while it sleeps below its level)
+    if (!local.boxHint && !(G.flashT > 0) && W && W.env.ajar && W.state === 'dormant' && !(W.env.asleep && W.env.asleep()) && loot.items.some((it) => it.inWardrobe && it.shut) && Math.hypot(player.head.x - W.FRONT.x, player.head.z - W.FRONT.z) < 2) {
       local.boxHint = true; flash(S.lurkers.hud.wardrobeItem, 3, '#ffd166');
     }
     if (loot.items.some((it) => it.inWardrobe && it.held)) local.stats.box = true;

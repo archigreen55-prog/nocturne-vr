@@ -47,6 +47,10 @@ export function applyDifficulty(id, contract) {
   if (M.time) Object.assign(CFG.round, { time: M.time, warnAt: M.warnAt, escapeTime: M.escapeTime });
   if (M.lurkerCooldown) CFG.lurker.cooldown = Math.min(CFG.lurker.cooldown, M.lurkerCooldown);
   if (M.teaAtStart) CFG.run.teaAtStart = M.teaAtStart;
+  // W19, the rehearsal: the guard sits in his armchair all round (no other habits); the clock stands
+  CFG.run.armchairAtStart = !!M.armchairAtStart;
+  if (M.armchairAtStart) CFG.run.habits = [];
+  CFG.round.noClock = !!M.noClock;
   applyUpgrades();
   return D;
 }
