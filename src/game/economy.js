@@ -139,9 +139,9 @@ export function lockOf(c) {
   const same = LISTS[map] || [], i = same.findIndex((x) => x.id === c.id);
   const prev = c.after ? same.find((x) => x.id === c.after) : same.slice(0, Math.max(0, i)).reverse().find((x) => !x.locked);
   if (!prev) return null;
-  // W19 (decision R10 A): a level put in before the ones already won (the rehearsal, «Шафа») counts as
-  // passed once a later contract of the map has a star — an old player is not sent back
-  const later = same.slice(same.indexOf(prev) + 1).some((x) => bestOf(x.id) >= CFG.shop.unlock.chainStars);
+  // W19 (decision R10 A): a level put in before the ones already won (`campaign`: the rehearsal, «Шафа»)
+  // counts as passed once a later contract of the map has a star — an old player is not sent back
+  const later = !!prev.campaign && same.slice(same.indexOf(prev) + 1).some((x) => bestOf(x.id) >= CFG.shop.unlock.chainStars);
   return bestOf(prev.id) >= CFG.shop.unlock.chainStars || later ? null : { after: prev };
 }
 export const isOpen = (c) => !lockOf(c);

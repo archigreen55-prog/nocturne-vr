@@ -30,9 +30,9 @@ export function unlocked(mech, contract) {
 export const playable = (l) => !!(l && !l.soon && contractOf(l) && !contractOf(l).locked);
 export const isOpenLevel = (l) => playable(l) && !lockOf(contractOf(l));
 export const stars = (l) => (l ? bestOf(l.id) : 0);
-// passed: a star on it, or on a later level of its act (decision R10 A: an old player is not sent back
-// to the rehearsal or to «Шафа»)
-export const passed = (l) => !!l && (stars(l) > 0 || CFG.campaign.levels.some((x) => x.act === l.act && x.n > l.n && stars(x) > 0));
+// passed: a star on it; a level put in by the campaign (the rehearsal, «Шафа») also by a star on a later
+// level of its act (decision R10 A: an old player is not sent back)
+export const passed = (l) => !!l && (stars(l) > 0 || (!!(contractOf(l) || {}).campaign && CFG.campaign.levels.some((x) => x.act === l.act && x.n > l.n && stars(x) > 0)));
 
 export function nextLevel(id) {
   const L = CFG.campaign.levels, i = L.findIndex((l) => l.id === id);

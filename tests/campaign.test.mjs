@@ -24,7 +24,7 @@ async function camp(url = base, { stars = null, wallet = null } = {}) {
 const S1 = { medium: 1 };
 const WALLET = { cash: 0, earned: 0, spent: 0, owned: [], paid: {}, log: [], trialSoap: true, stock: { soap: 1, marbles: 1, bucket: 1 } };   // the free soap of contract 7 already given
 
-test('the ladder: a new player starts at level 0 «Репетиція»; the list goes 0–7 with «Шафа» as 3; a star opens the next; an old player is not sent back (★ on 1 passes 0, ★ on 4 passes 3); the mansion\'s 8★ do not count the rehearsal; the classic test game keeps the old list', async () => {
+test('the ladder: a new player starts at level 0 «Репетиція»; the list goes 0–7 with «Шафа» as 3; a star opens the next; an old player is not sent back (★ on 1 passes 0, ★ on 4 passes 3; other levels as before); the mansion\'s 8★ do not count the rehearsal; the classic test game keeps the old list', async () => {
   const { ctx, page, errors } = await camp();
   const fresh = await page.evaluate(async () => {
     const g = window.__game, Cm = await import('./src/game/campaign.js'), E = await import('./src/game/economy.js');
@@ -48,8 +48,8 @@ test('the ladder: a new player starts at level 0 «Репетиція»; the lis
     const out = {};
     C.recordStars('rehearsal', 'medium', 1, 'pc');
     out.firstOpen = Cm.isOpenLevel(Cm.levelOf('first')); out.current = Cm.currentLevel().n;
-    // an old player: stars on 1 and on 4, none on 0, 2, 3
-    localStorage.setItem('nocturne.stars', JSON.stringify({ first: { medium: 2 }, quiet: { medium: 1 } }));
+    // an old player: stars on 1, 2 and 4 (the old chain), none on 0 and 3
+    localStorage.setItem('nocturne.stars', JSON.stringify({ first: { medium: 2 }, clock: { medium: 1 }, quiet: { medium: 1 } }));
     out.old = Cm.levels().filter((l) => l.act === 1).map((l) => `${l.n}${Cm.isOpenLevel(l) ? 'o' : 'x'}${Cm.passed(l) ? 'p' : ''}`).join(' ');
     out.oldCurrent = Cm.currentLevel().n;
     // the mansion: 8★ in the dacha, the rehearsal's star not among them
