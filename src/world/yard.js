@@ -21,8 +21,8 @@ export const VAN = { x: 13.3, z: 26.0, yaw: 0 };
 export const DROP = { x: 13.3, z: 25.2, r: 0.6, flyTime: 0.3 };    // CFG.dropZone on this map
 export const VAN_ZONE = { x: 13.3, z: 25.2, r: 2.0 };               // CFG.round.vanZone («at the van»)
 export const CARGO = { minX: 12.4, maxX: 14.2, minZ: 26.05, maxZ: 29.55, y: 0.4, rear: 'min' };   // = kit.van's cargo (x 13.3, z 26, yaw 0)
-export const SPAWN = { x: 10.6, z: 25.4, yaw: 2.92 };   // beside the van, facing the board (contract menu); the street and the house are behind
-export const BOARD = { x: 10.15, z: 27.35, yaw: 2.92 };   // scoreboard stand next to the van, facing the spawn point
+export const SPAWN = { x: 10.6, z: 25.4, yaw: 1.98 };   // beside the van, facing the board (contract menu); turned round (yaw - π) = towards the lane's way out to the street
+export const BOARD = { x: 8.8, z: 26.2, yaw: 1.98 };   // scoreboard stand next to the van, facing the spawn point
 // the guard goes no further south than this (the porch, the garden, the gate — not the street)
 export const LEASH = { maxZ: YARD_FENCE_Z - 0.2 };
 
@@ -50,10 +50,10 @@ export const YARD_NODES = [[0, 1.6], [1.0, 4.6], [-5, 3.2], [6.5, 3.2], [-3, -16
 // Cover in the garden: [x0, z0, x1, z1, h] — furniture for line of sight (a crouching thief behind a
 // bush or the low fence is hidden; standing, he is not), bodies bump into it.
 export const COVER = {
-  bushes: [[-1.5, 4.6, 0.55], [2.9, 6.2, 0.6], [-0.4, 9.4, 0.55], [4.4, 10.6, 0.6], [1.0, 12.6, 0.55], [5.0, 14.4, 0.5]],   // [x, z, r]; 0.9 m high
+  bushes: [[-1.5, 4.6, 0.55], [2.9, 6.2, 0.6], [-0.6, 9.0, 0.55], [4.4, 11.1, 0.6], [1.0, 12.6, 0.55], [5.0, 14.4, 0.5]],   // [x, z, r]; 0.9 m high
   shed: { x0: -9.5, z0: 9.5, x1: -6.5, z1: 12.5, h: 2.5 },
   woodpile: { x0: 6.0, z0: 11.6, x1: 7.6, z1: 12.4, h: 1.0 },
-  lowFence: { z: 8.2, x0: -12, x1: 12, gap: [0.2, 1.9], h: 0.8 },   // the garden's low fence across the yard, the path through its gap
+  lowFence: { z: 10.0, x0: -6.2, x1: 12, gap: [1.0, 2.7], h: 0.8 },   // the garden's low fence across the yard, the path through its gap
 };
 
 const COL = {
