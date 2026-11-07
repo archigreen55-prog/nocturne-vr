@@ -47,6 +47,7 @@ import { style } from './style.js';
 import { story } from './story.js';
 import { menu } from './menu.js';
 import { campaign } from './campaign.js';
+import { humanGuard } from './humanGuard.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -81,6 +82,7 @@ export const SYSTEMS = [
   menu,          // W17 S3: the main menu and its pages, ?page= links, the first-run microphone card
   guards,        // W6: the second guard (its step of the frame, its lamp's mask) and the radio chatter between the two
   brightness,    // display brightness and «Надворі» (phone, PC): the picture only
+  humanGuard,    // W15: «За сторожа» — the guard's pose and view, the bench, who won (after net and guards)
 ];
 
 export const PHASES = ['pre', 'input', 'act', 'world', 'result', 'present'];

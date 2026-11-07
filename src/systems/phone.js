@@ -1,6 +1,7 @@
 // Phone: the pause (menu, minimised page, call), the settings, vibration / edge flashes, the round
 // summary screen. Frame: the summary screen replaces the floating result board.
 import { CFG } from '../config/index.js';
+import { guardResultText } from './humanGuard.js';
 import { saveSetting, loadSetting } from '../settings.js';
 import { LOOK_SPEEDS } from '../input/touch.js';
 import { ensureFullscreen, holdScreen } from '../platform/screen.js';
@@ -85,7 +86,7 @@ export function pauseResume() {
 function pauseAuto(reason) { if (G.touch && G.playingDesktop && !G.inVR && !G.paused) pauseOpen(reason); }
 export const summaryState = () => ({
   result: G.round.result, verdict: G.verdict, contractName: G.contract.name, difficulty: G.difficulty, bonusText: bonusText(G.contract),
-  clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: G.mic.noMic, income: incomeText(), mischief: mischiefText(), story: afterNow(),
+  clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: G.mic.noMic, income: G.role === 'guard' ? guardResultText() : incomeText(), mischief: mischiefText(), story: afterNow(),
   next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
 });
 // phone: the board button under the crosshair (decision A + B: tap the board or aim and press «Натиснути»)

@@ -34,7 +34,7 @@ export const heist = {
       }
       // noise from the players: stick steps of everybody; voice and shout from this device's microphone
       for (const p of G.players) if (p.stepNoise) noise.emit(p.head.x, p.head.z, p.stepNoise, p.stepKind, { who: p });   // 'step' or 'run'
-      voiceNoise(player, G, dt, micLive, mic.level, shout, true);
+      if (G.role !== 'guard' && !(G.benchT > 0)) voiceNoise(player, G, dt, micLive, mic.level, shout, true);   // W15: the guard's voice, or a thief's in the van, is no noise in the house
 
       // world
       loot.update(dt, G.players);
@@ -73,7 +73,8 @@ export function voiceNoise(p, st, dt, live, level, shout, local) {
     round.shouts++;
     if (local) { fx('shout'); G.scream.onShout(round.t); }
     noise.emit(x, z, 40, 'shout', { who: p });
-    if (CFG.run.shoutFull) { alert.setFull(S.cause.shout, x, z); flash(S.messages.shoutFull, 3, '#ff4d4d'); }
+    if (alert.manualOnly) flash(S.hguard.shoutHeard, 3, '#ff4d4d');   // W15: a friend plays the guard — it decides what a shout means
+    else if (CFG.run.shoutFull) { alert.setFull(S.cause.shout, x, z); flash(S.messages.shoutFull, 3, '#ff4d4d'); }
     else { alert.add(70, x, z); flash(S.messages.shoutEasy, 3, '#ff4d4d'); }   // easy
   }
   speaking(st, dt, live, level);

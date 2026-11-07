@@ -57,7 +57,7 @@ export const guards = {
       if (G.lampWallsOn) { patrol2.lamp.getWorldPosition(lampFrom); lampWalls.update(lampFrom, level, (patrol2.lamp.distance || 7) + 1); }
     }
     // radio chatter while both are calm (the alarm has its own calls)
-    if (round.phase !== 'heist' || alert.full || G.isGuest) return;
+    if (round.phase !== 'heist' || alert.full || G.isGuest || G.humanGuard) return;   // W15: a human Valera does not read the script
     if (this.answer) {
       if ((this.answer.t -= dt) <= 0) { const a = this.answer; this.answer = null; a.who.env.sound('radio'); a.who.env.say(a.line); }
       return;

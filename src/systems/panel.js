@@ -30,6 +30,7 @@ export const panel = {
       const crew = G.crewLineT > 0 && G.guardLineT <= 0 ? G.crewLine : '';
       const guardText = G.guardLineT > 0 ? S.hud.guardSays(G.guardSaid || G.guardLine, G.guardName) : crew ? S.hud.crewSays(crew.name, crew.line) : CFG.run.showGuard && round.phase !== 'result' ? S.hud.guardDoes(patrol.activity, guardName) : '';
       let goal = round.phase === 'result' ? null : progress(G.contract, T, loot);
+      if (G.role === 'guard' && round.phase !== 'result') goal = { text: G.guardHudText(), done: false };   // W15: the guard's line
       if (goal && mischief.score && !G.contract.goal.mischief) goal = { ...goal, text: `${goal.text} · ${S.traps.score(mischief.score)}` };   // W2b: mischief on any contract
       const pnl = {
         stealth: st, goal, guardText,

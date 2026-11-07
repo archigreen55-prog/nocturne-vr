@@ -50,7 +50,7 @@ function doorAhead() {
       if (local.knockT > 0) return;
       local.knockT = CFG.sprint.knockEvery;
       playKnock({ x: d.cx, y: 1, z: d.cz });
-      noise.emit(d.cx, d.cz, CFG.sprint.knockRadius, 'door');
+      if (G.role !== 'guard') noise.emit(d.cx, d.cz, CFG.sprint.knockRadius, 'door');   // W15: not the guard's
       flash(S.messages.locked);
       G.runStats.knocks++;
       stopRun();
@@ -165,7 +165,7 @@ export const sprint = {
       if (local.pantT <= 0) {
         local.pantT = 1;
         playPant();
-        if (CFG.sprint.pantRadius > 0) noise.emit(player.head.x, player.head.z, CFG.sprint.pantRadius, 'breath');
+        if (CFG.sprint.pantRadius > 0 && G.role !== 'guard') noise.emit(player.head.x, player.head.z, CFG.sprint.pantRadius, 'breath');
       }
     }
   },

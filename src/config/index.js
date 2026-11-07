@@ -23,13 +23,14 @@ import { net } from './net.js';
 import { style } from './style.js';
 import { story } from './story.js';
 import { campaign } from './campaign.js';
+import { humanGuard } from './humanGuard.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
   difficulties, contracts, sprint, shop,
   maps, mansion,
   throw: throwing, devices, traps,
-  net,
+  net, humanGuard,
   style,
   story,   // W7
   campaign,   // W19
