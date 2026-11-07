@@ -388,3 +388,32 @@ test('net: a guest that found nobody sees the join form, not a room (B01)', asyn
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// T4a: the host picks the mission in the room (the levels of this house, 🔒 closed, the difficulty); the guest sees it
+test('net: the host picks the level and the difficulty in the room, the guest sees the choice (T4a)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '161803';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.fill('#netname', 'Оля');
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  // the host's room: a button per contract of this house; the closed ones are disabled and marked 🔒
+  const list = await host.page.evaluate(() => [...document.querySelectorAll('#netlevels button')].map((b) => ({ id: b.dataset.id, t: b.textContent, off: b.disabled })));
+  assert.ok(list.length >= 2, JSON.stringify(list));
+  assert.ok(list.filter((b) => b.off).every((b) => b.t.includes('🔒')), 'closed levels say 🔒');
+  const pick = list.find((b) => !b.off && b.id !== 'first') || list.find((b) => !b.off);
+  await host.page.click(`#netlevels button[data-id="${pick.id}"]`);
+  await host.page.click('#netdiffs button[data-id="hard"]');
+  await run([host.page, guest.page], 0.6);
+  const h = await host.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, pressed: document.querySelector('#netlevels button[aria-pressed="true"]').dataset.id }));
+  assert.equal(h.c, pick.id); assert.equal(h.d, 'hard'); assert.equal(h.pressed, pick.id);
+  const g = await guest.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, text: document.querySelector('#netchoice').textContent, pick: document.querySelector('#netpick').hidden }));
+  assert.equal(g.c, pick.id, 'the guest plays the host’s contract');
+  assert.equal(g.d, 'hard');
+  assert.equal(g.pick, true, 'a guest has no buttons to pick');
+  assert.ok(g.text.startsWith('Хост обрав: ') && g.text.includes(pick.t.replace(' 🔒', '')) && /важк/i.test(g.text), g.text);
+  assert.deepEqual(host.errors, []); assert.deepEqual(guest.errors, []);
+  await ctx.close();
+});

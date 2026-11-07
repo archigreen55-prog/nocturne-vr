@@ -19,7 +19,9 @@ import { Lobby } from '../ui/lobby.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { contractById } from '../game/contracts.js';
-import { newRound, caught } from './contract.js';
+import { newRound, caught, setContract, setDifficulty } from './contract.js';
+import { isOpen } from '../game/economy.js';
+import { levelOf, CLASSIC } from '../game/campaign.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
@@ -55,9 +57,38 @@ function lobbyPlayers() {
 }
 function refreshLobby() {
   if (!lobby) return;
-  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION });
+  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
+    role: N.role, choice: N.t ? choiceText() : '', levels: isHost() ? levelsForRoom() : null, diffs: isHost() ? diffsForRoom() : null });
 }
-function lobbyMessage() { return { type: 'lobby', gp: G.guardPid || '', players: lobbyPlayers().map(({ you, ...p }) => p) }; }
+// T4a: the mission in the room — what the host picked (its contract on this house, the difficulty)
+const setupNow = () => ({ map: G.level.id, c: G.contract.id, diff: G.difficulty });
+const houseName = (map) => (map === 'mansion' ? S.mansion.name : S.mansion.mapDacha);
+function levelLabel(c) { const l = !CLASSIC && levelOf(c.id); return `${l ? `${S.net.levelN(l.n)} · ` : ''}${c.name}`; }
+function choiceText() {
+  const s = isHost() ? setupNow() : N.setup;
+  if (!s) return '';
+  const c = CFG.contracts.find((x) => x.id === s.c);
+  const diff = (CFG.difficulties[s.diff] || {}).name || '';
+  return S.net.hostChose(houseName(s.map), c ? levelLabel(c) : s.c, diff);
+}
+const levelsForRoom = () => CFG.contracts.map((c) => ({ id: c.id, label: levelLabel(c) + (c.locked || !isOpen(c) ? ' 🔒' : ''), locked: !!c.locked || !isOpen(c), current: c.id === G.contract.id }));
+const diffsForRoom = () => ['easy', 'medium', 'hard'].map((d) => ({ id: d, name: CFG.difficulties[d].name, current: d === G.difficulty }));
+// the host's pick in the room: a finished round goes back to the van first (setContract works only before the clock)
+function pickLevel(id) {
+  if (!isHost()) return;
+  const c = CFG.contracts.find((x) => x.id === id);
+  if (!c || c.locked || !isOpen(c)) return;
+  if (G.round.phase !== 'ready') newRound();
+  setContract(id);
+}
+function pickDiff(d) {
+  if (!isHost()) return;
+  if (G.round.phase !== 'ready') newRound();
+  setDifficulty(d);
+}
+// the host's choice changed (systems/contract.js calls it): the guests learn it at once
+function netSetupChanged() { if (N.t && isHost()) send(lobbyMessage()); refreshLobby(); }
+function lobbyMessage() { return { type: 'lobby', gp: G.guardPid || '', players: lobbyPlayers().map(({ you, ...p }) => p), setup: setupNow() }; }
 
 // ---------- the room ----------
 async function open(code, role) {
@@ -215,7 +246,7 @@ function guestMessage(m, peer) {
   if (N.hostLost) { N.hostLost = false; setStatus(S.net.status.inRoom(N.hostName)); }
   if (m.type === 'state') guestState(m);
   else if (m.type === 'ev') guestEvent(m);
-  else if (m.type === 'lobby') { N.lobbyList = m.players; for (const p of m.players) N.info.set(p.pid, p); applyGuard(m.gp || null, N.pid); refreshLobby(); }
+  else if (m.type === 'lobby') { N.lobbyList = m.players; if (m.setup) N.setup = m.setup; for (const p of m.players) N.info.set(p.pid, p); applyGuard(m.gp || null, N.pid); refreshLobby(); }
 }
 
 // a guest from now on: the world comes from the host
@@ -319,6 +350,7 @@ export const net = {
   id: 'net',
   init() {
     G.net = null; G.isGuest = false; G.isHost = true;
+    G.netSetup = netSetupChanged;   // T4a
     G.netEvent = netEvent; G.netIntent = netIntent; G.netHeld = netHeld; G.netCaught = netCaught;
     G.netRemotes = () => [...N.remotes.values()]; G.netRemote = (pid) => N.remotes.get(pid) || null; G.netPid = () => N.pid; G.netName = () => N.name;   // W15
     N.name = loadSetting('netName', ''); N.thief = loadSetting('netThief', 'zoya');
@@ -330,6 +362,7 @@ export const net = {
       join: (c, name, thief) => { N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
       leave: () => { leave(); refreshLobby(); },
       role: (want) => netRole(want),
+      pickLevel, pickDiff,
       solo: () => { const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
       share: async () => {
         const link = roomLink(N.code, G.level.id);

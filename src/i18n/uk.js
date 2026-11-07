@@ -1149,7 +1149,6 @@ export default {
     lostTag: 'зв\'язок…',
     noMic: 'без мікрофона',
     who: 'Хто йде',
-    playHint: 'Коли всі в списку — кожен натискає «Грати». Контракт і складність обирає хост.',
     status: {
       opening: 'Відкриваю кімнату…',
       find: 'Шукаю кімнату…',
@@ -1168,6 +1167,10 @@ export default {
     },
     soloAfterLost: 'Грати самому',
     versionLine: (v) => `Версія гри: ${v}`,
+    // T4: one room from the menu to the round
+    mission: 'Місія',
+    levelN: (n) => `Рівень ${n}`,
+    hostChose: (house, level, diff) => `Хост обрав: ${house} · ${level} · ${diff}`,
     friendLost: (n) => `${n}: зв'язок…`,
     friendBack: (n) => `${n} знову в кімнаті`,
     friendGone: (n) => `${n} — поза кімнатою`,

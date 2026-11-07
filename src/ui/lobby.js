@@ -32,7 +32,11 @@ export class Lobby {
         <p><b>${esc(S.net.who)}</b></p>
         <ul id="netlist" style="margin:4px 0 8px;padding-left:20px"></ul>
         <div class="row"><span id="netguardis" class="muted"></span><button id="netguard">${esc(S.hguard.becomeGuard)}</button></div>
-        <p class="muted">${esc(S.net.playHint)}</p>
+        <div id="netsetup">
+          <p><b>${esc(S.net.mission)}</b></p>
+          <div id="netpick"><div id="netlevels" class="row" style="flex-wrap:wrap;gap:6px"></div><div class="row" id="netdiffs" style="gap:6px;margin-top:6px"></div></div>
+          <p id="netchoice"></p>
+        </div>
       </div>
       <p id="netstatus" style="color:var(--warn)"></p>
       <p class="muted" id="netver" style="font-size:12px;margin:2px 0"></p>
@@ -50,6 +54,7 @@ export class Lobby {
     bindPress(q('netleave'), () => on.leave());
     bindPress(q('netsolobtn'), () => on.solo());
     bindPress(q('netguard'), () => on.role && on.role(this.el.guard.dataset.want === '1'));   // W15: play the guard
+    this.built = '';   // T4a: the room's buttons are made once (show() runs twice a second: a remade button loses the finger)
     this.el.code.addEventListener('keydown', (e) => { if (e.key === 'Enter') on.join(cleanCode(this.el.code.value), ...who()); });
   }
 
@@ -73,6 +78,34 @@ export class Lobby {
       e.guard.textContent = mine ? S.hguard.becomeThief : S.hguard.becomeGuard;
       e.guard.dataset.want = mine ? '0' : '1';
       e.guard.disabled = !mine && !!g;
+      this.showSetup(st);
+    }
+  }
+
+  // T4a: the host picks the mission (the levels of this house, 🔒 closed) and the difficulty in the room;
+  // a guest sees the host's choice as text. st.levels: [{ id, label, locked, current }], st.diffs: [{ id, name, current }]
+  showSetup(st) {
+    const q = (id) => this.root.querySelector('#' + id);
+    const host = st.role === 'host', pick = q('netpick'), choice = q('netchoice');
+    pick.hidden = !host;
+    choice.textContent = st.choice || '';
+    if (!host) return;
+    const sig = JSON.stringify([(st.levels || []).map((l) => [l.id, l.label, l.locked]), (st.diffs || []).map((d) => d.id)]);
+    if (sig !== this.built) {
+      this.built = sig;
+      const mk = (box, id, label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = id; b.textContent = label; bindPress(b, () => { if (!b.disabled) fn(id); }); box.append(b); return b; };
+      const lv = q('netlevels'), df = q('netdiffs');
+      lv.replaceChildren(); df.replaceChildren();
+      for (const l of st.levels || []) mk(lv, l.id, l.label, (id) => this.on.pickLevel && this.on.pickLevel(id));
+      for (const d of st.diffs || []) mk(df, d.id, d.name, (id) => this.on.pickDiff && this.on.pickDiff(id));
+    }
+    for (const b of q('netlevels').children) {
+      const l = (st.levels || []).find((x) => x.id === b.dataset.id) || {};
+      b.disabled = !!l.locked; b.classList.toggle('primary', !!l.current); b.setAttribute('aria-pressed', l.current ? 'true' : 'false');
+    }
+    for (const b of q('netdiffs').children) {
+      const d = (st.diffs || []).find((x) => x.id === b.dataset.id) || {};
+      b.classList.toggle('primary', !!d.current); b.setAttribute('aria-pressed', d.current ? 'true' : 'false');
     }
   }
 

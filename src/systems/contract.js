@@ -49,6 +49,7 @@ export function setContract(id) {
   reloadVan();   // W2b: another contract / difficulty: another number of traps
   applyLevel();  // W19
   syncStartScreen(); G.boardDirty = true;
+  if (G.netSetup) G.netSetup();   // T4a: the guests see the host's mission at once
 }
 export function setDifficulty(id) {
   if (G.round.phase !== 'ready') return;
@@ -57,6 +58,7 @@ export function setDifficulty(id) {
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   reloadVan();   // W2b: another contract / difficulty: another number of traps
   syncStartScreen(); G.boardDirty = true;
+  if (G.netSetup) G.netSetup();
 }
 async function calibrateInVR() {
   const { mic, touch } = G;
