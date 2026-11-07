@@ -476,3 +476,34 @@ test('net: after the round both are back in the room screen (T4c)', async () => 
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
+
+// T5 (decision R-11.3): the board at the van is the host's — the guest's has no control buttons and says who runs it
+test('net: the guest presses every board button — nothing changes on the host; the guest’s board has no control buttons (T5)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '271801';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  for (const p of [host.page, guest.page]) await p.evaluate(() => { window.__game.playing = true; });
+  await run([host.page, guest.page], 0.5);
+  const snap = () => host.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, ph: window.__game.round.phase, page: window.__game.boardPage }));
+  const before = await snap(), url = guest.page.url();
+  const ids = ['leave', 'again', 'cprev', 'cnext', 'diff', 'mappage', 'nextlvl', 'go', 'levels', 'shop', 'sprev', 'snext', 'buy:sneakers', 'buy:trap:soap', 'micpage', 'lurkers', 'papers', 'map:mansion', 'back'];
+  const flashes = [];
+  for (const id of ids) {
+    await guest.page.evaluate((id) => window.__game.pressBoard(id), id);
+    await run([host.page, guest.page], 0.2);
+    flashes.push(await guest.page.evaluate(() => window.__game.flashText));
+  }
+  assert.deepEqual(await snap(), before, 'the host’s round is as it was');
+  assert.equal(guest.page.url(), url, 'the guest did not reload (no map change)');
+  const g = await guest.page.evaluate(() => ({ welcomed: window.__game.net.state().welcomed, buttons: window.__game.board.buttons.map((b) => b.id), page: window.__game.boardPage, playing: window.__game.playing }));
+  assert.equal(g.welcomed, true);
+  assert.ok(g.buttons.every((id) => id === 'play'), JSON.stringify(g.buttons));
+  assert.equal(g.playing, true, '«Карта…» did not throw the guest into the menu');
+  assert.ok(!flashes.some((t) => t === 'Це вирішує хост'), JSON.stringify(flashes));
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

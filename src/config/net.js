@@ -25,6 +25,9 @@ export const net = {
   peerLostAfter: 3,            // no packets: «Оля: зв'язок…» (invisible to the guards meanwhile)
   peerGoneAfter: 30,           // then «Оля вийшла»; coming back later = joining anew at the van
   hostLostAfter: 10,           // a guest: the host is gone, the round stops for it
+  // T5 (decision R-11.3, P2): the board at the van is the host's; a guest's board shows the round with only these
+  // buttons (they change nothing the others see: «Послухати» plays this player's own scream)
+  guestBoard: ['play'],
   maxSpeed: 4,                 // m/s: a guest moving faster than this is held back (a bad packet, not a cheat)
   // the thieves' colours on other screens (story-bible §2.1); the bot later
   thieves: { zoya: 0x8a5cc0, frol: 0xc26a2a, rita: 0xd0405f, nazar: 0x3c8f74 },

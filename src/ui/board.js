@@ -5,7 +5,8 @@
 // crosshair + click.
 import * as THREE from 'three';
 import { S } from '../i18n/index.js';
-import { HEAD } from '../style/palette.js';   // W17 S4: the headings' font for the titles and the clock (decision 10: the palette's colours)
+import { HEAD } from '../style/palette.js';
+import { CFG } from '../config/index.js';   // W17 S4: the headings' font for the titles and the clock (decision 10: the palette's colours)
 
 const W = 1024, H = 640;
 const SIZE_W = 1.1, SIZE_H = SIZE_W * H / W;
@@ -71,6 +72,11 @@ export class Board {
     else if (s.phase === 'ready' && s.page === 'papers' && s.papers) this.drawPapers(s);
     else if (s.phase === 'ready') this.drawContract(s);
     else this.drawRound(s);
+    if (s.guest) {   // T5: with friends the board is the host's — no control buttons, who runs it
+      this.buttons = this.buttons.filter((b) => CFG.net.guestBoard.includes(b.id));
+      g.textAlign = 'right'; g.fillStyle = '#9aa7bf'; g.font = 'bold 24px system-ui, sans-serif';
+      g.fillText(S.net.boardBy(s.guest), W - 30, H - 16);
+    }
     for (const b of this.buttons) {
       if (b.enabled === undefined) b.enabled = true;
       const on = this.hover === b.id && b.enabled;

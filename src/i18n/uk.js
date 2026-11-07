@@ -1173,6 +1173,8 @@ export default {
     levelN: (n) => `Рівень ${n}`,
     start: 'Почати',
     backToRoom: 'До кімнати',
+    boardBy: (name) => `Керує: ${name}`,
+    waitHost: (name) => `Чекаємо на хоста: ${name} обирає далі`,
     waitStart: 'Чекаємо, поки хост натисне «Почати».',
     otherHouse: (name) => `Інший будинок: ${name}`,
     hostChose: (house, level, diff) => `Хост обрав: ${house} · ${level} · ${diff}`,

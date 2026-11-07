@@ -29,7 +29,7 @@ function boardSignature(T, lv) {
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
     wallet().cash, wallet().owned.length, JSON.stringify(wallet().stock || {}), G.shopPage, lockText(contract), incomeText(), mischiefText(), G.boardPage === 'map' ? mapsForBoard(G.level.id).map((m) => m.lock) : 0,
     G.storyPage || 0, lurkersMet().n, notesCount().n, thief(),   // W7: Тихарник, «Папери»
-    !!G.inVR, (nextOpen() || {}).n,   // W19: the note on a phone / PC, «Далі: рівень N»
+    !!G.inVR, (nextOpen() || {}).n, !!G.isGuest, G.net && G.net.hostName,   // T5   // W19: the note on a phone / PC, «Далі: рівень N»
   ]);
 }
 const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4();
@@ -59,7 +59,7 @@ export const board = {
       G.board.draw({
         phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: T, result: round.result,
         clip: scream.best, playing: !!scream.playing, recMode: scream.modeName,
-        page: G.boardPage, contract, contractIndex: CFG.contracts.indexOf(contract), contractCount: CFG.contracts.length,
+        page: G.isGuest ? 'contract' : G.boardPage, guest: G.isGuest ? (G.net && G.net.hostName) || '?' : null, contract,   // T5: a guest sees the host's board contractIndex: CFG.contracts.indexOf(contract), contractCount: CFG.contracts.length,
         goalText: goalText(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
         diffName: CFG.difficulties[difficulty].name, difficulty, progress: progress(contract, T, loot), verdict: G.verdict,
         noMic: mic.noMic, mic, calib: G.calib, calibNotes: G.calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: G.touch ? 5 : 4,

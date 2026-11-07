@@ -80,7 +80,8 @@ async function micOnInVR() {
 export function pressBoard(id) {
   const { round, mic, scream } = G;
   const all = CFG.contracts, i = all.indexOf(G.contract);
-  if ((G.isGuest && ['leave', 'again', 'cprev', 'cnext', 'diff', 'mappage', 'nextlvl'].includes(id)) || (G.role === 'guard' && id === 'leave')) { flash(S.net.hostDecides, 2, '#93a1b8'); G.boardDirty = true; return; }   // the host's round (W15: the guard player cannot end it)
+  if (G.isGuest && !CFG.net.guestBoard.includes(id)) { G.boardDirty = true; return; }   // T5: the host's board — silently (no «Вирішує хост» every second)
+  if (G.role === 'guard' && id === 'leave') { flash(S.net.hostDecides, 2, '#93a1b8'); G.boardDirty = true; return; }   // the host's round (W15: the guard player cannot end it)
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
   else if (id === 'play') scream.play();
   else if (id === 'again') newRound();

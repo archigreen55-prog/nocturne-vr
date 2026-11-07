@@ -60,6 +60,7 @@ function renderMenu() {
   $('mmmic').hidden = !!ok;
 }
 function renderPlay() {
+  if ($('phonenew')) $('phonenew').hidden = !!G.isGuest;   // T5: a guest does not start the host's round
   const ok = micText();
   $('playmic').textContent = ok || S.menu2.mic.none;
   $('playmicgo').hidden = !!(G.mic && G.mic.calibrated && !G.mic.noMic);
