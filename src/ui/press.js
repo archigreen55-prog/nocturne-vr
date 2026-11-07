@@ -13,6 +13,15 @@ const over = (el, e) => {
 };
 const isOff = (el) => el.disabled || el.getAttribute('aria-disabled') === 'true';
 
+// The click a phone sends after a finger lifts lands on whatever is under the finger by then: a button
+// that opened the menu (the pause's «Прогрес: код», «Вийти в меню») would press the menu's button that
+// appeared there («Грати»). For half a second after a finger press, a click on another element is dropped.
+let ghostUntil = 0, ghostFrom = null;
+function swallowGhost(el) { ghostUntil = performance.now() + 500; ghostFrom = el; }
+if (typeof document !== 'undefined') document.addEventListener('click', (e) => {
+  if (performance.now() < ghostUntil && ghostFrom && e.target !== ghostFrom && !ghostFrom.contains(e.target)) { e.preventDefault(); e.stopPropagation(); ghostUntil = 0; }
+}, true);
+
 export function bindPress(el, fn) {
   let p = null, lastPointer = -1e9;
   const scroller = () => el.closest('.scroll');
@@ -41,6 +50,7 @@ export function bindPress(el, fn) {
     p = null;
     el.classList.remove('down');
     if (pressHooks.onGesture && !cancelled) pressHooks.onGesture();
+    if (fire && e.pointerType !== 'mouse') swallowGhost(el);   // a finger: the screen may change under it
     if (fire) fn(e);
   };
   el.addEventListener('pointerup', (e) => end(e, false));

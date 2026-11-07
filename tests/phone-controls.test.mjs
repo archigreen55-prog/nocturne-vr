@@ -94,9 +94,9 @@ test('phone: Взяти / Покласти, door tap = quick, hold = slow and qu
 test('phone: a finger on a board button presses it (held 0.4 s, sliding 10 px), the view does not turn', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
   await page.waitForTimeout(300);
-  const before = await page.evaluate(() => ({ c: window.__game.contract.id, yaw: window.__game.player.yaw }));
-  await fingerPress(page, cdp, await boardPoint(page, 'cnext'));
-  await page.waitForFunction((b) => window.__game.contract.id !== b, before.c);
+  const before = await page.evaluate(() => ({ c: window.__game.difficulty, yaw: window.__game.player.yaw }));
+  await fingerPress(page, cdp, await boardPoint(page, 'diff'));   // T1: ▶ steps over closed contracts (a new player has none open after 1)
+  await page.waitForFunction((b) => window.__game.difficulty !== b, before.c);
   assert.equal(await page.evaluate(() => window.__game.player.yaw), before.yaw, 'no camera turn while pressing the board');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -163,10 +163,10 @@ test('phone: realistic fingers on the action buttons (held 0.4 s, sliding 10 px)
 
 test('phone: the board by the crosshair: aim at a board button -> «Натиснути» presses it (finger held 0.4 s); a slid-off finger does not', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
-  await page.waitForFunction(() => window.__game.board.buttons.some((b) => b.id === 'cnext'));
-  await aimAt(page, 'cnext');
-  await page.waitForFunction(() => window.__game.board.hover === 'cnext' && document.querySelector('#touch .act').textContent === 'Натиснути' && !document.querySelector('#touch .act').hidden, null, { timeout: 8000 });
-  const c0 = await page.evaluate(() => window.__game.contract.id);
+  await page.waitForFunction(() => window.__game.board.buttons.some((b) => b.id === 'diff'));
+  await aimAt(page, 'diff');
+  await page.waitForFunction(() => window.__game.board.hover === 'diff' && document.querySelector('#touch .act').textContent === 'Натиснути' && !document.querySelector('#touch .act').hidden, null, { timeout: 8000 });
+  const c0 = await page.evaluate(() => window.__game.difficulty);   // T1: the difficulty button (▶ steps over closed contracts)
   // a finger that slides far off the button: nothing
   {
     const b = await page.locator('#touch .act').boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2, t = touchT();
@@ -174,10 +174,10 @@ test('phone: the board by the crosshair: aim at a board button -> «Натисн
     await tp(cdp, 'touchMove', [{ x: x - 150, y: y - 60 }], t + 0.2);
     await tp(cdp, 'touchEnd', [], touchEndAt(t + 0.4));
     await keepFor(page, 300);
-    assert.equal(await page.evaluate(() => window.__game.contract.id), c0, 'slid off: not pressed');
+    assert.equal(await page.evaluate(() => window.__game.difficulty), c0, 'slid off: not pressed');
   }
   await fingerPressEl(page, cdp, '#touch .act');
-  await page.waitForFunction((c0) => window.__game.contract.id !== c0, c0, { timeout: 8000 });
+  await page.waitForFunction((c0) => window.__game.difficulty !== c0, c0, { timeout: 8000 });
   // aim away from the board: the button goes (or turns into an item action)
   await page.evaluate(() => { window.__game.player.lookYaw += Math.PI; });
   await page.waitForFunction(() => document.querySelector('#touch .act').hidden || document.querySelector('#touch .act').textContent !== 'Натиснути', null, { timeout: 8000 });
