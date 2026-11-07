@@ -65,7 +65,7 @@ async function open(code, role) {
   setStatus(role === 'host' ? S.net.status.opening : S.net.status.find);
   try {
     N.t = await openTransport({
-      kind: params.get('net') === 'local' ? 'local' : 'trystero', code,
+      kind: params.get('net') === 'local' ? 'local' : 'trystero', code, all: role === 'host',   // T3: the host listens on every relay
       onMessage, onPeerJoin, onPeerLeave,
       onStatus: (s) => { if (s.step === 'find' && N.t && role === 'guest') setStatus(S.net.status.findNext); },
     });

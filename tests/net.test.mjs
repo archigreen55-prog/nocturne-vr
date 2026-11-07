@@ -324,3 +324,24 @@ test('net: a minimized host is «на паузі» for the guest, not lost', asy
   assert.deepEqual(guest.errors, []);
   await ctx.close();
 });
+
+// T3: the host listens on every kind of relay; a guest that found nobody on the first one finds it on the next
+test('net: the guest finds the host after its first relay found nobody (T3)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 600 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '173205';
+  await host.page.evaluate((code) => { window.__game.net.sim.strategies = true; return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, code);
+  const guest = await open(ctx, base + '?net=local');
+  await guest.page.evaluate((code) => {
+    const g = window.__game; g.net.sim.strategies = true; g.net.sim.blockStrategy = 'nostr'; g.CFG.net.findTimeout = 1;
+    return g.net.open(code, 'guest', 'Оля', 'rita');
+  }, code);
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  const h = await host.page.evaluate(() => window.__game.net.state().transport);
+  const g = await guest.page.evaluate(() => window.__game.net.state().transport);
+  assert.deepEqual(h.strategies, ['nostr', 'torrent'], JSON.stringify(h));
+  assert.deepEqual(g.tried, ['nostr', 'torrent'], JSON.stringify(g));
+  assert.deepEqual(host.errors, []);
+  assert.deepEqual(guest.errors, []);
+  await ctx.close();
+});
