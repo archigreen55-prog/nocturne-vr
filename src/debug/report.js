@@ -3,6 +3,8 @@
 // model, VR support, microphone permission) are gathered once at start by prepareReport(), so the
 // copy itself runs right inside the tap: Safari lets a page write to the clipboard only there.
 import { allSettings, PREVIEW } from '../settings.js';
+import { bindPress } from '../ui/press.js';
+import { S } from '../i18n/index.js';
 
 const RING = 7200;          // frame times kept (~60 s at 120 Hz)
 const MINUTES = 30;         // per-minute FPS kept
@@ -18,7 +20,7 @@ export class FrameStats {
     this.ms[this.i] = ms; this.i = (this.i + 1) % RING; this.n = Math.min(RING, this.n + 1);
     this.minFrames++; this.minMs += ms; this.minWorst = Math.max(this.minWorst, ms);
     if (this.minMs >= 60000) {
-      this.minutes.push({ fps: +(this.minFrames * 1000 / this.minMs).toFixed(1), worstMs: Math.round(this.minWorst) });
+      this.minutes.push({ fps: +(this.minFrames * 1000 / this.minMs).toFixed(1), worstMs: Math.round(this.minWorst), ...(this.tag ? this.tag() : {}) });
       if (this.minutes.length > MINUTES) this.minutes.shift();
       this.minFrames = 0; this.minMs = 0; this.minWorst = 0;
     }
@@ -74,6 +76,12 @@ function glInfo(renderer) {
 function micInfo(mic) {
   const r = { state: mic.state, error: mic.error || undefined, noMic: mic.noMic, permission: cache.micPermission, calibrated: mic.calibrated, cal: mic.cal };
   r.whisperDb = +mic.whisperDb.toFixed(1); r.shoutDb = +mic.shoutDb.toFixed(1);
+  // phone (T3): the game's sound in the microphone, what the game did with the microphone
+  if (mic.gameDbFn) {
+    r.game = { bleedDb: mic.bleedDb, measured: mic.bleedMeasured, busDb: +mic.gameDb.toFixed(1), raisedByDb: +mic.masking.toFixed(1), whisperNow: +mic.whisperEff.toFixed(1), shoutNow: +mic.shoutEff.toFixed(1) };
+    r.covered = mic.covered; r.agc = mic.agc;
+  }
+  r.permissionLive = mic.permission; r.deviceChanged = mic.deviceChanged; r.device = mic.deviceLabel || undefined; r.events = mic.events;
   if (mic.state === 'on') {
     r.levelDb = +mic.env.toFixed(1); r.level = mic.level; r.problem = mic.problem || undefined;
     try {
@@ -115,10 +123,10 @@ export function buildReport(ctx) {
 // Copy inside the tap; a sheet with the text either way (select it by hand if the copy failed).
 export function copyReport(text) {
   const sheet = showSheet(text);
-  const fail = () => sheet.status('Автоматично скопіювати не вдалося. Натисни на текст і утримуй → «Виділити все» → «Скопіювати».', '#ffd166');
+  const fail = () => sheet.status(S.report.copyFailed, '#ffd166');
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => sheet.status(`Скопійовано (${text.length} символів). Встав у чат із Claude.`, '#5fd38d'), fail);
+      navigator.clipboard.writeText(text).then(() => sheet.status(S.report.copied(text.length), '#7fd0ff'), fail);
     } else fail();
   } catch { fail(); }
 }
@@ -133,13 +141,13 @@ function showSheet(text) {
   card.style.cssText = 'width:100%;max-width:720px;max-height:100%;display:flex;flex-direction:column;gap:10px;background:#101624;border:1px solid #26314a;border-radius:12px;padding:14px;box-sizing:border-box';
   const status = document.createElement('div');
   status.style.cssText = 'font:600 15px system-ui,sans-serif';
-  status.textContent = 'Копіюю…';
+  status.textContent = S.report.copying;
   const ta = document.createElement('textarea');
   ta.readOnly = true; ta.value = text;
   ta.style.cssText = 'flex:1;min-height:200px;width:100%;box-sizing:border-box;background:#0a0f1c;color:#c9d3e3;border:1px solid #26314a;border-radius:8px;font:12px/1.35 ui-monospace,monospace;padding:8px';
   const close = document.createElement('button');
-  close.textContent = 'Закрити';
-  close.addEventListener('click', () => wrap.remove());
+  close.textContent = S.report.close;
+  bindPress(close, () => wrap.remove());   // not 'click': the click that follows the finger lifted from «Скопіювати звіт» would land on it
   card.append(status, ta, close);
   wrap.append(card);
   document.body.append(wrap);

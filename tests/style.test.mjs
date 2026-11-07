@@ -1,0 +1,448 @@
+// W17 «Стиль» (plan-W17-style.md): one material factory for the whole game (src/style/materials.js),
+// the flashlight's patches chained on it, the style switch.
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { newContext, ROOT } from './harness.mjs';
+import { browser, open, test, LAND, preview } from './runner.mjs';
+
+async function jsFiles(dir) {
+  const out = [];
+  for (const e of await readdir(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) out.push(...await jsFiles(p)); else if (e.name.endsWith('.js')) out.push(p);
+  }
+  return out;
+}
+
+test('style (S0): every lit material comes from the factory — none made elsewhere in src/, every one in the scene of both maps carries the flashlight mask, one made later too', async () => {
+  const bad = [];
+  for (const f of await jsFiles(join(ROOT, 'src'))) {
+    if (f.includes(join('src', 'style'))) continue;
+    const src = await readFile(f, 'utf8');
+    if (/new\s+THREE\.Mesh(Lambert|Standard|Phong|Physical|Toon)Material/.test(src)) bad.push(f.slice(ROOT.length));
+  }
+  assert.deepEqual(bad, [], 'lit materials outside src/style/: use lit() from src/style/materials.js');
+  for (const map of ['dacha', 'mansion']) {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + '?map=' + map);
+    const r = await page.evaluate(() => {
+      const g = window.__game, out = { lit: 0, unstyled: [], unmasked: [] };
+      g.scene.traverse((o) => {
+        for (const m of o.material ? [].concat(o.material) : []) {
+          if (!m.isMeshLambertMaterial) continue;
+          out.lit++;
+          if (!m.userData.styled) out.unstyled.push(o.name || o.type);
+          if (!m.userData.flashMask || !m.userData.flashWalls) out.unmasked.push(o.name || o.type);
+        }
+      });
+      const later = g.style.lit();   // a friend joining mid-round: its material is made now
+      out.later = { styled: !!later.userData.styled, mask: !!later.userData.flashMask, walls: !!later.userData.flashWalls, key: later.customProgramCacheKey() };
+      out.on = g.style.on;
+      return out;
+    });
+    assert.ok(r.lit > 3, `${map}: lit materials in the scene (${r.lit})`);
+    assert.deepEqual(r.unstyled, [], `${map}: not from the factory`);
+    assert.deepEqual(r.unmasked, [], `${map}: without the flashlight mask`);
+    assert.deepEqual(r.later, { styled: true, mask: true, walls: true, key: 'flashmask-lit|-walls|style' }, `${map}: a later material (the style's patch runs last)`);
+    assert.equal(r.on, true, 'the style is on by default');
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+  // ?style=off: this page only; the factory still makes every material (the switch decides the look)
+  const ctx = await newContext(browser, LAND);
+  const { page, errors } = await open(ctx, preview + '?style=off');
+  assert.equal(await page.evaluate(() => window.__game.style.on), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+// The picture's luminance (linear, 0..1) around a world point: a 7 x 7 px patch of the drawn frame.
+async function lumAt(page, pts) {
+  return page.evaluate((pts) => {
+    const g = window.__game, r = g.renderer, gl = r.getContext(), V = new g.THREE.Vector3();
+    g.scene.updateMatrixWorld(true);
+    r.render(g.scene, g.camera);
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, px = new Uint8Array(7 * 7 * 4);
+    const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    return pts.map(([x, y, z]) => {
+      V.set(x, y, z).project(g.camera);
+      const sx = Math.round((V.x + 1) / 2 * w), sy = Math.round((V.y + 1) / 2 * h);
+      gl.readPixels(sx - 3, sy - 3, 7, 7, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let s = 0;
+      for (let i = 0; i < 49; i++) s += 0.2126 * lin(px[i * 4]) + 0.7152 * lin(px[i * 4 + 1]) + 0.0722 * lin(px[i * 4 + 2]);
+      return s / 49;
+    });
+  }, pts);
+}
+
+test('style (S1): three steps — the lamp\'s circle on the floor is the stealth radius (lit inside, not outside), lit ≥ 3 x shadow at brightness steps 1 and 5; the night sky and dusk fog; no new shader programs when the preset, the brightness or the lamps change; ?style=off draws as before (no decor)', async () => {
+  const ctx = await newContext(browser, LAND);
+  await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+  const { page, errors } = await open(ctx, preview + '?map=dacha');
+  // the yard lamp: stand at its circle's edge, look down at the grass across it
+  const L = await page.evaluate(() => { const g = window.__game, l = g.CFG.stealth.lamps[0]; g.player.teleport(l.x + 4.2, l.z + 1.5, Math.atan2(4.2, 1.5)); g.player.lookPitch = -0.75; g.sim(0.2); return l; });
+  await page.waitForTimeout(1200);   // the lamps' intensities follow the frame
+  const sample = () => lumAt(page, [[L.x + L.r - 0.45, 0, L.z], [L.x + L.r + 0.45, 0, L.z], [L.x + L.r + 1.2, 0, L.z]]);
+  const s1 = await sample();
+  const u = await page.evaluate(() => { const g = window.__game, U = g.style.uniforms; return { n: g.style.zones.length, bg: g.scene.background.getHex(), fog: g.scene.fog.color.getHex(), programs: g.renderer.info.programs.length }; });
+  assert.ok(u.n >= 3, `the circles of the three lamps: ${u.n}`);
+  assert.equal(u.bg, 0x0d1322, 'the sky is Ніч');
+  assert.equal(u.fog, 0x18223a, 'the fog is Сутінки');
+  assert.ok(s1[0] >= 3 * s1[1] && s1[0] >= 3 * s1[2], `step 1: inside the circle ${s1[0].toFixed(4)}, just outside ${s1[1].toFixed(4)}, further ${s1[2].toFixed(4)} (lit ≥ 3 x)`);
+  // brightness step 5: everything brighter, the circle still reads
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) window.__game.brightness.step(1); });
+  await page.waitForTimeout(800);
+  const s5 = await sample();
+  assert.ok(s5[1] > s1[1] * 1.5, `step 5 is brighter outside the circle too (${s1[1].toFixed(4)} -> ${s5[1].toFixed(4)})`);
+  assert.ok(s5[0] >= 3 * s5[1], `step 5: inside ${s5[0].toFixed(4)}, outside ${s5[1].toFixed(4)} (lit ≥ 3 x)`);
+  // the low preset's thinner lines and a moving lamp: uniforms only, no new programs
+  const p2 = await page.evaluate(() => {
+    const g = window.__game, U = g.style.uniforms;
+    if (g.quality) g.quality.setSetting('low');
+    U.uStyleZoneOn.value = 0; U.uStyleZoneRect.value.x += 0.5;
+    g.renderer.render(g.scene, g.camera);
+    return g.renderer.info.programs.length;
+  });
+  assert.equal(p2, u.programs, 'no shader rebuilt');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // ?style=off: the sky and fog as before W17, nothing added
+  const c2 = await newContext(browser, LAND);
+  const off = await open(c2, preview + '?map=dacha&style=off');
+  const o = await off.page.evaluate(() => { const g = window.__game; let decor = 0; g.scene.traverse((m) => { if (/^style:/.test(m.name)) decor++; }); return { bg: g.scene.background.getHex(), fog: g.scene.fog.color.getHex(), decor, styled: g.scene.getObjectByName('scoreboard') && 1 }; });
+  assert.deepEqual({ bg: o.bg, fog: o.fog, decor: o.decor }, { bg: 0x0a0f1c, fog: 0x0a0f1c, decor: 0 }, 'style off: the old sky and fog, no decor');
+  assert.deepEqual(off.errors, []);
+  await c2.close();
+});
+
+test('style (S1): the mansion — the fountain has water, each lamp\'s circle lies on its own floor (the gallery lamp upstairs), the furniture shadows hide with their floor; the switch on the start screen saves and reloads', async () => {
+  const ctx = await newContext(browser, LAND);
+  await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+  const { page, errors } = await open(ctx, preview + '?map=mansion');
+  const m = await page.evaluate(() => {
+    const g = window.__game, U = g.style.uniforms, d = g.style.decor;
+    const zones = g.style.zones.map((c) => [c.x, c.z, c.r, c.y]);
+    const water = d.water.map((w) => w.geometry.boundingSphere || (w.geometry.computeBoundingSphere(), w.geometry.boundingSphere)).map((s) => [s.center.x, +s.center.y.toFixed(1), s.center.z]);
+    const shadows = g.level.floorMeshes.map((f) => f.children.filter((c) => /^style: furniture shadows/.test(c.name)).length);
+    return { zones, water, shadows };
+  });
+  assert.deepEqual(m.water, [[0, 0.6, 13]], 'the fountain\'s water, on top of its basin');
+  assert.ok(m.zones.some((z) => z[0] === 5 && z[1] === -8.5 && z[3] === 3), `the gallery lamp's circle is upstairs: ${JSON.stringify(m.zones)}`);
+  assert.ok(m.zones.some((z) => z[0] === 0 && z[1] === 12 && z[3] === 0), 'the garden lantern\'s circle is on the ground');
+  assert.deepEqual(m.shadows, [1, 1], 'one furniture-shadow mesh inside each floor\'s mesh');
+  // the switch: off -> saved, reloaded without the style
+  await page.selectOption('#stylesel', 'off');
+  await page.waitForFunction(() => window.__game && window.__game.style && window.__game.style.on === false, null, { timeout: 30000 });
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('nocturne.preview.style'))), false);
+  assert.equal(await page.$eval('#stylesel', (s) => s.value), 'off');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in the mansion, Шафник, a friend in the colour of the thief; one draw call each (the outline and the lights in it), ≤ 4 000 triangles; the trap poses and Pozikhailo (gone when the guard is angry); the bucket on the new head; ?style=off keeps the old figures', async () => {
+  const figs = async (map, st) => {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const o = await open(ctx, preview + `?map=${map}&style=${st}`);
+    return { ctx, ...o };
+  };
+  const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+  // the dacha: Petrovych, Шафник, a friend
+  let { ctx, page, errors } = await figs('dacha', 'on');
+  const d = await page.evaluate(async () => {
+    const g = window.__game, P = g.patrol;
+    const { RemotePlayer } = await import('./src/net/remotePlayer.js');
+    const rp = new RemotePlayer({ id: 'f', name: 'Оля', thief: 'rita' });
+    const tri = (m) => (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3;
+    const shown = (f) => f.root.children.filter((m) => m.visible);
+    const flat = (f) => { const a = f.mesh.geometry.attributes.aFlat.array; let n = 0; for (const v of a) n += v; return n / 3; };
+    const info = (f) => f && { who: f.who, meshes: shown(f).length, skinned: f.root.children.every((m) => m.isSkinnedMesh), flat: flat(f), tris: shown(f).reduce((s, m) => s + tri(m), 0), farTris: f.far.all.reduce((s, m) => s + tri(m), 0) };
+    const lurk = g.lurker;
+    return {
+      guard: info(P.fig), friend: info(rp.fig), oldGuard: P.body.geometry.attributes.position ? P.body.geometry.attributes.position.count : 0,
+      lurkerEyes: Array.from(lurk.eyes.geometry.attributes.color.array.slice(0, 3)).map((v) => +v.toFixed(2)), whisper: new g.THREE.Color(0x7fd0ff).toArray().map((v) => +v.toFixed(2)), lurkerOutline: !!lurk.body.getObjectByName('style: wardrobe outline'),
+    };
+  });
+  assert.deepEqual([d.guard.who, d.guard.meshes, d.guard.skinned], ['petrovych', 1, true], 'the dacha\'s guard: Petrovych — one skinned draw (the figure, its outline, its lens)');
+  assert.deepEqual([d.friend.who, d.friend.meshes], ['rita', 1], 'a friend: one draw');
+  assert.ok(d.guard.flat > d.guard.tris * 0.3 && d.guard.flat < d.guard.tris * 0.7 && d.friend.flat > d.friend.tris * 0.3, `the outline (and the lights) in the same draw: ${d.guard.flat} of ${d.guard.tris}, ${d.friend.flat} of ${d.friend.tris}`);
+  // the owner's budget: ≤ 4 000 triangles a figure with its outline (the sample's way, «2 · 3D, зроблені як слід»); the far
+  // level about half; Шафник too
+  const all = await page.evaluate(async () => {
+    const { makeFigure, FIGURES, lurkerGeometries } = await import('./src/style/figures.js');
+    const tri = (g) => (g ? (g.index ? g.index.count : g.attributes.position.count) / 3 : 0);
+    const out = {};
+    for (const id of FIGURES) { const f = makeFigure(id); out[id] = [f.near.all.reduce((s, m) => s + tri(m.geometry), 0), f.far.all.reduce((s, m) => s + tri(m.geometry), 0)]; }
+    const L = lurkerGeometries();
+    out.shafnyk = [['body', 'bodyHull', 'arms', 'armsHull', 'eyes', 'eyesHull', 'sock', 'sockHull'].reduce((s, k) => s + tri(L[k]), 0), 0];
+    return out;
+  });
+  for (const [id, [near, far]] of Object.entries(all)) { assert.ok(near <= 4000, `${id}: ${near} triangles with the outline`); assert.ok(far <= near * 0.8, `${id} far: ${far}`); }
+  assert.equal(d.oldGuard, 0, 'the old figure is not drawn');
+  assert.deepEqual(d.lurkerEyes, d.whisper, 'Шафник\'s eyes: Шепіт (0x7fd0ff), as in the sample');
+  assert.ok(d.lurkerOutline, 'Шафник has an outline');
+  // poses: soap = feet up, the bucket on the head; angry = Pozikhailo leaves
+  const poses = await page.evaluate(async () => {
+    const g = window.__game, P = g.patrol, B = P.fig.bones, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (ok) => { for (let i = 0; i < 80 && !ok(); i++) await wait(100); };   // slow software frames: dt is capped
+    P.knockOut('soap', 30, 'flip'); await until(() => B.legL.rotation.x > 0.3);
+    const flip = +B.legL.rotation.x.toFixed(2);
+    P.pose = 'kneel'; await until(() => B.legL.rotation.x < -1);
+    const kneel = +B.legL.rotation.x.toFixed(2);
+    P.pose = 'bucket'; await until(() => B.armL.rotation.x > 2); await wait(200);
+    const bucket = +B.armL.rotation.x.toFixed(2), bucketY = P.bucketMesh ? +P.bucketMesh.position.y.toFixed(2) : null;
+    P.pose = null; P.stunT = 0; P.brain.angryT = 30; await until(() => B.poz.scale.x < 0.1);
+    const poz = +B.poz.scale.x.toFixed(2);
+    P.brain.angryT = 0; await until(() => B.poz.scale.x > 0.9);
+    return { flip, kneel, bucket, bucketY, poz, pozBack: +B.poz.scale.x.toFixed(2), headY: P.fig.headY };
+  });
+  assert.ok(poses.flip > 0.3, `soap: the legs up (${poses.flip})`);
+  assert.ok(poses.kneel < -1, `marbles: on the knees (${poses.kneel})`);
+  assert.ok(poses.bucket > 2, `bucket: the hand up to the head (${poses.bucket})`);
+  assert.equal(poses.bucketY, +(poses.headY - 1.66).toFixed(2), 'the bucket sits on the new head');
+  assert.ok(poses.poz <= 0.1 && poses.pozBack >= 0.9, `Pozikhailo: gone when angry (${poses.poz}), back after (${poses.pozBack})`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // the mansion: Valera and Zhora
+  ({ ctx, page, errors } = await figs('mansion', 'on'));
+  const m = await page.evaluate(() => window.__game.guards.map((p) => p.fig && p.fig.who));
+  assert.deepEqual(m, ['valera', 'zhora']);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // style off: the old figures, untouched
+  ({ ctx, page, errors } = await figs('mansion', 'off'));
+  const o = await page.evaluate(() => window.__game.guards.map((p) => ({ fig: !!p.fig, body: p.body.geometry.attributes.position.count > 0, upper: p.upper.geometry.attributes.position.count > 0 })));
+  assert.deepEqual(o, [{ fig: false, body: true, upper: true }, { fig: false, body: true, upper: true }], 'style off: the old guards');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('style: the game\'s random numbers are not touched — the style on or off, the page makes the same number of Math.random calls while it loads and plays (three.js names objects with Math.random; the style\'s take theirs from crypto)', async () => {
+  const count = async (q) => {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { let n = 0; const r = Math.random; Math.random = () => { n++; return r(); }; window.__rn = () => n; try { localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + q);
+    const n = await page.evaluate(() => { const g = window.__game; const a = window.__rn(); for (let i = 0; i < 3; i++) g.renderer.render(g.scene, g.camera); return [a, window.__rn()]; });
+    assert.deepEqual(errors, []);
+    await ctx.close();
+    return n;
+  };
+  const off = await count('?style=off'), on = await count('?style=on'), figs = await count('?style=on&figures=on');
+  assert.deepEqual(on, off, `Math.random calls (loaded, after drawing): style on ${on}, off ${off}`);
+  assert.deepEqual(figs, off, `Math.random calls with the new figures: ${figs}, style off ${off}`);
+});
+
+test('style: the character sheet (?page=figures) — every figure in the row, one in three views, the four thieves at 8 m; the light under a lamp, in the shadow, in the alarm; old / new; the sample beside the figure; the game shows the new figures (CFG.style.figures)', async () => {
+  const ctx = await newContext(browser, LAND);
+  const { page, errors } = await open(ctx, preview + '?page=figures');
+  await page.waitForFunction(() => window.__game.style.sheet, null, { timeout: 30000 });
+  const ids = () => page.evaluate(() => window.__game.style.sheet.cast.map((c) => `${c.id}:${c.isNew ? 'new' : 'old'}`));
+  assert.deepEqual(await ids(), ['petrovych', 'valera', 'zhora', 'zoya', 'frol', 'rita', 'nazar', 'shafnyk'].map((id) => `${id}:new`), 'the whole cast, new');
+  const press = async (k) => { await page.tap(`button[data-k="${k}"]`); await page.waitForTimeout(300); };
+  for (const k of ['shadow', 'alarm', 'lamp', 'walk', 'look']) await press(k);
+  assert.equal(await page.evaluate(() => window.__game.style.uniforms.uStyleZoneOn.value), 1, 'under the lamp: the «you are seen» step');
+  await press('ver');
+  assert.ok((await ids()).every((s) => /:old$/.test(s) || s.startsWith('shafnyk')), 'old figures');
+  await press('ver'); await press('one');
+  assert.equal((await ids()).length, 4, 'one figure: three views and one that moves');
+  // the owner's sample next to the game's figure, the same view and light
+  await press('cmp');
+  assert.deepEqual(await page.evaluate(() => window.__game.style.sheet.cast.map((c) => `${c.id}:${c.sample ? 'sample' : 'game'}`)), ['petrovych:sample', 'petrovych:game', 'petrovych:sample', 'petrovych:game']);
+  await press('next');
+  assert.equal((await ids())[1], 'valera:new', '▶ the next character');
+  await press('far');
+  assert.deepEqual(await ids(), ['zoya', 'frol', 'rita', 'nazar'].map((id) => `${id}:new`), 'the four thieves');
+  assert.ok(await page.evaluate(() => Math.abs(window.__game.style.sheet.camera.position.z + 8) < 0.01), 'at 8 m');
+  assert.equal(await page.evaluate(() => window.__game.style.uniforms.uStyleZoneOn.value), 0, 'in the shadow');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // the game: the new figures (the owner approved them); ?figures=off hides them
+  const c2 = await newContext(browser, LAND);
+  const g = await open(c2, preview);
+  assert.equal(await g.page.evaluate(() => window.__game.patrol.fig && window.__game.patrol.fig.who), 'petrovych', 'the game shows the new guard (CFG.style.figures)');
+  assert.deepEqual(g.errors, []);
+  await c2.close();
+});
+
+test('stealth (W17 S1 findings): a lamp lights its own floor only and not through a wall or a closed door — the dacha corridor nightlight no longer lights the hall, the mansion gallery lamp not the hall under it, the alley lamp not the study; the floor circles are cut the same way', async () => {
+  const ctx = await newContext(browser, LAND);
+  await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+  const zone = (x, z, y) => {   // the circles' map at (x, z): this floor's soft distance (≥ 0.5 inside)
+    const U = window.__game.style.uniforms, t = U.uStyleZoneTex.value.image.data, R = U.uStyleZoneRect.value;
+    const i = Math.floor((x - R.x) / R.z * 256), j = Math.floor((z - R.y) / R.w * 256);
+    return t[(j * 256 + i) * 4 + (y > 1.5 ? 1 : 0)] / 255;
+  };
+  const probe = (page, pts) => page.evaluate(({ pts, zs }) => {
+    const zone = new Function(`return ${zs}`)();
+    return pts.map(([x, z, y]) => [window.__game.style.lampLit(x, z, y), zone(x, z, y) >= 0.5]);
+  }, { pts, zs: zone.toString() });
+  // the dacha: the nightlight in the corridor (-3, -6, r 2.2)
+  const d = await open(ctx, preview + '?map=dacha');
+  assert.deepEqual(await probe(d.page, [[-3, -6, 0], [-1.95, -4.95, 0]]), [[true, true], [false, false]], 'the corridor is lit, the hall behind its wall is not');
+  // a closed door stops it too (no lamp of the maps has a door in its circle on its floor: a test lamp by the dacha's door at x -2)
+  const door = await d.page.evaluate(async () => {
+    const g = window.__game, { CFG } = await import('./src/config/index.js');
+    const dr = g.level.doors.find((o) => o.hx === -2 && Math.abs(o.hz + 2.99) < 0.01);
+    CFG.stealth.lamps.push({ x: -1.2, z: -2.5, r: 2 });
+    const shut = [g.style.lampLit(-1.2, -2.5), g.style.lampLit(-2.8, -2.5)];
+    dr.angle = 1.2;
+    const open = g.style.lampLit(-2.8, -2.5);
+    dr.angle = 0; CFG.stealth.lamps.pop();
+    return { shut, open };
+  });
+  assert.deepEqual(door, { shut: [true, false], open: true }, 'a closed door stops the lamp, an open one lets it through');
+  assert.deepEqual(d.errors, []);
+  // the mansion: the gallery lamp (5, -8.5) is upstairs; the alley lamp (15.5, -4) outside the study's wall
+  const m = await open(ctx, preview + '?map=mansion');
+  assert.deepEqual(await probe(m.page, [[5, -8.5, 3], [5, -8.5, 0], [15.5, -4, 0], [12.75, -5, 0]]), [[true, true], [false, false], [true, true], [false, false]], 'the gallery lit upstairs, not the hall under it; the alley lit, not the study');
+  assert.deepEqual(m.errors, []);
+  await ctx.close();
+});
+
+// The owner's rule: the old look stays for good — «Стиль: вимк» (Для тестерів) is the game as it was, its
+// world and its figures, whatever changes later in the old code; the sheet's «старий / новий» too.
+test('style off is the game as it was, for good — both maps: no style object in the scene, no style patch on a material, the old guards, the old lurkers, an old friend; the switch is on «Для тестерів» and brings the new look back', async () => {
+  for (const map of ['dacha', 'mansion']) {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + `?map=${map}&style=off`);
+    const r = await page.evaluate(async () => {
+      const g = window.__game, styled = [], patched = new Set();
+      g.scene.traverse((o) => {
+        if (/^style:/.test(o.name)) styled.push(o.name);
+        for (const m of [].concat(o.material || [])) if (m.userData && m.userData.patches && m.userData.patches.some((p) => p.key === 'style')) patched.add(m.type);
+      });
+      const tri = (m) => (m && m.geometry && m.geometry.attributes.position ? m.geometry.attributes.position.count : 0);
+      const guards = (g.guards || [g.patrol]).map((p) => ({ fig: !!p.fig, body: tri(p.body) > 0, upper: tri(p.upper) > 0 }));
+      const lurkers = (g.lurkers || [g.lurker]).filter(Boolean).map((L) => ({ outline: !!L.body.getObjectByName('style: wardrobe outline'), sock: !!(L.door1 && L.door1.getObjectByName('style: sock')), eyes: tri(L.eyes) > 0 }));
+      const { RemotePlayer } = await import('./src/net/remotePlayer.js');
+      const rp = new RemotePlayer({ id: 'o', name: 'Оля', thief: 'rita' });
+      const friend = { fig: !!rp.fig, body: tri(rp.body) > 0, head: tri(rp.headMesh) > 0 };
+      return { styled, patched: [...patched], guards, lurkers, friend, bg: g.scene.background.getHex(), on: g.style.on };
+    });
+    assert.equal(r.on, false);
+    assert.deepEqual(r.styled, [], `${map}: no style object in the scene`);
+    assert.deepEqual(r.patched, [], `${map}: no material carries the style's shader patch`);
+    assert.ok(r.guards.length && r.guards.every((x) => !x.fig && x.body && x.upper), `${map}: the old guards ${JSON.stringify(r.guards)}`);
+    assert.ok(r.lurkers.length && r.lurkers.every((x) => !x.outline && !x.sock && x.eyes), `${map}: the old lurkers ${JSON.stringify(r.lurkers)}`);
+    assert.deepEqual(r.friend, { fig: false, body: true, head: true }, `${map}: an old friend`);
+    assert.equal(r.bg, 0x0a0f1c, `${map}: the old night sky`);
+    // the switch: on «Для тестерів», saved, the new look after the reload
+    assert.equal(await page.evaluate(() => document.getElementById('stylesel').closest('section').dataset.page), 'testers');
+    await page.selectOption('#stylesel', 'on');
+    await page.waitForFunction(() => window.__game && window.__game.style && window.__game.style.on === true && window.__game.patrol, null, { timeout: 30000 });
+    assert.equal(await page.evaluate(() => !!(window.__game.guards || [window.__game.patrol])[0].fig), true, `${map}: «Стиль: увімк» brings the new figures back`);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+});
+
+test('Шафник at rest (the owner\'s sample): the dacha\'s wardrobe blue with a crown, a sock on the door, the arms hanging out of the gap while it sleeps — gone when it wakes, its lunge as before; style off: none of it', async () => {
+  const ctx = await newContext(browser, LAND);
+  const { page, errors } = await open(ctx, preview + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, L = g.lurker, c = new g.THREE.Color();
+    const door = L.door1.children[0].geometry.attributes.color; c.setRGB(door.getX(0), door.getY(0), door.getZ(0));
+    const rest = L.door1.parent.getObjectByName('style: resting arms'), sock = L.door1.getObjectByName('style: sock');
+    const { lurkerRest } = await import('./src/style/figures.js');
+    // drawn only near the wardrobe on its floor (small things in a room: not from the yard, S4's draw calls)
+    const near = new g.THREE.Vector3(L.spec.x - 3, L.y0 + 1.6, (L.spec.minZ + L.spec.maxZ) / 2), far = new g.THREE.Vector3(2.2, 1.6, 6.8);
+    lurkerRest(L, far); const fromYard = [rest.visible, sock.visible];
+    lurkerRest(L, near);
+    const before = { rest: !!rest && rest.visible, sock: !!sock && sock.visible, door: c.getHex(), fromYard };
+    L.wake(); g.sim(0.05);
+    lurkerRest(L, near);
+    return { ...before, awake: rest.visible, state: L.state };
+  });
+  assert.deepEqual(r, { rest: true, sock: true, door: 0x34436a, fromYard: [false, false], awake: false, state: 'telegraph' });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  const c2 = await newContext(browser, LAND);
+  const off = await open(c2, preview + '?map=dacha&style=off');
+  assert.deepEqual(await off.page.evaluate(() => { const L = window.__game.lurker; return [!!L.group.getObjectByName('style: resting arms'), !!L.door1.getObjectByName('style: sock')]; }), [false, false]);
+  assert.deepEqual(off.errors, []);
+  await c2.close();
+});
+
+test('style (S4): the HUD, the board and the flashes in the palette (no green); the lobby\'s portraits pick the thief; the icon, the manifest and privacy.html in the night\'s colours; «←» from a page link lands on the menu; «Стиль: вимк» keeps the old lobby', async () => {
+  // no green left in the UI (decision 10): the microphone's scale whisper / lamp / alarm
+  for (const f of ['src/ui/hud.js', 'src/ui/wrist.js', 'src/ui/board.js', 'src/ui/summary.js', 'src/ui/start.js', 'src/audio/mic.js', 'src/platform/feedback.js']) {
+    assert.doesNotMatch(await readFile(join(ROOT, f), 'utf8'), /#5fd38d|#3ddc84|#7ee787/i, `${f}: no green`);
+  }
+  const { LEVELS } = await import(new URL('../src/audio/mic.js', import.meta.url)).catch(() => ({}));
+  if (LEVELS) assert.deepEqual([LEVELS.quiet.color, LEVELS.normal.color, LEVELS.shout.color], ['#7fd0ff', '#ffb347', '#ff5468']);
+  const man = JSON.parse(await readFile(join(ROOT, 'manifest.webmanifest'), 'utf8'));
+  assert.deepEqual([man.theme_color, man.background_color], ['#0d1322', '#0d1322'], 'the manifest: the night');
+  assert.match(await readFile(join(ROOT, 'index.html'), 'utf8'), /<meta name="theme-color" content="#0d1322">/);
+  const priv = await readFile(join(ROOT, 'privacy.html'), 'utf8');
+  assert.match(priv, /class="logo"[^>]*><span class="hush">HUSH<\/span> <span class="job">JOB<\/span>/, 'privacy.html: the logo');
+  assert.match(priv, /font-family: 'Unbounded'[^}]*fonts\/unbounded-cyrillic-800\.woff2/, 'privacy.html: the headings\' font, offline');
+  assert.doesNotMatch(priv, /<script/, 'privacy.html: no JS');
+  assert.match(await readFile(join(ROOT, 'tools/make-icons.mjs'), 'utf8'), /\['H', x0, '#efe6d4'\], \['J', x0 \+ wH \+ gap, '#ffb347'\]/, 'the icon: HJ, J in the lamp\'s colour');
+
+  const ctx = await newContext(browser, LAND, { menu: true });
+  let { page, errors } = await open(ctx, preview + '?page=friends');
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  // the lobby: four portraits, a tap picks the thief (the lobby's own select follows), the room's list marked in the thief's colour
+  await page.waitForFunction(() => document.querySelectorAll('#netportraits img[src^="data:image/png"]').length === 4);
+  const lens = await page.evaluate(() => [...document.querySelectorAll('#netportraits img')].map((i) => i.src.length));
+  assert.ok(lens.every((n) => n > 4000), `the portraits are pictures: ${lens}`);
+  await page.click('#netportraits button[data-thief="frol"]');
+  assert.deepEqual(await page.evaluate(() => [document.getElementById('netthief').value, document.querySelector('#netportraits .on').dataset.thief]), ['frol', 'frol']);
+  // a link straight to a page (?page=friends): «←» lands on the main menu, not off the game (S3's history had nothing under it)
+  await page.click('#overlay section[data-page="friends"] [data-back]');
+  await page.waitForFunction(() => !location.search.includes('page=') && !document.querySelector('#overlay section[data-page="menu"]').hidden);
+  assert.ok(await page.evaluate(() => !!window.__game), '«←» stays in the game');
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx.close();
+  // «Стиль: вимк»: the lobby as it was
+  const ctx2 = await newContext(browser, LAND, { menu: true });
+  ({ page, errors } = await open(ctx2, preview + '?page=friends&style=off'));
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  assert.equal(await page.$$eval('#netportraits', (a) => a.length), 0, 'style off: no portraits');
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx2.close();
+});
+
+test('style (S4): the live scene behind the menu — a camera of its own circles the house (at most 30 pictures a second, half the resolution, one still frame on «низька»), the game\'s camera untouched, the resolution back for the round; «Стиль: вимк»: the game\'s camera and resolution', async () => {
+  const frames = (page, ms) => page.evaluate((ms) => new Promise((done) => { const r = window.__game.renderer.info.render; const a = r.frame; setTimeout(() => done(r.frame - a), ms); }), ms);
+  const ctx = await newContext(browser, LAND, { menu: true });
+  let { page, errors } = await open(ctx, preview);
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  if (await page.$('#micask:not([hidden])')) await page.click('#asklater');
+  // its own camera, at most 30 pictures a second, the game's camera where it was
+  const cam0 = await page.evaluate(() => window.__game.camera.position.toArray());
+  const n = await frames(page, 2000);
+  assert.ok(n >= 2 && n <= 64, `the menu's scene: at most 30 pictures a second (${n} in 2 s; the cloud's software renderer is slower)`);
+  const full = () => page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); return [G.renderer.getPixelRatio(), G.quality ? G.quality.pr : Math.min(devicePixelRatio, 1.5)]; });
+  { const [now, game] = await full(); assert.equal(now, game / 2, 'behind the overlay at half the resolution'); }
+  const moved = await page.evaluate(async () => {
+    const { menuView } = await import('./src/style/menuScene.js');
+    const at = async () => { for (let i = 0; i < 40; i++) { const c = menuView(performance.now()); if (c) return c !== window.__game.camera && c.position.clone(); await new Promise((r) => setTimeout(r, 20)); } return null; };
+    const a = await at(); await new Promise((r) => setTimeout(r, 1000)); const b = await at();
+    return a && b && { y: a.y, step: Math.hypot(a.x - b.x, a.z - b.z) };
+  });
+  assert.ok(moved && moved.y > 5 && moved.step > 0.1 && moved.step < 2, `a camera of its own above the house, slowly circling: ${JSON.stringify(moved)}`);
+  assert.deepEqual(await page.evaluate(() => window.__game.camera.position.toArray()), cam0, 'the game\'s camera untouched');
+  // «низька»: one still frame
+  const still = await page.evaluate(async () => {
+    const { G } = await import('./src/systems/state.js');
+    const q = G.quality, was = q.preset; q.preset = 'low';   // the phone's preset (perf/quality.js), for these 2 s
+    return new Promise((done) => setTimeout(() => { const r = G.renderer.info.render, a = r.frame; setTimeout(() => { q.preset = was; done(r.frame - a); }, 1500); }, 300));
+  });
+  assert.ok(still <= 1, `«низька»: a still frame (${still} pictures in 1.5 s)`);
+  await page.evaluate(() => window.__game.start.play());
+  await page.waitForFunction(() => !document.body.classList.contains('menu-live'));
+  { const [now, game] = await full(); assert.equal(now, game, 'playing: the game\'s resolution back'); }
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx.close();
+  const ctx2 = await newContext(browser, LAND, { menu: true });
+  ({ page, errors } = await open(ctx2, preview + '?style=off'));
+  await page.waitForFunction(() => window.__game && window.__splashDone, null, { timeout: 30000 });
+  assert.equal(await page.evaluate(() => window.__game.renderer.getPixelRatio()), await page.evaluate(() => (window.__game.quality ? window.__game.quality.pr : Math.min(devicePixelRatio, 1.5))), 'style off: the full resolution');
+  assert.equal(await page.evaluate(async () => (await import('./src/style/menuScene.js')).menuView(performance.now())), null, 'style off: the game\'s camera');
+  assert.deepEqual(errors, [], JSON.stringify(errors));
+  await ctx2.close();
+});

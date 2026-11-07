@@ -1,13 +1,15 @@
 // Noise events (both layers: the microphone and the game) + ripples on the floor that show them.
 // emit() hands every event to the listeners (patrol, lurker) and draws one thin ring, so a noise is
 // readable with the sound off. The ring is only a hint: CFG.ripple.radiusK of the hearing radius,
-// at most CFG.ripple.maxRadius; the hearing radius itself is what the enemies use.
+// at most CFG.ripple.maxRadius; the hearing radius itself is what the enemies use. A running step
+// draws two orange rings (the second a moment later), up to CFG.sprint.rippleMax.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 
 const MAX = 24;
 const COLORS = {
   step: 0x6f9fd8, voice: 0xffd166, door: 0xc9a27a, drop: 0xff9f43, glass: 0xffffff, shout: 0xff4040,
+  run: 0xff7a1a, breath: 0xffd166, can: 0xffb347, device: 0xb48cff,
 };
 
 export class NoiseSystem {
@@ -16,6 +18,7 @@ export class NoiseSystem {
     this.ripples = [];
     const geo = new THREE.RingGeometry(0.965, 1, 48);
     geo.rotateX(-Math.PI / 2);
+    this.gain = 1;   // display brightness (systems/brightness.js): the rings stay as visible on a brighter picture
     this.mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({
       color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     }), MAX);
@@ -32,16 +35,23 @@ export class NoiseSystem {
 
   on(fn) { this.listeners.push(fn); }
 
-  // kind: step | voice | door | drop | glass | shout; source: 'player' | 'world' | 'patrol'
-  emit(x, z, radius, kind, { y = 0.03, source = 'player', ripple = true } = {}) {
-    const e = { x, z, y, radius, kind, source, time: performance.now() };
+  // kind: step | run | breath | voice | door | drop | glass | shout | can | device; source: 'player' | 'world' | 'patrol'
+  // device: the device making it (W2a: the guard goes to switch it off instead of looking around)
+  // who: the player who made it (G.players; plan-multiplayer §4.1), null = this device's own player
+  emit(x, z, radius, kind, { y = 0.03, source = 'player', ripple = true, device = null, who = null } = {}) {
+    const e = { x, z, y, radius, kind, source, device, who, time: performance.now() };
     this.log.push(e);
     if (this.log.length > 50) this.log.shift();
     for (const fn of this.listeners) fn(e);
-    if (ripple) {
+    if (ripple && (!this.filter || this.filter(e))) {   // filter: W15, the guard's screen shows only what a guard hears
       if (this.ripples.length >= MAX) this.ripples.shift();
-      const r = Math.min(CFG.ripple.maxRadius, radius * CFG.ripple.radiusK);
+      const run = kind === 'run';
+      const r = Math.min(run ? CFG.sprint.rippleMax : CFG.ripple.maxRadius, radius * CFG.ripple.radiusK);
       this.ripples.push({ x, y: y + 0.01, z, r, t: 0, color: COLORS[kind] || 0xffffff });
+      if (run) {   // the second ring, smaller, a moment later (t < 0 = not drawn yet)
+        if (this.ripples.length >= MAX) this.ripples.shift();
+        this.ripples.push({ x, y: y + 0.01, z, r: r * 0.6, t: -CFG.sprint.rippleDelay, color: COLORS.run });
+      }
     }
     return e;
   }
@@ -58,11 +68,12 @@ export class NoiseSystem {
     }
     for (const r of this.ripples) {
       if (n >= MAX) break;
+      if (r.t < 0) continue;
       const t = r.t / life;
       const s = r.r * (0.2 + 0.8 * Math.sqrt(t));
       this.m.makeScale(s, 1, s).setPosition(r.x, r.y, r.z);
       this.mesh.setMatrixAt(n, this.m);
-      this.c.setHex(r.color).multiplyScalar((1 - t) * 0.8);
+      this.c.setHex(r.color).multiplyScalar((1 - t) * 0.8 * this.gain);
       this.mesh.setColorAt(n, this.c);
       n++;
     }

@@ -2,7 +2,7 @@
 // of light that fades upwards. It barely glows while your hands are empty and brightens when you
 // carry loot. Walk in with loot in your hands and it flies into the van ("+$500" over the ring).
 import * as THREE from 'three';
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 
 const AMBER = 0xffb347;
 const HEIGHT = 2.6;

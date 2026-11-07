@@ -4,15 +4,18 @@
 // crystal vase, whether it shatters.
 import * as THREE from 'three';
 import { Builder, CARGO } from '../world/level.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
 import { playThud, playGlass } from '../audio/audio.js';
+import { playCan, playBottle } from '../audio/distractSfx.js';
+import { S } from '../i18n/index.js';
+import { lit } from '../style/materials.js';
 
 const G = 9.8;
 const _up = new THREE.Vector3();
 const GOLD = 0xc9a24a, SILVER = 0xb8bcc4;
 
 // Mesh per item id: origin at the bottom centre. Returns { geo parts via builder, h, r }.
-function buildItem(id, B) {
+function buildItem(id, B, def = {}) {
   switch (id) {
     case 'statuette':
       B.box(-0.06, 0, -0.06, 0.06, 0.03, 0.06, 0x3a3530);
@@ -63,22 +66,167 @@ function buildItem(id, B) {
       B.box(0, 0.176, 0.105, 0.06, 0.184, 0.11, 0x111111);
       for (const x of [-0.17, 0.17]) B.cyl(0.02, 0.025, 0.03, x, 0, 0, GOLD);
       return { h: 0.36, r: 0.23 };
+    case 'can':          // W2a: a tin can to throw (not loot)
+      B.cyl(0.033, 0.033, 0.12, 0, 0, 0, 0xb83a2e, 10);
+      B.cyl(0.034, 0.034, 0.012, 0, 0, 0, 0xc8ccd2, 10); B.cyl(0.034, 0.034, 0.012, 0, 0.108, 0, 0xc8ccd2, 10);
+      B.cyl(0.0335, 0.0335, 0.04, 0, 0.04, 0, 0xe8e0c8, 10);
+      return { h: 0.12, r: 0.04 };
+    case 'bottle': {     // W2a: a glass bottle to throw (not loot): breaks when it lands; W18: def.color = a bottle of loot
+      const glass = def.color || 0x2f6a3a;
+      B.cyl(0.038, 0.038, 0.18, 0, 0, 0, glass, 10);
+      B.cyl(0.016, 0.038, 0.06, 0, 0.18, 0, glass, 10);
+      B.cyl(0.015, 0.015, 0.07, 0, 0.24, 0, glass, 8);
+      B.cyl(0.039, 0.039, 0.07, 0, 0.06, 0, 0xd8c890, 10);
+      return { h: 0.31, r: 0.045 };
+    }
+    // W2b: traps (consumables from the van; not loot)
+    case 'soap':
+      B.box(-0.045, 0, -0.03, 0.045, 0.025, 0.03, 0xf2d4e8);
+      return { h: 0.03, r: 0.05 };
+    case 'marbles':      // a little bag; laid down, the marbles spread (systems/traps.js)
+      B.cyl(0.05, 0.06, 0.08, 0, 0, 0, 0x7a5a3a, 8); B.cyl(0.02, 0.05, 0.03, 0, 0.08, 0, 0x5a3a22, 8);
+      return { h: 0.11, r: 0.06 };
+    case 'bucket':
+      B.cyl(0.15, 0.12, 0.26, 0, 0, 0, 0x8a9098, 12); B.cyl(0.152, 0.152, 0.015, 0, 0.25, 0, 0x5a6068, 12);
+      return { h: 0.27, r: 0.15 };
+    case 'alarm':        // the alarm clock trap (the mantel clock is 'clock', loot)
+      B.cyl(0.055, 0.055, 0.035, 0, 0.035, 0, 0xc84a3a, 14);
+      B.add(new THREE.CylinderGeometry(0.045, 0.045, 0.005, 14).rotateX(Math.PI / 2).translate(0, 0.06, 0.02), 0xe8e0c8);
+      for (const x of [-0.035, 0.035]) B.cyl(0.02, 0.02, 0.012, x, 0.1, 0, 0xc8ccd2, 8);
+      B.box(-0.04, 0, -0.01, 0.04, 0.03, 0.01, 0x3a3a3a);
+      return { h: 0.12, r: 0.06 };
+    case 'rope':
+      B.cyl(0.06, 0.06, 0.05, 0, 0, 0, 0xb89a6a, 10); B.cyl(0.03, 0.03, 0.052, 0, 0, 0, 0x8a7048, 8);
+      return { h: 0.05, r: 0.06 };
     case 'crystal':
       B.cyl(0.05, 0.035, 0.05, 0, 0, 0, 0xa8dcff);
       B.cyl(0.07, 0.05, 0.12, 0, 0.05, 0, 0xa8dcff);
       B.cyl(0.045, 0.07, 0.1, 0, 0.17, 0, 0xc8ecff);
       B.cyl(0.06, 0.045, 0.04, 0, 0.27, 0, 0xa8dcff);
       return { h: 0.31, r: 0.07 };
+    // ---------- map 2 (W6) ----------
+    case 'laptop':
+      B.box(-0.16, 0, -0.11, 0.16, 0.02, 0.11, 0x2a2d33);
+      B.box(-0.15, 0.02, -0.1, 0.15, 0.025, 0.1, 0x3a3e46);
+      { const g = new THREE.BoxGeometry(0.32, 0.21, 0.012); g.translate(0, 0.105, 0); g.rotateX(-0.35); g.translate(0, 0.02, -0.11); B.add(g, 0x2a2d33); }
+      { const g = new THREE.BoxGeometry(0.29, 0.18, 0.004); g.translate(0, 0.105, 0.008); g.rotateX(-0.35); g.translate(0, 0.02, -0.11); B.add(g, 0x5a8ac0); }
+      return { h: 0.22, r: 0.18 };
+    case 'trophy':
+      B.box(-0.07, 0, -0.07, 0.07, 0.03, 0.07, 0x2a2420);
+      B.cyl(0.02, 0.035, 0.1, 0, 0.03, 0, GOLD);
+      B.cyl(0.07, 0.035, 0.13, 0, 0.13, 0, GOLD);
+      for (const s of [-1, 1]) B.box(s * 0.07, 0.15, -0.01, s * 0.1, 0.24, 0.01, GOLD);
+      return { h: 0.26, r: 0.1 };
+    case 'robot':
+      B.box(-0.08, 0, -0.06, 0.08, 0.18, 0.06, 0x8a9ab0);
+      B.box(-0.06, 0.18, -0.05, 0.06, 0.28, 0.05, 0xa8b4c4);
+      for (const s of [-1, 1]) { B.box(s * 0.08, 0.08, -0.025, s * 0.12, 0.17, 0.025, 0x6a7a90); B.box(s * 0.03 - 0.02, 0.2, -0.052, s * 0.03 + 0.02, 0.24, -0.05, 0xff4040); }
+      B.box(-0.05, 0, -0.07, 0.05, 0.02, 0.07, 0x3a3a3a);
+      return { h: 0.28, r: 0.12 };
+    case 'wine':
+      B.box(-0.25, 0, -0.17, 0.25, 0.3, 0.17, 0x6b4a2a);
+      B.box(-0.26, 0.28, -0.18, 0.26, 0.3, 0.18, 0x5a3a22);
+      for (let i = 0; i < 6; i++) B.cyl(0.03, 0.03, 0.1, -0.17 + (i % 3) * 0.17, 0.3, i < 3 ? -0.08 : 0.08, 0x1f3a2a, 6);
+      return { h: 0.4, r: 0.3 };
+    case 'painting2':    // a bigger painting (W6): 0.8 x 0.6
+      B.box(-0.4, 0, -0.02, 0.4, 0.6, 0.02, GOLD);
+      B.box(-0.34, 0.06, -0.025, 0.34, 0.54, 0.025, 0x4a3a2a);
+      B.box(-0.34, 0.06, 0.025, 0.34, 0.3, 0.028, 0x2a4a3a);
+      B.add(new THREE.CircleGeometry(0.07, 12).translate(0.15, 0.42, 0.029), 0xe8d8a0);
+      return { h: 0.6, r: 0.4 };
+    case 'mirror':
+      B.box(-0.3, 0, -0.025, 0.3, 0.8, 0.025, GOLD);
+      B.box(-0.26, 0.04, 0.025, 0.26, 0.76, 0.03, 0x9fb4c8);
+      return { h: 0.8, r: 0.3 };
+    case 'floorclock':   // a heavy item (W5): a stand-in that cannot be picked up yet
+      B.box(-0.28, 0, -0.25, 0.28, 2.1, 0.25, 0x3b2418);
+      B.add(new THREE.CylinderGeometry(0.17, 0.17, 0.02, 20).rotateX(Math.PI / 2).translate(0, 1.75, 0.26), 0xe8e0c8);
+      B.box(-0.1, 0.3, 0.255, 0.1, 1.4, 0.26, 0x1a1410);
+      B.add(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 12).rotateX(Math.PI / 2).translate(0, 0.5, 0.265), GOLD);
+      return { h: 2.1, r: 0.3 };
+    case 'statue':       // a heavy item (W5): a stand-in that cannot be picked up yet
+      B.cyl(0.4, 0.5, 0.5, 0, 0, 0, 0x6c6760, 8);
+      B.cyl(0.18, 0.22, 0.9, 0, 0.5, 0, 0x8a857c, 8);
+      B.add(new THREE.SphereGeometry(0.16, 10, 8).translate(0, 1.55, 0), 0x8a857c);
+      B.box(-0.3, 1.15, -0.08, 0.3, 1.3, 0.08, 0x8a857c);
+      return { h: 1.7, r: 0.5 };
+    // ---------- W18: small loot in every room (plan-W18 §B) ----------
+    case 'teapot':
+      B.cyl(0.07, 0.09, 0.12, 0, 0, 0, 0xc8ccd2, 12); B.cyl(0.04, 0.07, 0.03, 0, 0.12, 0, 0xc8ccd2, 10); B.cyl(0.012, 0.012, 0.03, 0, 0.15, 0, 0xc8ccd2, 6);
+      B.add(new THREE.CylinderGeometry(0.012, 0.016, 0.12, 6).rotateZ(-0.6).translate(0.1, 0.1, 0), 0xc8ccd2);   // spout
+      B.add(new THREE.TorusGeometry(0.045, 0.008, 6, 10, Math.PI).rotateZ(Math.PI / 2).translate(-0.085, 0.07, 0), 0xc8ccd2);   // handle
+      return { h: 0.18, r: 0.11 };
+    case 'jar':
+      B.cyl(0.055, 0.055, 0.13, 0, 0, 0, 0xb8c8d0, 12); B.cyl(0.04, 0.055, 0.02, 0, 0.13, 0, 0xb8c8d0, 10); B.cyl(0.042, 0.042, 0.015, 0, 0.15, 0, 0x8a7a40, 10);
+      B.cyl(0.05, 0.05, 0.08, 0, 0.01, 0, 0xd8b84a, 12);   // the coins inside
+      return { h: 0.165, r: 0.06 };
+    case 'perfume':
+      B.box(-0.03, 0, -0.02, 0.03, 0.09, 0.02, 0xe8c8e0); B.cyl(0.01, 0.012, 0.015, 0, 0.09, 0, 0xc8a850, 8); B.add(new THREE.SphereGeometry(0.018, 8, 6).translate(0, 0.12, 0), 0xd8c8f0);
+      return { h: 0.14, r: 0.035 };
+    case 'watch':
+      B.add(new THREE.CylinderGeometry(0.035, 0.035, 0.012, 16).translate(0, 0.006, 0), 0xd8b84a); B.add(new THREE.CylinderGeometry(0.03, 0.03, 0.002, 16).translate(0, 0.013, 0), 0xf0ead8);
+      B.box(-0.004, 0.012, -0.03, 0.004, 0.0135, 0.0, 0x202020); B.box(-0.0035, 0.012, 0, 0.018, 0.0135, 0.004, 0x202020);
+      B.cyl(0.006, 0.006, 0.01, 0, 0.004, -0.04, 0xd8b84a, 8); B.add(new THREE.TorusGeometry(0.025, 0.004, 6, 12).rotateX(Math.PI / 2).translate(0, 0.005, -0.07), 0xd8b84a);   // crown and the chain's ring
+      return { h: 0.02, r: 0.09 };
+    case 'toolbox':
+      B.box(-0.15, 0, -0.08, 0.15, 0.12, 0.08, 0xb83a2e); B.box(-0.15, 0.12, -0.08, 0.15, 0.135, 0.08, 0x8a2a20);
+      B.add(new THREE.TorusGeometry(0.05, 0.008, 6, 10, Math.PI).translate(0, 0.135, 0), 0x404040);   // handle
+      B.box(-0.03, 0.06, 0.08, 0.03, 0.1, 0.085, 0xc8ccd2);   // latch
+      return { h: 0.19, r: 0.16 };
+    case 'bag':
+      B.box(-0.14, 0, -0.07, 0.14, 0.2, 0.07, 0x6a3a22); B.box(-0.14, 0.17, -0.075, 0.14, 0.2, 0.075, 0x5a2e1a);
+      B.add(new THREE.TorusGeometry(0.08, 0.008, 6, 10, Math.PI).translate(0, 0.2, 0), 0x5a2e1a);   // handle
+      B.box(-0.02, 0.08, 0.07, 0.02, 0.12, 0.075, 0xd8b84a);   // clasp
+      return { h: 0.28, r: 0.15 };
+    case 'radio':
+      B.box(-0.16, 0, -0.09, 0.16, 0.2, 0.09, 0x6b4a2a); B.box(-0.13, 0.06, 0.09, -0.01, 0.17, 0.095, 0xc8b890);   // the speaker cloth
+      B.add(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 12).rotateX(Math.PI / 2).translate(0.08, 0.1, 0.095), 0xd8b84a);   // the dial
+      B.cyl(0.004, 0.004, 0.14, 0.12, 0.2, 0, 0x8a8a8a, 6);   // antenna
+      return { h: 0.34, r: 0.17 };
+    case 'cigarcase':
+      B.box(-0.07, 0, -0.045, 0.07, 0.025, 0.045, 0xc8ccd2); B.box(-0.065, 0.025, -0.04, 0.065, 0.03, 0.04, 0xd8dde8);
+      return { h: 0.03, r: 0.08 };
+    case 'violincase':
+      B.box(-0.38, 0, -0.12, 0.38, 0.12, 0.12, 0x1a1a1e); B.box(-0.36, 0.12, -0.1, 0.36, 0.135, 0.1, 0x2a2a30);
+      for (const x of [-0.25, 0.25]) B.box(x - 0.02, 0.1, -0.125, x + 0.02, 0.14, 0.125, 0xd8b84a);   // latches
+      B.add(new THREE.TorusGeometry(0.05, 0.008, 6, 10, Math.PI).translate(0, 0.135, 0), 0x3a3a40);
+      return { h: 0.19, r: 0.4 };
+    case 'binoculars':
+      for (const s of [-1, 1]) { B.cyl(0.025, 0.03, 0.12, s * 0.035, 0, 0, 0x202428, 10); B.cyl(0.02, 0.02, 0.01, s * 0.035, 0.12, 0, 0x8ab0c8, 10); }
+      B.box(-0.02, 0.03, -0.012, 0.02, 0.1, 0.012, 0x404448);
+      return { h: 0.13, r: 0.07 };
+    case 'gnome':
+      B.cyl(0.08, 0.1, 0.22, 0, 0, 0, 0x3a5a9a, 10); B.add(new THREE.SphereGeometry(0.07, 10, 8).translate(0, 0.27, 0), 0xe8c0a0);
+      B.cyl(0.0, 0.08, 0.16, 0, 0.3, 0, 0xc83a2e, 10); B.cyl(0.05, 0.06, 0.06, 0, 0.17, 0, 0xf0f0f0, 10);   // hat, beard
+      return { h: 0.46, r: 0.1 };
+    case 'book':
+      B.box(-0.11, 0, -0.08, 0.11, 0.05, 0.08, 0x7a2e2e); B.box(-0.105, 0.005, -0.075, 0.105, 0.045, 0.075, 0xf0ead8); B.box(-0.11, 0, 0.075, 0.11, 0.05, 0.08, 0x7a2e2e);
+      B.box(-0.08, 0.05, -0.05, 0.08, 0.052, 0.05, 0xd8b84a);   // the gilt title
+      return { h: 0.055, r: 0.12 };
   }
   throw new Error('unknown item ' + id);
 }
 
+let cargo = CARGO;   // the van's cargo floor of the map (set by Loot)
 export function inCargo(x, z) {
-  return x > CARGO.minX && x < CARGO.maxX && z > CARGO.minZ && z < CARGO.maxZ;
+  return x > cargo.minX && x < cargo.maxX && z > cargo.minZ && z < cargo.maxZ;
 }
 
-// Places in the van for delivered loot (2 columns, front to back).
-const SLOTS = [[3.95, 8.3], [4.85, 8.3], [3.95, 9.0], [4.85, 9.0], [3.95, 9.7], [4.85, 9.7], [3.95, 10.4], [4.85, 10.4], [4.4, 11.0]];
+// Places in the van for delivered loot (2 columns, front to back); W18: a third, middle column for the
+// small items (every 0.35 m), so trinkets do not take the places of the big ones.
+const SLOTS_DACHA = { main: [[3.95, 8.3], [4.85, 8.3], [3.95, 9.0], [4.85, 9.0], [3.95, 9.7], [4.85, 9.7], [3.95, 10.4], [4.85, 10.4], [4.4, 11.0]], small: Array.from({ length: 8 }, (_, i) => [4.4, 8.0 + i * 0.35]) };
+let SLOTS = SLOTS_DACHA;
+// another map's van: 2 columns along its cargo floor, from the rear (the end nearer the drop-off ring) forwards
+function slotsFor(c, rear) {
+  const main = [], small = [], x0 = c.minX + 0.45, x1 = c.maxX - 0.45, xm = (c.minX + c.maxX) / 2, len = c.maxZ - c.minZ;
+  for (let i = 0; i * 0.7 + 0.45 < len; i++) {
+    const z = rear === 'max' ? c.maxZ - 0.45 - i * 0.7 : c.minZ + 0.45 + i * 0.7;
+    main.push([x0, z], [x1, z]);
+  }
+  for (let i = 0; i * 0.35 + 0.3 < len; i++) small.push([xm, rear === 'max' ? c.maxZ - 0.3 - i * 0.35 : c.minZ + 0.3 + i * 0.35]);
+  if (!main.length) main.push([xm, (c.minZ + c.maxZ) / 2]);
+  return { main, small: small.length ? small : main };
+}
 
 class Item {
   constructor(def) {
@@ -88,21 +236,30 @@ class Item {
     this.kind = def.kind;
     this.twoHanded = def.kind === 'medium';
     this.crystal = def.kind === 'crystal';
+    this.fragile = !!def.fragile;       // breaks like the crystal when dropped (W6: the mirror), no shards
+    this.heavy = !!def.heavy;           // a two-carrier item (W5): a stand-in nobody can pick up yet
+    this.prop = !!def.prop;             // not loot (W6: the fake painting in the van): not counted
+    this.throwable = !!def.throwable;   // a can or a bottle (W2a): not loot, not counted, never in the van
+    this.small = !!def.small;           // W18: a trinket (<= CFG.loot.small.valueMax): the guard does not miss it (hard: half), its glass is quieter, its own van column
+    this.bottle = def.kind === 'bottle';
+    this.trap = def.trap || null;       // W2b: soap | marbles | bucket | clock | rope (a consumable from the van)
+    this.inWardrobe = !!def.inWardrobe; // W7: inside the lurker's wardrobe: taken only while it sleeps (doors ajar)
+    this.shut = false;                  // W7: set by systems/story.js while the wardrobe is closed
     const B = new Builder();
-    const { h, r } = buildItem(def.id, B);
+    const { h, r } = buildItem(def.mesh || def.id, B, def);
     this.h = h; this.r = r;
     this.baseEmissive = this.crystal ? 0x16324a : 0x000000;
-    this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: this.baseEmissive });
+    this.mat = lit({ emissive: this.baseEmissive, grade: CFG.style.grade.loot });
     this.mesh = B.mesh(this.mat);
     this.mesh.name = 'loot: ' + def.id;
     this.vel = new THREE.Vector3();
     this.spinAxis = new THREE.Vector3(1, 0, 0);
     this.holders = [];       // hands holding it ('left' / 'right' / 'desk')
-    if (this.crystal) {
+    if (this.crystal || this.bottle) {
       const S = new Builder();
       for (let i = 0; i < 9; i++) {
         const a = i * 2.4, d = 0.05 + (i % 3) * 0.08;
-        S.add(new THREE.TetrahedronGeometry(0.02 + (i % 2) * 0.012).rotateY(a).translate(Math.cos(a) * d, 0.012, Math.sin(a) * d), 0xc8ecff);
+        S.add(new THREE.TetrahedronGeometry(0.02 + (i % 2) * 0.012).rotateY(a).translate(Math.cos(a) * d, 0.012, Math.sin(a) * d), this.bottle ? 0x3f8a4a : 0xc8ecff);
       }
       this.shards = S.mesh(this.mat);
       this.shards.visible = false;
@@ -128,12 +285,15 @@ class Item {
     this.mat.color.setHex(0xffffff);
     this.highlight(false);
     if (this.shards) this.shards.visible = false;
+    // W2a: thrown (from where), found by the guard, carried by it, binned / swept up
+    this.thrown = false; this.thrownFrom = null; this.hitGuard = false; this.landedAt = null;
+    this.found = false; this.carrier = null; this.gone = false;
   }
 
   get value() { return this.broken ? 0 : Math.round(this.def.value * (this.damaged ? CFG.loot.damagedK : 1)); }
   get held() { return this.holders.length > 0; }
   // can a hand pick it up? (not broken, not flying, not already in the van)
-  get takeable() { return this.state !== 'broken' && this.state !== 'fly' && !this.delivered; }
+  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered && !this.carrier && !this.gone && !this.shut; }
 
   centre(out) { return out.copy(this.mesh.position).addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.mesh.quaternion), this.h / 2); }
 
@@ -158,7 +318,9 @@ export class Loot {
   // env: { level, noise, listener() -> {x, z}, onMessage(text, color), onDeliver(item) }
   constructor(env) {
     this.env = env;
-    this.items = CFG.items.map((d) => new Item(d));
+    if (env.level && env.level.cargo) { cargo = env.level.cargo; SLOTS = cargo.slots || slotsFor(cargo, cargo.rear || 'min'); }
+    else SLOTS = SLOTS_DACHA;
+    this.items = ((env.level && env.level.items) || CFG.items).concat(env.throwables || []).map((d) => new Item(d));
     this.group = new THREE.Group();
     this.group.name = 'loot';
     for (const it of this.items) { this.group.add(it.mesh); if (it.shards) this.group.add(it.shards); }
@@ -173,8 +335,9 @@ export class Loot {
 
   // Summary for the board and the wrist; list = delivered items in delivery order.
   tally() {
-    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.length, list: [] };
+    const s = { inVan: 0, sum: 0, intact: 0, damaged: 0, broken: 0, total: this.items.filter((i) => !i.heavy && !i.prop && !i.throwable).length, list: [] };
     for (const it of this.items) {
+      if (it.prop || it.throwable) continue;
       if (it.broken) s.broken++;
       if (!it.delivered) continue;
       s.inVan++; s.sum += it.value;
@@ -185,21 +348,22 @@ export class Loot {
     return s;
   }
 
-  nextSlot() {
-    const used = this.items.filter((i) => i.delivered || i.state === 'fly').length;
-    return SLOTS[Math.min(used, SLOTS.length - 1)];
+  nextSlot(it) {
+    const col = it && it.small ? SLOTS.small : SLOTS.main;
+    const used = this.items.filter((i) => (i.delivered || i.state === 'fly') && !!i.small === !!(it && it.small)).length;
+    return col[Math.min(used, col.length - 1)];
   }
 
   // Drop-off ring: the item flies from where it is into its place in the van (CFG.dropZone.flyTime).
   deliver(it) {
-    if (!it.takeable) return false;
-    const [x, z] = this.nextSlot();
+    if (!it.takeable || it.throwable) return false;
+    const [x, z] = this.nextSlot(it);
     this.e.setFromQuaternion(it.mesh.quaternion);
     it.holders.length = 0;
     it.state = 'fly';
     it.fly = {
       t: 0, from: it.mesh.position.clone(), q0: it.mesh.quaternion.clone(),
-      to: new THREE.Vector3(x, CARGO.y, z), q1: new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y),
+      to: new THREE.Vector3(x, cargo.y, z), q1: new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y),
     };
     return true;
   }
@@ -207,9 +371,9 @@ export class Loot {
   // Put an item straight into the van (items still in hand when you escape or drive off).
   stow(it) {
     if (it.delivered || it.broken) return;
-    const [x, z] = this.nextSlot();
+    const [x, z] = this.nextSlot(it);
     it.holders.length = 0;
-    it.mesh.position.set(x, CARGO.y, z);
+    it.mesh.position.set(x, cargo.y, z);
     this.e.setFromQuaternion(it.mesh.quaternion); it.mesh.quaternion.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, this.e.y);
     it.state = 'rest'; it.landed = true; it.vel.set(0, 0, 0); it.fly = null;
     this.markDelivered(it, true);
@@ -217,7 +381,7 @@ export class Loot {
 
   // An item resting on the cargo floor (flown in, stowed, or thrown in) counts, once and for good.
   markDelivered(it, force = false) {
-    if (it.delivered || it.broken || it.state !== 'rest') return;
+    if (it.delivered || it.broken || it.prop || it.throwable || it.state !== 'rest') return;   // a prop (the fake painting), a can (W2a) is never loot
     if (!force && !(inCargo(it.mesh.position.x, it.mesh.position.z) && it.mesh.position.y > 0.2)) return;
     it.delivered = true;
     it.order = ++this.orderN;
@@ -228,19 +392,25 @@ export class Loot {
   knock(it, vx, vz) {
     if (it.state !== 'rest') return;
     it.drop(this.v.set(vx, 0.6, vz));
-    this.env.onMessage('Зачепив кришталь!', '#7fc8ff');
+    this.env.onMessage(S.loot.crystalBumped, '#7fc8ff');
   }
 
-  update(dt, player) {
+  // players: everybody in the round (G.players; one player is taken as a list of one)
+  update(dt, players) {
     const cr = this.crystal;
-    if (cr && cr.state === 'rest' && !cr.delivered) {
+    for (const player of Array.isArray(players) ? players : [players]) {
+      if (!cr || cr.state !== 'rest' || cr.delivered) break;
       const p = cr.mesh.position;
       const d = Math.hypot(player.head.x - p.x, player.head.z - p.z);
       if (d < 0.45 && player.speed > CFG.loot.crystal.bumpSpeed && p.y > 0.3) {
         this.knock(cr, (p.x - player.head.x) / d * 0.8, (p.z - player.head.z) / d * 0.8);
       }
     }
+    // W18: a trinket at rest further than CFG.loot.small.drawDist from every player is not drawn (a 10 cm
+    // thing at 14 m is a pixel; the garden view otherwise draws every trinket inside the house)
+    const L = this.env.listener ? this.env.listener() : null, far = CFG.loot.small.drawDist;
     for (const it of this.items) {
+      if ((it.small || it.kind === 'light') && L && !it.broken && !it.heavy) { const p = it.mesh.position; it.mesh.visible = it.state !== 'rest' || Math.hypot(L.x - p.x, L.z - p.z) < far; }
       if (it.state === 'fly') { this.flyStep(it, dt); continue; }
       if (it.state !== 'fall') { if (it.state === 'rest') this.markDelivered(it); continue; }
       const steps = Math.max(1, Math.ceil(dt * 120));
@@ -302,19 +472,49 @@ export class Loot {
     const env = this.env, p = it.mesh.position, L = env.listener();
     const occ = env.level.soundOccluded(L.x, L.z, p.x, p.z);
     const pos = { x: p.x, y: p.y + 0.1, z: p.z };
-    if (it.crystal && speed > CFG.loot.crystal.breakSpeed) {
+    // a soft landing (W6: the hedge under the balcony): much slower, but a rustle the garden hears
+    if (!wall && env.level.softAt && env.level.softAt(p.x, p.z)) {
+      const soft = env.level.softAt(p.x, p.z);
+      speed *= soft.k;
+      playThud(pos, occ, 0.3, false);
+      env.noise.emit(p.x, p.z, soft.noise, 'drop', { y: p.y + 0.02, source: 'world' });
+      if (speed < CFG.loot.quietLanding) return;
+    }
+    // W2a: a can clatters (its own noise kind, heard further than a dropped item); a bottle breaks
+    if (it.throwable) {
+      it.landedAt = { x: p.x, y: p.y, z: p.z };
+      if (it.trap) {   // W2b: a trap lands with a soft thud (systems/traps.js arms it where it lies)
+        if (speed >= CFG.loot.quietLanding) { playThud(pos, occ, Math.min(1, speed / 6), false); env.noise.emit(p.x, p.z, CFG.loot.noiseRadius.light * 0.6, 'drop', { y: p.y + 0.02, source: 'world' }); }
+        return;
+      }
+      const T = CFG.throw;
+      if (it.bottle && speed > T.bottle.breakSpeed) {
+        it.broken = true; it.state = 'broken';
+        it.mesh.visible = false;
+        it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true;
+        playBottle(pos, occ);
+        env.noise.emit(p.x, p.z, T.bottle.noise, 'glass', { y: p.y + 0.02, source: 'world' });
+        return;
+      }
+      if (speed < CFG.loot.quietLanding) return;
+      const k = Math.max(0.5, Math.min(1, speed / 4));
+      playCan(pos, occ, k);
+      env.noise.emit(p.x, p.z, T.can.noise * k, 'can', { y: p.y + 0.02, source: 'world' });
+      return;
+    }
+    if ((it.crystal || it.fragile) && speed > CFG.loot.crystal.breakSpeed) {
       it.broken = true; it.damaged = true; it.state = 'broken';
       it.mesh.visible = false;
-      it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true;
+      if (it.shards) { it.shards.position.set(p.x, p.y, p.z); it.shards.visible = true; }
       playGlass(pos, occ);
-      env.noise.emit(p.x, p.z, CFG.loot.noiseRadius.glass, 'glass', { y: p.y + 0.02, source: 'world' });
-      env.onMessage('Кришталь розбився!', '#ff5c5c');
+      env.noise.emit(p.x, p.z, CFG.loot.noiseRadius.glass * (it.small ? CFG.loot.small.noiseK : 1), 'glass', { y: p.y + 0.02, source: 'world' });   // W18: a trinket's glass is quieter
+      env.onMessage(S.loot.crystalBroke, '#ff5c5c');
       return;
     }
     if (speed > (wall ? CFG.loot.wallDamageSpeed : CFG.loot.damageSpeed) && !it.damaged) {
       it.damaged = true;
       it.mat.color.setHex(0x9a8a80);
-      env.onMessage(`${it.name}: пошкоджено`, '#ff9f43');
+      env.onMessage(it.thrown ? S.throw.damaged(it.name) : S.loot.damaged(it.name), '#ff9f43');   // W2a: «Пошкоджено при кидку»
     }
     if (speed < CFG.loot.quietLanding) return;
     const base = it.twoHanded ? CFG.loot.noiseRadius.medium : CFG.loot.noiseRadius.light;

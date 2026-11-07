@@ -1,0 +1,51 @@
+/* W17 «Стиль» S4 (plan-W17-style.md §3.6–3.7): the phone's HUD and the round's summary in the palette — tags of
+   dusk with an ink outline and a stamp's shadow, the clock in the headings' font, the alarm's banner, the
+   microphone's scale whisper / lamp / alarm (decision 10: no green). «Надворі» (body.outdoor) keeps its own
+   contrast rules (src/ui/phone.css). */
+body:not(.outdoor) #hud .hud-tl, body:not(.outdoor) #hud .hud-tc, body:not(.outdoor) #hud .hud-tr {
+  background: rgba(24, 34, 58, .78); border: 2px solid #05070d; box-shadow: 3px 3px 0 #05070d; border-radius: 10px; padding: 4px 9px; text-shadow: none; }
+body:not(.outdoor) #hud .hud-tl:has(.hud-sub span:not(:empty)) { padding-bottom: 6px; }
+#hud .time { font-family: "Unbounded", system-ui, sans-serif; font-weight: 800; font-size: 26px; letter-spacing: .02em; }
+#hud .hud-sub { color: #d6cfbf; }
+/* the alarm's banner: «ТРИВОГА» / «ДО ФУРГОНА» in the alarm's colour with an ink outline, a short shake */
+#hud .alarm[data-lvl="2"], #hud .alarm[data-lvl="escape"] { font-family: "Unbounded", system-ui, sans-serif; font-size: 15px; letter-spacing: .04em;
+  text-shadow: 2px 0 #05070d, -2px 0 #05070d, 0 2px #05070d, 0 -2px #05070d, 2px 2px #05070d, -2px -2px #05070d, 2px -2px #05070d, -2px 2px #05070d; animation: hud-shake .45s ease-out 1; }
+@keyframes hud-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { #hud .alarm { animation: none !important; } }
+/* the microphone's scale: quiet = whisper, voice = lamp, shout = alarm */
+#hud .bar { background: #0d1322; box-shadow: 0 0 0 1px #05070d; }
+#hud .bar .zq { background: #1d3446; } #hud .bar .zn { background: #4a3a1f; } #hud .bar .zs { background: #4d1f2a; }
+#hud .bar .tick { background: #efe6d4; }
+#hud .hud-msg { background: rgba(13, 19, 34, .72); border: 2px solid #05070d; }
+#hud .hud-msg:empty { border: 0; }
+
+/* the start screen's scale too */
+#meter { background: #0d1322; }
+#meter #zq { background: #1d3446 !important; } #meter #zn { background: #4a3a1f !important; } #meter #zs { background: #4d1f2a !important; }
+
+/* the round's summary: the dusk card, the title and the stars stamped, the delivered items as an invoice */
+#summary { background: rgba(13, 19, 34, .9); }
+#summary .sm-card { background: rgba(24, 34, 58, .97); border: 2px solid #05070d !important; box-shadow: 6px 6px 0 #05070d; color: #efe6d4; }
+#summary .sm-card.good { box-shadow: 6px 6px 0 #05070d, inset 0 0 0 2px #ffb347; }
+#summary .sm-card.bad { box-shadow: 6px 6px 0 #05070d, inset 0 0 0 2px #ff5468; }
+#summary .sm-title { font-family: "Unbounded", system-ui, sans-serif; font-weight: 800; font-size: 26px; }
+#summary .good .sm-title { color: #ffb347; } #summary .bad .sm-title { color: #ff5468; }
+#summary .sm-money { font-family: "Unbounded", system-ui, sans-serif; color: #ffb347; }
+#summary .bad .sm-money { color: #d6cfbf; }
+#summary .sm-list { background: #efe6d4; color: #1b2133; border-radius: 6px; padding: 4px 10px; box-shadow: 3px 3px 0 #05070d; }
+#summary .sm-item { color: #1b2133; border-bottom: 1px dashed #9a8f78; }
+#summary .sm-item:last-child { border-bottom: 0; }
+#summary .sm-item b { color: #1b2133; } #summary .sm-item.dmg, #summary .sm-item.dmg b { color: #a3402f; }
+#summary .sm-empty { color: #6b6250; }
+#summary .sm-stars { color: #ffb347; text-shadow: 2px 0 #05070d, -2px 0 #05070d, 0 2px #05070d, 0 -2px #05070d, 3px 3px 0 #05070d; }
+#summary .sm-stars.none { color: #5f6b85; }
+#summary .sm-record, #summary .sm-income { color: #ffb347; }
+#summary .sm-contract { color: #ffb347; font-family: "Unbounded", system-ui, sans-serif; font-size: 15px; }
+#summary .sm-btn { border-color: #05070d; background: #0d1322; color: #efe6d4; box-shadow: 3px 3px 0 #05070d; }
+#summary .sm-btn.primary { background: #ffb347; color: #05070d; }
+#summary .sm-btn.quiet { color: #9aa7bf; border-color: #2b3858; box-shadow: none; }
+
+/* the last greens (decision 10): the action button, the scale's fill, «Є ✓» in the pause menu's shop */
+#touch .act { border-color: #7fd0ff; }
+#hud .bar .fill { background: #7fd0ff; }
+.pm-shop.owned .pm-shop-text b { color: #efe6d4; }

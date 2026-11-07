@@ -5,8 +5,9 @@
 // ?mode=vr|phone|pc overrides the detection and is remembered on this device; ?mode=auto forgets it.
 // isSessionSupported('immersive-vr') is not used: Android Chrome may report Cardboard VR.
 import { loadSetting, saveSetting } from '../settings.js';
+import { S } from '../i18n/index.js';
 
-export const MODE_NAMES = { vr: 'шолом (VR)', phone: 'телефон', pc: "комп'ютер" };
+export const MODE_NAMES = { vr: S.mode.vr, phone: S.mode.phone, pc: S.mode.pc };
 export const MIN_IOS = [16, 4];   // import maps (Safari 16.4); without them the game does not load
 
 // Pure detection from the browser's own description; nav/media are injectable for tests.
@@ -14,7 +15,7 @@ export function detectDevice(nav = navigator, media = (q) => matchMedia(q).match
   const ua = nav.userAgent || '';
   const touch = nav.maxTouchPoints || 0;
   const ios = /\b(iPhone|iPod|iPad)\b.*? OS (\d+)_(\d+)/.exec(ua);
-  if (/OculusBrowser|\bQuest\b|Pico|Wolvic/i.test(ua)) return { mode: 'vr', device: 'шолом', os: '' };
+  if (/OculusBrowser|\bQuest\b|Pico|Wolvic/i.test(ua)) return { mode: 'vr', device: S.mode.headset, os: '' };
   if (ios) return { mode: 'phone', device: ios[1] === 'iPad' ? 'iPad' : 'iPhone', os: `iOS ${ios[2]}.${ios[3]}`, ios: [+ios[2], +ios[3]] };
   // iPadOS 13+ presents itself as a Mac; a Mac has no touch screen
   if (/Macintosh/.test(ua) && touch > 1) {
@@ -27,8 +28,8 @@ export function detectDevice(nav = navigator, media = (q) => matchMedia(q).match
   if (android) return { mode: 'phone', device: 'Android', os: /Android 10; K\b/.test(ua) ? '' : `Android ${android[1]}`.trim() };
   // e.g. Chrome's "desktop site" on a phone (no "Android" in the UA) or a touch-first tablet. The
   // primary pointer decides: Samsung phones also report a fine pointer (any-pointer: fine)
-  if (touch > 0 && media('(pointer: coarse)')) return { mode: 'phone', device: 'сенсорний екран', os: '' };
-  return { mode: 'pc', device: "комп'ютер", os: '' };
+  if (touch > 0 && media('(pointer: coarse)')) return { mode: 'phone', device: S.mode.touchscreen, os: '' };
+  return { mode: 'pc', device: S.mode.pc, os: '' };
 }
 
 // Android version and model from userAgentData.getHighEntropyValues (Chrome), when the UA is frozen

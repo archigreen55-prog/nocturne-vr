@@ -3,7 +3,9 @@
 // The level is shown by the light: cold blue at rest -> amber slow pulse -> red fast pulse,
 // police blue/red in the windows. The last minute of the timer makes the lights flicker.
 import * as THREE from 'three';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
+import { power } from '../world/devices.js';
+import { S } from '../i18n/index.js';
 
 const AMBER = new THREE.Color(0x8a6a40), RED = new THREE.Color(0xa01818), RED_PT = new THREE.Color(0xff3030);
 const POLICE_R = new THREE.Color(0xff2020), POLICE_B = new THREE.Color(0x2040ff);
@@ -16,6 +18,8 @@ export class Alert {
       hemi: lights.hemi.color.clone(), hemiI: lights.hemi.intensity, moonI: lights.moon.intensity,
       points: lights.points.map((p) => ({ c: p.color.clone(), i: p.intensity })),
     };
+    this.gain = 1;            // display brightness (systems/brightness.js): every light x gain; nothing else reads it
+    this.glowGain = 1;        // ... and the window / lamp glow (a warning: a little more)
     this.onFull = null;
     this.reset();
   }
@@ -35,14 +39,15 @@ export class Alert {
 
   add(points, x, z) {
     this.lastKnown = { x, z };
-    if (this.full) return;
+    if (this.full || this.manualOnly) return;   // W15: a human guard decides on the alarm itself
     this.suspicion += points;
-    if (this.suspicion >= CFG.alert.full) this.setFull('шум', x, z);
+    if (this.suspicion >= CFG.alert.full) this.setFull(S.cause.noise, x, z);
   }
 
   setFull(cause, x, z) {
     if (x !== undefined) this.lastKnown = { x, z };
     if (this.full) return;
+    if (this.manualOnly && (cause === S.cause.noise || cause === S.cause.shout)) return;   // W15: noise does not ring by itself
     this.full = true;
     this.cause = cause;
     if (this.onFull) this.onFull(cause, x, z);
@@ -75,11 +80,11 @@ export class Alert {
     L.points.forEach((p, i) => {
       p.color.copy(B.points[i].c);
       if (this.k > 1) p.color.lerp(RED_PT, 0.7 * (this.k - 1));
-      p.intensity = B.points[i].i;
+      p.intensity = B.points[i].i * this.gain * power.k(i);   // W2a: the breaker
     });
     // windows: police lights outside during full alarm
-    if (this.level === 2) L.glow.color.copy(Math.sin(t * 2 * Math.PI * 2) > 0 ? POLICE_R : POLICE_B).multiplyScalar(2.2);
-    else L.glow.color.setHex(0xffffff);
+    if (this.level === 2) L.glow.color.copy(Math.sin(t * 2 * Math.PI * 2) > 0 ? POLICE_R : POLICE_B).multiplyScalar(2.2 * this.glowGain);
+    else L.glow.color.setHex(0xffffff).multiplyScalar(this.glowGain * (power.on ? 1 : 0.35));   // W2a: the lamps' glow goes with the power
     // last minute: the lights flicker in bursts
     if (this.flicker) {
       this.flickT -= dt;
@@ -90,7 +95,7 @@ export class Alert {
         for (const p of L.points) p.intensity *= k;
       }
     }
-    L.hemi.intensity = hemiI;
-    L.moon.intensity = moonI;
+    L.hemi.intensity = hemiI * this.gain;
+    L.moon.intensity = moonI * this.gain;
   }
 }

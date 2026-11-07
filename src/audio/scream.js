@@ -10,10 +10,11 @@
 // ?rec=script / ?rec=recorder in the address forces a mode (for testing).
 import { audioContext } from './audio.js';
 import { VERSION } from '../version.js';
-import { CFG } from '../game/config.js';
+import { CFG } from '../config/index.js';
+import { S } from '../i18n/index.js';
 
 const SEG_MS = 2000;
-const MODE_NAMES = { worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder', none: 'не працює' };
+const MODE_NAMES = { worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder', none: S.scream.none };
 
 export class ScreamRecorder {
   constructor(mic) {
@@ -88,6 +89,12 @@ export class ScreamRecorder {
       };
       check();
     });
+  }
+
+  // The microphone stream was replaced (after a call, a device change): tap the new source.
+  retap(src) {
+    if (this.node && (this.mode === 'worklet' || this.mode === 'script')) { try { src.connect(this.node); } catch (e) { console.warn('scream retap', e); } }
+    // 'recorder' picks up mic.stream by itself with its next 2 s segment
   }
 
   push(block) {
