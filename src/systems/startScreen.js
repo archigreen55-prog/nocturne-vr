@@ -25,6 +25,8 @@ import { distractReport } from './distract.js';
 import { trapsReport } from './traps.js';
 import { beforeNow, storyReport } from './story.js';
 import { S } from '../i18n/index.js';
+import { renderPlayPage } from './playPage.js';
+import { whyClosed } from './levels.js';
 
 export function syncStartScreen() {
   const { contract, difficulty } = G;
@@ -36,6 +38,7 @@ export function syncStartScreen() {
     ['easy', 'medium', 'hard'].map((d) => `${CFG.difficulties[d].name} ${'★'.repeat(b[d] || 0)}${'☆'.repeat(3 - (b[d] || 0))}`).join(', '))
     + (lockText(contract) ? ` ${lockText(contract)}` : '');
   syncWallet();   // the wallet line, 🔒 on closed contracts (systems/economy.js)
+  renderPlayPage();   // menu design: the level cards, the difficulty buttons, «Грати»
 }
 // W7: new elements of the start screen with ids of their own, put next to the existing ones (W17
 // rebuilds the start screen into pages: it moves #storybefore / #headphones where it wants)
@@ -88,7 +91,11 @@ export const startScreen = {
     if (hp) hp.textContent = S.start.headphones;
     const { touch, mic, scream, renderer, round, comfort, gyro } = G;
     for (const c of CFG.contracts) $('contract').add(new Option(c.name, c.id));
-    $('contract').addEventListener('change', () => { if (round.phase === 'ready') setContract($('contract').value); else syncStartScreen(); });
+    $('contract').addEventListener('change', () => {
+      const c = CFG.contracts.find((x) => x.id === $('contract').value), why = whyClosed(c);   // T1: a closed level is not picked
+      if (why) { flash(why, 2.5, '#ffb347'); syncStartScreen(); return; }
+      if (round.phase === 'ready') setContract($('contract').value); else syncStartScreen();
+    });
     $('difficulty').addEventListener('change', () => { if (round.phase === 'ready') setDifficulty($('difficulty').value); else syncStartScreen(); });
     const start = G.start = setupStartScreen({
       mic, phone: !!touch, dev: G.MODE, playGame,
@@ -135,7 +142,13 @@ export const startScreen = {
     vrButton.id = 'vrbutton';
     vrButton.addEventListener('click', () => unlockAudio(), true);
     // phones: no "Enter VR" (Android may offer Cardboard) and no laptop play (it needs a mouse)
-    if (G.MODE.mode !== 'phone') $('buttons').appendChild(vrButton);
+    if (G.MODE.mode !== 'phone') {
+      $('buttons').appendChild(vrButton);
+      // menu design: no «VR NOT SUPPORTED» under «Грати» on a PC without a headset (a headset keeps its button)
+      const xr = navigator.xr;
+      if (!xr || !xr.isSessionSupported) vrButton.hidden = true;
+      else xr.isSessionSupported('immersive-vr').then((ok) => { if (!ok) vrButton.hidden = true; }, () => { vrButton.hidden = true; });
+    }
     else {
       $('start').textContent = S.start.play;
       // the settings (look speed, breath, HUD, vibration) are wired with the pause menu (systems/phone.js)

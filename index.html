@@ -327,19 +327,24 @@
 
   <section data-page="play" hidden>
     <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.play"></h2></header>
-    <h3 data-t="start.h.contract"></h3>
-    <div id="settings" style="margin-top:4px">
-      <label><span data-t="start.label.contract"></span><select id="contract"></select></label>
-      <label><span data-t="start.label.difficulty"></span><select id="difficulty"><option value="easy" data-t="difficulty.easy"></option><option value="medium" data-t="difficulty.medium"></option><option value="hard" data-t="difficulty.hard"></option></select></label>
+    <div class="pl-grid">
+      <div id="levelpick"></div>
+      <aside class="pl-side">
+        <div class="lv-info" id="lvinfo"><span class="lv-info-n" id="lvinfon"></span><b id="lvinfoname"></b><span id="lvinfogoal"></span><span class="lv-info-why" id="lvinfowhy"></span></div>
+        <div class="seg" id="diffpick" role="group"></div>
+        <div id="buttons"><button id="start" class="primary pl-start" disabled>Завантаження…</button></div>
+        <p class="pl-mic"><span id="playmic"></span><button id="playmicgo" data-go="settings" data-t="menu2.mic.setup"></button></p>
+      </aside>
     </div>
-    <p class="muted" id="contractinfo"></p>
-    <p class="muted" id="walletline"></p>
-    <div id="buttons"><button id="start" class="primary" disabled>Завантаження…</button></div>
-    <p class="row" style="font-size:14px"><span id="playmic"></span><button id="playmicgo" data-go="settings" data-t="menu2.mic.setup"></button></p>
-    <p class="muted" data-t="start.standing"></p>
-    <h3 data-t="start.h.hide"></h3>
-    <p class="muted" style="font-size:14px; color:#c9d3e3" data-t-html="start.hideHow"></p>
-    <p class="muted" data-t-html="start.intro"></p>
+    <!-- the old start screen's controls: the code keeps them in step (and the tests read them); players see the cards -->
+    <div class="pl-legacy">
+      <div id="settings">
+        <label><span data-t="start.label.contract"></span><select id="contract"></select></label>
+        <label><span data-t="start.label.difficulty"></span><select id="difficulty"><option value="easy" data-t="difficulty.easy"></option><option value="medium" data-t="difficulty.medium"></option><option value="hard" data-t="difficulty.hard"></option></select></label>
+      </div>
+      <p class="muted" id="contractinfo"></p>
+      <p class="muted" id="walletline"></p>
+    </div>
   </section>
 
   <section data-page="friends" hidden>

@@ -16,6 +16,7 @@ import { shopPress } from './economy.js';
 import { newRoundTraps, reloadVan } from './traps.js';
 import { applyLevel, campaignPress } from './campaign.js';
 import { CLASSIC, currentLevel } from '../game/campaign.js';
+import { whyClosed } from './levels.js';
 import { S } from '../i18n/index.js';
 
 // fromHost: a guest starts a new round only when the host does (systems/net.js)
@@ -85,8 +86,10 @@ export function pressBoard(id) {
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');
   else if (id === 'play') scream.play();
   else if (id === 'again') newRound();
-  else if (id === 'cprev') setContract(all[(i + all.length - 1) % all.length].id);
-  else if (id === 'cnext') setContract(all[(i + 1) % all.length].id);
+  else if (id === 'cprev' || id === 'cnext') {   // T1: ◀ ▶ step over the closed levels
+    const d = id === 'cprev' ? -1 : 1;
+    for (let k = 1; k < all.length; k++) { const c = all[(i + d * k + all.length * k) % all.length]; if (!whyClosed(c)) { setContract(c.id); break; } }
+  }
   else if (id === 'diff') setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]);
   else if (id === 'micpage') { G.boardPage = 'mic'; G.calibNotes = ''; }
   else if (id === 'mappage') G.boardPage = 'map';
@@ -136,6 +139,13 @@ export const contract = {
     G.contractId = loadSetting('contract', CLASSIC ? 'first' : currentLevel().id); G.difficulty = loadSetting('difficulty', 'medium');
     if (!DIFFS.includes(G.difficulty)) G.difficulty = 'medium';
     G.contract = contractById(G.contractId);
+    // T1: a remembered level that is closed (or of another map, or gone) is not where a player starts: the
+    // campaign's current level when it is on this map, else this map's first open one
+    if (G.contract.id !== G.contractId || whyClosed(G.contract)) {
+      const cur = !CLASSIC && currentLevel(), here = cur && CFG.contracts.find((c) => c.id === cur.id);
+      G.contract = here && !whyClosed(here) ? here : CFG.contracts.find((c) => !whyClosed(c)) || G.contract;
+      G.contractId = G.contract.id;
+    }
     applyDifficulty(G.difficulty, G.contract);
     G.verdict = null;
   },

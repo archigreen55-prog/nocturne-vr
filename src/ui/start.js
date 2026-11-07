@@ -132,7 +132,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
 
   const play = () => { if (!startBtn.disabled) onPlay(); };
   startBtn.addEventListener('click', play);
-  startBtn.disabled = false;
+  startBtn.disabled = false; startBtn.dataset.ready = '1';   // loaded (systems/playPage.js may still disable it: a closed level)
   startBtn.textContent = S.start.playPc;
   showState();
 

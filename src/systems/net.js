@@ -20,9 +20,9 @@ import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { contractById } from '../game/contracts.js';
 import { newRound, caught, setContract, setDifficulty } from './contract.js';
-import { isOpen } from '../game/economy.js';
 import { levelOf, CLASSIC } from '../game/campaign.js';
 import { applyLevel } from './campaign.js';
+import { levelGroups, pickLevel as pickLevelOf } from './levels.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
@@ -74,15 +74,13 @@ function choiceText() {
   const diff = (CFG.difficulties[s.diff] || {}).name || '';
   return S.net.hostChose(houseName(s.map), c ? levelLabel(c) : s.c, diff);
 }
-const levelsForRoom = () => CFG.contracts.map((c) => ({ id: c.id, label: levelLabel(c) + (c.locked || !isOpen(c) ? ' 🔒' : ''), locked: !!c.locked || !isOpen(c), current: c.id === G.contract.id }));
+const levelsForRoom = () => levelGroups();   // menu design: every level of the ladder by house, the same cards as «Грати»
 const diffsForRoom = () => ['easy', 'medium', 'hard'].map((d) => ({ id: d, name: CFG.difficulties[d].name, current: d === G.difficulty }));
 // the host's pick in the room: a finished round goes back to the van first (setContract works only before the clock)
+// (a level of the other house: remembered, and the host reopens the same room there — T4b's «Інший будинок»)
 function pickLevel(id) {
   if (!isHost()) return;
-  const c = CFG.contracts.find((x) => x.id === id);
-  if (!c || c.locked || !isOpen(c)) return;
-  if (G.round.phase !== 'ready') newRound();
-  setContract(id);
+  pickLevelOf(id, { setContract, newRound, switchMap: () => otherHouse() });
 }
 function pickDiff(d) {
   if (!isHost()) return;

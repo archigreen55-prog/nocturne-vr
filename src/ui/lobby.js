@@ -3,6 +3,7 @@
 // Pure DOM; the network is src/systems/net.js (it calls lobby.show(state) whenever something changes).
 import { S } from '../i18n/index.js';
 import { bindPress } from './press.js';
+import { LevelPick } from './levelPick.js';   // menu design: the same level cards as «Грати»
 import { prettyCode, cleanCode } from '../net/room.js';
 
 const THIEVES = ['zoya', 'frol', 'rita', 'nazar'];
@@ -34,7 +35,7 @@ export class Lobby {
         <div class="row"><span id="netguardis" class="muted"></span><button id="netguard">${esc(S.hguard.becomeGuard)}</button></div>
         <div id="netsetup">
           <p><b>${esc(S.net.mission)}</b></p>
-          <div id="netpick"><div id="netlevels" class="row" style="flex-wrap:wrap;gap:6px"></div><div class="row" id="netdiffs" style="gap:6px;margin-top:6px"></div></div>
+          <div id="netpick"><div id="netlevels"></div><div class="seg" id="netdiffs" style="margin-top:8px"></div></div>
           <p id="netchoice"></p>
           <div class="row"><button id="nethouse" type="button"></button></div>
           <div class="row"><button id="netstart" class="primary" type="button">${esc(S.net.start)}</button><span id="netwait" class="muted">${esc(S.net.waitStart)}</span></div>
@@ -98,22 +99,18 @@ export class Lobby {
     if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
     choice.textContent = st.choice || '';
     if (!host) return;
-    const sig = JSON.stringify([(st.levels || []).map((l) => [l.id, l.label, l.locked]), (st.diffs || []).map((d) => d.id)]);
+    if (!this.pick) this.pick = new LevelPick(q('netlevels'), (id) => this.on.pickLevel && this.on.pickLevel(id));
+    this.pick.show(st.levels || []);
+    const sig = JSON.stringify((st.diffs || []).map((d) => d.id));
     if (sig !== this.built) {
       this.built = sig;
-      const mk = (box, id, label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = id; b.textContent = label; bindPress(b, () => { if (!b.disabled) fn(id); }); box.append(b); return b; };
-      const lv = q('netlevels'), df = q('netdiffs');
-      lv.replaceChildren(); df.replaceChildren();
-      for (const l of st.levels || []) mk(lv, l.id, l.label, (id) => this.on.pickLevel && this.on.pickLevel(id));
-      for (const d of st.diffs || []) mk(df, d.id, d.name, (id) => this.on.pickDiff && this.on.pickDiff(id));
-    }
-    for (const b of q('netlevels').children) {
-      const l = (st.levels || []).find((x) => x.id === b.dataset.id) || {};
-      b.disabled = !!l.locked; b.classList.toggle('primary', !!l.current); b.setAttribute('aria-pressed', l.current ? 'true' : 'false');
+      const df = q('netdiffs');
+      df.replaceChildren();
+      for (const d of st.diffs || []) { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = d.id; b.textContent = d.name; bindPress(b, () => this.on.pickDiff && this.on.pickDiff(d.id)); df.append(b); }
     }
     for (const b of q('netdiffs').children) {
       const d = (st.diffs || []).find((x) => x.id === b.dataset.id) || {};
-      b.classList.toggle('primary', !!d.current); b.setAttribute('aria-pressed', d.current ? 'true' : 'false');
+      b.classList.toggle('on', !!d.current); b.setAttribute('aria-pressed', d.current ? 'true' : 'false');
     }
   }
 

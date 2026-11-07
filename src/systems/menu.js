@@ -12,7 +12,8 @@ import { shopRows, buyUpgrade } from './economy.js';
 import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
-import { dressLobby } from '../style/portraits.js';   // S4: the thieves' portraits in the lobby
+import { dressLobby } from '../style/portraits.js';
+import { renderPlayPage } from './playPage.js';   // S4: the thieves' portraits in the lobby
 
 const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'testers'];
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
@@ -60,6 +61,7 @@ function renderMenu() {
   $('mmmic').hidden = !!ok;
 }
 function renderPlay() {
+  renderPlayPage();
   const ok = micText();
   $('playmic').textContent = ok || S.menu2.mic.none;
   $('playmicgo').hidden = !!(G.mic && G.mic.calibrated && !G.mic.noMic);
