@@ -264,3 +264,5 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
 }
 /* the settings' options: long words wrap to two lines rather than being cut */
 #overlay .st-opts .seg button, #overlay section[data-page="testers"] .seg button { white-space: normal; text-overflow: clip; line-height: 1.15; min-height: 48px; font-size: 11px; padding: 4px 6px; }
+/* hidden stays hidden: the menu's display rules (flex buttons, grids) must not show an element the code hid */
+#overlay [hidden]:not(section) { display: none !important; }
