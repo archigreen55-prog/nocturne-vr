@@ -146,8 +146,8 @@ export const startScreen = {
       $('buttons').appendChild(vrButton);
       // menu design: no «VR NOT SUPPORTED» under «Грати» on a PC without a headset (a headset keeps its button)
       const xr = navigator.xr;
-      if (!xr || !xr.isSessionSupported) vrButton.hidden = true;
-      else xr.isSessionSupported('immersive-vr').then((ok) => { if (!ok) vrButton.hidden = true; }, () => { vrButton.hidden = true; });
+      if (G.MODE.mode === 'vr') { /* ?mode=vr: the button stays (the person asked for VR) */ } else if (!xr || !xr.isSessionSupported) vrButton.hidden = true;
+      else if (G.MODE.mode !== 'vr') xr.isSessionSupported('immersive-vr').then((ok) => { if (!ok) vrButton.hidden = true; }, () => { vrButton.hidden = true; });
     }
     else {
       $('start').textContent = S.start.play;

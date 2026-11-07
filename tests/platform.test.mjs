@@ -46,7 +46,8 @@ test('PC: loads clean, mode "комп\'ютер", play and VR buttons as before'
   assert.equal((await modeOf(page)).mode, 'pc');
   assert.equal(await page.textContent('#start'), 'Грати');
   assert.equal(await page.isEnabled('#start'), true);
-  assert.equal(await page.isVisible('#vrbutton'), true);
+  await page.waitForTimeout(300);
+  assert.equal(await page.isVisible('#vrbutton'), false, 'no «VR NOT SUPPORTED» on a PC without a headset (menu design)');
   assert.match(await page.textContent('#version'), new RegExp(`версія ${VERSION.replace(/\./g, '\\.')}$`));
   assert.match(await page.textContent('#modeline'), /Режим: комп'ютер/);
   await page.evaluate(() => window.__game.sim(5));
