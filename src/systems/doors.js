@@ -78,7 +78,7 @@ const _doorPos = { x: 0, y: 1.2, z: 0 };
 function updateDoors(dt) {
   const { level, player, noise } = G;
   for (const d of level.doors) {
-    const loud = d.update(dt);
+    const loud = d.update(dt) * d.creakK;   // the back window creaks quietly (config/backWindow.js)
     let v = creakVoices.get(d);
     if (loud > 0 && !v) { v = new CreakVoice(); creakVoices.set(d, v); }
     if (v) {

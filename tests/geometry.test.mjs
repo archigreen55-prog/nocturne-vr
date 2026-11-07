@@ -149,6 +149,10 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
       ws.sort((p, q) => p.a - q.a);
       for (let i = 0; i + 1 < ws.length; i++) { const g = ws[i + 1].a - ws[i].b; if (g > 0.5 && g < 2.6) openings.push({ alongX: ws[i].alongX, c: ws[i].c, t: ws[i].t, y0: ws[i].y0, a: ws[i].b, b: ws[i + 1].a }); }
     }
+    // the dacha's back window (a sash on a hinge in the wall, over a sill): its opening is not a doorway
+    const winOf = (o) => lv.doors.find((d) => d.window && o.alongX === Math.abs(Math.cos(d.base)) > 0.5 && Math.abs((o.alongX ? d.cz : d.cx) - o.c) < 0.05 && (o.alongX ? d.cx : d.cz) > o.a && (o.alongX ? d.cx : d.cz) < o.b);
+    const winOpenings = openings.filter((o) => winOf(o));
+    for (const o of winOpenings) openings.splice(openings.indexOf(o), 1);
     const inOpening = [];
     for (const p of deco) for (const o of openings) {
       const bb = p.bb;
@@ -165,7 +169,7 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
     const doorGaps = [];
     for (const d of lv.doors) {
       const alongX = Math.abs(Math.cos(d.base)) > 0.5, y0 = d.y0 || 0;
-      const o = openings.find((q) => q.alongX === alongX && Math.abs(q.y0 - y0) < 0.05 && Math.abs((alongX ? d.cz : d.cx) - q.c) < 0.05 && (alongX ? d.cx : d.cx * 0 + d.cz) > q.a && (alongX ? d.cx : d.cz) < q.b);
+      const o = d.window ? winOpenings.find((q) => winOf(q) === d) : openings.find((q) => q.alongX === alongX && Math.abs(q.y0 - y0) < 0.05 && Math.abs((alongX ? d.cz : d.cx) - q.c) < 0.05 && (alongX ? d.cx : d.cx * 0 + d.cz) > q.a && (alongX ? d.cx : d.cz) < q.b);
       if (!o) { doorGaps.push({ door: [d.cx, d.cz], gap: 'no opening found' }); continue; }
       const h = alongX ? d.hx : d.hz, gaps = [h - o.a, o.b - (h + d.w)];
       if (gaps.some((g) => g > 0.012 || g < -0.001)) doorGaps.push({ door: [+d.cx.toFixed(2), +d.cz.toFixed(2)], gaps: gaps.map((g) => +g.toFixed(3)) });

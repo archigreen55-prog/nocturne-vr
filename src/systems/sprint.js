@@ -43,7 +43,7 @@ function doorAhead() {
   if (sp < 0.5) return;
   const fx_ = v.x / sp, fz = v.y / sp;
   for (const d of level.doors) {
-    if (d.open) continue;
+    if (d.open || d.window) continue;   // running does not shoulder the back window open
     const dx = d.cx - h.x, dz = d.cz - h.z, dist = Math.hypot(dx, dz);
     if (dist > CFG.sprint.doorAhead || (dx * fx_ + dz * fz) / Math.max(dist, 1e-6) < 0.6) continue;
     if (d.locked) {

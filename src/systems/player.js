@@ -12,6 +12,7 @@ import { aimedDevice, useDevice } from './distract.js';
 import { aimedNote, readNote } from './story.js';
 import { placeAtDoor } from './traps.js';
 import { guardInteract, guardButton } from './humanGuard.js';
+import { windowAhead, startClimb, climbLabel } from './backWindow.js';
 import { S } from '../i18n/index.js';
 
 // A guest's E / «Взяти» / «Покласти»: the host decides (the item may be gone already); the item then
@@ -45,6 +46,7 @@ export const player = {
         else if (dev) useDevice(dev);
         else if (!hands.desk && !hands.deskAim && boardAim()) pressBoard(boardAim());
         else if (G.role === 'guard') guardInteract();   // W15: «Схопити» / «Центральна»
+        else if (windowAhead()) startClimb();   // the back window, open in front of you (before an item under the crosshair: the vase stands right there)
         else if (G.isGuest) guestHands(hands, player, round);   // with friends: the host takes / puts it (systems/net.js)
         else if (hands.desk && placeAtDoor(hands.desk)) { /* W2b: the bucket on a door, the rope across a doorway */ }
         else hands.toggleDesk(player.head, player.yaw, round.atVan(player.head));
@@ -65,8 +67,9 @@ export const player = {
     if (touch && G.playingDesktop) {
       const atVan = round.atVan(player.head);
       const gb = G.role === 'guard' && !boardAim() ? guardButton() : null;   // W15: the guard's button
+      const climb = G.role !== 'guard' && !aimedNote() && !aimedDevice() && !boardAim() ? climbLabel() : null;   // the back window
       touch.setContext({
-        interact: gb ? gb.label : hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedNote() ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null,
+        interact: gb ? gb.label : climb || (hands.desk ? (atVan && !hands.desk.throwable ? S.touch.toVan : S.touch.put) : hands.deskAim ? S.touch.take : aimedNote() ? S.touch.take : aimedDevice() ? S.devices.button[aimedDevice().kind] : boardAim() ? S.touch.press : null),
         door: !!nearestDoor(player.head.x, player.head.z, 1.6, player.yaw), crouched: player.virtualCrouch, breath,
       });
       if (touch.el.interact.classList.contains('off') !== !!(gb && gb.off)) touch.el.interact.classList.toggle('off', !!(gb && gb.off));

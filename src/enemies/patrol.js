@@ -538,7 +538,7 @@ export class Patrol {
   // Opens a closed door between it and the next point (a creak the player can hear).
   openDoors(tx, tz) {
     for (const door of this.env.level.doors) {
-      if (door.locked || door.open || door.floor !== this.floor) continue;
+      if (door.locked || door.window || door.open || door.floor !== this.floor) continue;   // the guards never use the back window
       if (Math.hypot(door.cx - this.x, door.cz - this.z) > 1.3) continue;
       const nx = -Math.sin(door.base), nz = -Math.cos(door.base);   // normal of the closed leaf
       const s1 = (this.x - door.hx) * nx + (this.z - door.hz) * nz, s2 = (tx - door.hx) * nx + (tz - door.hz) * nz;

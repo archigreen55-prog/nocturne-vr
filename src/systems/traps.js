@@ -78,7 +78,7 @@ export function newRoundTraps() { if (!local.stats) return; loadVan(); mischief.
 export function placeAtDoor(it) {
   if (!it || (it.trap !== 'bucket' && it.trap !== 'rope')) return false;
   const p = G.player, d = nearestDoor(p.head.x, p.head.z, CFG.traps.doorReach, p.yaw);
-  if (!d || d.locked) { flash(S.traps.noDoor, 2, '#93a1b8'); return true; }   // not put down on the floor either: it is only for doors
+  if (!d || d.locked || d.window) { flash(S.traps.noDoor, 2, '#93a1b8'); return true; }   // not put down on the floor either: it is only for doors
   G.hands.detach(it);
   attach(it, d);
   return true;
@@ -95,7 +95,7 @@ function attach(it, d) {
 function vrAttach(it) {
   const V = CFG.traps.vrDoor, p = it.mesh.position;
   for (const d of G.level.doors) {
-    if (d.locked || Math.hypot(d.cx - p.x, d.cz - p.z) > V.reach) continue;
+    if (d.locked || d.window || Math.hypot(d.cx - p.x, d.cz - p.z) > V.reach) continue;
     const h = p.y - d.y0;
     if ((it.trap === 'bucket' && h > V.top) || (it.trap === 'rope' && h < V.low)) { attach(it, d); return true; }
   }
