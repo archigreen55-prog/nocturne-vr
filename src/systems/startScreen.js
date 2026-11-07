@@ -139,8 +139,7 @@ export const startScreen = {
     else {
       $('start').textContent = S.start.play;
       // the settings (look speed, breath, HUD, vibration) are wired with the pause menu (systems/phone.js)
-      $('phonehome').addEventListener('click', () => { goHome(); start.play(); });
-      $('phonenew').addEventListener('click', () => { newRound(); start.play(); });
+      // T6 (decision P-T6.2 A): no «До фургона» / «Новий раунд» on the «Грати» page (the pause and the board have them)
     }
     showMode();
     // phone: the service worker (offline, updates) and installing to the home screen (src/platform/pwa.js)

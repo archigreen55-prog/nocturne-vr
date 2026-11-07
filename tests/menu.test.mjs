@@ -105,7 +105,7 @@ test('menu (S3): a small phone (667 x 280, landscape) — the main menu fits wit
 });
 
 // B02: the pause menu's «Мікрофон…» and «Прогрес: код» open the «Налаштування» page (they lived on it), not the main menu
-test('menu: pause → «Мікрофон і калібрування» / «Прогрес: код» open the settings page (B02)', async () => {
+test('menu: the small pause (T6) — «Вийти в меню» opens the new main menu; the summary’s «Меню» too; no old screens', async () => {
   const ctx = await newContext(browser, LAND, { menu: true });
   const { page, errors } = await open(ctx, preview + '?nosplash=1');
   if (await page.$('#micask:not([hidden])')) await page.click('#asklater');
@@ -119,17 +119,20 @@ test('menu: pause → «Мікрофон і калібрування» / «Пр�
     await page.waitForFunction(() => window.__game.paused);
   };
   await play();
-  await page.tap('#pausemenu .pm-btn:has-text("Мікрофон і калібрування")');
+  await page.tap('#pausemenu .pm-btn:has-text("Вийти в меню")');
   await page.waitForFunction(() => document.querySelector('#overlay').style.display !== 'none');
   await page.waitForTimeout(100);
-  assert.deepEqual(await shown(), ['settings'], 'the microphone');
-  await page.tap('#overlay section[data-page="settings"] [data-back]');
+  assert.deepEqual(await shown(), ['menu'], 'the new main menu');
+  assert.equal(await page.isVisible('#pausemenu'), false, 'not the old pause menu');
+  // a round ends: the summary's «Меню» opens the new main menu, not the pause menu
   await play();
-  await page.tap('#pausemenu .pm-btn:has-text("Налаштування")');
-  await page.tap('#pausemenu .pm-btn:has-text("Прогрес: код")');
-  await page.waitForTimeout(100);
-  assert.deepEqual(await shown(), ['settings'], 'the progress code');
-  assert.equal(await page.evaluate(() => document.getElementById('progress').hidden), false);
+  await page.tap('#pausemenu .pm-btn:has-text("Продовжити")');
+  await page.evaluate(() => { const g = window.__game; g.round.finish('left'); g.sim(0.5); });
+  await page.waitForFunction(() => window.__game.summary && window.__game.summary.isOpen, null, { timeout: 20000 });
+  await page.tap('#summary .sm-btn:has-text("Меню")');
+  await page.waitForTimeout(150);
+  assert.equal(await page.isVisible('#pausemenu'), false, 'not the old pause menu');
+  assert.deepEqual(await shown(), ['menu']);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

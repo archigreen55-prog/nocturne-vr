@@ -333,19 +333,21 @@ test('the mansion: Valera on soap «Пункт сім: не ковзати.», Z
   await ctx.close();
 });
 
-test('phone: the pause menu shop sells the traps by finger (into the van at once); the bucket — «Покласти» facing a door puts it on the door, away from doors «підійди до дверей»; the soap — «Покласти» puts it on the floor; you step on your own soap: «Ой! Своє ж…», a noise, a slide; the HUD goal line shows the points on any contract; PC: E the same', async () => {
+test('phone: the menu shop sells the traps by finger (into the van at once); the bucket — «Покласти» facing a door puts it on the door, away from doors «підійди до дверей»; the soap — «Покласти» puts it on the floor; you step on your own soap: «Ой! Своє ж…», a noise, a slide; the HUD goal line shows the points on any contract; PC: E the same', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
   // the pause menu's shop: the traps by finger
   await page.evaluate(() => { const g = window.__game; for (const p of g.guards) p.update = () => null; localStorage.setItem('nocturne.wallet', JSON.stringify({ cash: 500, earned: 500, spent: 0, owned: [], paid: {}, log: [] })); g.menu.refresh(); });
+  // T6: the pause is small — «Вийти в меню» → the menu's «Магазин» → «Грати» back
   await pressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused, null, { timeout: 5000 });
-  await pressEl(page, cdp, '#pausemenu .pm-btn:text-is("Магазин")');
-  await page.waitForSelector('#pausemenu [data-upgrade="trap:soap"]', { timeout: 5000 });
-  await pressEl(page, cdp, '#pausemenu [data-upgrade="trap:soap"]');
-  await page.waitForFunction(() => /×1/.test(document.querySelector('#pausemenu [data-upgrade="trap:soap"]').closest('.pm-shop').textContent), null, { timeout: 5000 });
-  const menu = await page.evaluate(() => ({ wallet: document.querySelector('#pausemenu .pm-wallet').textContent, stock: JSON.parse(localStorage.getItem('nocturne.wallet')).stock, van: window.__game.loot.items.filter((i) => i.trap && !i.gone).map((i) => i.trap), rows: document.querySelectorAll('#pausemenu [data-upgrade^="trap:"]').length }));
-  await pressEl(page, cdp, '#pausemenu .pm-btn:text-is("Назад")');
-  await pressEl(page, cdp, '#pausemenu .pm-btn:text-is("Продовжити")');
+  await pressEl(page, cdp, '#pausemenu .pm-btn:text-is("Вийти в меню")');
+  await page.waitForFunction(() => !window.__game.playing, null, { timeout: 5000 });
+  await page.evaluate(async () => (await import('./src/systems/menu.js')).goPage('shop'));
+  await page.waitForSelector('#shoplist [data-shop="trap:soap"] button', { timeout: 5000 });
+  await page.click('#shoplist [data-shop="trap:soap"] button');
+  await page.waitForFunction(() => /×1/.test(document.querySelector('#shoplist [data-shop="trap:soap"]').textContent), null, { timeout: 5000 });
+  const menu = await page.evaluate(() => ({ wallet: document.querySelector('#shopwallet').textContent, stock: JSON.parse(localStorage.getItem('nocturne.wallet')).stock, van: window.__game.loot.items.filter((i) => i.trap && !i.gone).map((i) => i.trap), rows: document.querySelectorAll('#shoplist [data-shop^="trap:"]').length }));
+  await page.click('#start'); await page.waitForFunction(() => window.__game.playing);
   assert.match(menu.wallet, /\$350/); assert.deepEqual(menu.stock, { soap: 1 }); assert.deepEqual(menu.van, ['soap']); assert.equal(menu.rows, 5);
   const setup = () => page.evaluate(() => {
     const g = window.__game;

@@ -266,36 +266,37 @@ test('saving: the wallet and the upgrades survive a reload; the progress code (T
   await ctx.close(); await ctx2.close();
 });
 
-test('phone: the shop in the pause menu by finger (buy, «Є ✓», not while the clock runs); the money line in the summary; the board shop by tap; small phone fits', async () => {
+test('phone: the shop of the menu by finger from a paused round (buy, «Є ✓», not while the clock runs); the money line in the summary; small phone fits', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
   await page.evaluate(() => { const g = window.__game; g.patrol.update = () => null; g.lurker.update = () => {}; localStorage.setItem('nocturne.wallet', JSON.stringify({ cash: 1000, earned: 1000, spent: 0, owned: [], paid: {}, log: [] })); g.menu.refresh(); });
-  await fingerPressEl(page, cdp, '#touch .pause');
-  await page.waitForFunction(() => window.__game.paused);
-  await fingerPressEl(page, cdp, pm('Магазин'));
-  await page.waitForSelector('#pausemenu [data-upgrade="thermos"]');
-  assert.match(await page.textContent('#pausemenu .pm-wallet'), /\$1,000/);
-  assert.equal(await page.isDisabled('#pausemenu [data-upgrade="boots"]'), true, 'too expensive: disabled');
-  await fingerPressEl(page, cdp, '#pausemenu [data-upgrade="thermos"]');
-  await page.waitForFunction(() => /Є/.test(document.querySelector('#pausemenu [data-upgrade="thermos"]').textContent));
-  assert.match(await page.textContent('#pausemenu .pm-wallet'), /\$500/);
+  // T6: the pause is small — «Вийти в меню» → «Магазин» (the menu's page) → «Грати» back into the round
+  const shopRow = (id) => `#shoplist [data-shop="${id}"] button`;
+  const toShop = async () => {
+    await fingerPressEl(page, cdp, '#touch .pause');
+    await page.waitForFunction(() => window.__game.paused);
+    await fingerPressEl(page, cdp, pm('Вийти в меню'));
+    await page.waitForFunction(() => !window.__game.playing);
+    await page.evaluate(async () => (await import('./src/systems/menu.js')).goPage('shop'));
+  };
+  const back = async () => { await page.click('#start'); await page.waitForFunction(() => window.__game.playing); };
+  await toShop();
+  await page.waitForSelector(shopRow('thermos'));
+  assert.match(await page.textContent('#shopwallet'), /\$1,000/);
+  assert.equal(await page.isDisabled(shopRow('boots')), true, 'too expensive: disabled');
+  await fingerPressEl(page, cdp, shopRow('thermos'));
+  await page.waitForFunction(() => /\$500/.test(document.querySelector('#shopwallet').textContent));
   // inside the screen on a phone (no part of the row cut off on the right)
   const vw = page.viewportSize().width;
-  const b = await page.locator('#pausemenu [data-upgrade="thermos"]').boundingBox();
+  const b = await page.locator(shopRow('gloves')).boundingBox();
   assert.ok(b.x + b.width <= vw, `the buy button inside the screen: ${JSON.stringify(b)}`);
-  await fingerPressEl(page, cdp, pm('Назад'));
-  await fingerPressEl(page, cdp, pm('Продовжити'));
-  await page.waitForFunction(() => !window.__game.paused);
-  // the clock runs: the menu's shop buttons are disabled with the reason
+  await back();
+  // the clock runs: the shop's buttons are disabled
   await page.evaluate(() => { const g = window.__game; g.player.teleport(0, -2, 0); });
   await page.waitForFunction(() => window.__game.round.phase === 'heist');
-  await fingerPressEl(page, cdp, '#touch .pause');
-  await page.waitForFunction(() => window.__game.paused);
-  await fingerPressEl(page, cdp, pm('Магазин'));
-  await page.waitForSelector('#pausemenu [data-upgrade="gloves"]');
-  assert.equal(await page.isDisabled('#pausemenu [data-upgrade="gloves"]'), true);
-  assert.match(await page.textContent('#pausemenu .pm-grid'), /біля фургона/);
-  await fingerPressEl(page, cdp, pm('Назад'));
-  await fingerPressEl(page, cdp, pm('Продовжити'));
+  await toShop();
+  await page.waitForSelector(shopRow('gloves'));
+  assert.equal(await page.isDisabled(shopRow('gloves')), true);
+  await back();
   // deliver an item and leave: the summary has the money line
   await page.evaluate(() => { const g = window.__game, it = g.loot.items.find((i) => !i.twoHanded && !i.crystal); g.loot.deliver(it); g.sim(0.3); g.round.finish('left'); });
   await toSummary(page);

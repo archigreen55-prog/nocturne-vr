@@ -307,18 +307,13 @@ test('phone: the pause menu — «Контракт» with the customer\'s lines 
     await tp(cdp, 'touchStart', [pt], t); await page.waitForTimeout(120); await tp(cdp, 'touchEnd', [], touchEndAt(t + 0.12)); await page.waitForTimeout(200);
   };
   await page.evaluate(() => { localStorage.setItem('nocturne.notes', '["kettle"]'); const g = window.__game; for (const p of g.guards) p.update = () => null; });
-  await press('#touch .pause');
-  await page.waitForFunction(() => window.__game.paused, null, { timeout: 5000 });
-  await press('#pausemenu .pm-btn:text-is("Контракт і складність")');
-  const contract = await page.evaluate(() => ({ story: document.querySelector('#pausemenu .pm-story i').textContent, crew: document.querySelector('#pausemenu .pm-crew').textContent }));
-  await press('#pausemenu .pm-btn:text-is("Назад")');
-  await press('#pausemenu .pm-btn:text-is("Тихарник")');
-  const lurkers = await page.evaluate(() => ({ rows: document.querySelectorAll('#pausemenu [data-lurker]').length, names: [...document.querySelectorAll('#pausemenu [data-lurker] b')].map((b) => b.textContent), info: document.querySelector('#pausemenu .pm-info').textContent }));
-  await press('#pausemenu .pm-btn:text-is("Назад")');
-  await press('#pausemenu .pm-btn:text-is("Папери")');
-  const papers = await page.evaluate(() => ({ rows: [...document.querySelectorAll('#pausemenu [data-note] b')].map((b) => b.textContent), info: document.querySelector('#pausemenu .pm-info').textContent }));
-  await press('#pausemenu .pm-btn:text-is("Назад")');
-  await press('#pausemenu .pm-btn:text-is("Продовжити")');
+  // T6: the contract's lines, Тихарник and «Папери» are in the new menu (the pause menu is small now)
+  const menuPage = (page_) => page.evaluate(async (pg) => { (await import('./src/systems/menu.js')).goPage(pg); }, page_);
+  await page.evaluate(async () => { const { syncStartScreen } = await import('./src/systems/startScreen.js'); syncStartScreen(); });
+  const contract = await page.evaluate(() => ({ story: document.querySelector('#storybefore i').textContent, crew: document.querySelector('#storybefore .crewline').textContent }));
+  await menuPage('lurkers');
+  const lurkers = await page.evaluate(() => ({ rows: document.querySelectorAll('#lurkerlist [data-lurker]').length, names: [...document.querySelectorAll('#lurkerlist [data-lurker] b')].map((b) => b.textContent), info: document.querySelector('#lurkercount').textContent }));
+  const papers = await page.evaluate(() => ({ rows: [...document.querySelectorAll('#paperlist [data-note] b')].map((b) => b.textContent), info: document.querySelector('#papercount').textContent }));
   // a round and its summary
   await page.evaluate(() => { const g = window.__game; g.player.teleport(0, -2.5, 0); g.sim(0.3); g.player.teleport(0, 2, 0); g.sim(0.2); g.round.finish('left'); g.sim(0.3); });
   await page.waitForFunction(() => window.__game.summary && window.__game.summary.isOpen, null, { timeout: 20000 });

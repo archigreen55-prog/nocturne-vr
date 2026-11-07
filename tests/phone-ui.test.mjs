@@ -154,16 +154,6 @@ test('phone pause menu: opens by finger, the game waits, every button works held
   await fingerPressEl(page, cdp, '#pausemenu .pm-btn >> nth=3');   // vibration
   assert.equal(await page.evaluate(() => window.__game.feedback.mode), 'flash');
   await fingerPressEl(page, cdp, pm('Назад'));
-  // contract and difficulty (before the round starts)
-  await fingerPressEl(page, cdp, pm('Контракт і складність'));
-  await page.waitForSelector('#pausemenu .step');
-  const c0 = await page.evaluate(() => window.__game.contract.id);
-  await fingerPressEl(page, cdp, '#pausemenu .step >> nth=1', { holdMs: 1500 });   // ▶ held 1.5 s
-  assert.notEqual(await page.evaluate(() => window.__game.contract.id), c0, 'contract changed (held 1.5 s)');
-  const d0 = await page.evaluate(() => window.__game.difficulty);
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn:has-text("Складність")');
-  assert.notEqual(await page.evaluate(() => window.__game.difficulty), d0);
-  await fingerPressEl(page, cdp, pm('Назад'));
   // continue: the game runs again, audio wakes
   await fingerPressEl(page, cdp, pm('Продовжити'));
   await page.waitForFunction(() => !window.__game.paused);
@@ -175,10 +165,6 @@ test('phone pause menu: opens by finger, the game waits, every button works held
   assert.equal(await page.evaluate(() => window.__game.round.phase), 'heist');
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
-  await fingerPressEl(page, cdp, pm('Контракт і складність'));
-  await page.waitForSelector('#pausemenu .step');
-  assert.equal(await page.locator('#pausemenu .step').first().isDisabled(), true, 'contract locked mid-round');
-  await fingerPressEl(page, cdp, pm('Назад'));
   await fingerPressEl(page, cdp, pm('До фургона'));
   await page.waitForFunction(() => !window.__game.paused);
   await frames(page);
@@ -186,16 +172,11 @@ test('phone pause menu: opens by finger, the game waits, every button works held
   assert.ok(Math.hypot(home.x - 2.2, home.z - 6.8) < 0.5, `back at the van ${JSON.stringify(home)}`);
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
-  await fingerPressEl(page, cdp, pm('Новий раунд'));
-  await page.waitForFunction(() => !window.__game.paused && window.__game.round.phase === 'ready');
-  assert.equal(await page.evaluate(() => window.__game.playing), true);
-  // report from the menu
-  await fingerPressEl(page, cdp, '#touch .pause');
-  await page.waitForFunction(() => window.__game.paused);
-  await fingerPressEl(page, cdp, pm('Скопіювати звіт'));
-  await page.waitForFunction(() => /Скопійовано/.test(document.querySelector('#reportsheet')?.textContent || ''));
-  const r = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
-  assert.equal(r.phone.hud, 'full'); assert.equal(r.phone.paused, true); assert.equal(r.phone.feedback.mode, 'flash');
+  // T6 (decision P-T6.1 A): the pause is small — no «Новий раунд», no «Контракт», no shop
+  const btns = await page.evaluate(() => [...document.querySelectorAll('#pausemenu .pm-btn')].map((b) => b.textContent));
+  assert.deepEqual(btns, ['Продовжити', 'До фургона', 'Налаштування', 'Вийти в меню'], JSON.stringify(btns));
+  await fingerPressEl(page, cdp, pm('Продовжити'));
+  await page.waitForFunction(() => !window.__game.paused);
   assert.equal(await page.evaluate(() => !!document.fullscreenElement), true, 'full screen kept through the menu');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -213,11 +194,13 @@ test('small phone (667 x 280, iPhone SE-like landscape): HUD blocks do not overl
   assert.ok(msg.x >= 0 && msg.x + msg.width <= 667, 'message inside the screen');
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
+  await fingerPressEl(page, cdp, pm('Налаштування'));   // T6: the pause is short; its settings page is the long list
+  await page.waitForSelector(pm('Назад'));
   const sc = await page.evaluate(() => { const g = document.querySelector('#pausemenu .pm-grid'); return { sh: g.scrollHeight, ch: g.clientHeight }; });
   assert.ok(sc.sh > sc.ch, `the list is longer than the screen (${sc.sh} > ${sc.ch})`);
   // a vertical drag that starts on a button scrolls the list and presses nothing
   {
-    const b = await page.locator(pm('До фургона')).boundingBox();
+    const b = await page.locator('#pausemenu .pm-btn >> nth=1').boundingBox();
     const x = b.x + b.width / 2, y = b.y + b.height / 2, t = touchT();
     await tp(cdp, 'touchStart', [{ x, y }], t);
     for (let i = 1; i <= 8; i++) await tp(cdp, 'touchMove', [{ x, y: y - i * 15 }], t + i * 0.02);
@@ -226,7 +209,8 @@ test('small phone (667 x 280, iPhone SE-like landscape): HUD blocks do not overl
   await page.waitForTimeout(200);
   assert.ok(await page.evaluate(() => document.querySelector('#pausemenu .pm-grid').scrollTop) > 20, 'the drag scrolled the list');
   assert.equal(await page.evaluate(() => window.__game.paused), true, 'the drag did not press anything');
-  await fingerPressEl(page, cdp, pm('На стартовий екран'));   // the last button, reachable after scrolling
+  await fingerPressEl(page, cdp, pm('Назад'));   // the last button, reachable after scrolling
+  await fingerPressEl(page, cdp, pm('Вийти в меню'));
   await page.waitForFunction(() => !window.__game.playing);
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -269,7 +253,7 @@ test('phone: minimising the page, a call (audio taken away) and focus loss pause
   const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
   assert.deepEqual(r.phone.pauses.map((p) => p.reason), ['hidden', 'audio', 'blur']);
   // the start screen is not paused by a minimised page
-  await fingerPressEl(page, cdp, pm('На стартовий екран'));
+  await fingerPressEl(page, cdp, pm('Вийти в меню'));
   await page.waitForFunction(() => !window.__game.playing);
   await hide('hidden');
   await page.waitForTimeout(300);

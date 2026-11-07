@@ -28,7 +28,7 @@ test('phone: Грати shows touch controls; joystick quiet inside the ring, lo
   await page.waitForFunction(() => window.__game.paused);
   assert.equal(await page.isVisible('#pausemenu'), true, 'the pause menu opens');
   assert.equal(await page.evaluate(() => window.__game.playing), true, 'still in the game, only paused');
-  await fingerPressEl(page, cdp, pm('На стартовий екран'));
+  await fingerPressEl(page, cdp, pm('Вийти в меню'));
   await page.waitForFunction(() => !window.__game.playing);
   assert.equal(await page.isVisible('#overlay'), true);
   assert.equal(await page.isVisible('#touch'), false);

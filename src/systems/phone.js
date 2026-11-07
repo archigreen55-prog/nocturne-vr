@@ -140,7 +140,7 @@ export const phone = {
       play: () => pressBoard('play'),
       again: () => pressBoard('again'),
       next: () => pressBoard('nextlvl'),
-      menu: () => (G.net && G.net.t ? pause2D() : pauseOpen('user')),   // T4c: with friends the summary's «Меню» goes back to the room
+      menu: () => pause2D(),   // T6: the new menu (with friends: the room, T4c) — not the old pause menu
       report: () => copyReport(reportText()),
     }) : null;
     if (touch) {
