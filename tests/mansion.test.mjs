@@ -631,7 +631,8 @@ test('mansion (M5): the board\'s «Карта» page lists both maps, the other 
   // the main site: the mansion is closed until 8★ on the dacha
   const p2 = (await open(ctx, base)).page;
   await p2.click('#start'); await p2.waitForFunction(() => window.__game.playing);
-  await standFacing(p2, 1.75, 8.75, 1.6, 2.92);   // the first map's board stand
+  const st = await p2.evaluate(() => { const b = window.__game.board.stand; return [b.x, b.z, b.yaw]; });   // the first map's board stand (dacha-yard moved it to the street)
+  await standFacing(p2, st[0], st[1], 1.6, st[2]);
   await p2.evaluate(() => window.__game.pressBoard('mappage'));
   await keepFor(p2, 700);
   // the board redraws in a real frame while in view: on a busy machine that can take longer (seen in W8a)

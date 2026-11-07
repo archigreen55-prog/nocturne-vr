@@ -96,6 +96,9 @@ export class PauseMenu {
       hint.className = 'pm-info wide';
       hint.textContent = S.bright.hintPhone;
       grid.append(row, this.btn(h.outdoorLabel(), () => { h.outdoor(); this.render(); }, 'wide'), hint);
+      // these open the new pages (the tutorial, «Налаштування»'s progress code — B02, privacy.html), not old screens
+      grid.append(this.btn(S.tutorial.again, () => h.tutorial(), 'small'), this.btn(S.progress.button, () => h.toProgress(), 'small'),
+        this.btn(S.privacy.menu, () => h.privacy(), 'quiet wide'));
       grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
     }
     card.append(head, grid);
