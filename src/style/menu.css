@@ -318,3 +318,29 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
   #netbox:not(.in-room) .portraits { grid-template-columns: repeat(4, minmax(0, 76px)); margin-top: 0; }
   .nt-who { margin-bottom: 0; }
 }
+
+/* ---------- menu design stage 2: «Магазин» and «Тихарник» as card grids ---------- */
+#shopwallet, #lurkercount, #papercount { display: inline-block; margin: 0 0 8px !important; padding: 5px 12px; border-radius: 999px; background: var(--night); border: 2px solid var(--ink2); font: 800 13px var(--head) !important; color: var(--lamp) !important; }
+section[data-page="shop"] > .muted { margin: 0 0 10px; font-size: 12px; }
+#shoplist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+#overlay .shoprow { margin: 0; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; box-shadow: 4px 4px 0 var(--ink2); }
+.shoprow .t b { font: 800 14px/1.2 var(--head); margin-bottom: 3px; }
+.shoprow .t { font-size: 12px; line-height: 1.35; }
+#overlay .shoprow button { width: 100%; min-width: 0; min-height: 46px; font: 800 13px var(--head); border: 2px solid var(--ink2); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink2); }
+#overlay .shoprow button:disabled { background: var(--dusk); color: #9aa7bf; box-shadow: none; opacity: 1; }
+#overlay .cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.lcard { box-shadow: 4px 4px 0 var(--ink2); }
+.lcard.locked { border-style: dashed; border-color: #3a4766; box-shadow: none; background: transparent; }
+section[data-page="lurkers"] h3 { margin-top: 16px !important; }
+@media (max-height: 460px) {
+  #shoplist, #overlay .cards { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+}
+
+/* ---------- menu design stage 2: the small pause — four big buttons on the dusk card ---------- */
+#pausemenu .pm-card { background: rgba(24, 34, 58, .97); border-radius: 14px; }
+#pausemenu .pm-head h2 { font-size: 20px; }
+#pausemenu .pm-info { color: #c9d3e3; }
+#pausemenu .pm-btn { font: 800 14px/1.2 var(--head); min-height: 52px; border: 2px solid var(--ink2); border-radius: 12px; }
+#pausemenu .pm-btn.primary { font-size: 18px; min-height: 58px; }
+#pausemenu .pm-btn.quiet { color: var(--paper); border-color: var(--ink2); background: var(--dusk); box-shadow: 3px 3px 0 var(--ink2); }
+#pausemenu .pm-btn.small { font-size: 12px; }
