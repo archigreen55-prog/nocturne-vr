@@ -168,8 +168,8 @@ test('phone pause menu: opens by finger, the game waits, every button works held
   await fingerPressEl(page, cdp, pm('До фургона'));
   await page.waitForFunction(() => !window.__game.paused);
   await frames(page);
-  const home = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));
-  assert.ok(Math.hypot(home.x - 2.2, home.z - 6.8) < 0.5, `back at the van ${JSON.stringify(home)}`);
+  const home = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z, sx: window.__game.level.spawn.x, sz: window.__game.level.spawn.z }));
+  assert.ok(Math.hypot(home.x - home.sx, home.z - home.sz) < 0.5, `back at the van ${JSON.stringify(home)}`);   // the spawn from the map (dacha-yard moved the van)
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
   // T6 (decision P-T6.1 A): the pause is small — no «Новий раунд», no «Контракт», no shop
