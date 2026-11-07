@@ -22,6 +22,7 @@ import { contractById } from '../game/contracts.js';
 import { newRound, caught, setContract, setDifficulty } from './contract.js';
 import { isOpen } from '../game/economy.js';
 import { levelOf, CLASSIC } from '../game/campaign.js';
+import { applyLevel } from './campaign.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
@@ -254,7 +255,7 @@ function hostIntent(r, m) {
     setGuard(r.id, !!m.guard);
   } else if (m.a === 'dev') {
     const dev = G.devices && G.devices.byId(m.id);
-    if (dev) useDevice(dev);
+    if (dev && G.devices.enabled) useDevice(dev);   // B04: not on a level without devices
   }
 }
 
@@ -291,6 +292,7 @@ function guestState(s) {
   if (cid && (cid !== G.contract.id || diff !== G.difficulty)) {
     G.contract = contractById(cid); G.contractId = G.contract.id; G.difficulty = diff;
     applyDifficulty(G.difficulty, G.contract);
+    applyLevel();   // B04: the host's level decides the devices here too (W19: from level 7)
     syncStartScreen(); G.boardDirty = true;
   }
   if (s.hg) { applyGuard(s.hg[0] || null, N.pid); guardView.evidence = !!s.hg[1]; guardView.caught = s.hg[2]; guardView.thieves = s.hg[3]; guardView.gv = new Set(s.hg[4] || []); guardView.stunT = +s.hg[5] || 0; guardView.stunKind = s.hg[6] || null; }
