@@ -1,7 +1,7 @@
 // How visible the player is — the same rules the patrol uses, so the wrist tells the truth:
 // light (flashlight beam or next to a lamp: seen 1.6x further), stance (crouched: 0.5x) and cover
 // (crouched with furniture close by that reaches within CFG.stealth.coverBelowEyes of your eyes,
-// and the patrol's line of sight to your face actually blocked).
+// and that furniture or a wall between you and the patrol: sightBlocked).
 import { CFG } from '../config/index.js';
 import { power } from '../world/devices.js';
 
@@ -46,6 +46,42 @@ export function coverNear(level, head) {
 // The point the patrol has to see: your eyes standing, your face (lower) crouched.
 export function targetY(player) { return player.head.y - (player.crouched ? CFG.patrol.coverDrop : 0); }
 
+// Crouched next to cover that stands between you and the guard's eyes (stealth-house fix): the
+// furniture piece reaches within CFG.stealth.coverBelowEyes of your eyes (the same rule as coverNear),
+// the guard's line to you crosses its footprint, and it is within CFG.stealth.coverDist of you. Without
+// this, a crouched player (eyes 1.10 m on a phone / PC) behind a 0.95 m sofa was seen by a guard closer
+// than ~2.5 m: its line from 1.62 m down to your face passed just over the sofa's back.
+// A guard looking down from the floor above (eyes more than coverMaxEye over your floor) is not fooled.
+export function coverBlocks(level, ax, ay, az, player) {
+  if (!player.crouched || !level.furniture) return false;
+  const S = CFG.stealth, h = player.head, fy = player.floorY || 0;
+  if (ay - fy > S.coverMaxEye) return false;
+  const dx = h.x - ax, dz = h.z - az, len = Math.hypot(dx, dz);
+  if (len < 1e-6) return false;
+  const need = h.y - S.coverBelowEyes, f = level.floorIndex ? level.floorIndex(fy) : 0;
+  for (const b of level.furniture) {
+    if (b.h < need || (b.floor || 0) !== f) continue;
+    // slab test: where the guard -> you segment (t 0..1) is inside the footprint
+    let t0 = 0, t1 = 1;
+    if (Math.abs(dx) < 1e-9) { if (ax < b.minX || ax > b.maxX) continue; }
+    else { let u0 = (b.minX - ax) / dx, u1 = (b.maxX - ax) / dx; if (u0 > u1) [u0, u1] = [u1, u0]; t0 = Math.max(t0, u0); t1 = Math.min(t1, u1); }
+    if (Math.abs(dz) < 1e-9) { if (az < b.minZ || az > b.maxZ) continue; }
+    else { let v0 = (b.minZ - az) / dz, v1 = (b.maxZ - az) / dz; if (v0 > v1) [v0, v1] = [v1, v0]; t0 = Math.max(t0, v0); t1 = Math.min(t1, v1); }
+    if (t0 > t1 || t0 <= 0) continue;              // misses it, or the guard itself is at it
+    if ((1 - t1) * len > S.coverDist) continue;    // the piece is not next to you
+    return true;
+  }
+  return false;
+}
+
+// Does something hide this player from eyes at (ax, ay, az)? Walls, closed doors, tall furniture on
+// the line, or (crouched) cover next to you. The guards' sight, the wrist and the human guard's
+// screen all ask this.
+export function sightBlocked(level, ax, ay, az, player) {
+  const h = player.head;
+  return level.losBlocked(ax, ay, az, h.x, targetY(player), h.z) || coverBlocks(level, ax, ay, az, player);
+}
+
 // Wrist read-out: { eye: 'open' | 'half' | 'closed', range (m it sees you from), lit, cover, hidden }.
 // patrol: the guard, or every guard of the map (W6): lit by any, hidden from all.
 export function stealthState(player, level, patrol) {
@@ -58,7 +94,7 @@ export function stealthState(player, level, patrol) {
   if (cover) {
     hidden = guards.every((g) => {
       const d = Math.hypot(h.x - g.x, h.z - g.z, (player.floorY || 0) - (g.y || 0));
-      return d > range * 1.25 || level.losBlocked(g.x, (g.y || 0) + EYE, g.z, h.x, targetY(player), h.z);
+      return d > range * 1.25 || sightBlocked(level, g.x, (g.y || 0) + EYE, g.z, player);
     });
   }
   return { eye: hidden ? 'closed' : player.crouched ? 'half' : 'open', range, lit, cover, hidden };
