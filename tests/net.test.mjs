@@ -372,3 +372,19 @@ test('net: honest messages — no host, found but not connected, another version
   for (const p of [a, host, b, c]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
+
+// B01: a guest that found nobody is back at the join form, not in a room that does not exist
+test('net: a guest that found nobody sees the join form, not a room (B01)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 600 } });
+  const { page, errors } = await open(ctx, base + '?net=local');
+  await page.evaluate(() => { window.__game.CFG.net.findTimeout = 0.5; return window.__game.net.open('999999', 'guest', 'Оля', 'zoya'); });
+  await run([page], 1.5);
+  const r = await page.evaluate(() => ({ s: window.__game.net.state(), inn: document.querySelector('#netin').hidden, out: document.querySelector('#netout').hidden, status: document.querySelector('#netstatus').textContent, code: document.querySelector('#netcode').value }));
+  assert.equal(r.s.role, null, 'not a guest any more');
+  assert.equal(r.s.transport, null, 'the connection is closed');
+  assert.equal(r.inn, true, 'no room on the screen');
+  assert.equal(r.out, false, 'the join form is back');
+  assert.match(r.status, /Не бачу хоста/);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

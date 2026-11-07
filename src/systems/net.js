@@ -95,6 +95,14 @@ function leave(quiet) {
   applyGuard(null, N.pid); G.benchT = 0;
   if (!quiet) setStatus('');
 }
+// B01: the guest found nobody (or could not connect): the connection closes and the join form comes back
+// with the message; before, the lobby kept showing a room (its code, QR) that did not exist
+function giveUp() {
+  N.stage = 'lost';
+  const text = lostText();
+  leave(true);
+  setStatus(text, true);
+}
 function hello(peer) {
   send({ type: 'hello', pid: N.pid, v: N.fakeVersion || VERSION, proto: CFG.net.protocol, map: G.level.id, name: N.name, thief: N.thief, q: CFG.player.quietSpeed, sh: N.shouts || 0, mic: G.mic.state === 'on' && !G.mic.noMic, dev: G.MODE.mode }, peer);
 }
@@ -382,8 +390,9 @@ export const net = {
         N.findT += dt;
         if (N.findT > CFG.net.findTimeout && N.stage === 'find') {
           N.findT = 0;
-          if (N.t.nextStrategy) N.t.nextStrategy().then((ok) => { if (!ok) { N.stage = 'lost'; setStatus(lostText(), true); } });
-          else { N.stage = 'lost'; setStatus(lostText(), true); }
+          const t = N.t;
+          if (t.nextStrategy) t.nextStrategy().then((ok) => { if (!ok && N.t === t) giveUp(); });
+          else giveUp();
         }
       }
     }
