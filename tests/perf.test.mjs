@@ -17,7 +17,7 @@ test('phone quality: presets (pixel ratio, MSAA note, far lamps off on low), aut
   assert.equal(q.autoPick, 'low'); assert.equal(q.preset, 'low'); assert.equal(q.pixelRatio, 1);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('nocturne.qualityAuto'))), 'low');
   // low: lamps further than 12 m are off, the near ones on
-  await page.evaluate(() => { const g = window.__game; g.player.teleport(2.2, 6.8, 0); g.playing = true; });
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, 0); g.playing = true; });
   await page.waitForFunction(() => window.__game.points.some((l) => l.intensity === 0) && window.__game.points.some((l) => l.intensity > 0), null, { timeout: 8000 });
   await page.evaluate(() => { window.__game.playing = false; });
   // a fixed preset from the settings (the start-screen select); the page started with MSAA (medium), so
@@ -66,7 +66,7 @@ test('board redraws only when its content changes and it is in view (phone)', as
   const { ctx, page, errors } = await playPhone();
   const draws = () => page.evaluate(() => window.__game.perf.boardDraws || 0);
   // at the van, facing the board, nothing changes: no redraws
-  await page.evaluate(() => { const g = window.__game; g.player.teleport(2.2, 6.8, 2.92); });
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, 2.92); });
   await keepFor(page, 600);
   let d0 = await draws();
   await keepFor(page, 1500);
