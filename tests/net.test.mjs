@@ -554,3 +554,27 @@ test('net: the guest has the host’s devices for the level; a guest cannot swit
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
+
+// B05: a guest that leaves the room in the middle of a round gets a clean solo game, not the host's half-world
+test('net: a guest that leaves mid-round gets a clean solo game (B05)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '662607';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
+  await run([host.page, guest.page], 0.5);
+  assert.equal(await guest.page.evaluate(() => window.__game.round.phase), 'heist', 'the guest is in the host’s round');
+  await guest.page.click('#netleave');
+  const reloaded = await guest.page.waitForURL((u) => !u.search.includes('room='), { timeout: 15000, waitUntil: 'commit' }).then(() => true, () => false);
+  if (reloaded) await guest.page.waitForFunction(() => window.__game && window.__game.round, null, { timeout: 30000 });
+  const g = await guest.page.evaluate(() => ({ phase: window.__game.round.phase, url: location.search, role: window.__game.net.state().role }));
+  assert.ok(reloaded, `the page reloads (now: ${JSON.stringify(g)})`);
+  assert.equal(g.phase, 'ready', 'a clean round of its own');
+  assert.ok(!g.url.includes('room='), g.url);
+  assert.equal(g.role, null);
+  assert.deepEqual(host.errors, []);
+  await ctx.close();
+});

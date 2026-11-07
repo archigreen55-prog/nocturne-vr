@@ -393,7 +393,13 @@ export const net = {
       create: (name, thief) => { N.name = name; N.thief = thief; open(newCode(), 'host'); },
       // T4b: the tap on «Увійти» is the guest's gesture for the sound (the host's «Почати» starts its round later)
       join: (c, name, thief) => { unlockAudio(); N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
-      leave: () => { leave(); refreshLobby(); },
+      // B05: a guest that leaves in the middle of a round would keep the host's half-world (its clock, guards,
+      // doors): the page reloads clean on «Грати з друзями» instead
+      leave: () => {
+        const midRound = N.role === 'guest' && N.welcomed && G.round.phase !== 'ready';
+        leave(); refreshLobby();
+        if (midRound) { const u = new URL(location.href); u.searchParams.delete('room'); u.searchParams.delete('join'); u.searchParams.set('page', 'friends'); location.replace(u.toString()); }
+      },
       role: (want) => netRole(want),
       pickLevel, pickDiff, start: () => hostStart(), house: () => otherHouse(),
       solo: () => { const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
