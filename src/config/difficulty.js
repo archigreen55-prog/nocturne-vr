@@ -5,7 +5,8 @@ import { S } from '../i18n/index.js';
 // ---------- difficulty (game/difficulty.js applies these over the numbers above) ----------
 // time / warnAt / escapeTime are the dacha's (the mansion has its own, config/mansion.js). claude/dacha-yard:
 // the van went out to the street (world/yard.js) — ~31 m from the door instead of ~8 m — so the round got
-// longer by about the extra walking (x1.43: 540/420/330 -> 780/600/480 s; the escape 90/60/40 -> 120/90/60 s).
+// longer by about the extra walking (x1.43: 540/420/330 -> 780/600/480 s; the escape 90/60/40 -> 120/90/60 s;
+// «На час» 180 -> 320 s: its goal takes two long trips; tests/yard.test.mjs checks every level 0–7 still fits).
 export const difficulties = {
   easy: {
     name: S.difficulty.easy, walk: 0.9, investigate: 1.2, hunt: 1.6, chase: 1.8, sight: 4, beamK: 1.5, crouchK: 0.45, fov: 70,

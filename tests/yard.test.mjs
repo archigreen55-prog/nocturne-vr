@@ -95,7 +95,7 @@ test('yard: cover in the garden hides a crouching thief, not a standing one (bus
   assert.deepEqual(r.woodpile, { crouched: true, standing: false });
   assert.equal(r.shed, true, 'the shed hides a standing thief');
   const near = (x, z) => r.lamps.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.5);
-  assert.ok(near(0, 0.8) && near(1.6, 7.6) && near(3, 15.3), `lamps: ${JSON.stringify(r.lamps)}`);
+  assert.ok(near(0, 0.8) && near(1.6, 7.6) && near(3, 15.5), `lamps: ${JSON.stringify(r.lamps)}`);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -123,7 +123,8 @@ test('yard: the walk van ↔ house fits in the time of every dacha level (0–7)
         if (nd < dist[n]) { if (dist[n] === Infinity) q.push(n); dist[n] = nd; }
       }
     }
-    const walk = (x, z) => dist[cell(x, z)];
+    // to an item: the nearest reachable spot within an arm's reach (1.4 m on a 0.5 m grid: over a table, into the wardrobe)
+    const walk = (x, z) => { let best = Infinity; for (let i = 0; i < W; i++) for (let j = 0; j < H; j++) { const d = Math.hypot(X0 + i * N - x, Z0 + j * N - z); if (d < 1.4 && dist[j * W + i] + d < best) best = dist[j * W + i] + d; } return best; };
     const out = { door: +walk(0, -0.6).toFixed(1), levels: [] };
     const items = g.loot.items.filter((it) => !it.throwable && !it.trap && !it.prop && !it.heavy).map((it) => ({ id: it.def.id, value: it.def.value, m: walk(it.def.pos[0], it.def.pos[2]) }));
     out.unreachable = items.filter((i) => !isFinite(i.m)).map((i) => i.id);
@@ -147,7 +148,7 @@ test('yard: the walk van ↔ house fits in the time of every dacha level (0–7)
     }
     return out;
   });
-  assert.deepEqual(r.unreachable, [], `every item can be walked to (door ${r.door} m)`);
+  assert.deepEqual(r.unreachable, [], `every item can be walked to (door ${r.door} m): ${r.unreachable.join(" ")}`);
   assert.ok(r.door >= 25 && r.door <= 40, `van → front door: ${r.door} m`);
   for (const l of r.levels) {
     assert.ok(!l.missing, `level ${l.n} has its contract`);
@@ -174,7 +175,7 @@ test('yard: co-op at the van — two thieves at the ring: each one\'s loot flies
     g.player.teleport(S0.x, S0.z, S0.yaw);
     for (let i = 0; i < 30; i++) g.sim(1 / 30);
     out.readyBoth = g.round.phase === 'ready';
-    out.spawnAtVan = g.round.atVan(g.player.head) && g.round.atVan(friend.head);
+    out.spawnAtVan = Math.hypot(S0.x - V.x, S0.z - V.z) < g.CFG.round.startDist && g.round.atVan(friend.head);   // the spawn is beside the ring (as before), the clock not started
     friend.head.set(3, 1.65, 14); g.sim(0.3);
     out.started = g.round.phase !== 'ready';
     g.round.startEscape('test');
