@@ -27,7 +27,8 @@ import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
 import { storyNetEcho } from './story.js';
 import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js';
-import { playThud, playGlass, playHeartbeat } from '../audio/audio.js';
+import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.js';
+import { mapOpen } from '../world/maps.js';
 import { S } from '../i18n/index.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -58,6 +59,7 @@ function lobbyPlayers() {
 function refreshLobby() {
   if (!lobby) return;
   lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
+    canStart: isHost() && [...N.remotes.values()].every((r) => !r.lost), house: isHost() ? { name: houseName(otherMap()), open: mapOpen(otherMap()) && G.round.phase !== 'heist' && G.round.phase !== 'escape' } : null,
     role: N.role, choice: N.t ? choiceText() : '', levels: isHost() ? levelsForRoom() : null, diffs: isHost() ? diffsForRoom() : null });
 }
 // T4a: the mission in the room — what the host picked (its contract on this house, the difficulty)
@@ -87,6 +89,22 @@ function pickDiff(d) {
   setDifficulty(d);
 }
 // the host's choice changed (systems/contract.js calls it): the guests learn it at once
+// T4b: «Почати» — everybody goes into the round at once (a guest's tap on «Увійти» was its gesture)
+function hostStart() {
+  if (!isHost()) return;
+  if (G.round.phase !== 'ready') newRound();
+  netEvent('start', {});
+  G.start.play();
+}
+const otherMap = () => (G.level.id === 'mansion' ? 'dacha' : 'mansion');
+// the host picks the other house: one page = one map, so the page reloads and opens the same room again;
+// the guests are asked to say hello again (rehello) and reload for the new map
+function otherHouse() {
+  if (!isHost() || G.round.phase === 'heist' || G.round.phase === 'escape' || !mapOpen(otherMap())) return;
+  saveSetting('map', otherMap());
+  if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); N.t = null; }
+  location.replace(roomLink(N.code, otherMap(), location.href, { host: '1' }));
+}
 function netSetupChanged() { if (N.t && isHost()) send(lobbyMessage()); refreshLobby(); }
 function lobbyMessage() { return { type: 'lobby', gp: G.guardPid || '', players: lobbyPlayers().map(({ you, ...p }) => p), setup: setupNow() }; }
 
@@ -160,6 +178,7 @@ function hostMessage(m, peer) {
     if (m.proto !== CFG.net.protocol || m.v !== VERSION) { send({ type: 'deny', why: 'version' }, peer); return; }
     let rp = N.remotes.get(m.pid);
     if (!rp && N.remotes.size + 1 >= CFG.net.maxThieves) { send({ type: 'deny', why: 'full' }, peer); return; }
+    if (!rp && (G.round.phase === 'heist' || G.round.phase === 'escape')) { send({ type: 'deny', why: 'started' }, peer); return; }   // decision P5: only before the round starts
     if (rp) { N.stats.rejoins++; if (rp.lost) flash(S.net.friendBack(rp.name), 2.5, '#5fd38d'); }
     else {
       rp = new RemotePlayer({ id: m.pid, name: String(m.name || '?').slice(0, 12), thief: m.thief });
@@ -230,9 +249,9 @@ function hostIntent(r, m) {
 }
 
 function guestMessage(m, peer) {
-  if (m.type === 'deny') { setStatus(m.why === 'full' ? S.net.status.full : S.net.status.version, true); leave(true); refreshLobby(); return; }
+  if (m.type === 'deny') { setStatus(m.why === 'full' ? S.net.status.full : m.why === 'started' ? S.net.status.started : S.net.status.version, true); leave(true); refreshLobby(); return; }
   if (m.type === 'welcome') {
-    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); location.replace(roomLink(N.code, m.map)); return; }
+    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
     N.welcomed = true; N.hostPeer = peer; N.hostPid = m.hostPid; N.hostName = m.host; N.lastHost = performance.now(); N.hostLost = false;
     becomeGuest();
     guestState(m.snap);
@@ -240,8 +259,8 @@ function guestMessage(m, peer) {
     setStatus(S.net.status.inRoom(m.host));
     return;
   }
+  if (m.type === 'rehello') { hello(peer); return; }   // also a new host peer: the host reloaded (another house, T4b)
   if (peer !== N.hostPeer) return;   // the logic talks host <-> guest only
-  if (m.type === 'rehello') { hello(peer); return; }
   N.lastHost = performance.now();
   if (N.hostLost) { N.hostLost = false; setStatus(S.net.status.inRoom(N.hostName)); }
   if (m.type === 'state') guestState(m);
@@ -309,6 +328,7 @@ function guestEvent(m) {
       break;
     case 'newround': newRound(true); break;
     case 'pause': flash(S.net.hostPaused, 3, '#93a1b8'); break;
+    case 'start': if (!G.playingDesktop && !G.inVR && G.start) G.start.play(); break;   // T4b: the host pressed «Почати»
     case 'bench': if (m.pid === N.pid) localBench(m.s); else flash(S.hguard.benched(m.name || nameOf(m.pid), m.s), 3, '#ff5c5c'); break;
     case 'guardnote': if (G.role === 'guard') flash(m.t, 3, '#ffd166'); break;
   }
@@ -359,10 +379,11 @@ export const net = {
     const code = roomFromUrl();
     lobby = new Lobby(box, {
       create: (name, thief) => { N.name = name; N.thief = thief; open(newCode(), 'host'); },
-      join: (c, name, thief) => { N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
+      // T4b: the tap on «Увійти» is the guest's gesture for the sound (the host's «Почати» starts its round later)
+      join: (c, name, thief) => { unlockAudio(); N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
       leave: () => { leave(); refreshLobby(); },
       role: (want) => netRole(want),
-      pickLevel, pickDiff,
+      pickLevel, pickDiff, start: () => hostStart(), house: () => otherHouse(),
       solo: () => { const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
       share: async () => {
         const link = roomLink(N.code, G.level.id);
@@ -371,6 +392,9 @@ export const net = {
       },
     }, { name: N.name, thief: N.thief, code: code || '' });
     if (code) { N.card = S.net.joinCard(prettyCode(code), G.level.id === 'mansion' ? S.mansion.name : S.mansion.mapDacha); refreshLobby(); }
+    // T4b: back after a reload for another map — the guest joins and the host reopens the room by themselves
+    if (code && params.get('join') === '1') { N.card = ''; open(code, 'guest'); }
+    else if (code && params.get('host') === '1') { N.card = ''; open(code, 'host'); }
     // a minimized host draws no frames: «пауза» for the guests and a timer says «I am here» (Android keeps
     // timers going once a second in the background; iPhone stops the page, the guests then wait for it)
     document.addEventListener('visibilitychange', () => {

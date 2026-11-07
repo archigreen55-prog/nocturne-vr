@@ -417,3 +417,33 @@ test('net: the host picks the level and the difficulty in the room, the guest se
   assert.deepEqual(host.errors, []); assert.deepEqual(guest.errors, []);
   await ctx.close();
 });
+
+// T4b: «Почати» in the host's room puts everybody into the round, no «Грати» page; nobody new joins a round under way
+test('net: the host presses «Почати» — both are in the round on the same mission; a late guest is turned away (T4b)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '235711';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  const before = await guest.page.evaluate(() => ({ start: document.querySelector('#netstart').hidden, wait: document.querySelector('#netwait').hidden, playing: window.__game.playing }));
+  assert.deepEqual(before, { start: true, wait: false, playing: false }, 'a guest waits for the host');
+  await host.page.click('#netdiffs button[data-id="easy"]');
+  await run([host.page, guest.page], 0.4);
+  await host.page.waitForFunction(() => !document.querySelector('#netstart').disabled);
+  await host.page.click('#netstart');
+  await run([host.page, guest.page], 0.5);
+  const st = await Promise.all([host.page, guest.page].map((p) => p.evaluate(() => ({ playing: window.__game.playing, c: window.__game.contract.id, d: window.__game.difficulty, overlay: document.querySelector('#overlay').style.display }))));
+  assert.equal(st[0].playing, true, 'the host is in the round');
+  assert.equal(st[1].playing, true, 'the guest is in the round by itself');
+  assert.equal(st[1].overlay, 'none');
+  assert.equal(st[0].c, st[1].c); assert.equal(st[1].d, 'easy');
+  // the round under way: a new friend is turned away
+  await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
+  const late = await open(ctx, base + `?room=${code}&net=local`);
+  await late.page.click('#netjoin');
+  await late.page.waitForFunction(() => /Раунд уже йде/.test(document.querySelector('#netstatus').textContent), null, { timeout: 10000 });
+  for (const p of [host, guest, late]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

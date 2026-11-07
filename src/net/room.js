@@ -15,9 +15,12 @@ export function newCode() {
 
 // the link a friend opens: this page (main site or a preview) with ?room= and the map; ?net=local stays
 // (two tabs of one browser, the tests)
-export function roomLink(code, map, href = location.href) {
+// extra: more parameters (T4b: join=1 — a guest reloaded for the host's map joins by itself; host=1 — the host
+// moved to another house and opens the same room again)
+export function roomLink(code, map, href = location.href, extra = {}) {
   const u = new URL(href), keep = u.searchParams.get('net');
   u.search = ''; u.hash = '';
+  for (const [k, v] of Object.entries(extra)) u.searchParams.set(k, v);
   u.searchParams.set('room', cleanCode(code));
   if (map) u.searchParams.set('map', map);
   if (keep) u.searchParams.set('net', keep);

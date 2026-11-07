@@ -36,6 +36,8 @@ export class Lobby {
           <p><b>${esc(S.net.mission)}</b></p>
           <div id="netpick"><div id="netlevels" class="row" style="flex-wrap:wrap;gap:6px"></div><div class="row" id="netdiffs" style="gap:6px;margin-top:6px"></div></div>
           <p id="netchoice"></p>
+          <div class="row"><button id="nethouse" type="button"></button></div>
+          <div class="row"><button id="netstart" class="primary" type="button">${esc(S.net.start)}</button><span id="netwait" class="muted">${esc(S.net.waitStart)}</span></div>
         </div>
       </div>
       <p id="netstatus" style="color:var(--warn)"></p>
@@ -53,6 +55,8 @@ export class Lobby {
     bindPress(q('netshare'), () => on.share());
     bindPress(q('netleave'), () => on.leave());
     bindPress(q('netsolobtn'), () => on.solo());
+    bindPress(q('netstart'), () => { if (!q('netstart').disabled && on.start) on.start(); });   // T4b
+    bindPress(q('nethouse'), () => { if (!q('nethouse').disabled && on.house) on.house(); });
     bindPress(q('netguard'), () => on.role && on.role(this.el.guard.dataset.want === '1'));   // W15: play the guard
     this.built = '';   // T4a: the room's buttons are made once (show() runs twice a second: a remade button loses the finger)
     this.el.code.addEventListener('keydown', (e) => { if (e.key === 'Enter') on.join(cleanCode(this.el.code.value), ...who()); });
@@ -88,6 +92,10 @@ export class Lobby {
     const q = (id) => this.root.querySelector('#' + id);
     const host = st.role === 'host', pick = q('netpick'), choice = q('netchoice');
     pick.hidden = !host;
+    const start = q('netstart'), house = q('nethouse');
+    start.hidden = house.hidden = !host; q('netwait').hidden = host;
+    start.disabled = !st.canStart;
+    if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
     choice.textContent = st.choice || '';
     if (!host) return;
     const sig = JSON.stringify([(st.levels || []).map((l) => [l.id, l.label, l.locked]), (st.diffs || []).map((d) => d.id)]);
