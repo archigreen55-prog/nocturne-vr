@@ -103,3 +103,33 @@ test('menu (S3): a small phone (667 x 280, landscape) — the main menu fits wit
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// B02: the pause menu's «Мікрофон…» and «Прогрес: код» open the «Налаштування» page (they lived on it), not the main menu
+test('menu: pause → «Мікрофон і калібрування» / «Прогрес: код» open the settings page (B02)', async () => {
+  const ctx = await newContext(browser, LAND, { menu: true });
+  const { page, errors } = await open(ctx, preview + '?nosplash=1');
+  if (await page.$('#micask:not([hidden])')) await page.click('#asklater');
+  const shown = () => page.evaluate(() => [...document.querySelectorAll('#overlay section[data-page]')].filter((s) => !s.hidden).map((s) => s.dataset.page));
+  const play = async () => {
+    if (!(await shown()).includes('play')) await page.tap('#mmnav [data-go="play"]');
+    await page.waitForFunction(() => !document.getElementById('start').disabled, null, { timeout: 30000 });
+    await page.tap('#start');
+    await page.waitForFunction(() => window.__game.playing);
+    await page.tap('#touch .pause');
+    await page.waitForFunction(() => window.__game.paused);
+  };
+  await play();
+  await page.tap('#pausemenu .pm-btn:has-text("Мікрофон і калібрування")');
+  await page.waitForFunction(() => document.querySelector('#overlay').style.display !== 'none');
+  await page.waitForTimeout(100);
+  assert.deepEqual(await shown(), ['settings'], 'the microphone');
+  await page.tap('#overlay section[data-page="settings"] [data-back]');
+  await play();
+  await page.tap('#pausemenu .pm-btn:has-text("Налаштування")');
+  await page.tap('#pausemenu .pm-btn:has-text("Прогрес: код")');
+  await page.waitForTimeout(100);
+  assert.deepEqual(await shown(), ['settings'], 'the progress code');
+  assert.equal(await page.evaluate(() => document.getElementById('progress').hidden), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

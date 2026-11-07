@@ -18,6 +18,7 @@ import { G, $ } from './state.js';
 import { flash } from './messages.js';
 import { phoneLayout } from './flatScreen.js';
 import { pause2D } from './desktop.js';
+import { goPage } from './menu.js';
 import { newRound, setContract, setDifficulty, pressBoard, goHome } from './contract.js';
 import { reportText } from './startScreen.js';
 import { restartTutorial } from './tutorial.js';
@@ -125,12 +126,13 @@ export const phone = {
       home: () => { goHome(); pauseResume(); },
       newRound: () => { newRound(); pauseResume(); },
       toStart: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); },
-      toMic: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => $('micbox').scrollIntoView({ block: 'start' }), 50); },
+      // B02: the microphone and the progress code live on the «Налаштування» page (the overlay opens the main menu first)
+      toMic: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => { goPage('settings'); $('micbox').scrollIntoView({ block: 'start' }); }, 0); },
       report: () => copyReport(reportText()),
       contractStep: (d) => { const all = CFG.contracts, i = all.indexOf(G.contract); setContract(all[(i + d + all.length) % all.length].id); },
       difficultyNext: () => setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]),
       tutorial: () => { restartTutorial(); pauseResume(); },
-      toProgress: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); openProgress(); },
+      toProgress: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => { goPage('settings'); openProgress(); }, 0); },
       privacy: () => window.open('privacy.html', '_blank', 'noopener'),
       bright: (d) => brightnessStep(d), brightLabel: brightnessLabel, outdoor: () => toggleOutdoor(), outdoorLabel,
     }) : null;
