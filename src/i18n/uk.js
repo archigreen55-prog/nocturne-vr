@@ -1172,6 +1172,7 @@ export default {
     mission: 'Місія',
     levelN: (n) => `Рівень ${n}`,
     start: 'Почати',
+    backToRoom: 'До кімнати',
     waitStart: 'Чекаємо, поки хост натисне «Почати».',
     otherHouse: (name) => `Інший будинок: ${name}`,
     hostChose: (house, level, diff) => `Хост обрав: ${house} · ${level} · ${diff}`,

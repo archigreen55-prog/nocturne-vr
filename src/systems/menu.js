@@ -167,7 +167,7 @@ export const menu = {
     let wasHidden = false;
     new MutationObserver(() => {
       const hidden = $('overlay').style.display === 'none';
-      if (wasHidden && !hidden && !document.body.classList.contains('pages-all')) show('menu');
+      if (wasHidden && !hidden && !document.body.classList.contains('pages-all')) show(G.net && G.net.t ? 'friends' : 'menu');   // T4c: with friends, back to the room
       wasHidden = hidden;
     }).observe($('overlay'), { attributes: true, attributeFilter: ['style'] });
     // after the splash (or at once without it): the microphone on the first run

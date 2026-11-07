@@ -85,6 +85,7 @@ export function pauseResume() {
 }
 function pauseAuto(reason) { if (G.touch && G.playingDesktop && !G.inVR && !G.paused) pauseOpen(reason); }
 export const summaryState = () => ({
+  room: !!(G.net && G.net.t),   // T4c: with friends «До кімнати»
   result: G.round.result, verdict: G.verdict, contractName: G.contract.name, difficulty: G.difficulty, bonusText: bonusText(G.contract),
   clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: G.mic.noMic, income: G.role === 'guard' ? guardResultText() : incomeText(), mischief: mischiefText(), story: afterNow(),
   next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
@@ -137,7 +138,7 @@ export const phone = {
       play: () => pressBoard('play'),
       again: () => pressBoard('again'),
       next: () => pressBoard('nextlvl'),
-      menu: () => pauseOpen('user'),
+      menu: () => (G.net && G.net.t ? pause2D() : pauseOpen('user')),   // T4c: with friends the summary's «Меню» goes back to the room
       report: () => copyReport(reportText()),
     }) : null;
     if (touch) {

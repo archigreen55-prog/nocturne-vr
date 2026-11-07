@@ -447,3 +447,32 @@ test('net: the host presses «Почати» — both are in the round on the sa
   for (const p of [host, guest, late]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
+
+// T4c: after the round everybody is back in the room (not the main menu); the host picks the next mission there
+test('net: after the round both are back in the room screen (T4c)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '314271';
+  // the host goes to «Грати з друзями» (the splash out of the way) and opens the room there
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  await host.page.click('#netstart');
+  await run([host.page, guest.page], 0.5);
+  // the round ends; both leave the round screen (a phone's summary «До кімнати», Esc on a PC: the overlay comes back)
+  await host.page.evaluate(() => window.__game.round.finish('left'));
+  await run([host.page, guest.page], 1.5);
+  for (const p of [host.page, guest.page]) await p.evaluate(async () => { document.body.classList.remove('pages-all'); document.exitPointerLock(); const { pause2D } = await import('./src/systems/desktop.js'); pause2D(); });
+  await run([host.page, guest.page], 0.2);
+  const seen = await Promise.all([host.page, guest.page].map((p) => p.evaluate(() => [...document.querySelectorAll('#overlay section[data-page]')].filter((s) => !s.hidden).map((s) => s.dataset.page))));
+  assert.deepEqual(seen, [['friends'], ['friends']], JSON.stringify(seen));
+  // the host picks again: the round is back at the van for both
+  const lv = await host.page.evaluate(() => [...document.querySelectorAll('#netlevels button')].find((b) => !b.disabled).dataset.id);
+  await host.page.click(`#netlevels button[data-id="${lv}"]`);
+  await run([host.page, guest.page], 0.6);
+  const ph = await Promise.all([host.page, guest.page].map((p) => p.evaluate(() => window.__game.round.phase)));
+  assert.deepEqual(ph, ['ready', 'ready'], JSON.stringify(ph));
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

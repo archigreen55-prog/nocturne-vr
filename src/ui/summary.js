@@ -61,7 +61,7 @@ export class Summary {
     const mk = (label, fn, cls = '') => { const b = el('button', 'sm-btn ' + cls, label); b.type = 'button'; bindPress(b, fn); return b; };
     const play = mk(S.board.listen, () => this.h.play());
     const again = s.next ? mk(S.campaign.next(s.next.n), () => this.h.next(), 'primary') : mk(S.board.res.newRound, () => this.h.again(), 'primary');   // W19: the next level
-    row.append(again, play, mk(S.summary.menu, () => this.h.menu(), 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
+    row.append(again, play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), s.room ? 'primary' : 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
     right.append(row);
     card.append(left, right);
     this.root.replaceChildren(card);
