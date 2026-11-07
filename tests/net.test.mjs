@@ -507,3 +507,26 @@ test('net: the guest presses every board button — nothing changes on the host;
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
+
+// B03: a double tap on «Увійти в кімнату» (two open() at once) leaves one working connection
+test('net: a double tap on «Увійти в кімнату» opens one connection (B03)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 600 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '314159';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + '?net=local');
+  await guest.page.evaluate((code) => Promise.all([window.__game.net.open(code, 'guest', 'Оля', 'rita'), window.__game.net.open(code, 'guest', 'Оля', 'rita')]), code);
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  const pages = [host.page, guest.page];
+  for (const p of pages) await p.evaluate(() => { const g = window.__game; g.playing = true; for (const l of g.lurkers) l.update = () => {}; });
+  await run(pages, 1);
+  await guest.page.evaluate(() => window.__game.player.teleport(-4, 1.6, 0));
+  await run(pages, 4);
+  const r = await host.page.evaluate(() => window.__game.net.state().remotes);
+  assert.equal(r.length, 1, JSON.stringify(r));
+  assert.ok(Math.abs(r[0].x + 4) < 0.3 && Math.abs(r[0].z - 1.6) < 0.3 && !r[0].lost, JSON.stringify(r[0]));
+  const peers = await guest.page.evaluate(() => window.__game.net.state().transport.peers);
+  assert.equal(peers, 1, 'the guest has one connection to the host');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

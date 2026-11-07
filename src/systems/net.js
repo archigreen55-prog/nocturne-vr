@@ -110,12 +110,16 @@ function lobbyMessage() { return { type: 'lobby', gp: G.guardPid || '', players:
 
 // ---------- the room ----------
 async function open(code, role) {
+  if (N.opening) return;   // B03: a double tap on «Увійти» / «Створити» opened a second connection
   if (N.t) leave(true);
+  const seq = N.openSeq = (N.openSeq || 0) + 1;
+  N.opening = true;
   N.code = code; N.role = role; N.welcomed = role === 'host'; N.hostLost = false; N.findT = 0; N.stage = 'find'; N.connectFail = false;
   saveSetting('netName', N.name); saveSetting('netThief', N.thief);
   setStatus(role === 'host' ? S.net.status.opening : S.net.status.find);
+  let t;
   try {
-    N.t = await openTransport({
+    t = await openTransport({
       kind: params.get('net') === 'local' ? 'local' : 'trystero', code, all: role === 'host',   // T3: the host listens on every relay
       onMessage, onPeerJoin, onPeerLeave,
       onStatus: (s) => {
@@ -125,10 +129,15 @@ async function open(code, role) {
       },
     });
   } catch (e) {
+    N.opening = false;
+    if (seq !== N.openSeq) return;
     N.t = null; N.role = null;
     setStatus(S.net.status.failed(String(e.message || e).slice(0, 120)), true);
     return;
   }
+  N.opening = false;
+  if (seq !== N.openSeq) { t.close(); return; }   // left (or another room) while connecting
+  N.t = t;
   G.net = N;
   G.isHost = role === 'host';
   if (role === 'host') { N.hostPid = N.pid; setStatus(S.net.status.waiting); }
@@ -136,6 +145,7 @@ async function open(code, role) {
   refreshLobby();
 }
 function leave(quiet) {
+  N.openSeq = (N.openSeq || 0) + 1; N.opening = false;   // B03: a connection still opening closes itself
   if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); }
   for (const r of N.remotes.values()) dropRemote(r);
   N.t = null; N.role = null; N.welcomed = false; N.hostPeer = null; N.lobbyList = null;
