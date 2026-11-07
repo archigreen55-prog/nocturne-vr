@@ -374,59 +374,80 @@
 
   <section data-page="settings" hidden>
     <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.settings"></h2></header>
-    <h3 data-t="start.h.mic"></h3>
-  <div id="micbox">
-    <p id="michold" class="phone-only muted" style="margin-top:0"></p>
-    <div class="row">
-      <button id="micbtn" data-t="start.allowMic"></button>
-      <button id="calbtn" disabled data-t="start.calibrateButton"></button>
-      <label><input type="checkbox" id="nomic"><span data-t="start.noMicCheck"></span></label>
-      <span id="micstate" class="muted"></span>
+    <div class="st-grid">
+      <!-- the microphone: three steps (allow, calibrate, check), then the meter -->
+      <div class="st-card st-mic" id="micbox">
+        <h3 data-t="start.h.mic"></h3>
+        <ol class="wiz" id="micwiz">
+          <li data-step="allow"><span class="wiz-n">1</span><button id="micbtn" data-t="start.allowMic"></button></li>
+          <li data-step="cal"><span class="wiz-n">2</span><button id="calbtn" disabled data-t="start.calibrateButton"></button></li>
+          <li data-step="check" class="phone-only"><span class="wiz-n">3</span><button id="verifybtn" disabled data-t="start.verifyButton"></button></li>
+        </ol>
+        <p id="micstate" class="st-state"></p>
+        <div id="calstep"></div>
+        <div class="row st-meter">
+          <div id="meter"><div class="zone" id="zq"></div><div class="zone" id="zn"></div><div class="zone" id="zs"></div><div class="fill" id="fill"></div><div class="tick" id="tw"></div><div class="tick" id="ts"></div></div>
+          <span id="level"></span>
+        </div>
+        <div id="verifyres"></div>
+        <p id="michold" class="phone-only muted"></p>
+        <div id="michelp" class="muted"></div>
+        <div id="micnote"></div>
+        <p id="iosnote" class="muted" hidden></p>
+        <div class="row"><label class="st-check"><input type="checkbox" id="nomic"><span data-t="start.noMicCheck"></span></label><button id="soundtest" class="phone-only st-small" data-t="start.soundTest"></button></div>
+      </div>
+      <div class="st-card">
+        <h3 data-t="menu2.group.controls"></h3>
+        <div id="settings" class="st-opts">
+          <label class="pc-only"><span data-t="start.label.vignette"></span><select id="vignette" class="seg-src"></select></label>
+          <label class="pc-only"><span data-t="start.label.snap"></span><select id="snap" class="seg-src"><option value="45">45°</option><option value="30">30°</option></select></label>
+          <label class="pc-only"><span data-t="sprint.vrLabel"></span><select id="vrrun" class="seg-src"></select></label>
+          <label class="phone-only"><span data-t="start.label.look"></span><select id="lookspeed" class="seg-src"><option value="slow" data-t="settings.look.slow"></option><option value="normal" data-t="settings.look.normal"></option><option value="fast" data-t="settings.look.fast"></option></select></label>
+          <label class="phone-only"><span data-t="start.label.breath"></span><select id="breathmode" class="seg-src"><option value="hold" data-t="settings.breath.hold"></option><option value="toggle" data-t="settings.breath.toggle"></option></select></label>
+        </div>
+        <div class="row phone-only"><button id="gyrobtn" class="st-small" data-t="start.gyroOff"></button></div>
+      </div>
+      <div class="st-card">
+        <h3 data-t="menu2.group.screen"></h3>
+        <div class="row" id="brightrow"><span data-t="bright.label"></span> <b id="brightval"></b>
+          <button class="adj" id="brightdn" aria-label="" data-t-attr="aria-label:bright.down">−</button><button class="adj" id="brightup" aria-label="" data-t-attr="aria-label:bright.up">+</button>
+          <button id="outdoorbtn" class="st-small"></button></div>
+        <p class="muted" id="brighthint"></p>
+        <div class="st-opts phone-only">
+          <label><span data-t="start.label.hud"></span><select id="hudmode" class="seg-src"><option value="full" data-t="settings.hud.full"></option><option value="min" data-t="settings.hud.min"></option></select></label>
+          <label><span data-t="start.label.fx"></span><select id="feedback" class="seg-src"><option value="auto" data-t="settings.fx.auto"></option><option value="flash" data-t="settings.fx.flash"></option><option value="off" data-t="settings.fx.off"></option></select></label>
+        </div>
+      </div>
+      <div class="st-card">
+        <h3 data-t="menu2.group.more"></h3>
+        <div class="st-links" id="extrarow">
+          <button class="mm" data-go="howto"><span data-t="howto.title"></span></button>
+          <button id="tutorialbtn" class="mm" data-t="tutorial.again"></button>
+          <button id="progbtn" class="mm" data-t="progress.button"></button>
+          <button class="mm" data-go="testers"><span data-t="menu2.testers"></span></button>
+        </div>
+        <div id="progress" hidden>
+          <p class="muted" data-t="progress.about"></p>
+          <div class="row"><button id="progexport" data-t="progress.export"></button><button id="progimport" data-t="progress.import"></button></div>
+          <textarea id="progcode" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" hidden></textarea>
+          <div class="row"><button id="progapply" data-t="progress.apply" hidden></button><span id="prognote" class="muted"></span></div>
+        </div>
+        <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden data-t="start.install"></button><span id="installnote" class="muted"></span></div>
+      </div>
     </div>
-    <div id="michelp" class="muted"></div>
-    <div id="micnote" style="font-size:13px;color:var(--warn)"></div>
-    <div id="calstep"></div>
-    <div class="row phone-only"><button id="verifybtn" disabled data-t="start.verifyButton"></button><button id="soundtest" data-t="start.soundTest"></button></div>
-    <div id="verifyres" style="font-size:14px"></div>
-    <p id="iosnote" class="muted" hidden></p>
-    <div class="row">
-      <div id="meter"><div class="zone" id="zq"></div><div class="zone" id="zn"></div><div class="zone" id="zs"></div><div class="fill" id="fill"></div><div class="tick" id="tw"></div><div class="tick" id="ts"></div></div>
-      <span id="level"></span>
-    </div>
-    <p class="muted" data-t-html="start.calibInfo"></p>
-  </div>
+  </section>
 
-    <h3 data-t="menu2.group.controls"></h3>
-    <div id="settings">
-      <label class="pc-only"><span data-t="start.label.vignette"></span><select id="vignette"></select></label>
-      <label class="pc-only"><span data-t="start.label.snap"></span><select id="snap"><option value="45">45°</option><option value="30">30°</option></select></label>
-      <label class="pc-only"><span data-t="sprint.vrLabel"></span><select id="vrrun"></select></label>
-      <label class="phone-only"><span data-t="start.label.look"></span><select id="lookspeed"><option value="slow" data-t="settings.look.slow"></option><option value="normal" data-t="settings.look.normal"></option><option value="fast" data-t="settings.look.fast"></option></select></label>
-      <label class="phone-only"><span data-t="start.label.breath"></span><select id="breathmode"><option value="hold" data-t="settings.breath.hold"></option><option value="toggle" data-t="settings.breath.toggle"></option></select></label>
+  <section data-page="howto" hidden>
+    <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="howto.title"></h2></header>
+    <div class="ht-cards">
+      <div class="ht-card"><b data-t="howto.goalH"></b><span data-t="howto.goal"></span></div>
+      <div class="ht-card"><b data-t="howto.quietH"></b><span data-t="howto.quiet"></span></div>
+      <div class="ht-card"><b data-t="howto.hideH"></b><span data-t="howto.hide"></span></div>
     </div>
-    <div class="row phone-only"><button id="gyrobtn" data-t="start.gyroOff"></button></div>
-    <h3 data-t="menu2.group.screen"></h3>
-    <div class="row" id="brightrow"><span data-t="bright.label"></span> <b id="brightval"></b>
-      <button class="adj" id="brightdn" aria-label="" data-t-attr="aria-label:bright.down">−</button><button class="adj" id="brightup" aria-label="" data-t-attr="aria-label:bright.up">+</button>
-      <button id="outdoorbtn"></button></div>
-    <p class="muted" id="brighthint"></p>
-    <div class="row phone-only" style="gap:8px 24px;font-size:14px">
-      <label><span data-t="start.label.hud"></span><select id="hudmode"><option value="full" data-t="settings.hud.full"></option><option value="min" data-t="settings.hud.min"></option></select></label>
-      <label><span data-t="start.label.fx"></span><select id="feedback"><option value="auto" data-t="settings.fx.auto"></option><option value="flash" data-t="settings.fx.flash"></option><option value="off" data-t="settings.fx.off"></option></select></label>
-    </div>
-    <h3 data-t="menu2.group.more"></h3>
-    <div class="row" id="extrarow"><button id="tutorialbtn" data-t="tutorial.again"></button><button id="progbtn" data-t="progress.button"></button></div>
-  <div id="progress" hidden>
-    <p class="muted" data-t="progress.about"></p>
-    <div class="row"><button id="progexport" data-t="progress.export"></button><button id="progimport" data-t="progress.import"></button></div>
-    <textarea id="progcode" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" hidden></textarea>
-    <div class="row"><button id="progapply" data-t="progress.apply" hidden></button><span id="prognote" class="muted"></span></div>
-  </div>
-    <div class="row phone-only" id="installrow" hidden><button id="installbtn" hidden data-t="start.install"></button><span id="installnote" class="muted"></span></div>
-    <div class="row"><button class="mm" data-go="testers" style="font-size:14px"><span data-t="menu2.testers"></span></button></div>
+    <div class="ht-tables">
   <div class="phone-only">
   <h3 data-t="start.h.phone"></h3>
-  <table>
+  <table class="ht-table">
     <tr><td data-t="controls.phone.k1"></td><td data-t="controls.phone.v1"></td></tr>
     <tr><td data-t="controls.phone.k2"></td><td data-t="controls.phone.v2"></td></tr>
     <tr><td data-t="controls.phone.k3"></td><td data-t="controls.phone.v3"></td></tr>
@@ -439,7 +460,7 @@
   </div>
   <div class="controls pc-only"><div>
   <h3 data-t="start.h.quest"></h3>
-  <table>
+  <table class="ht-table">
     <tr><td data-t="controls.vr.k1"></td><td data-t="controls.vr.v1"></td></tr>
     <tr><td data-t="controls.vr.k2"></td><td data-t="controls.vr.v2"></td></tr>
     <tr><td data-t="controls.vr.k3"></td><td data-t="controls.vr.v3"></td></tr>
@@ -456,7 +477,7 @@
   </table>
   </div><div>
   <h3 data-t="start.h.keyboard"></h3>
-  <table>
+  <table class="ht-table">
     <tr><td data-t="controls.pc.k1"></td><td data-t="controls.pc.v1"></td></tr>
     <tr><td data-t="controls.pc.k2"></td><td data-t="controls.pc.v2"></td></tr>
     <tr><td data-t="controls.pc.k3"></td><td data-t="controls.pc.v3"></td></tr>
@@ -467,15 +488,16 @@
     <tr><td data-t="controls.pc.k8"></td><td data-t="controls.pc.v8"></td></tr>
   </table>
   </div></div>
+    </div>
   </section>
 
   <section data-page="testers" hidden>
     <header class="pg-head"><button class="back" data-back aria-label="" data-t-attr="aria-label:menu2.back">←</button><h2 data-t="menu2.title.testers"></h2></header>
     <div class="row" style="margin-top:12px"><button id="report" data-t="menu.report"></button><span class="muted" data-t="start.reportHint"></span></div>
     <div class="row" style="gap:8px 24px;font-size:14px">
-      <label><span data-t="style.label"></span><select id="stylesel"><option value="on" data-t="style.on"></option><option value="off" data-t="style.off"></option></select></label>
-      <label class="phone-only"><span data-t="start.label.quality"></span><select id="quality"><option value="auto" data-t="settings.quality.auto"></option><option value="low" data-t="quality.low"></option><option value="medium" data-t="quality.medium"></option><option value="high" data-t="quality.high"></option></select></label>
-      <label class="phone-only"><span data-t="start.label.fps"></span><select id="fpscap"><option value="60" data-t="settings.fps.fps60"></option><option value="30" data-t="settings.fps.fps30"></option></select></label>
+      <label><span data-t="style.label"></span><select id="stylesel" class="seg-src"><option value="on" data-t="style.on"></option><option value="off" data-t="style.off"></option></select></label>
+      <label class="phone-only"><span data-t="start.label.quality"></span><select id="quality" class="seg-src"><option value="auto" data-t="settings.quality.auto"></option><option value="low" data-t="quality.low"></option><option value="medium" data-t="quality.medium"></option><option value="high" data-t="quality.high"></option></select></label>
+      <label class="phone-only"><span data-t="start.label.fps"></span><select id="fpscap" class="seg-src"><option value="60" data-t="settings.fps.fps60"></option><option value="30" data-t="settings.fps.fps30"></option></select></label>
     </div>
     <p class="muted phone-only" id="qualitynote"></p>
     <label id="openall" hidden><input type="checkbox" id="openallcb"> <span data-t="shop.openAll"></span></label>
