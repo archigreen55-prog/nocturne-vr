@@ -9,7 +9,7 @@ test('phone: Грати shows touch controls; joystick quiet inside the ring, lo
   assert.equal(await page.isVisible('#touch'), true);
   assert.equal(await page.isVisible('#overlay'), false);
   assert.equal(await page.isVisible('#vrbutton'), false);
-  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, 2.92 - Math.PI); });   // spawn, facing the house
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw - Math.PI); });   // spawn, facing the house
   const vp = page.viewportSize();
   const x0 = vp.width * 0.2, y0 = vp.height * 0.6;
   const p0 = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));

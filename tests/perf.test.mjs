@@ -66,19 +66,19 @@ test('board redraws only when its content changes and it is in view (phone)', as
   const { ctx, page, errors } = await playPhone();
   const draws = () => page.evaluate(() => window.__game.perf.boardDraws || 0);
   // at the van, facing the board, nothing changes: no redraws
-  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, 2.92); });
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw); });
   await keepFor(page, 600);
   let d0 = await draws();
   await keepFor(page, 1500);
   assert.equal(await draws(), d0, 'idle board: not redrawn');
   // the clock runs (heist) but the board is behind you: not redrawn
-  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); g.player.teleport(2.2, 4.5, 2.92 + Math.PI); });
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); const B = g.level.board; g.player.teleport(B.x - 3.8, B.z - 0.6, Math.PI / 2); });   // 3.8 m west of the board, facing away from it (the clock runs: far from the ring)
   await keepFor(page, 600);
   d0 = await draws();
   await keepFor(page, 2500);
   assert.equal(await draws(), d0, 'out of view: not redrawn');
   // turned towards it: redrawn (the clock changed)
-  await page.evaluate(() => { window.__game.player.lookYaw = 2.92; });
+  await page.evaluate(() => { window.__game.player.lookYaw = -Math.PI / 2; });
   await page.waitForFunction((d0) => (window.__game.perf.boardDraws || 0) > d0, d0, { timeout: 8000 });
   assert.deepEqual(errors, []);
   await ctx.close();

@@ -14,7 +14,7 @@ test('phone: round summary (HTML) after every ending: stars, items, Ще раз 
     // a loot item in the van, then Поїхати pressed on the stand board with a finger
     left: async () => {
       // the clock starts 4.5 m from the van (Поїхати is on the board only then)
-      await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); g.loot.deliver(g.loot.items.find((i) => !i.twoHanded)); g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, 2.92); });
+      await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); g.loot.deliver(g.loot.items.find((i) => !i.twoHanded)); g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw); });
       await page.waitForFunction(() => window.__game.board.buttons.some((b) => b.id === 'leave'), null, { timeout: 8000 });
       await frames(page);
       await fingerPress(page, cdp, await boardPoint(page, 'leave'));
@@ -289,7 +289,7 @@ test('phone feedback: vibration on Android; no navigator.vibrate (iPhone) = edge
   })();
   assert.equal(await page.evaluate(() => window.__game.feedback.how), 'vibrate');
   const vp = page.viewportSize();
-  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, 2.92 - Math.PI); });
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw - Math.PI); });
   await drag(page, cdp, vp.width * 0.2, vp.height * 0.6, 0, -64, 600);   // across the quiet ring
   assert.ok((await page.evaluate(() => window.__vib)).includes(12), 'the joystick crossing the ring vibrates');
   await page.evaluate(() => { const g = window.__game; g.player.teleport(0, 2, 0); g.sim(0.3); g.caught(); });
