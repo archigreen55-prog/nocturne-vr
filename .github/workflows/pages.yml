@@ -13,10 +13,12 @@ permissions:
   contents: read
 
 jobs:
-  # A push to a work branch rebuilds the site through a run on main: the github-pages environment
-  # accepts deployments from main only. (workflow_dispatch is one of the events GITHUB_TOKEN may start.)
+  # Every push (a work branch, and main too) rebuilds the site through a workflow_dispatch run on main:
+  # the github-pages environment accepts deployments from main only, and the deploy of a push run on
+  # main hung (07.11.2026: «Current status: » for 10 min, twice, after merging PR #17) while every
+  # dispatched run deployed in ~30 s. (workflow_dispatch is one of the events GITHUB_TOKEN may start.)
   kick:
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -31,7 +33,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   build:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'push'
     runs-on: ubuntu-latest
     concurrency:
       group: pages-build
@@ -75,3 +77,5 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1200000   # ms: 20 min instead of 10 before giving up on a slow Pages backend
