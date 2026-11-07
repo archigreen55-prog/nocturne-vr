@@ -26,7 +26,7 @@ export const patrol = {
 // Stealth read-out: lit spots (lamps) where you are seen as far as in the flashlight beam, and what
 // counts as cover (furniture at least this close below your eyes, within `coverDist`).
 export const stealth = {
-  lamps: [{ x: 0.6, z: 5.6, r: 3 }, { x: 1.5, z: -12.9, r: 2.5 }, { x: -3.0, z: -6.0, r: 2.2 }],
+  lamps: [{ x: 1.6, z: 7.6, r: 3 }, { x: 1.5, z: -12.9, r: 2.5 }, { x: -3.0, z: -6.0, r: 2.2 }],   // the dacha's own list: world/yard.js LAMPS
   coverBelowEyes: 0.3, coverDist: 0.9,
 };
 
@@ -59,6 +59,8 @@ export const guard = {
     [S.rooms.anteroom]: [[-3, -10.5]],
     [S.rooms.living]: [[1.5, -8], [-0.9, -12.6], [3.9, -9]],
     [S.rooms.bedroom]: [[7.5, -10.2], [6.2, -12.8]],
+    // the dacha's yard (world/yard.js): out on the porch and down to the gate — never to the street
+    [S.rooms.yard]: [[0, 1.6], [3.0, 14.6]],
   },
   lootWeight: 0.5,
   lookTime: 2.5,         // s it looks around in a room

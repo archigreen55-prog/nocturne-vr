@@ -200,7 +200,13 @@ export class Patrol {
 
   // ---------- goals ----------
   // toFloor: the floor index of the target (W6); by default the one it is on
-  goTo(x, z, toFloor) { this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z]; }
+  // the map's leash (the dacha: world/yard.js LEASH): the guard goes out to the porch and the gate, never
+  // down the street to the van — a goal past it is taken to the gate's line
+  goTo(x, z, toFloor) {
+    const L = this.env.level && this.env.level.leash;
+    if (L && z > L.maxZ) z = L.maxZ;
+    this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z];
+  }
   get floor() { return this.env.level.floorIndex ? this.env.level.floorIndex(this.y) : 0; }
 
   investigate(x, z, f) {

@@ -2,12 +2,12 @@
 // Units: metres, seconds, m/s (see src/config/index.js).
 
 export const round = {
-  time: 7 * 60,          // contract timer
-  warnAt: 6 * 60,        // lights start flickering ("the neighbours noticed")
-  escapeTime: 60,        // after full alarm or the timer: this long to reach the van
+  time: 10 * 60,         // contract timer (the dacha's medium: config/difficulty.js)
+  warnAt: 9 * 60,        // lights start flickering ("the neighbours noticed")
+  escapeTime: 90,        // after full alarm or the timer: this long to reach the van
   startDist: 4.5,        // the timer starts when you walk this far from the drop-off ring (the board is closer)
-  vanZone: { x: 4.4, z: 6.75, r: 2.0 },  // this close to the drop-off ring = "at the van" (the escape ends here)
+  vanZone: { x: 13.3, z: 25.2, r: 2.0 },  // the dacha's (world/yard.js VAN_ZONE); this close to the drop-off ring = "at the van" (the escape ends here)
 };
 
 // Drop-off ring behind the open van: head inside + loot in hands = it flies into the van.
-export const dropZone = { x: 4.4, z: 6.75, r: 0.6, flyTime: 0.3 };
+export const dropZone = { x: 13.3, z: 25.2, r: 0.6, flyTime: 0.3 };   // the dacha's (world/yard.js DROP); a map's level sets its own

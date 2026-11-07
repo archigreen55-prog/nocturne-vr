@@ -19,7 +19,7 @@ const ALL = [
   { id: 'wardrobe', name: S.contracts.wardrobe.name, brief: S.contracts.wardrobe.brief, goal: { item: 'jewelbox' }, bonus: 'clean', campaign: true },
   { id: 'quiet', name: S.contracts.quiet.name, brief: S.contracts.quiet.brief, goal: { sum: 1500, noAlarm: true }, bonus: 'intact' },
   { id: 'silent', name: S.contracts.silent.name, brief: S.contracts.silent.brief, goal: { sum: 1500, noShout: true }, bonus: 'intact', mods: { lurkerCooldown: 20 }, needsMic: true },
-  { id: 'rush', name: S.contracts.rush.name, brief: S.contracts.rush.brief, goal: { sum: 2500 }, bonus: 'clean', mods: { time: 180, warnAt: 150, escapeTime: 45, teaAtStart: 60 } },
+  { id: 'rush', name: S.contracts.rush.name, brief: S.contracts.rush.brief, goal: { sum: 2500 }, bonus: 'clean', mods: { time: 260, warnAt: 230, escapeTime: 70, teaAtStart: 60 } },
   // W2b: contract 7 «Довгий вечір Петровича» — mischief points instead of loot (CFG.traps.evening), twice the
   // traps; opens after a star on «На час» (decision R8 A: also once «Напарник» (W5) comes in between)
   { id: 'evening', name: S.contracts.evening.name, brief: S.contracts.evening.brief, goal: { mischief: 500 }, bonus: 'mischief', after: 'rush', mods: { trapsK: 2 } },
