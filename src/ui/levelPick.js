@@ -18,6 +18,7 @@ export class LevelPick {
       const b = this.root.querySelector(`[data-level="${CSS.escape(l.id)}"]`);
       if (!b) continue;
       b.classList.toggle('on', !!l.current);
+      if (l.current && !b.dataset.shown && b.offsetParent) { b.dataset.shown = '1'; try { b.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch { /* old browsers */ } }
       b.setAttribute('aria-pressed', l.current ? 'true' : 'false');
     }
   }

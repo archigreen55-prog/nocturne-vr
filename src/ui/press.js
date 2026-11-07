@@ -50,3 +50,17 @@ export function bindPress(el, fn) {
   // it with detail 0 too) must not press the button a second time
   el.addEventListener('click', (e) => { if (e.detail === 0 && !isOff(el) && performance.now() - lastPointer > 1000) fn(e); });
 }
+
+// Every button's pressed look (menu design stage 2): .down while a finger or the mouse is on it — the plain
+// click buttons too (bindPress buttons set it themselves); the touch controls (#touch) keep their own.
+export function pressLook(root = document) {
+  let held = null;
+  const off = () => { if (held) { held.classList.remove('down'); held = null; } };
+  root.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest && e.target.closest('button, .lv-card');
+    if (!b || b.disabled || b.closest('#touch')) return;
+    off(); held = b; b.classList.add('down');
+  }, true);
+  for (const t of ['pointerup', 'pointercancel', 'blur']) root.addEventListener(t, off, true);
+  root.addEventListener('pointermove', (e) => { if (held && e.target !== held && !held.contains(e.target) && !(e.pointerType === 'touch')) off(); }, true);
+}

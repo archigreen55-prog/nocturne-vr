@@ -173,8 +173,16 @@ body.pages-all .pl-legacy { display: block; }   /* the tests' long card still ha
 /* a phone in landscape: the cards a bit smaller, the side column narrower, nothing below the fold to start */
 @media (max-height: 460px) {
   .pl-grid { grid-template-columns: minmax(0, 1fr) minmax(200px, 250px); gap: 10px 12px; }
-  .lv-row { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
-  #overlay .lv-card { min-height: 54px; padding: 5px 7px; }
+  /* a phone in landscape (720 px tall = 360 CSS px): a house is one row that scrolls sideways, its right edge
+     fades out to say there is more; the chosen card is scrolled into view (systems/playPage.js) */
+  .lv-row { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; gap: 6px; padding: 2px 4px 6px 0; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  .lv-row::-webkit-scrollbar { display: none; }
+  #overlay .lv-card { flex: 0 0 82px; scroll-snap-align: start; min-height: 54px; padding: 5px 7px; }
+  .lv-pick { gap: 6px; }
+  .lv-house-head { margin-bottom: 4px; }
+  .pg-head { margin-bottom: 4px; }
+  #overlay #headphones { display: none; }
   #overlay .lv-card .lv-n { font-size: 16px; }
   .lv-info { min-height: 0; padding: 7px 10px; }
   .lv-info b { font-size: 14px; }
@@ -183,3 +191,18 @@ body.pages-all .pl-legacy { display: block; }   /* the tests' long card still ha
   #overlay .seg { gap: 5px; }
   #overlay .seg button { font-size: 10px; letter-spacing: -.02em; padding: 4px 2px; }
 }
+
+/* ---------- touch and focus everywhere (menu design stage 2, the owner's find): no browser rectangle on a tap,
+   the button's own pressed look (pushed in, darker) and a keyboard focus ring with the button's rounding ---------- */
+html, body, button, a, select, input, [role="button"] { -webkit-tap-highlight-color: rgba(0, 0, 0, 0); }
+button, [role="button"], .lv-card { -webkit-touch-callout: none; }
+button:focus, a:focus, select:focus, input:focus { outline: none; }
+/* the keyboard (PC): the ring follows the button's corners (outline follows border-radius) */
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--whisper, #7fd0ff); outline-offset: 3px; }
+/* pressed: bindPress (ui/press.js) sets .down while the finger is on it; :active covers the mouse */
+#overlay button:not(:disabled).down, #overlay button:not(:disabled):active,
+#pausemenu .pm-btn.down, #summary .sm-btn.down, #micask button:active {
+  transform: translate(2px, 2px); filter: brightness(.82); box-shadow: 1px 1px 0 var(--ink2, #05070d);
+}
+#touch .tbtn.on { transform: scale(.93); filter: brightness(.85); }
+#touch .tbtn { transition: transform .06s; }

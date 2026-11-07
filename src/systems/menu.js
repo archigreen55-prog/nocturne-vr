@@ -13,7 +13,8 @@ import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
 import { dressLobby } from '../style/portraits.js';
-import { renderPlayPage } from './playPage.js';   // S4: the thieves' portraits in the lobby
+import { renderPlayPage } from './playPage.js';
+import { pressLook } from '../ui/press.js';   // S4: the thieves' portraits in the lobby
 
 const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'testers'];
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
@@ -149,6 +150,7 @@ export const menu = {
   id: 'menu',
   init() {
     if (!$('mmnav')) return;
+    pressLook();   // every button: pushed in and darker while pressed
     if (TEST.pages === 'all' && !params.has('page')) document.body.classList.add('pages-all');
     for (const b of document.querySelectorAll('#overlay [data-go]')) b.addEventListener('click', () => goPage(b.dataset.go));
     for (const b of document.querySelectorAll('#overlay [data-back]')) b.addEventListener('click', back);
