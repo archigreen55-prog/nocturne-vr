@@ -266,3 +266,55 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
 #overlay .st-opts .seg button, #overlay section[data-page="testers"] .seg button { white-space: normal; text-overflow: clip; line-height: 1.15; min-height: 48px; font-size: 11px; padding: 4px 6px; }
 /* hidden stays hidden: the menu's display rules (flex buttons, grids) must not show an element the code hid */
 #overlay [hidden]:not(section) { display: none !important; }
+
+/* ---------- menu design stage 2: «Грати з друзями» — the thief and the name first, then two big buttons; the room ---------- */
+.nt-who { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 0 0 12px; }
+.nt-who label { display: flex; flex-direction: column; gap: 5px; font: 600 13px system-ui, sans-serif; color: #c9d3e3; }
+#netportraits ~ #netwho .nt-thief { display: none; }   /* the portraits pick the thief (style on); without them, the buttons */
+#netbox.in-room #netwho, #netbox.in-room #netportraits { display: none; }
+#overlay #netname, #overlay #netcode { font: 800 18px var(--head); min-height: 48px; box-sizing: border-box; padding: 6px 12px; border-radius: 10px; border: 2px solid var(--ink2); background: var(--paper); color: var(--ink2); }
+#overlay #netcode { width: 100%; text-align: center; letter-spacing: .12em; }
+.nt-out { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.nt-join { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); }
+#overlay .nt-big { min-height: 58px; font: 800 18px/1.15 var(--head); border-radius: 12px; border: 2px solid var(--ink2); background: var(--dusk); color: var(--paper); box-shadow: 4px 4px 0 var(--ink2); }
+#overlay .nt-big.primary { background: var(--lamp); color: var(--ink2); min-height: 100%; font-size: 20px; }
+.nt-card { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--night); border: 2px dashed var(--lamp); color: var(--paper); font-size: 14px; }
+.nt-room { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
+.nt-left, .nt-right { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); min-width: 0; }
+.nt-code { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.nt-code b { font: 800 26px/1.1 var(--head); color: var(--lamp); letter-spacing: .06em; }
+#netqr { width: 96px; height: 96px; background: #fff; border-radius: 8px; border: 2px solid var(--ink2); flex: none; }
+.nt-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+#overlay .nt-small { flex: 1; font: 800 12px/1.2 var(--head); min-height: 44px; padding: 6px 10px; border: 2px solid var(--ink2); border-radius: 10px; background: var(--dusk); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+#netlink { margin: 0; font-size: 11px; word-break: break-all; }
+.nt-h { margin: 4px 0 0; font: 800 12px var(--head); color: var(--lamp); text-transform: uppercase; letter-spacing: .04em; }
+.nt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.nt-list li { padding: 7px 10px 7px 12px; border-radius: 9px; background: var(--dusk); color: var(--paper); font-size: 13px; border-left: 5px solid var(--tc, #3a4766); }
+.nt-guard { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px; }
+.nt-choice { margin: 0; font: 700 14px system-ui, sans-serif; color: var(--paper); }
+.nt-choice:empty { display: none; }
+#overlay .nt-start { min-height: 58px; font: 800 22px/1 var(--head); border-radius: 12px; border: 2px solid var(--ink2); }
+#overlay .nt-start:disabled { background: #3a4766; color: #9aa7bf; box-shadow: none; }
+.nt-wait { margin: 0; padding: 12px; border-radius: 10px; border: 2px dashed #3a4766; color: #c9d3e3; text-align: center; font-size: 14px; }
+#netstatus:empty, #netver:empty { display: none; }
+@media (max-height: 460px) {
+  .nt-room { grid-template-columns: minmax(200px, .7fr) minmax(0, 1.5fr); gap: 10px; }
+  .nt-left, .nt-right { padding: 9px; gap: 6px; }
+  #netqr { width: 72px; height: 72px; }
+  .nt-code b { font-size: 21px; }
+  #overlay .nt-big { min-height: 50px; font-size: 16px; }
+  #overlay .nt-start { min-height: 50px; font-size: 19px; }
+}
+@media (max-width: 640px) and (orientation: portrait) { .nt-room, .nt-out { grid-template-columns: 1fr; } }
+/* the way in: the thief and the name on the left, the two big buttons on the right (one screen on a phone) */
+#netbox:not(.in-room) { display: grid; grid-template-columns: minmax(0, auto) minmax(240px, 1fr); gap: 0 16px; align-items: start; }
+#netbox:not(.in-room) > * { grid-column: 1 / -1; }
+#netbox:not(.in-room) > #netportraits, #netbox:not(.in-room) > #netwho { grid-column: 1; }
+#netbox:not(.in-room) > #netout { grid-column: 2; grid-row: 1 / span 2; grid-template-columns: 1fr; }
+#overlay #netbox:not(.in-room) .nt-big.primary { min-height: 64px; }
+@media (max-height: 460px) {
+  #netlink { display: none; }
+  .nt-code b { font-size: 17px; }
+  #netbox:not(.in-room) .portraits { grid-template-columns: repeat(4, minmax(0, 76px)); margin-top: 0; }
+  .nt-who { margin-bottom: 0; }
+}
