@@ -7,6 +7,7 @@ import { pauseOpen } from './phone.js';
 import { goHome, newRound, pressBoard } from './contract.js';
 import { toggleStats, cycleVignette } from './stats.js';
 import { triggerDown } from './doors.js';
+import { climbAtHand } from './backWindow.js';
 import { useDeviceAtHand } from './distract.js';
 import { readNoteAtHand } from './story.js';
 import { autoFrameRate } from './vr.js';
@@ -70,7 +71,7 @@ export const controls = {
       for (const [hand, used] of [['left', act.useLeft], ['right', act.useRight]]) {
         if (!used || G.caughtT >= 0) continue;
         if (G.pointer.hover[hand]) { pressBoard(G.pointer.hover[hand]); xrIn.pulse(hand, 0.3, 30); }
-        else if (!readNoteAtHand(hand) && !useDeviceAtHand(hand)) triggerDown(hand);   // a note (W7), a device within reach first (W2a), else doors
+        else if (!readNoteAtHand(hand) && !useDeviceAtHand(hand) && !climbAtHand(hand)) triggerDown(hand);   // a note (W7), a device within reach first (W2a), the open back window, else doors
       }
       autoFrameRate(now);
     } else if (!G.playingDesktop) {

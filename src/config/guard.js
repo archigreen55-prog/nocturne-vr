@@ -28,6 +28,7 @@ export const patrol = {
 export const stealth = {
   lamps: [{ x: 0.6, z: 5.6, r: 3 }, { x: 1.5, z: -12.9, r: 2.5 }, { x: -3.0, z: -6.0, r: 2.2 }],
   coverBelowEyes: 0.3, coverDist: 0.9,
+  coverMaxEye: 2.5,   // eyes higher than this over your floor (the gallery, the floor above) look over the cover
 };
 
 export const alert = {

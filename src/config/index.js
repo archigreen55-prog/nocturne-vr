@@ -24,6 +24,7 @@ import { style } from './style.js';
 import { story } from './story.js';
 import { campaign } from './campaign.js';
 import { humanGuard } from './humanGuard.js';
+import { backWindow } from './backWindow.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
@@ -34,4 +35,5 @@ export const CFG = {
   style,
   story,   // W7
   campaign,   // W19
+  backWindow,   // the dacha's back window
 };

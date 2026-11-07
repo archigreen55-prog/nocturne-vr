@@ -10,7 +10,7 @@ import { CFG } from '../config/index.js';
 import { Builder } from '../world/level.js';
 import { Brain } from './brain.js';
 import { Voice3D, playStep, playGrunt } from '../audio/audio.js';
-import { nearLamp, targetY } from '../game/stealth.js';
+import { nearLamp, sightBlocked } from '../game/stealth.js';
 import { S } from '../i18n/index.js';
 import { power } from '../world/devices.js';
 import { asList } from '../game/players.js';
@@ -538,7 +538,7 @@ export class Patrol {
   // Opens a closed door between it and the next point (a creak the player can hear).
   openDoors(tx, tz) {
     for (const door of this.env.level.doors) {
-      if (door.locked || door.open || door.floor !== this.floor) continue;
+      if (door.locked || door.window || door.open || door.floor !== this.floor) continue;   // the guards never use the back window
       if (Math.hypot(door.cx - this.x, door.cz - this.z) > 1.3) continue;
       const nx = -Math.sin(door.base), nz = -Math.cos(door.base);   // normal of the closed leaf
       const s1 = (this.x - door.hx) * nx + (this.z - door.hz) * nz, s2 = (tx - door.hx) * nx + (tz - door.hz) * nz;
@@ -563,8 +563,8 @@ export class Patrol {
     const M = this.mods || {};
     const dark = power.dark && !lit ? CFG.devices.breaker.darkSightK : 1;   // W2a: the breaker is off, outside its beam
     const range = P.sight * this.sightK * (player.crouched ? P.crouchK : 1) * (lit ? P.beamK : 1) * (alert.full ? P.alarmK : 1) * (M.sightK || 1) * dark;
-    // crouched, it has to see your face, not just the top of your head behind the furniture
-    const visible = d < range && ang < P.fov * (M.fovK || 1) / 2 && !this.env.level.losBlocked(this.x, this.y + EYE, this.z, hx, targetY(player), hz);
+    // crouched, it has to see your face, not just the top of your head; cover next to you hides you (game/stealth.js)
+    const visible = d < range && ang < P.fov * (M.fovK || 1) / 2 && !sightBlocked(this.env.level, this.x, this.y + EYE, this.z, player);
     const feel = d < P.feelDist && !this.env.level.soundOccluded(this.x, this.z, hx, hz);
     return { visible, feel, d, range, lit };
   }
@@ -704,7 +704,7 @@ export class Patrol {
       const dx = p.head.x - this.x, dz = p.head.z - this.z, d = Math.hypot(dx, dz, (p.floorY || 0) - this.y);
       if (d > bestD) continue;
       if (d > 0.3 && Math.abs(angleDiff(Math.atan2(-dx, -dz), this.heading + this.headYaw)) > H.grabHalfAngle) continue;
-      if (this.env.level.losBlocked(this.x, this.y + EYE, this.z, p.head.x, targetY(p), p.head.z)) continue;
+      if (sightBlocked(this.env.level, this.x, this.y + EYE, this.z, p)) continue;
       best = p; bestD = d;
     }
     return best;

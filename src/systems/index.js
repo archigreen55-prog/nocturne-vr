@@ -48,6 +48,7 @@ import { story } from './story.js';
 import { menu } from './menu.js';
 import { campaign } from './campaign.js';
 import { humanGuard } from './humanGuard.js';
+import { backWindow } from './backWindow.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -64,6 +65,7 @@ export const SYSTEMS = [
   controls,      // input: keyboard, touch, VR controllers
   sprint,        // input: running (stamina, doors, crystal, breath); world: running steps, breathing
   player,        // act: breath, walking, hands, doors, the drop-off ring
+  backWindow,    // the dacha's back window: input: no walking while climbing; act: climbing through (after the player's step)
   net,           // W8a: friends — pre: what arrived; act / world (host): friends' hands, ring, voices; present: what goes out
   tutorial,      // act: the first-run tutorial (phone, PC)
   economy,       // the wallet and the shop; world: a closed contract is not played; result: the round's money

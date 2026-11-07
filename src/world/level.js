@@ -125,6 +125,7 @@ export function buildLevel() {
   const furniture = [];                    // { minX, minZ, maxX, maxZ, h, top } for cover and landing
   const doors = [];
   const doorSpecs = [];
+  const windowSpecs = [];                  // the back window: after the doors (the doors keep their indexes, with friends too)
   const occluders = [];                    // wall centre lines [x0, z0, x1, z1, y0, y1]: the flashlight stops at them
 
   // ---------- walls with openings ----------
@@ -135,6 +136,18 @@ export function buildLevel() {
     for (const o of [...openings].sort((a, b) => a.c - b.c)) {
       const a = o.c - o.w / 2, b = o.c + o.w / 2;
       if (a > x) { S.box(x, 0, z - t / 2, a, WALL_H, z + t / 2, color); both(x, z - t / 2, a, z + t / 2); occluders.push([x === x0 ? x - t / 2 : x, z, a, z, 0, WALL_H]); }
+      if (o.window) {
+        // the back window: the wall under the sill and over the top; bodies, sight, sound and the
+        // flashlight stop at it as at the wall (you climb through it: systems/backWindow.js)
+        S.box(a, 0, z - t / 2, b, o.sill, z + t / 2, color); S.box(a, o.top, z - t / 2, b, WALL_H, z + t / 2, color);
+        both(a, z - t / 2, b, z + t / 2); occluders.push([a, z, b, z, 0, WALL_H]);
+        S.box(a - 0.05, o.sill, z - t / 2 - 0.02, a + JAMB, o.top + 0.05, z + t / 2 + 0.02, C.trim);
+        S.box(b - JAMB, o.sill, z - t / 2 - 0.02, b + 0.05, o.top + 0.05, z + t / 2 + 0.02, C.trim);
+        S.box(a + 0.005, o.sill - 0.05, z - t / 2 - 0.05, b - 0.005, o.sill + JAMB, z + t / 2 + 0.05, C.trim);   // the sill, both sides (inside the opening: not through the wall)
+        windowSpecs.push({ axis: 'x', hx: a + JAMB, hz: z, w: o.w - 2 * JAMB, locked: false, window: true, y0: o.sill, h: o.top - o.sill });
+        x = b;
+        continue;
+      }
       S.box(a, DOOR_H, z - t / 2, b, WALL_H, z + t / 2, color);             // lintel
       // jambs: 1 cm into the opening, so their faces never lie in the plane of the wall's end (flicker)
       S.box(a - 0.05, 0, z - t / 2 - 0.02, a + JAMB, DOOR_H + 0.05, z + t / 2 + 0.02, C.trim);
@@ -161,7 +174,8 @@ export function buildLevel() {
 
   // exterior
   wallX(0, -10 - EXT_T / 2, 10 + EXT_T / 2, EXT_T, C.wallExt, [{ c: 0, w: 1.0, door: 'normal' }]);
-  wallX(-14, -10 - EXT_T / 2, 10 + EXT_T / 2, EXT_T, C.wallExt, [{ c: -3, w: 1.0, door: 'locked', front: true }]);
+  const BW = CFG.backWindow;   // the back window in the living room's north wall
+  wallX(-14, -10 - EXT_T / 2, 10 + EXT_T / 2, EXT_T, C.wallExt, [{ c: -3, w: 1.0, door: 'locked', front: true }, { c: BW.x, w: BW.w, window: true, sill: BW.sill, top: BW.top }]);
   wallZ(-10, -14 + EXT_T / 2, -EXT_T / 2, EXT_T, C.wallExt);   // between the south and north walls: no faces on top of each other at the corners
   wallZ(10, -14 + EXT_T / 2, -EXT_T / 2, EXT_T, C.wallExt);
   // interior
@@ -237,8 +251,9 @@ export function buildLevel() {
       S.box(xx - 0.005, 1.45, zc - 0.549, xx + 0.005, 1.5, zc + 0.549, C.trim);
     }
   };
+  // (x = 4 in the north wall is the real back window: config/backWindow.js)
   windowX(0, -6, 1); windowX(0, 6.5, 1); windowX(0, -8.8, 1);
-  windowX(-14, -7, -1); windowX(-14, 1.5, -1); windowX(-14, 4, -1); windowX(-14, 8.5, -1);
+  windowX(-14, -7, -1); windowX(-14, 1.5, -1); windowX(-14, 8.5, -1);
   windowZ(-10, -2.5, -1); windowZ(-10, -10.5, -1); windowZ(10, -2.5, 1); windowZ(10, -12, 1);
 
   // ---------- furniture ----------
@@ -495,7 +510,7 @@ export function buildLevel() {
   glowMesh.matrixAutoUpdate = false;
 
   const doorMat = litMat();
-  for (const spec of doorSpecs) doors.push(new Door(spec, doorMat));
+  for (const spec of [...doorSpecs, ...windowSpecs]) doors.push(new Door(spec, doorMat));
 
   const group = new THREE.Group();
   group.add(staticMesh, glowMesh, moon);
@@ -615,12 +630,25 @@ export class Door {
     this.dragOffset = 0;
     this.dragTarget = 0;
     const B = new Builder();
-    const col = spec.front ? C.doorFront : C.door;
-    B.box(0, 0.016, -LEAF_T / 2, this.w, DOOR_H - 0.003, LEAF_T / 2, col);   // floor to 3 mm under the lintel
-    for (const y of [0.25, 1.15]) for (const s of [-1, 1]) B.box(0.12, y, s * LEAF_T / 2, this.w - 0.12, y + 0.75, s * (LEAF_T / 2 + 0.012), 0x57402f);
-    for (const s of [-1, 1]) B.box(this.w - 0.12, 0.98, s * (LEAF_T / 2), this.w - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
+    this.window = !!spec.window;   // the dacha's back window: a sash on a hinge, swung like a door (config/backWindow.js)
+    this.creakK = this.window ? CFG.backWindow.creakK : 1;
+    this.handleY = this.window ? spec.h / 2 : 1.0;
+    if (this.window) {
+      const H = spec.h, F = 0.06;
+      B.box(0, 0.003, -LEAF_T / 2, this.w, F, LEAF_T / 2, C.trim); B.box(0, H - F, -LEAF_T / 2, this.w, H - 0.003, LEAF_T / 2, C.trim);   // rails
+      B.box(0, F, -LEAF_T / 2, F, H - F, LEAF_T / 2, C.trim); B.box(this.w - F, F, -LEAF_T / 2, this.w, H - F, LEAF_T / 2, C.trim);       // stiles
+      B.box(this.w / 2 - 0.02, F, -LEAF_T / 2 + 0.005, this.w / 2 + 0.02, H - F, LEAF_T / 2 - 0.005, C.trim);                                 // mullion
+      B.box(F, 0.525, -LEAF_T / 2 + 0.006, this.w / 2 - 0.02, 0.575, LEAF_T / 2 - 0.006, C.trim); B.box(this.w / 2 + 0.02, 0.525, -LEAF_T / 2 + 0.006, this.w - F, 0.575, LEAF_T / 2 - 0.006, C.trim);   // transom, as the other windows
+      B.box(F, F, -0.008, this.w - F, H - F, 0.008, GLOW.window);                                                                              // the glass (the other windows' colour)
+      for (const s of [-1, 1]) B.box(this.w - 0.11, H / 2 - 0.03, s * (LEAF_T / 2), this.w - 0.07, H / 2 + 0.03, s * (LEAF_T / 2 + 0.04), C.knob);
+    } else {
+      const col = spec.front ? C.doorFront : C.door;
+      B.box(0, 0.016, -LEAF_T / 2, this.w, DOOR_H - 0.003, LEAF_T / 2, col);   // floor to 3 mm under the lintel
+      for (const y of [0.25, 1.15]) for (const s of [-1, 1]) B.box(0.12, y, s * LEAF_T / 2, this.w - 0.12, y + 0.75, s * (LEAF_T / 2 + 0.012), 0x57402f);
+      for (const s of [-1, 1]) B.box(this.w - 0.12, 0.98, s * (LEAF_T / 2), this.w - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
+    }
     this.mesh = B.mesh(material);
-    this.mesh.name = spec.locked ? 'door (locked)' : 'door';
+    this.mesh.name = this.window ? 'window' : spec.locked ? 'door (locked)' : 'door';
     this.mesh.position.set(this.hx, this.y0, this.hz);
     this.mesh.rotation.y = this.base;
     // centre of the doorway, for picking the door to use
@@ -658,7 +686,7 @@ export class Door {
   // Handle position (both sides share it in XZ), at 1 m height.
   handle(out) {
     const a = this.base + this.angle, d = this.w - 0.1;
-    return out.set(this.hx + Math.cos(a) * d, this.y0 + 1.0, this.hz - Math.sin(a) * d);
+    return out.set(this.hx + Math.cos(a) * d, this.y0 + this.handleY, this.hz - Math.sin(a) * d);
   }
 
   handAngle(x, z) {
