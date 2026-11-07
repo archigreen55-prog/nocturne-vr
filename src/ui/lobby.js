@@ -35,9 +35,10 @@ export class Lobby {
         <p class="muted">${esc(S.net.playHint)}</p>
       </div>
       <p id="netstatus" style="color:var(--warn)"></p>
+      <p class="muted" id="netver" style="font-size:12px;margin:2px 0"></p>
       <div class="row" id="netsolo" hidden><button id="netsolobtn">${esc(S.net.soloAfterLost)}</button></div>`;
     const q = (id) => root.querySelector('#' + id);
-    this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo') };
+    this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver') };
     this.el.name.value = name; this.el.thief.value = THIEVES.includes(thief) ? thief : 'zoya';
     if (code) this.el.code.value = prettyCode(code);
     if (!this.el.name.value) this.el.name.value = S.crew.names[this.el.thief.value];
@@ -61,6 +62,7 @@ export class Lobby {
     e.status.textContent = st.status || '';
     e.status.style.color = st.statusBad ? 'var(--bad)' : 'var(--warn)';
     e.solo.hidden = !st.lost;
+    e.ver.textContent = st.version ? S.net.versionLine(st.version) : '';   // T3: friends compare their builds
     if (st.inRoom) {
       if (e.room.textContent !== S.net.room(prettyCode(st.code))) { e.room.textContent = S.net.room(prettyCode(st.code)); this.drawQr(st.link); }
       e.link.textContent = st.link;

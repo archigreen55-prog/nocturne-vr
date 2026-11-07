@@ -45,6 +45,8 @@ const send = (msg, to) => { if (N.t) { N.t.send(msg, to); N.stats.sent++; } };
 const hostPlayers = () => [{ pid: N.pid, head: G.player.head, floorY: G.player.floorY, yaw: G.player.yaw, crouched: G.player.crouched || G.player.virtualCrouch, running: G.player.running, lost: false }, ...N.remotes.values()].map((p) => (p.pid ? p : Object.assign(p, { pid: p.id }))).filter((p) => p.pid !== G.guardPid);   // the guard is drawn as the guard
 const nameOf = (pid) => (pid === N.pid ? N.name : (N.info.get(pid) || {}).name || '?');
 
+// T3: why a guest is not in the room — nobody answered, or the host was found but the connection failed
+const lostText = () => (N.connectFail ? S.net.status.cantConnect : S.net.status.noHost(prettyCode(N.code)));
 function setStatus(text, bad = false) { N.status = text; N.statusBad = bad; refreshLobby(); }
 function lobbyPlayers() {
   const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic, guard: G.guardPid === N.pid };
@@ -53,21 +55,25 @@ function lobbyPlayers() {
 }
 function refreshLobby() {
   if (!lobby) return;
-  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost });
+  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION });
 }
 function lobbyMessage() { return { type: 'lobby', gp: G.guardPid || '', players: lobbyPlayers().map(({ you, ...p }) => p) }; }
 
 // ---------- the room ----------
 async function open(code, role) {
   if (N.t) leave(true);
-  N.code = code; N.role = role; N.welcomed = role === 'host'; N.hostLost = false; N.findT = 0; N.stage = 'find';
+  N.code = code; N.role = role; N.welcomed = role === 'host'; N.hostLost = false; N.findT = 0; N.stage = 'find'; N.connectFail = false;
   saveSetting('netName', N.name); saveSetting('netThief', N.thief);
   setStatus(role === 'host' ? S.net.status.opening : S.net.status.find);
   try {
     N.t = await openTransport({
       kind: params.get('net') === 'local' ? 'local' : 'trystero', code, all: role === 'host',   // T3: the host listens on every relay
       onMessage, onPeerJoin, onPeerLeave,
-      onStatus: (s) => { if (s.step === 'find' && N.t && role === 'guest') setStatus(S.net.status.findNext); },
+      onStatus: (s) => {
+        if (role !== 'guest' || N.welcomed) return;
+        if (s.step === 'connectFail') { N.connectFail = true; setStatus(S.net.status.cantConnect, true); }   // T3: found, not connected
+        else if (s.step === 'find' && N.t && !N.connectFail) setStatus(S.net.status.findNext);
+      },
     });
   } catch (e) {
     N.t = null; N.role = null;
@@ -90,7 +96,7 @@ function leave(quiet) {
   if (!quiet) setStatus('');
 }
 function hello(peer) {
-  send({ type: 'hello', pid: N.pid, v: VERSION, proto: CFG.net.protocol, map: G.level.id, name: N.name, thief: N.thief, q: CFG.player.quietSpeed, sh: N.shouts || 0, mic: G.mic.state === 'on' && !G.mic.noMic, dev: G.MODE.mode }, peer);
+  send({ type: 'hello', pid: N.pid, v: N.fakeVersion || VERSION, proto: CFG.net.protocol, map: G.level.id, name: N.name, thief: N.thief, q: CFG.player.quietSpeed, sh: N.shouts || 0, mic: G.mic.state === 'on' && !G.mic.noMic, dev: G.MODE.mode }, peer);
 }
 function onPeerJoin(peer) {
   if (N.role === 'guest' && !N.welcomed) { setStatus(S.net.status.connecting(S.net.host)); hello(peer); }
@@ -376,8 +382,8 @@ export const net = {
         N.findT += dt;
         if (N.findT > CFG.net.findTimeout && N.stage === 'find') {
           N.findT = 0;
-          if (N.t.nextStrategy) N.t.nextStrategy().then((ok) => { if (!ok) { N.stage = 'lost'; setStatus(S.net.status.notFound(prettyCode(N.code)), true); } });
-          else { N.stage = 'lost'; setStatus(S.net.status.notFound(prettyCode(N.code)), true); }
+          if (N.t.nextStrategy) N.t.nextStrategy().then((ok) => { if (!ok) { N.stage = 'lost'; setStatus(lostText(), true); } });
+          else { N.stage = 'lost'; setStatus(lostText(), true); }
         }
       }
     }
@@ -452,6 +458,7 @@ export function netRole(want) { if (isHost()) setGuard(N.pid, want); else netInt
 // a guest's own shouts (heist.js counts them; the host turns them into the noise in the house)
 // tests (__game.net) and the lobby: open a room as the host or join one as a guest
 export function netOpen(code, role, name = N.name || 'Test', thief = N.thief) { N.name = name; N.thief = thief; return open(code, role); }
+export function netFakeVersion(v) { N.fakeVersion = v; }   // tests: a guest of another build
 export function netLeave() { leave(); refreshLobby(); }
 
 export function guestShout() { N.shouts = (N.shouts || 0) + 1; }

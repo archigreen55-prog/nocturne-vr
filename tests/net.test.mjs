@@ -345,3 +345,30 @@ test('net: the guest finds the host after its first relay found nobody (T3)', as
   assert.deepEqual(guest.errors, []);
   await ctx.close();
 });
+
+// T3: honest messages instead of one «не знайдено»; the build's version in the room
+test('net: honest messages — no host, found but not connected, another version; the version in the room (T3)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 600 } });
+  const status = (p) => p.evaluate(() => document.querySelector('#netstatus').textContent);
+  // 1. nobody opened the room
+  const a = await open(ctx, base + '?net=local');
+  await a.page.evaluate(() => { const g = window.__game; g.net.sim.strategies = true; g.CFG.net.findTimeout = 0.5; return g.net.open('100001', 'guest', 'Оля', 'rita'); });
+  await run([a.page], 1.5);
+  assert.match(await status(a.page), /Не бачу хоста кімнати 100 001/);
+  // 2. the host is there, the connection fails (different networks)
+  const host = await open(ctx, base + '?net=local');
+  await host.page.evaluate(() => window.__game.net.open('100002', 'host', 'Аня', 'zoya'));
+  const b = await open(ctx, base + '?net=local');
+  await b.page.evaluate(() => { const g = window.__game; g.net.sim.failConnect = true; g.CFG.net.findTimeout = 0.5; return g.net.open('100002', 'guest', 'Оля', 'rita'); });
+  await run([b.page, host.page], 1.5);
+  assert.match(await status(b.page), /Хоста знайдено, але не вдалося з'єднатись/);
+  // 3. another build
+  const c = await open(ctx, base + '?net=local');
+  await c.page.evaluate(() => { const g = window.__game; g.net.fakeVersion('0.0.0-old'); return g.net.open('100002', 'guest', 'Оля', 'rita'); });
+  await c.page.waitForFunction(() => /різні версії гри/.test(document.querySelector('#netstatus').textContent), null, { timeout: 10000 });
+  // 4. the host's room shows the version
+  const ver = await host.page.evaluate(() => ({ t: document.querySelector('#netver').textContent, v: window.__game.VERSION }));
+  assert.equal(ver.t, `Версія гри: ${ver.v}`);
+  for (const p of [a, host, b, c]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

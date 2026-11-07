@@ -18,7 +18,7 @@ import { rotateBlocked, playGame } from './flatScreen.js';
 import { pauseOpen, pauseResume } from './phone.js';
 import { tutorialState, restartTutorial, skipTutorial } from './tutorial.js';
 import { brightnessState, brightnessStep, toggleOutdoor } from './brightness.js';
-import { netState, netSim, netOpen, netLeave } from './net.js';
+import { netState, netSim, netOpen, netLeave, netFakeVersion } from './net.js';
 import { STYLE_ON, lit, styleUniforms, styleZones } from '../style/materials.js';
 
 export function exposeDebugApi(simulate) {
@@ -34,7 +34,7 @@ export function exposeDebugApi(simulate) {
     tutorial: { state: tutorialState, restart: restartTutorial, skip: skipTutorial },
     get run() { return g.run; }, get runStats() { return g.runStats; }, keys: g.keys, get vrRun() { return g.vrRun; },   // running (systems/sprint.js)
     brightness: { state: brightnessState, step: brightnessStep, outdoor: toggleOutdoor },
-    net: { state: netState, sim: netSim, open: netOpen, leave: netLeave, get players() { return g.players; }, get isGuest() { return !!g.isGuest; } },   // W8a: friends
+    net: { state: netState, sim: netSim, open: netOpen, leave: netLeave, fakeVersion: netFakeVersion, get players() { return g.players; }, get isGuest() { return !!g.isGuest; } },   // W8a: friends
     style: { lampLit: (x, z, y = 0) => nearLamp(x, z, y, G.level), on: STYLE_ON, lit, uniforms: styleUniforms, zones: styleZones, get decor() { return g.decor; }, get sheet() { return g.sheet; } },   // W17: the style switch and the material factory
     sim(seconds, dt = 1 / 72) { for (let t = 0; t < seconds; t += dt) simulate(dt, null, performance.now()); },
   };
