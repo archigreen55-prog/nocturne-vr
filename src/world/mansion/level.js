@@ -132,8 +132,17 @@ export function buildMansion() {
   // the floor-2 slab (ceiling of floor 1 / floor of floor 2) in four pieces around the stair well
   for (const [x0, z0, x1, z1] of [
     [IX0, IZ0, IX1, W.minZ], [IX0, W.maxZ, IX1, IZ1], [IX0, W.minZ, W.minX, W.maxZ], [W.maxX, W.minZ, IX1, W.maxZ],
-  ]) S.box(x0, WALL_H, z0, x1, y1, z1, C.ceiling);
-  S.box(IX0 - E, y1, IZ0 - E, IX1 + E, y1 + 0.012, IZ1 + E, C.planksA);            // upstairs floor (over the slab)
+  ]) {
+    S.box(x0, WALL_H, z0, x1, y1, z1, C.ceiling);
+    // the boards over it, piece by piece: one board over the whole house also covered the stair well (W18:
+    // a sheet at head height on the stairs you walked through); 1 mm into the outer walls, as downstairs
+    S.box(x0 === IX0 ? x0 - E : x0, y1, z0 === IZ0 ? z0 - E : z0, x1 === IX1 ? x1 + E : x1, y1 + 0.012, z1 === IZ1 || z1 === W.minZ ? z1 + E : z1, C.planksA);   // the well's north edge is the wall: 1 mm into it too
+  }
+  // the well's nosing (W18, P2): a 4 cm trim board over the slab's bare edge on the three open sides
+  // (the north edge is the wall); over flight 2's top the ramp meets the floor, so no lip there
+  S.box(W.minX, WALL_H, W.minZ, W.minX + 0.04, y1 + 0.012, W.maxZ, C.trim);
+  S.box(W.maxX - 0.04, WALL_H, W.minZ, W.maxX, y1 + 0.012, W.maxZ, C.trim);
+  S.box(W.minX + 0.04, WALL_H, W.maxZ - 0.04, STAIRS.flight1.maxX, y1 + 0.012, W.maxZ, C.trim);
   S.box(4 + EXT_T / 2, WALL_H + 0.02, 0.15, IX1, WALL_H + 0.24, H.maxZ - EXT_T / 2, C.roof);   // garage roof (its own slab, 2 cm above the house's ceiling, 1 cm under the garage walls' tops)
   S.box(4 + EXT_T / 2, WALL_H, -0.15, IX1, y1, 0.15, C.wallExt);                   // the beam under the upper south wall over the garage (the garage has no wall there)
   S.box(H.minX - 0.2, y1 + WALL_H, H.minZ - 0.2, H.maxX + 0.2, y1 + WALL_H + 0.25, 0.35, C.roof);   // flat roof
@@ -182,6 +191,7 @@ export function buildMansion() {
       rail(1, x0, z0, x1, z1);
     }
     for (const x of [B.minX, B.maxX]) S.box(x - 0.08, 0, B.maxZ - 0.08, x + 0.08, y1, B.maxZ + 0.08, C.wallExt);   // posts under it
+    furniture.push({ minX: B.minX - 0.04, maxX: B.maxX + 0.04, minZ: B.maxZ - 0.04, maxZ: B.maxZ + 0.04, h: y1 + 1.0, top: y1 + 1.0, floor: 1 });   // W18: the front parapet's top is a surface (the binoculars lie on it)
   }
 
   // ---------- the wardrobe of the lurker (master bedroom, upstairs) ----------
@@ -237,8 +247,9 @@ export function buildMansion() {
   }
   for (const [x, z, s] of [[-18, -8, 1.1], [-18, 2, 0.9], [19, 24, 1], [-14, 26, 1.2], [6, 27, 0.9], [-19, 14, 0.8], [20, -18, 1]]) {   // trees
     S.cyl(0.12 * s, 0.18 * s, 1.6 * s, x, 0, z, C.bark, 6);
-    S.cyl(0, 1.3 * s, 2.2 * s, x, 1.2 * s, z, C.leaves, 7);
-    S.cyl(0, 1.0 * s, 1.8 * s, x, 2.4 * s, z, C.leaves2, 7);
+    const crown = Math.max(1.2 * s, 1.15);   // the crown clears a head (W18: the small trees' crowns hung at chest height)
+    S.cyl(0, 1.3 * s, 2.2 * s, x, crown, z, C.leaves, 7);
+    S.cyl(0, 1.0 * s, 1.8 * s, x, crown + 1.2 * s, z, C.leaves2, 7);
     block(0, x - 0.2 * s, z - 0.2 * s, x + 0.2 * s, z + 0.2 * s, 3.5, null);
   }
   for (let i = 0; i < 12; i++) S.boxAt(0.55, 0.03, 0.45, -4.5 + Math.sin(i * 1.7) * 0.2, 0, 1.0 + i * 1.1, C.path, i * 0.7);   // path from the front door
@@ -251,6 +262,7 @@ export function buildMansion() {
   const V = van(S, G, VAN.x, VAN.z, VAN.yaw);
   worlds[0].addBox(V.body.minX, V.body.minZ, V.body.maxX, V.body.maxZ);
   furniture.push({ ...V.body, h: 2.2, top: null, floor: 0 });
+  for (const d of V.doors) { worlds[0].addBox(d.minX, d.minZ, d.maxX, d.maxZ); furniture.push({ ...d, h: 2.2, top: null, floor: 0 }); }   // the open rear doors (W18)
   const CARGO = { ...V.cargo, rear: 'max' };   // the rear doors face +Z: the first places are at maxZ
   // scoreboard stand (the board itself is ui/board.js)
   S.cyl(0.03, 0.03, 1.1, BOARD.x, 0, BOARD.z, C.pole, 6);
@@ -397,13 +409,17 @@ export function buildMansion() {
     },
     // Line of sight between eye a and target b: the floor-2 slab blocks it except through the stair
     // well; a line through the well is checked on each floor in turn.
+    // The points are eyes and targets at their own heights: the floor whose walls apply is the one
+    // whose level is below the point (W18 fix: floorIndex() splits at 1.5 m, so a ground-floor guard's
+    // eye at 1.62 m was checked against the upstairs walls).
     losBlocked(ax, ay, az, bx, by, bz) {
+      const under = (y) => { let f = 0; for (let j = 1; j < FLOOR_Y.length; j++) if (y >= FLOOR_Y[j] - 0.3) f = j; return f; };   // 30 cm under a level: still that floor (the slab's thickness)
       if ((ay - SLAB_MID) * (by - SLAB_MID) < 0) {
         const t = (SLAB_MID - ay) / (by - ay), cx = ax + (bx - ax) * t, cz = az + (bz - az) * t;
         if (!inWell(cx, cz)) return true;
-        return losOnFloor(floorIndex(ay), ax, ay, az, cx, SLAB_MID, cz) || losOnFloor(floorIndex(by), cx, SLAB_MID, cz, bx, by, bz);
+        return losOnFloor(under(ay), ax, ay, az, cx, SLAB_MID, cz) || losOnFloor(under(by), cx, SLAB_MID, cz, bx, by, bz);
       }
-      return losOnFloor(floorIndex(ay), ax, ay, az, bx, by, bz);
+      return losOnFloor(under(ay), ax, ay, az, bx, by, bz);
     },
     reset() { for (const d of doors) d.reset(); },
   };

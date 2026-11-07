@@ -128,7 +128,7 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
       walls.push({ ...b, alongX, y0: piece.bb.min.y, y1: piece.bb.max.y, c: alongX ? (b.z0 + b.z1) / 2 : (b.x0 + b.x1) / 2, t: alongX ? b.z1 - b.z0 : b.x1 - b.x0, a: alongX ? b.x0 : b.z0, b: alongX ? b.x1 : b.z1 });
     }
     // furniture, rugs, pictures: not a wall piece, not a floor / ceiling / roof slab
-    const deco = parts.filter((p) => p.bb.max.y - p.bb.min.y < 2.4 && p.bb.max.x - p.bb.min.x < 15 && p.bb.max.z - p.bb.min.z < 15);
+    const deco = parts.filter((p) => p.bb.max.y - p.bb.min.y < 2.4 && p.bb.max.x - p.bb.min.x < 15 && p.bb.max.z - p.bb.min.z < 15 && (p.bb.max.x - p.bb.min.x) * (p.bb.max.z - p.bb.min.z) < 20);   // a floor's board piece (W18: four around the stair well) is not furniture
 
     // ---- 2. through a wall: out of both of its faces (by > 3 cm), on the wall's floor
     const through = [];

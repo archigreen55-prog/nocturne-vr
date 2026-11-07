@@ -37,7 +37,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   assert.equal(info.id, 'mansion');
   assert.equal(info.floors, 2, 'one collision world per floor');
   assert.equal(info.doors, 22, `doors on both floors and the shed: ${info.doors}`);
-  assert.equal(info.items.length, 15, 'the 14 items of the plan and the fake painting in the van');
+  assert.equal(info.items.length, 29, 'the 14 items of the plan, the fake painting in the van and the 14 small ones of W18');
   assert.deepEqual(info.guard, [10, -8.5, 0], 'the guard starts in the study');
   assert.deepEqual(info.spawn, [15, -4.2], 'the player starts in the alley by the van');
   assert.equal(info.van.x, 16.5, 'the "at the van" zone is the mansion\'s');
@@ -52,7 +52,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   await page2.close();
   // the main site (no preview): the mansion is closed (no stars yet), ?map=mansion is ignored
   const page3 = (await open(ctx, base + '?map=mansion')).page;
-  assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.filter((i) => !i.throwable).length].join()), 'dacha,8,8', 'the first map as before');
+  assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.filter((i) => !i.throwable).length].join()), 'dacha,8,14', 'the first map as before (its 8 items and the 6 small ones of W18)');
   await page3.close();
   // back
   const page4 = (await open(ctx, preview + '?map=dacha')).page;
@@ -341,7 +341,7 @@ test('mansion (M4): 12 of the 15 items can be taken and delivered into the van\'
       if (!it.delivered) continue;
       out.delivered++;
       const c = g.level.cargo, p = it.mesh.position;
-      if (p.x > c.minX && p.x < c.maxX && p.z > c.minZ && p.z < c.maxZ && Math.abs(p.y - c.y) < 0.01) out.inCargo++;
+      if (p.x > c.minX && p.x < c.maxX && p.z > c.minZ && p.z < c.maxZ && Math.abs(p.y - c.y) < 0.01) out.inCargo++; else (out.outside ||= []).push([it.id, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), it.state]);
       out.slots.add(p.x.toFixed(2) + ',' + p.z.toFixed(2));
     }
     out.slots = out.slots.size;
@@ -349,14 +349,14 @@ test('mansion (M4): 12 of the 15 items can be taken and delivered into the van\'
     out.total = t.total; out.sum = t.sum; out.inVanT = t.inVan;
     return out;
   });
-  assert.equal(r.ids.length, 15);
+  assert.equal(r.ids.length, 29);
   assert.deepEqual(r.notTakeable, ['m_statue', 'm_clock'], `only the heavy stand-ins cannot be taken: ${JSON.stringify(r.notTakeable)}`);
-  assert.equal(r.delivered, 12, 'all 12 delivered');
-  assert.equal(r.inCargo, 12, 'all of them lie on the cargo floor');
-  assert.ok(r.slots >= 10, `each in its own place (${r.slots} places)`);
-  assert.equal(r.total, 12, 'the board counts 12, not the heavy ones or the fake');
-  assert.equal(r.sum, 12800, 'the plan\'s $12,800');
-  assert.equal(r.inVanT, 12);
+  assert.equal(r.delivered, 26, 'all 26 delivered');
+  assert.equal(r.inCargo, 26, `all of them lie on the cargo floor: ${JSON.stringify(r.outside)}`);
+  assert.ok(r.slots >= 19, `each in its own place (${r.slots} places: 10 for the big ones, 10 in the middle for the trinkets)`);
+  assert.equal(r.total, 26, 'the board counts 26, not the heavy ones or the fake');
+  assert.equal(r.sum, 16760, 'the plan\'s $12,800 + W18 $3,960');
+  assert.equal(r.inVanT, 26);
   // the heavy statue in the gazebo: come up to it
   const msg = await page.evaluate(() => { const g = window.__game; g.newRound(); g.player.teleport(13, 20, Math.PI / 2, 0); g.sim(0.3); return g.flashText; });
   assert.equal(msg, 'Сам не підніму — це на двох');

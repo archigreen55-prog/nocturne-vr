@@ -96,7 +96,7 @@ test('the van: the traps bought lie on the cargo floor (3 a round), not loot; so
   assert.deepEqual(van.map((v) => v.kind), ['soap', 'soap', 'marbles'], 'the first three in the shop order');
   assert.ok(van.every((v) => v.inVan && v.y > 0.3), 'on the cargo floor');
   assert.deepEqual(r.inRound, ['soap', 'soap', 'marbles']);
-  assert.equal(r.total, 8, 'the traps are not loot');
+  assert.equal(r.total, 14, 'the traps are not loot (the 14 items of W18)');
   assert.equal(r.armed, true);
   assert.equal(Math.round(r.stun.stunT), 6); assert.equal(r.stun.pose, 'flip');
   assert.deepEqual(r.stun.said, ['Ой!.. Хто мило розлив?!']);

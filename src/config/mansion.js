@@ -96,9 +96,9 @@ export const mansion = {
   // 14 items (plan-W6 §4.1): 12 to take (4 upstairs), 2 heavy stand-ins nobody can lift alone (W5);
   // the fake painting lies in the van for contract 12 (M5). pos: bottom centre, y = the surface.
   items: [
-    { id: 'm_statuette', name: S.mansion.items.statuette, kind: 'light', mesh: 'statuette', value: 350, pos: [-11.0, 0.76, -16.3], yaw: 0.4 },     // library table
-    { id: 'm_candelabrum', name: S.mansion.items.candelabrum, kind: 'light', mesh: 'candelabrum', value: 300, pos: [3.0, 0.76, -15.3], yaw: 0 },   // dining table
-    { id: 'm_laptop', name: S.mansion.items.laptop, kind: 'light', mesh: 'laptop', value: 800, pos: [9.5, 0.76, -10.5], yaw: Math.PI },           // study desk
+    { id: 'm_statuette', name: S.mansion.items.statuette, kind: 'light', mesh: 'statuette', value: 350, pos: [-11.0, 0.76, -16.3], yaw: 0.4 },   // $350: not a trinket     // library table
+    { id: 'm_candelabrum', name: S.mansion.items.candelabrum, kind: 'light', mesh: 'candelabrum', value: 300, pos: [3.0, 0.76, -15.3], yaw: 0, small: true },   // W18: a trinket   // dining table
+    { id: 'm_laptop', name: S.mansion.items.laptop, kind: 'light', mesh: 'laptop', value: 800, pos: [8.9, 0.76, -10.5], yaw: Math.PI },           // study desk, its west half (the handset device stands on the east one)
     { id: 'm_jewelbox', name: S.mansion.items.jewelbox, kind: 'light', mesh: 'jewelbox', value: 600, pos: [-9.5, 3.55, -15.2], yaw: -0.3, floor: 1 },      // bedroom nightstand (upstairs)
     { id: 'm_trophy', name: S.mansion.items.trophy, kind: 'light', mesh: 'trophy', value: 400, pos: [-9.6, 3.84, -11.2], yaw: 0, floor: 1 },              // guard room dresser (upstairs)
     { id: 'm_robot', name: S.mansion.items.robot, kind: 'light', mesh: 'robot', value: 450, pos: [6.4, 3.72, -17.2], yaw: 0.3, floor: 1 },                // kids' table (upstairs)
@@ -111,6 +111,21 @@ export const mansion = {
     { id: 'm_statue', name: S.mansion.items.statue, kind: 'medium', mesh: 'statue', heavy: true, value: 3000, pos: [14, 0, 20], yaw: 0 },          // gazebo: "two to carry" (W5)
     { id: 'm_clock', name: S.mansion.items.floorclock, kind: 'medium', mesh: 'floorclock', heavy: true, value: 2500, pos: [6.68, 0, -7.3], yaw: -Math.PI / 2 },   // hall: "two to carry" (W5)
     { id: 'fake', name: S.mansion.items.fake, kind: 'medium', mesh: 'painting2', prop: true, value: 0, pos: [16.5, 0.4, -9.7], yaw: Math.PI },   // in the van, for contract 12
+    // ---------- W18: small loot in the rooms that had none (plan-W18 §B.2; decision P6 b: the gnome in the shed) ----------
+    { id: 'm_teapot', name: S.mansion.items.teapot, kind: 'light', mesh: 'teapot', value: 220, pos: [10.2, 0.92, -17.55], yaw: 0.3, small: true },                   // kitchen counter east of the hob (the radio device sits west of it)
+    { id: 'm_cognac', name: S.mansion.items.cognac, kind: 'light', mesh: 'bottle', color: 0xb8742a, value: 350, pos: [11.5, 0.92, -17.5], yaw: 0, fragile: true },   // kitchen counter ($350: not a trinket, but fragile)
+    { id: 'm_smallpainting', name: S.mansion.items.smallPainting, kind: 'light', mesh: 'painting', value: 450, pos: [7.6, 3.8, -11.7], yaw: 0, floor: 1 },           // gallery console
+    { id: 'm_jar', name: S.mansion.items.jar, kind: 'light', mesh: 'jar', value: 150, pos: [-10.5, 0.7, -6.2], yaw: 0, small: true },                             // pantry crate
+    { id: 'm_perfume', name: S.mansion.items.perfume, kind: 'light', mesh: 'perfume', value: 120, pos: [-12.4, 0.85, -0.9], yaw: 0.2, small: true, fragile: true },  // laundry, on the washing machine
+    { id: 'm_watch', name: S.mansion.items.watch, kind: 'light', mesh: 'watch', value: 260, pos: [-6.6, 0.8, -4.0], yaw: 0.5, small: true },                       // anteroom console
+    { id: 'm_toolbox', name: S.mansion.items.toolbox, kind: 'light', mesh: 'toolbox', value: 180, pos: [2.8, 0.6, -1.2], yaw: 0.4, small: true },                  // boiler room crate
+    { id: 'm_perfume2', name: S.mansion.items.perfume, kind: 'light', mesh: 'perfume', value: 130, pos: [1.2, 3.85, -17.4], yaw: 0, small: true, fragile: true, floor: 1 },   // bath, on the washbasin
+    { id: 'm_bag', name: S.mansion.items.bag, kind: 'light', mesh: 'bag', value: 320, pos: [-3.6, 3.6, -13.2], yaw: 0.2, floor: 1 },                                // wardrobe room crate ($320: not a trinket)
+    { id: 'm_radio', name: S.mansion.items.radio, kind: 'light', mesh: 'radio', value: 280, pos: [9.2, 3.4, -13.1], yaw: 0.3, small: true, floor: 1 },             // attic, on the mattress
+    { id: 'm_cigarcase', name: S.mansion.items.cigarcase, kind: 'light', mesh: 'cigarcase', value: 200, pos: [-0.5, 3.85, -2.5], yaw: 0.4, small: true, floor: 1 },  // billiard table
+    { id: 'm_violin', name: S.mansion.items.violin, kind: 'medium', mesh: 'violincase', value: 900, pos: [6.6, 4.05, -4.1], yaw: 0.1, floor: 1 },                   // on the piano's west end (the radio device stands on its east end)
+    { id: 'm_binoculars', name: S.mansion.items.binoculars, kind: 'light', mesh: 'binoculars', value: 260, pos: [-8.0, 4.0, 1.98], yaw: 0, small: true, floor: 1 },  // balcony parapet
+    { id: 'm_gnome', name: S.mansion.items.gnome, kind: 'light', mesh: 'gnome', value: 140, pos: [-16.0, 0, 19.0], yaw: 0.8, small: true },                        // in the shed (a pocket's reward)
   ],
 
   // The round on this map by difficulty (plan-W6 §5.2, decision P2): the timer, the flicker, the
