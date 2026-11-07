@@ -93,13 +93,13 @@ test('the board and the start screen: the customer\'s lines and Zoya\'s on contr
     window.__seen = [];
     const d = g.board.draw.bind(g.board); g.board.draw = (s) => { window.__seen.push(s); return d(s); };
     for (const p of g.guards) p.update = () => null;
-    g.player.teleport(2.2, 6.8, 2.92); g.player.lookYaw = 2.92;   // at the van, facing the board (drawn only in view)
+    g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw); g.player.lookYaw = window.__game.level.spawn.yaw;   // at the van, facing the board (drawn only in view)
     return { story: document.getElementById('storybefore').textContent, crewColor: document.querySelector('#storybefore .crewline') && document.querySelector('#storybefore .crewline').textContent,
       hp: document.getElementById('headphones').textContent, info: document.getElementById('contractinfo').textContent.slice(0, 30), order: document.getElementById('storybefore').nextElementSibling.id };
   });
   // the newest drawn state after `fn` changed something
   const drawn = async (fn) => {
-    await page.evaluate((fn) => { window.__seen.length = 0; if (fn) (0, eval)(fn)(); const g = window.__game; g.player.teleport(2.2, 6.8, 2.92); g.player.lookYaw = 2.92; }, fn ? fn.toString() : null);
+    await page.evaluate((fn) => { window.__seen.length = 0; if (fn) (0, eval)(fn)(); const g = window.__game; g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw); g.player.lookYaw = window.__game.level.spawn.yaw; }, fn ? fn.toString() : null);
     // the camera follows the teleport on the next frames (the board is drawn only in view): draw until it is
     for (let i = 0; i < 10; i++) {
       await page.waitForTimeout(i ? 200 : 400);
@@ -112,7 +112,7 @@ test('the board and the start screen: the customer\'s lines and Zoya\'s on contr
   const L = await drawn(() => window.__game.pressBoard('lurkers'));
   const L2 = await drawn(() => window.__game.pressBoard('lnext'));
   const P = await drawn(() => { window.__game.pressBoard('back'); window.__game.pressBoard('papers'); });
-  await page.evaluate(() => { const g = window.__game; g.pressBoard('back'); g.player.teleport(0, 2, 0); g.sim(0.3); g.player.teleport(2.2, 6.8, 2.92); g.player.lookYaw = 2.92; });
+  await page.evaluate(() => { const g = window.__game; g.pressBoard('back'); g.player.teleport(0, 2, 0); g.sim(0.3); g.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw); g.player.lookYaw = window.__game.level.spawn.yaw; });
   const R = await drawn(() => { const g = window.__game; g.round.finish('left'); g.round.result.shouts = 1; });
   const r = { start, board: { story: b0.story, buttons: b0.ids }, lurkers: { page: L.page, cards: L.lurkers.cards.map((c) => c.name), met: L.lurkers.met, buttons: L.ids }, page2: L2.lurkers.page,
     papers: { page: P.page, rows: P.papers.rows.length, count: P.papers.count }, result: { after: R.storyAfter, by: R.screamBy } };

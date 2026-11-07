@@ -12,6 +12,8 @@ import { S } from '../i18n/index.js';
 import { lit as litMat, STYLE_ON } from '../style/materials.js';
 import { inkWeight } from '../style/ink.js';
 import { quietRandom } from '../style/quiet.js';
+import { buildYard, LOT, SPAWN, BOARD, CARGO, DROP, VAN_ZONE, LAMPS, LIGHTS, LEASH, YARD_NODES } from './yard.js';
+import { NODES } from '../enemies/nav.js';
 
 const WALL_H = 2.7;
 const DOOR_H = 2.1;
@@ -49,9 +51,8 @@ export function roomAt(x, z) {
   return S.rooms.yard;
 }
 
-export const SPAWN = { x: 2.2, z: 6.8, yaw: 2.92 };  // beside the van, facing the board (contract menu); the house is behind
-export const BOARD = { x: 1.75, z: 8.75, yaw: 2.92 };   // scoreboard stand next to the van, facing the spawn point
-export const CARGO = { minX: 3.5, maxX: 5.3, minZ: 7.85, maxZ: 11.4, y: 0.4 };  // van cargo floor
+// the van, the board and the spawn are on the street now (world/yard.js)
+export { SPAWN, BOARD, CARGO } from './yard.js';
 export const WARDROBE = { x: 9.25, z: -9.4, minZ: -10.2, maxZ: -8.6 };   // bedroom wardrobe front
 export const HOUSE = { minX: -10.14, maxX: 10.14, minZ: -14.14, maxZ: 0.14 };   // outer faces of the walls lie outside
 
@@ -71,7 +72,6 @@ export const ROOM_LINKS = [
   [S.rooms.anteroom, S.rooms.living, null],
   [S.rooms.living, S.rooms.bedroom, 5, -11],
 ];
-const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 16 };
 
 // ---------- geometry helpers ----------
 const tmpColor = new THREE.Color();
@@ -189,7 +189,7 @@ export function buildLevel() {
   wallZ(5, -14, -7, INT_T, C.wallpaperBed, [{ c: -11, w: 1.0, door: 'normal' }]);
 
   // ---------- floors and ceiling ----------
-  S.box(-25, -0.1, -30, 25, 0, 25, C.grass);                               // ground
+  S.box(-25, -0.1, -30, 25, 0, 40, C.grass);                               // ground
   S.box(-10.14, 0, -14.14, 10.14, 0.01, 0.14, C.planksB);                     // house base (its edges inside the walls)
   for (let x = -10; x < -2; x += 0.5) for (let z = -5; z < 0; z += 0.5) {    // kitchen tiles
     if (((x + z) * 2) % 2 === 0) S.box(x, 0.01, z, x + 0.5, 0.015, z + 0.5, C.tileA);
@@ -423,75 +423,8 @@ export function buildLevel() {
   painting(5.07, -12.4, 'e', 0.6, 0.6, 0x6a3a4a);
   ceilingLamp(7.8, -10.5);
 
-  // ---------- yard ----------
-  for (let i = 0; i < 9; i++) {                                                  // stepping stones to the van
-    const t = i / 8, x = 0 + (2.6 - 0) * t + Math.sin(i * 1.7) * 0.15, z = 0.8 + 6.0 * t;
-    S.boxAt(0.55, 0.03, 0.45, x, 0, z, C.path, i * 0.7);
-  }
-  S.box(-0.9, 0, 0.15, 0.9, 0.18, 0.7, C.stone); // back step
-  // fence around the lot
-  const fence = (x0, z0, x1, z1) => {
-    const alongX = z0 === z1, len = alongX ? x1 - x0 : z1 - z0;
-    for (let p = alongX ? 0 : 2; p <= len + (alongX ? 0.01 : -1.99); p += 2) S.boxAt(0.1, 1.2, 0.1, alongX ? x0 + p : x0, 0, alongX ? z0 : z0 + p, C.fence);   // corner posts once (by the sides along X)
-    for (const y of [0.45, 1.0]) {
-      if (alongX) S.box(x0, y, z0 - 0.03, x1, y + 0.1, z0 + 0.03, C.fence);
-      else S.box(x0 - 0.03, y, z0 + 0.03, x0 + 0.03, y + 0.1, z1 - 0.03, C.fence);   // between the rails along X (not through them at the corners)
-    }
-    both(Math.min(x0, x1) - 0.05, Math.min(z0, z1) - 0.05, Math.max(x0, x1) + 0.05, Math.max(z0, z1) + 0.05);
-  };
-  fence(LOT.minX, LOT.maxZ, LOT.maxX, LOT.maxZ); fence(LOT.minX, LOT.minZ, LOT.maxX, LOT.minZ);
-  fence(LOT.minX, LOT.minZ, LOT.minX, LOT.maxZ); fence(LOT.maxX, LOT.minZ, LOT.maxX, LOT.maxZ);
-  // trees
-  for (const [x, z, s] of [[-12, 10, 1], [-13, 3, 0.8], [12.5, 12, 1.1], [13, -4, 0.9], [-13, -12, 1.2], [11, -17, 1], [-6, 13, 0.9], [9, 13.5, 0.8]]) {
-    S.cyl(0.12 * s, 0.18 * s, 1.6 * s, x, 0, z, C.bark, 6);
-    S.cyl(0, 1.3 * s, 2.2 * s, x, 1.2 * s, z, C.leaves, 7);
-    S.cyl(0, 1.0 * s, 1.8 * s, x, 2.4 * s, z, C.leaves2, 7);
-    solid(x - 0.2 * s, z - 0.2 * s, x + 0.2 * s, z + 0.2 * s, 3.5, null);
-  }
-  // bushes along the house
-  for (const x of [-8, -4.5, 4, 8]) { S.cyl(0.5, 0.6, 0.8, x, 0, 0.8, C.leaves2, 7); solid(x - 0.5, 0.3, x + 0.5, 1.3, 0.8, null); }
-  // yard lamp
-  S.cyl(0.05, 0.07, 2.9, 0.6, 0, 5.6, C.pole, 6); S.boxAt(0.3, 0.25, 0.3, 0.6, 2.9, 5.6, C.pole);
-  G.box(0.47, 2.92, 5.47, 0.73, 3.12, 5.73, GLOW.lamp);
-  solid(0.5, 5.5, 0.7, 5.7, 3, null);
-  // van: body along Z, rear doors open towards the house
-  {
-    const x0 = 3.4, x1 = 5.4, z0 = 7.8, z1 = 12.8;
-    // cargo: an open-backed shell (sides, roof, front wall), so you can see the loot inside
-    S.box(x0, 0.35, z0, x0 + 0.05, 2.15, z1 - 1.3, C.van); S.box(x1 - 0.05, 0.35, z0, x1, 2.15, z1 - 1.3, C.van);   // sides and front wall under the roof
-    S.box(x0, 2.15, z0, x1, 2.2, z1 - 1.3, C.van); S.box(x0 + 0.05, 0.35, z1 - 1.36, x1 - 0.05, 2.15, z1 - 1.3, C.van);
-    S.box(x0 + 0.05, 0.4, z0 + 0.02, x0 + 0.06, 2.15, z1 - 1.36, 0x2e3036); S.box(x1 - 0.06, 0.4, z0 + 0.02, x1 - 0.05, 2.15, z1 - 1.36, 0x2e3036);
-    S.box(x0 + 0.001, 0.28, z0 - 0.04, x1 - 0.001, 0.36, z0 + 0.02, C.metal);           // rear sill
-    S.box(x0 + 0.05, 0.35, z1 - 1.3, x1 - 0.05, 1.6, z1, C.van);                    // cab
-    S.box(x0 + 0.1, 1.6, z1 - 1.3, x1 - 0.1, 1.95, z1 - 0.5, C.van);
-    G.box(x0 + 0.15, 1.2, z1 + 0.001, x1 - 0.15, 1.55, z1 + 0.01, 0x0e1420);
-    S.box(x0 - 0.01, 1.2, z1 - 1.2, x0, 1.55, z1 - 0.3, C.glass); S.box(x1, 1.2, z1 - 1.2, x1 + 0.01, 1.55, z1 - 0.3, C.glass);
-    S.box(x0 - 0.01, 1.0, z0 + 0.3, x0, 1.25, z1 - 1.4, C.vanStripe); S.box(x1, 1.0, z0 + 0.3, x1 + 0.01, 1.25, z1 - 1.4, C.vanStripe);
-    S.box(x0 + 0.1, 0.36, z0 + 0.02, x1 - 0.1, 0.4, z1 - 1.4, C.woodDark);          // cargo floor (inside)
-    S.box(x0 + 0.1, 2.1, z0 + 0.05, x1 - 0.1, 2.12, z1 - 1.35, 0x3a3c40);
-    G.box(x0 + 0.06, 0.4, z1 - 1.37, x1 - 0.06, 2.15, z1 - 1.36, 0x0b0d12);          // dark front wall inside
-    G.box(x0 + 0.6, 2.13, z0 + 0.8, x1 - 0.6, 2.14, z0 + 1.1, 0x8a6a40);               // dim cargo lamp
-    for (const [x, z] of [[x0 + 0.05, z0 + 0.9], [x1 - 0.05, z0 + 0.9], [x0 + 0.05, z1 - 0.8], [x1 - 0.05, z1 - 0.8]]) {
-      const g = new THREE.CylinderGeometry(0.36, 0.36, 0.26, 12); g.rotateZ(Math.PI / 2); g.translate(x, 0.36, z); S.add(g, C.tyre);
-    }
-    // open rear doors, swung out ~110°
-    for (const s of [-1, 1]) {
-      const hx = s < 0 ? x0 : x1;
-      const g = new THREE.BoxGeometry(0.98, 1.79, 0.05); g.translate(-s * 0.49, 1.295, 0);   // top under the roof's
-      g.rotateY(s * 1.9); g.translate(hx, 0, z0);
-      S.add(g, C.van);
-    }
-    S.box(x0 + 0.3, 0.2, z0 - 0.35, x1 - 0.3, 0.3, z0, C.metal);                     // step / drop-off lip
-    world.addBox(x0, z0, x1, z1);
-    furniture.push({ minX: x0, minZ: z0, maxX: x1, maxZ: z1, h: 2.2, top: null });
-  }
-  // scoreboard stand (the board itself is ui/board.js)
-  {
-    const bx = BOARD.x, bz = BOARD.z;
-    S.cyl(0.03, 0.03, 1.1, bx, 0, bz, C.pole, 6);
-    S.cyl(0.25, 0.25, 0.03, bx, 0, bz, C.pole, 10);
-    solid(bx - 0.25, bz - 0.25, bx + 0.25, bz + 0.25, 1.9, null);
-  }
+  // ---------- yard, street, van (world/yard.js) ----------
+  const yard = buildYard({ S, G, C, solid, both, furniture, world });
 
   // moon, far away, unaffected by fog
   const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 12), new THREE.MeshBasicMaterial({ color: GLOW.moon, fog: false }));
@@ -518,6 +451,7 @@ export function buildLevel() {
 
   const surfaces = furniture.filter((b) => b.top != null);
   surfaces.push({ minX: CARGO.minX, minZ: CARGO.minZ, maxX: CARGO.maxX, maxZ: CARGO.maxZ, top: CARGO.y });
+  if (Math.abs(yard.cargo.minX - CARGO.minX) > 0.01 || Math.abs(yard.cargo.minZ - CARGO.minZ) > 0.01) console.warn('yard: CARGO is not the van\'s cargo floor', yard.cargo);
 
   return {
     group, world, walls, doors, furniture, moon, glowMaterial: glowMesh.material, occluders, roomAt: (x, z) => roomAt(x, z),
@@ -525,6 +459,9 @@ export function buildLevel() {
     // the map descriptor (W6): what the other systems need to know about this map
     id: 'dacha', rooms: ROOMS, links: ROOM_LINKS, outside: [ROOMS_OUTSIDE], house: HOUSE,
     spawn: SPAWN, board: BOARD, cargo: CARGO, wardrobe: WARDROBE,
+    dropZone: DROP, vanZone: VAN_ZONE, lamps: LAMPS, lights: LIGHTS, leash: LEASH,
+    // the guard's nav points: the house's (enemies/nav.js) with the yard's own (the porch, the garden, the gate)
+    nav: { nodes: YARD_NODES.concat(NODES.slice(7)) },
     roomAt: (x, z) => roomAt(x, z),
     floorY: () => 0, floorIndex: () => 0, onRamp: () => false, worldAt: () => world,
     resolveBody: (x, z, r) => world.resolveCircle(x, z, r),

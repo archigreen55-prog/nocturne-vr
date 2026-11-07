@@ -15,7 +15,7 @@ test('PC keyboard as before: WASD walks, E picks up / puts down, T door, C crouc
   await page.waitForTimeout(200);
   assert.equal(await page.evaluate(() => window.__game.paused), false, 'PC does not auto-pause');
   await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); });
-  await page.evaluate(() => window.__game.player.teleport(2.2, 6.8, 2.92 - Math.PI));
+  await page.evaluate(() => window.__game.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw - Math.PI));
   const p0 = await page.evaluate(() => window.__game.player.head.z);
   await page.keyboard.down('KeyW'); await keepFor(page, 800); await page.keyboard.up('KeyW');
   assert.ok(Math.abs(await page.evaluate(() => window.__game.player.head.z) - p0) > 0.3, 'W walks');
