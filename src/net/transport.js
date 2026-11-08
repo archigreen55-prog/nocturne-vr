@@ -65,6 +65,8 @@ export async function openTransport(opts) {
       return true;
     },
     close() { closed = true; for (const t of subs) t.close(); },
+    // W8c: how each friend is connected: { peerId: 'host' | 'srflx' | 'prflx' | 'relay' } (relay = through TURN)
+    async links() { const out = {}; for (const t of subs) if (t.links) Object.assign(out, await t.links()); return out; },
     diag: () => ({ ...d, strategies: subs.map((t) => t.strategy), strategy: subs.length ? subs[subs.length - 1].strategy : null, peers: subs.reduce((n, t) => n + t.peers().length, 0), errors: d.errors.concat(...subs.map((t) => (t.diag().errors || []))).slice(-5) }),
   };
 }
@@ -112,10 +114,11 @@ const LIBS = { nostr: () => import('trystero-nostr'), torrent: () => import('try
 async function openTrystero({ code, strategy, onMessage, onPeerJoin, onPeerLeave, onStatus }) {
   const N = CFG.net;
   const errors = [];
-  const iceServers = N.stun.map((urls) => ({ urls }));
   const peers = new Set();
   if (onStatus) onStatus({ step: 'find', strategy });
-  const lib = await LIBS[strategy]();
+  // W8c: the TURN permission is asked while the library loads (no extra wait); none = STUN only, as before
+  const [lib, turn] = await Promise.all([LIBS[strategy](), turnServers()]);
+  const iceServers = N.stun.map((urls) => ({ urls })).concat(turn);
   const urls = N.relays[strategy] || [];
   const room = lib.joinRoom({ appId: N.appId, rtcConfig: { iceServers }, ...(urls.length ? { relayConfig: { urls } } : {}) }, code, {
     onJoinError: (e) => {
@@ -137,5 +140,50 @@ async function openTrystero({ code, strategy, onMessage, onPeerJoin, onPeerLeave
     ping: (id) => room.ping(id),
     close: () => room.leave(),
     diag: () => ({ errors: errors.slice(-5) }),
+    links: () => linkTypes(room.getPeers()),
   };
+}
+
+// ---------- W8c: TURN through Cloudflare (tools/turn-worker/) ----------
+// A permission for 4 h from the Worker, kept until 10 min before it ends. Asked only from the game's site
+// (the Worker refuses other pages) and only when a room opens; any failure = [] (STUN only, nothing shown).
+export const turnState = { asked: 0, got: false, servers: 0, error: '' };
+let turnCache = null;   // { servers, until (ms) }
+export async function turnServers() {
+  const N = CFG.net;
+  if (!N.turnWorker || (N.turnOrigin && location.origin !== N.turnOrigin)) return [];
+  if (turnCache && performance.now() < turnCache.until) return turnCache.servers;
+  turnState.asked++;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), (N.turnTimeout || 3) * 1000);
+  try {
+    const r = await fetch(N.turnWorker, { signal: ctl.signal, cache: 'no-store', credentials: 'omit' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    // port 53 (DNS) is blocked by browsers: Cloudflare's docs say to leave those addresses out
+    const servers = [].concat(j.iceServers || []).map((sv) => ({ ...sv, urls: [].concat(sv.urls || []).filter((u) => !/:53(\?|$)/.test(u)) })).filter((sv) => sv.urls.length);
+    turnCache = { servers, until: performance.now() + Math.max(60, (+j.ttl || 3600) - 600) * 1000 };
+    Object.assign(turnState, { got: servers.some((sv) => sv.urls.some((u) => /^turns?:/.test(u))), servers: servers.length, error: '' });
+    return servers;
+  } catch (e) {
+    turnState.error = String((e && e.name === 'AbortError') ? 'timeout' : (e && e.message) || e).slice(0, 80);
+    return [];
+  } finally { clearTimeout(timer); }
+}
+export function forgetTurn() { turnCache = null; Object.assign(turnState, { asked: 0, got: false, servers: 0, error: '' }); }   // tests
+
+// The candidate pair each connection uses: its local candidate's type (relay = through TURN)
+async function linkTypes(pcs) {
+  const out = {};
+  for (const [id, pc] of Object.entries(pcs || {})) {
+    try {
+      const stats = await pc.getStats(), byId = new Map();
+      stats.forEach((r) => byId.set(r.id, r));
+      let pair = null;
+      stats.forEach((r) => { if (r.type === 'transport' && r.selectedCandidatePairId) pair = byId.get(r.selectedCandidatePairId); });
+      if (!pair) stats.forEach((r) => { if (!pair && r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r; });
+      const local = pair && byId.get(pair.localCandidateId);
+      out[id] = (local && local.candidateType) || 'unknown';
+    } catch { out[id] = 'unknown'; }
+  }
+  return out;
 }
