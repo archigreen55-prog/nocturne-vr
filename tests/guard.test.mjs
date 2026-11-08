@@ -173,8 +173,8 @@ test('guard: the host plays the guard — «Мимо!», «Центральна�
   await run(pages, 0.3);
   const fence = await G(host.page, () => { const g = window.__game, V = g.CFG.round.vanZone, L = g.level.leash; return { d: +Math.hypot(g.player.head.x - V.x, g.player.head.z - V.z).toFixed(2), flash: g.flashText, z: g.player.head.z, leash: L ? L.maxZ : null }; });
   assert.ok(fence.d >= 3.99, JSON.stringify(fence));
-  // the dacha (claude/dacha-yard): the van is on the street — the guard is put back inside the gate
-  if (fence.leash != null) { assert.ok(fence.z <= fence.leash + 0.01, JSON.stringify(fence)); assert.equal(fence.flash, 'За хвіртку — ні ногою: твоя ділянка — двір'); }
+  // the dacha (claude/dacha-yard): the guard is put back to the front of the garden (the leash)
+  if (fence.leash != null) { assert.ok(fence.z <= fence.leash + 0.01, JSON.stringify(fence)); assert.equal(fence.flash, 'Далі — не твоя ділянка: ти на ґанку й у дворі'); }
   else assert.equal(fence.flash, 'Біля фургона — не твоя ділянка');
   // the clock: the guest leaves the van; the guard at the yard, facing it
   await G(guest.page, () => window.__game.player.teleport(-4, 1.6, 0));
