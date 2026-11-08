@@ -400,20 +400,26 @@ test('net: the host picks the level and the difficulty in the room, the guest se
   await guest.page.click('#netjoin');
   await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
   // the host's room: a button per contract of this house; the closed ones are disabled and marked 🔒
-  const list = await host.page.evaluate(() => [...document.querySelectorAll('#netlevels button')].map((b) => ({ id: b.dataset.id, t: b.textContent, off: b.disabled })));
+  const list = await host.page.evaluate(() => [...document.querySelectorAll('#netlevels button')].map((b) => ({ id: b.dataset.level, t: b.querySelector('.lv-name').textContent, n: b.querySelector('.lv-n').textContent, off: b.disabled })));
   assert.ok(list.length >= 2, JSON.stringify(list));
-  assert.ok(list.filter((b) => b.off).every((b) => b.t.includes('🔒')), 'closed levels say 🔒');
+  assert.ok(list.filter((b) => b.off).every((b) => b.n === '🔒'), 'closed levels say 🔒');
   const pick = list.find((b) => !b.off && b.id !== 'first') || list.find((b) => !b.off);
-  await host.page.click(`#netlevels button[data-id="${pick.id}"]`);
+  await host.page.click(`#netlevels button[data-level="${pick.id}"]`);
   await host.page.click('#netdiffs button[data-id="hard"]');
   await run([host.page, guest.page], 0.6);
-  const h = await host.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, pressed: document.querySelector('#netlevels button[aria-pressed="true"]').dataset.id }));
+  const h = await host.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, pressed: document.querySelector('#netlevels button[aria-pressed="true"]').dataset.level }));
   assert.equal(h.c, pick.id); assert.equal(h.d, 'hard'); assert.equal(h.pressed, pick.id);
   const g = await guest.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, text: document.querySelector('#netchoice').textContent, pick: document.querySelector('#netpick').hidden }));
   assert.equal(g.c, pick.id, 'the guest plays the host’s contract');
   assert.equal(g.d, 'hard');
-  assert.equal(g.pick, true, 'a guest has no buttons to pick');
-  assert.ok(g.text.startsWith('Хост обрав: ') && g.text.includes(pick.t.replace(' 🔒', '')) && /важк/i.test(g.text), g.text);
+  assert.equal(g.pick, false, 'a guest sees the cards');
+  const gv = await guest.page.evaluate(() => ({ off: [...document.querySelectorAll('#netlevels .lv-card, #netdiffs button')].every((b) => b.disabled), on: document.querySelector('#netlevels .lv-card.on').dataset.level, amber: getComputedStyle(document.querySelector('#netlevels .lv-card.on')).backgroundColor, goal: document.querySelector('#netgoal').textContent, hostGoal: null }));
+  assert.equal(gv.off, true, 'none of the guest’s cards or difficulty buttons can be pressed');
+  assert.equal(gv.on, pick.id, 'the host’s choice is lit on the guest’s cards');
+  assert.equal(gv.amber, 'rgb(255, 179, 71)', 'in amber');
+  const hg = await host.page.evaluate(() => document.querySelector('#netgoal').textContent);
+  assert.ok(/^Мета: .+/.test(gv.goal) && gv.goal === hg, `the goal line, the same for both: ${gv.goal} / ${hg}`);
+  assert.ok(g.text.startsWith('Хост обрав: ') && g.text.includes(pick.t) && /важк/i.test(g.text), g.text);
   assert.deepEqual(host.errors, []); assert.deepEqual(guest.errors, []);
   await ctx.close();
 });
@@ -468,8 +474,8 @@ test('net: after the round both are back in the room screen (T4c)', async () => 
   const seen = await Promise.all([host.page, guest.page].map((p) => p.evaluate(() => [...document.querySelectorAll('#overlay section[data-page]')].filter((s) => !s.hidden).map((s) => s.dataset.page))));
   assert.deepEqual(seen, [['friends'], ['friends']], JSON.stringify(seen));
   // the host picks again: the round is back at the van for both
-  const lv = await host.page.evaluate(() => [...document.querySelectorAll('#netlevels button')].find((b) => !b.disabled).dataset.id);
-  await host.page.click(`#netlevels button[data-id="${lv}"]`);
+  const lv = await host.page.evaluate(() => [...document.querySelectorAll('#netlevels button')].find((b) => !b.disabled).dataset.level);
+  await host.page.click(`#netlevels button[data-level="${lv}"]`);
   await run([host.page, guest.page], 0.6);
   const ph = await Promise.all([host.page, guest.page].map((p) => p.evaluate(() => window.__game.round.phase)));
   assert.deepEqual(ph, ['ready', 'ready'], JSON.stringify(ph));

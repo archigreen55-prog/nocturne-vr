@@ -133,3 +133,222 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 
 /* S4: the live scene behind the menu (src/style/menuScene.js) shows through */
 body.menu-live #overlay { background: radial-gradient(ellipse at 50% 40%, rgba(13, 19, 34, .1), rgba(13, 19, 34, .55) 75%); }
+
+/* ---------- «Грати» and the room's mission: level cards by house, three difficulty buttons, one big «Грати» ---------- */
+.pl-legacy { display: none; }
+body.pages-all .pl-legacy { display: block; }   /* the tests' long card still has the old selects */
+.pl-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 14px 18px; align-items: start; }
+.pl-side { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 0; }
+.lv-pick { display: flex; flex-direction: column; gap: 10px; }
+.lv-house-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 6px; }
+.lv-house-head b { font: 800 13px/1.2 var(--head); color: var(--lamp); letter-spacing: .03em; text-transform: uppercase; }
+.lv-note { font-size: 12px; color: #9aa7bf; }
+.lv-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+#overlay .lv-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 7px 9px; text-align: left;
+  border: 2px solid var(--ink2); border-radius: 10px; background: var(--night); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+#overlay .lv-card .lv-n { font: 800 19px/1 var(--head); color: var(--lamp); }
+#overlay .lv-card .lv-name { font: 600 11px/1.2 system-ui, sans-serif; color: var(--paper); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#overlay .lv-card .lv-stars { font-size: 11px; color: var(--lamp); letter-spacing: 1px; }
+#overlay .lv-card.on { background: var(--lamp); }
+#overlay .lv-card.on .lv-n, #overlay .lv-card.on .lv-name, #overlay .lv-card.on .lv-stars { color: var(--ink2); }
+#overlay .lv-card:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink2); }
+#overlay .lv-card.locked { opacity: .45; box-shadow: none; background: transparent; border-style: dashed; border-color: #3a4766; }
+#overlay .lv-card.locked .lv-n { font-size: 15px; color: #7f8aa3; }
+.lv-house.closed .lv-row { opacity: .8; }
+.lv-info { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--night); border: 2px solid var(--ink2); min-height: 72px; }
+.lv-info-n { font: 800 11px/1.2 var(--head); color: #9aa7bf; text-transform: uppercase; letter-spacing: .04em; }
+.lv-info b { font: 800 16px/1.2 var(--head); color: var(--paper); }
+.lv-info span:not(.lv-info-n) { font-size: 13px; color: #c9d3e3; }
+.lv-info .lv-info-why { color: var(--lamp); font-weight: 700; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#overlay .seg button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 44px; padding: 4px 4px; font: 800 12px/1.1 var(--head); border: 2px solid var(--ink2); border-radius: 10px; background: var(--night); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+#overlay .seg button.on { background: var(--lamp); color: var(--ink2); }
+#overlay .pl-start { width: 100%; min-height: 58px; font: 800 22px/1 var(--head); border-radius: 12px; border-width: 2px; }
+#overlay .pl-start:disabled { background: #3a4766; color: #9aa7bf; box-shadow: none; }
+#overlay #buttons { margin: 0; }
+.pl-mic { margin: 0; font-size: 13px; color: #9aa7bf; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#overlay .pl-mic button { font-size: 13px; padding: 4px 10px; border-color: var(--lamp); color: var(--lamp); }
+#overlay #headphones { margin: 0; font-size: 12px; }
+@media (max-width: 640px) and (orientation: portrait) { .pl-grid { grid-template-columns: 1fr; } .pl-side { position: static; } }
+/* a phone in landscape: the cards a bit smaller, the side column narrower, nothing below the fold to start */
+@media (max-height: 460px) {
+  .pl-grid { grid-template-columns: minmax(0, 1fr) minmax(200px, 250px); gap: 10px 12px; }
+  /* a phone in landscape (720 px tall = 360 CSS px): a house is one row that scrolls sideways, its right edge
+     fades out to say there is more; the chosen card is scrolled into view (systems/playPage.js) */
+  .lv-row { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; gap: 6px; padding: 2px 4px 6px 0; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  .lv-row::-webkit-scrollbar { display: none; }
+  #overlay .lv-card { flex: 0 0 82px; scroll-snap-align: start; min-height: 54px; padding: 5px 7px; }
+  .lv-pick { gap: 6px; }
+  .lv-house-head { margin-bottom: 4px; }
+  .pg-head { margin-bottom: 4px; }
+  #overlay #headphones { display: none; }
+  #overlay .lv-card .lv-n { font-size: 16px; }
+  .lv-info { min-height: 0; padding: 7px 10px; }
+  .lv-info b { font-size: 14px; }
+  #overlay .pl-start { min-height: 50px; font-size: 19px; }
+  .pl-side { gap: 7px; }
+  #overlay .seg { gap: 5px; }
+  #overlay .seg button { font-size: 10px; letter-spacing: -.02em; padding: 4px 2px; }
+}
+
+/* ---------- touch and focus everywhere (menu design stage 2, the owner's find): no browser rectangle on a tap,
+   the button's own pressed look (pushed in, darker) and a keyboard focus ring with the button's rounding ---------- */
+html, body, button, a, select, input, [role="button"] { -webkit-tap-highlight-color: rgba(0, 0, 0, 0); }
+button, [role="button"], .lv-card { -webkit-touch-callout: none; }
+button:focus, a:focus, select:focus, input:focus { outline: none; }
+/* the keyboard (PC): the ring follows the button's corners (outline follows border-radius) */
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--whisper, #7fd0ff); outline-offset: 3px; }
+/* pressed: bindPress (ui/press.js) sets .down while the finger is on it; :active covers the mouse */
+#overlay button:not(:disabled).down, #overlay button:not(:disabled):active,
+#pausemenu .pm-btn.down, #summary .sm-btn.down, #micask button:active {
+  transform: translate(2px, 2px); filter: brightness(.82); box-shadow: 1px 1px 0 var(--ink2, #05070d);
+}
+#touch .tbtn.on { transform: scale(.93); filter: brightness(.85); }
+#touch .tbtn { transition: transform .06s; }
+
+/* ---------- menu design stage 2: «Налаштування» in cards, the selects as rows of big buttons, «Як грати» ---------- */
+body:not(.pages-all) select.seg-src { display: none; }   /* the select stays for the code (and the tests' long card) */
+#overlay .st-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+#overlay .st-card { padding: 12px 14px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); display: flex; flex-direction: column; gap: 8px; }
+#overlay .st-card h3 { margin: 0; font-size: 13px; color: var(--lamp); text-transform: uppercase; letter-spacing: .04em; }
+#overlay .st-card .row { margin: 0; }
+#overlay .st-mic { grid-row: span 2; }
+#micbox { padding: 12px 14px; background: var(--night); border: 2px solid var(--ink2); }
+.st-opts { display: flex; flex-direction: column; gap: 10px; }
+.st-opts label { display: flex; flex-direction: column; gap: 5px; font: 600 13px system-ui, sans-serif; color: #c9d3e3; }
+.st-opts .seg, #overlay section[data-page="testers"] .seg { width: 100%; }
+#overlay .st-small, #overlay #outdoorbtn, #overlay #gyrobtn { font: 800 12px/1.2 var(--head); min-height: 44px; padding: 6px 12px; border: 2px solid var(--ink2); border-radius: 10px; background: var(--dusk); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+#overlay .adj { min-width: 48px; min-height: 44px; font: 800 20px/1 var(--head); border: 2px solid var(--ink2); border-radius: 10px; background: var(--dusk); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); padding: 0 10px; }
+#brightval { font: 800 16px var(--head); color: var(--lamp); min-width: 34px; text-align: center; }
+.st-state { margin: 0; font: 700 14px system-ui, sans-serif; color: var(--paper); }
+#overlay #micstate.muted { color: var(--paper); }
+#micnote { font-size: 13px; color: var(--lamp); }
+#calstep:empty, #verifyres:empty, #micnote:empty, #michelp:empty { display: none; }
+#calstep { font: 800 14px/1.3 var(--head); color: var(--lamp); }
+.st-meter { flex-wrap: nowrap; }
+#overlay #meter { max-width: none; flex: 1; height: 22px; border-radius: 8px; border: 2px solid var(--ink2); }
+#overlay #level { min-width: 90px; font: 800 14px var(--head); }
+.st-check { display: flex; gap: 8px; align-items: center; font-size: 14px; color: #c9d3e3; min-height: 44px; }
+.st-check input { width: 22px; height: 22px; accent-color: var(--lamp); }
+/* the microphone's three steps */
+.wiz { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wiz li { display: flex; align-items: center; gap: 10px; }
+.wiz .wiz-n { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 800 14px var(--head); background: var(--dusk); color: #9aa7bf; border: 2px solid var(--ink2); }
+#overlay .wiz button { flex: 1; min-height: 46px; font: 800 13px/1.2 var(--head); text-align: left; border: 2px solid var(--ink2); border-radius: 10px; background: var(--dusk); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); padding: 6px 12px; }
+.wiz li.now .wiz-n { background: var(--lamp); color: var(--ink2); }
+#overlay .wiz li.now button:not(:disabled) { background: var(--lamp); color: var(--ink2); }
+.wiz li.done .wiz-n { background: #2f7d55; color: var(--paper); }
+.wiz li.done .wiz-n::after { content: ''; }
+#overlay .wiz li.done button { color: #9aa7bf; box-shadow: none; }
+.wiz.off { opacity: .45; pointer-events: none; }
+/* «Ще»: big plain buttons in two columns */
+#overlay .st-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#overlay .st-links .mm { font-size: 13px; padding: 10px 12px; min-height: 48px; }
+#overlay section[data-page="testers"] label { display: flex; flex-direction: column; gap: 5px; min-width: 220px; }
+/* «Як грати»: three short cards, then the controls as two-column lists */
+.ht-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.ht-card { padding: 12px 14px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); display: flex; flex-direction: column; gap: 4px; }
+.ht-card b { font: 800 15px var(--head); color: var(--lamp); }
+.ht-card span { font-size: 14px; color: #c9d3e3; line-height: 1.4; }
+.ht-tables h3 { margin: 12px 0 6px !important; }
+.ht-tables .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 18px; }
+table.ht-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 13px; }
+table.ht-table td { padding: 6px 10px; background: var(--night); color: #c9d3e3; vertical-align: top; }
+table.ht-table td:first-child { font: 800 12px/1.3 var(--head); color: var(--paper); border-radius: 8px 0 0 8px; white-space: nowrap; width: 1%; }
+table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
+@media (max-height: 460px) {
+  #overlay .st-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+  #overlay .st-card { padding: 10px 12px; gap: 6px; }
+  #overlay .wiz button { min-height: 42px; font-size: 12px; }
+}
+/* the settings' options: long words wrap to two lines rather than being cut */
+#overlay .st-opts .seg button, #overlay section[data-page="testers"] .seg button { white-space: normal; text-overflow: clip; line-height: 1.15; min-height: 48px; font-size: 11px; padding: 4px 6px; }
+/* hidden stays hidden: the menu's display rules (flex buttons, grids) must not show an element the code hid */
+#overlay [hidden]:not(section) { display: none !important; }
+
+/* ---------- menu design stage 2: «Грати з друзями» — the thief and the name first, then two big buttons; the room ---------- */
+.nt-who { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; margin: 0 0 12px; }
+.nt-who label { display: flex; flex-direction: column; gap: 5px; font: 600 13px system-ui, sans-serif; color: #c9d3e3; }
+#netportraits ~ #netwho .nt-thief { display: none; }   /* the portraits pick the thief (style on); without them, the buttons */
+#netbox.in-room #netwho, #netbox.in-room #netportraits { display: none; }
+#overlay #netname, #overlay #netcode { font: 800 18px var(--head); min-height: 48px; box-sizing: border-box; padding: 6px 12px; border-radius: 10px; border: 2px solid var(--ink2); background: var(--paper); color: var(--ink2); }
+#overlay #netcode { width: 100%; text-align: center; letter-spacing: .12em; }
+.nt-out { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.nt-join { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); }
+#overlay .nt-big { min-height: 58px; font: 800 18px/1.15 var(--head); border-radius: 12px; border: 2px solid var(--ink2); background: var(--dusk); color: var(--paper); box-shadow: 4px 4px 0 var(--ink2); }
+#overlay .nt-big.primary { background: var(--lamp); color: var(--ink2); min-height: 100%; font-size: 20px; }
+.nt-card { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--night); border: 2px dashed var(--lamp); color: var(--paper); font-size: 14px; }
+.nt-room { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
+.nt-left, .nt-right { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); min-width: 0; }
+.nt-code { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.nt-code b { font: 800 26px/1.1 var(--head); color: var(--lamp); letter-spacing: .06em; }
+#netqr { width: 96px; height: 96px; background: #fff; border-radius: 8px; border: 2px solid var(--ink2); flex: none; }
+.nt-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+#overlay .nt-small { flex: 1; font: 800 12px/1.2 var(--head); min-height: 44px; padding: 6px 10px; border: 2px solid var(--ink2); border-radius: 10px; background: var(--dusk); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+#netlink { margin: 0; font-size: 11px; word-break: break-all; }
+.nt-h { margin: 4px 0 0; font: 800 12px var(--head); color: var(--lamp); text-transform: uppercase; letter-spacing: .04em; }
+.nt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.nt-list li { padding: 7px 10px 7px 12px; border-radius: 9px; background: var(--dusk); color: var(--paper); font-size: 13px; border-left: 5px solid var(--tc, #3a4766); }
+.nt-guard { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px; }
+.nt-choice { margin: 0; font: 700 14px system-ui, sans-serif; color: var(--paper); }
+.nt-choice:empty { display: none; }
+#overlay .nt-start { min-height: 58px; font: 800 22px/1 var(--head); border-radius: 12px; border: 2px solid var(--ink2); }
+#overlay .nt-start:disabled { background: #3a4766; color: #9aa7bf; box-shadow: none; }
+.nt-wait { margin: 0; padding: 12px; border-radius: 10px; border: 2px dashed #3a4766; color: #c9d3e3; text-align: center; font-size: 14px; }
+#netstatus:empty, #netver:empty { display: none; }
+@media (max-height: 460px) {
+  .nt-room { grid-template-columns: minmax(200px, .7fr) minmax(0, 1.5fr); gap: 10px; }
+  .nt-left, .nt-right { padding: 9px; gap: 6px; }
+  #netqr { width: 72px; height: 72px; }
+  .nt-code b { font-size: 21px; }
+  #overlay .nt-big { min-height: 50px; font-size: 16px; }
+  #overlay .nt-start { min-height: 50px; font-size: 19px; }
+}
+@media (max-width: 640px) and (orientation: portrait) { .nt-room, .nt-out { grid-template-columns: 1fr; } }
+/* a guest's cards: the same look as the host's, only not pressable (the chosen one in amber) */
+#overlay .lv-pick.ro .lv-card:disabled:not(.locked) { opacity: 1; cursor: default; }
+#overlay .lv-pick.ro .lv-card.on:disabled { background: var(--lamp); }
+.lv-pick.ro .lv-stars { visibility: hidden; }   /* the stars are the guest's own, not the host's */
+#overlay .seg button:disabled { opacity: 1; cursor: default; }
+#overlay .seg button.on:disabled { background: var(--lamp); color: var(--ink2); }
+.nt-goal { margin: 0; font: 700 14px system-ui, sans-serif; color: var(--paper); }
+.nt-goal:empty { display: none; }
+/* the way in: the thief and the name on the left, the two big buttons on the right (one screen on a phone) */
+#netbox:not(.in-room) { display: grid; grid-template-columns: minmax(0, auto) minmax(240px, 1fr); gap: 0 16px; align-items: start; }
+#netbox:not(.in-room) > * { grid-column: 1 / -1; }
+#netbox:not(.in-room) > #netportraits, #netbox:not(.in-room) > #netwho { grid-column: 1; }
+#netbox:not(.in-room) > #netout { grid-column: 2; grid-row: 1 / span 2; grid-template-columns: 1fr; }
+#overlay #netbox:not(.in-room) .nt-big.primary { min-height: 64px; }
+@media (max-height: 460px) {
+  #netlink { display: none; }
+  .nt-code b { font-size: 17px; }
+  #netbox:not(.in-room) .portraits { grid-template-columns: repeat(4, minmax(0, 76px)); margin-top: 0; }
+  .nt-who { margin-bottom: 0; }
+}
+
+/* ---------- menu design stage 2: «Магазин» and «Тихарник» as card grids ---------- */
+#shopwallet, #lurkercount, #papercount { display: inline-block; margin: 0 0 8px !important; padding: 5px 12px; border-radius: 999px; background: var(--night); border: 2px solid var(--ink2); font: 800 13px var(--head) !important; color: var(--lamp) !important; }
+section[data-page="shop"] > .muted { margin: 0 0 10px; font-size: 12px; }
+#shoplist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+#overlay .shoprow { margin: 0; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; box-shadow: 4px 4px 0 var(--ink2); }
+.shoprow .t b { font: 800 14px/1.2 var(--head); margin-bottom: 3px; }
+.shoprow .t { font-size: 12px; line-height: 1.35; }
+#overlay .shoprow button { width: 100%; min-width: 0; min-height: 46px; font: 800 13px var(--head); border: 2px solid var(--ink2); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink2); }
+#overlay .shoprow button:disabled { background: var(--dusk); color: #9aa7bf; box-shadow: none; opacity: 1; }
+#overlay .cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.lcard { box-shadow: 4px 4px 0 var(--ink2); }
+.lcard.locked { border-style: dashed; border-color: #3a4766; box-shadow: none; background: transparent; }
+section[data-page="lurkers"] h3 { margin-top: 16px !important; }
+@media (max-height: 460px) {
+  #shoplist, #overlay .cards { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+}
+
+/* ---------- menu design stage 2: the small pause — four big buttons on the dusk card ---------- */
+#pausemenu .pm-card { background: rgba(24, 34, 58, .97); border-radius: 14px; }
+#pausemenu .pm-head h2 { font-size: 20px; }
+#pausemenu .pm-info { color: #c9d3e3; }
+#pausemenu .pm-btn { font: 800 14px/1.2 var(--head); min-height: 52px; border: 2px solid var(--ink2); border-radius: 12px; }
+#pausemenu .pm-btn.primary { font-size: 18px; min-height: 58px; }
+#pausemenu .pm-btn.quiet { color: var(--paper); border-color: var(--ink2); background: var(--dusk); box-shadow: 3px 3px 0 var(--ink2); }
+#pausemenu .pm-btn.small { font-size: 12px; }

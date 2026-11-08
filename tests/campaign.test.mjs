@@ -222,3 +222,55 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// menu design stage 1 + T1: the «Грати» page is level cards 0–14 by house whatever the remembered map;
+// a new player starts at level 0 on the dacha; a closed level never starts (cards, the old select, a
+// remembered value, the board's ◀ ▶, «Грати»); a level of the other house reloads the page there
+const STARS8 = { rehearsal: { medium: 1 }, first: { medium: 3 }, clock: { medium: 3 }, wardrobe: { medium: 1 }, quiet: { medium: 1 } };
+const cards = (page) => page.evaluate(() => [...document.querySelectorAll('#levelpick .lv-card')].map((b) => ({ id: b.dataset.level, n: b.querySelector('.lv-n').textContent, off: b.disabled, on: b.classList.contains('on') })));
+test('«Грати» (T1): a new player — level 0 on the dacha, «Грати» on; every level 0–14 in the ladder order, the closed ones 🔒 and not pressable', async () => {
+  const { ctx, page, errors } = await camp();
+  const c = await cards(page);
+  assert.deepEqual(c.map((x) => x.id), ['rehearsal', 'first', 'clock', 'wardrobe', 'quiet', 'silent', 'rush', 'evening', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14']);
+  assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal'], 'only level 0 is open');
+  assert.ok(c.filter((x) => x.off).every((x) => x.n.includes('🔒')));
+  const st = await page.evaluate(() => ({ map: window.__game.level.id, c: window.__game.contract.id, start: document.getElementById('start').disabled, note: document.querySelector('.lv-house[data-house="mansion"] .lv-note').textContent }));
+  assert.deepEqual([st.map, st.c, st.start], ['dacha', 'rehearsal', false]);
+  assert.match(st.note, /^Маєток: потрібно 8★ \(є 0\)$/);
+  // a closed card, the old select, the board's ▶: nothing changes; «Грати» stays on the open level
+  await page.click('#levelpick [data-level="clock"]', { force: true });
+  await page.selectOption('#contract', 'clock');
+  await page.evaluate(() => window.__game.pressBoard('cnext'));
+  assert.equal(await page.evaluate(() => window.__game.contract.id), 'rehearsal');
+  // the engine forced onto a closed level (an old remembered value would be the same): «Грати» is off
+  await page.evaluate(() => window.__game.setContract('clock'));
+  assert.equal(await page.evaluate(() => document.getElementById('start').disabled), true, 'a closed level does not start');
+  assert.match(await page.textContent('#lvinfowhy'), /Спершу ★/);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+test('«Грати» (T1): a remembered closed level and a remembered mansion — the page opens on an open level; all 15 cards whatever the map; a mansion card reloads the page on the mansion with that level', async () => {
+  // a remembered closed level: back to where the ladder stands
+  {
+    const { ctx, page, errors } = await camp(base, { stars: { rehearsal: { medium: 1 } } });
+    await page.evaluate(() => { localStorage.setItem('nocturne.contract', '"evening"'); });
+    await page.reload(); await page.waitForFunction(() => window.__game);
+    assert.equal(await page.evaluate(() => window.__game.contract.id), 'first', 'the remembered closed level 7 is not where it opens');
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+  // 8★: the mansion is open; it is remembered (the bug: the list showed only 8–14)
+  const { ctx, page, errors } = await camp(base + '?map=mansion', { stars: STARS8 });
+  assert.equal(await page.evaluate(() => window.__game.level.id), 'mansion');
+  const c = await cards(page);
+  assert.equal(c.length, 15, 'every level, not only the mansion’s');
+  assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal', 'first', 'clock', 'wardrobe', 'quiet', 'silent', 'm8'], JSON.stringify(c));
+  assert.equal(c.find((x) => x.on).id, 'm8');
+  // a dacha card from the mansion page: the page reloads on the dacha with that level
+  await page.click('#levelpick [data-level="clock"]');
+  await page.waitForURL((u) => u.search.includes('map=dacha'), { timeout: 15000, waitUntil: 'commit' });
+  await page.waitForFunction(() => window.__game && window.__game.level, null, { timeout: 30000 });
+  assert.deepEqual(await page.evaluate(() => [window.__game.level.id, window.__game.contract.id]), ['dacha', 'clock']);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

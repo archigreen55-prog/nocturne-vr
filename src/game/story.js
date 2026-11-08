@@ -53,7 +53,7 @@ export function lurkerCards() {
   const met = metSet();
   return CFG.story.lurkers.map((id) => {
     const C = S.lurkers.cards[id], m = met.has(id);
-    return m ? { id, met: true, ...C } : { id, met: false, name: S.lurkers.locked, wants: '', warns: '', avoid: '' };
+    return m ? { id, met: true, ...C } : { id, met: false, name: S.lurkers.locked, wants: '', warns: '', avoid: '', hint: S.lurkers.where[id] || S.lurkers.notYet };
   });
 }
 export const lurkersMet = () => ({ n: CFG.story.lurkers.filter((id) => metSet().has(id)).length, total: CFG.story.lurkers.length });

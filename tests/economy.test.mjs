@@ -138,7 +138,8 @@ test('contracts open by stars: a new player has 2–5 and 7 closed (🔒, what o
     out.open = g.CFG.contracts.map((c) => E.isOpen(c));
     out.options = [...document.getElementById('contract').options].map((o) => o.textContent.startsWith('🔒'));
     g.pressBoard('cnext'); g.sim(0.3);
-    out.shown = g.contract.id;
+    out.shown = g.contract.id;   // T1: ▶ steps over the closed ones (none open after 1: it stays)
+    g.setContract('clock'); g.sim(0.3);   // a closed one forced (an old remembered value would be the same)
     out.lockLine = g.board.buttons.length && document.getElementById('contractinfo').textContent.includes('🔒');
     // leave the van with it: the clock starts with the open contract
     g.player.teleport(0, 0, 0); g.sim(0.5);
@@ -155,7 +156,7 @@ test('contracts open by stars: a new player has 2–5 and 7 closed (🔒, what o
   });
   assert.deepEqual(r.open, [true, false, false, false, false, false]);   // W2b: + contract 7
   assert.deepEqual(r.options, [false, true, true, true, true, true], 'the start screen list marks them');
-  assert.equal(r.shown, 'clock', '▶ shows the next contract (to see what opens next)');
+  assert.equal(r.shown, 'first', '▶ does not pick a closed contract (T1)');
   assert.equal(r.lockLine, true, 'with what opens it');
   assert.deepEqual(r.played, { id: 'first', phase: 'heist' }, 'but the round plays the last open one');
   assert.deepEqual(r.after, [true, true, false, false, false, false]);

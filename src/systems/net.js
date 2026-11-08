@@ -18,11 +18,11 @@ import { hostState, guestApply, guestGuardSounds, forgetSent, resetGuestView } f
 import { Lobby } from '../ui/lobby.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty } from '../game/difficulty.js';
-import { contractById } from '../game/contracts.js';
+import { contractById, goalText } from '../game/contracts.js';
 import { newRound, caught, setContract, setDifficulty } from './contract.js';
-import { isOpen } from '../game/economy.js';
 import { levelOf, CLASSIC } from '../game/campaign.js';
 import { applyLevel } from './campaign.js';
+import { levelGroups, pickLevel as pickLevelOf } from './levels.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
@@ -61,10 +61,10 @@ function refreshLobby() {
   if (!lobby) return;
   lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
     canStart: isHost() && [...N.remotes.values()].every((r) => !r.lost), house: isHost() ? { name: houseName(otherMap()), open: mapOpen(otherMap()) && G.round.phase !== 'heist' && G.round.phase !== 'escape' } : null,
-    role: N.role, choice: N.t ? choiceText() : '', levels: isHost() ? levelsForRoom() : null, diffs: isHost() ? diffsForRoom() : null });
+    role: N.role, choice: N.t ? choiceText() : '', levels: N.t ? levelsForRoom() : null, diffs: N.t ? diffsForRoom() : null, goal: N.t ? goalLine() : '' });
 }
 // T4a: the mission in the room — what the host picked (its contract on this house, the difficulty)
-const setupNow = () => ({ map: G.level.id, c: G.contract.id, diff: G.difficulty });
+const setupNow = () => ({ map: G.level.id, c: G.contract.id, diff: G.difficulty, lock: levelGroups().flatMap((g) => g.levels.filter((l) => l.locked).map((l) => l.id)) });
 const houseName = (map) => (map === 'mansion' ? S.mansion.name : S.mansion.mapDacha);
 function levelLabel(c) { const l = !CLASSIC && levelOf(c.id); return `${l ? `${S.net.levelN(l.n)} · ` : ''}${c.name}`; }
 function choiceText() {
@@ -74,15 +74,25 @@ function choiceText() {
   const diff = (CFG.difficulties[s.diff] || {}).name || '';
   return S.net.hostChose(houseName(s.map), c ? levelLabel(c) : s.c, diff);
 }
-const levelsForRoom = () => CFG.contracts.map((c) => ({ id: c.id, label: levelLabel(c) + (c.locked || !isOpen(c) ? ' 🔒' : ''), locked: !!c.locked || !isOpen(c), current: c.id === G.contract.id }));
+// every level of the ladder by house, the same cards as «Грати». A guest sees the host's picture: the host's
+// choice lit, the levels the host has closed shut (its own stars decide, not the guest's)
+function levelsForRoom() {
+  const groups = levelGroups();
+  if (isHost() || !N.setup) return groups;
+  const closed = new Set(N.setup.lock || []);
+  for (const g of groups) for (const l of g.levels) { l.locked = closed.has(l.id); l.current = l.id === N.setup.c; }
+  return groups;
+}
+const goalLine = () => {
+  const id = isHost() ? G.contract.id : (N.setup && N.setup.c), c = CFG.contracts.find((x) => x.id === id);
+  return c ? S.levels.goal(goalText(c, G.loot.items)) : '';
+};
 const diffsForRoom = () => ['easy', 'medium', 'hard'].map((d) => ({ id: d, name: CFG.difficulties[d].name, current: d === G.difficulty }));
 // the host's pick in the room: a finished round goes back to the van first (setContract works only before the clock)
+// (a level of the other house: remembered, and the host reopens the same room there — T4b's «Інший будинок»)
 function pickLevel(id) {
   if (!isHost()) return;
-  const c = CFG.contracts.find((x) => x.id === id);
-  if (!c || c.locked || !isOpen(c)) return;
-  if (G.round.phase !== 'ready') newRound();
-  setContract(id);
+  pickLevelOf(id, { setContract, newRound, switchMap: () => otherHouse() });
 }
 function pickDiff(d) {
   if (!isHost()) return;

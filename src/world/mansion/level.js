@@ -218,6 +218,7 @@ export function buildMansion() {
     for (const yb of [0.9, y1 + 0.9]) G.box(x0, yb, z0, x1, yb + 1.2, z1, GLOW.window);
   }
   G.box(-0.25, 2.35, -8.75, 0.25, 2.45, -8.25, GLOW.lamp);
+  S0.box(-0.015, 2.45, -8.515, 0.015, WALL_H, -8.485, C.metal);   // its cord to the ceiling (it hung in the air: tests/geometry.test.mjs)
 
   // ---------- garden and the alley ----------
   for (const [x0, z0, x1, z1] of [[LOT.minX, LOT.maxZ, LOT.maxX, LOT.maxZ], [LOT.minX, LOT.minZ, LOT.maxX, LOT.minZ], [LOT.minX, LOT.minZ, LOT.minX, LOT.maxZ], [LOT.maxX, LOT.minZ, LOT.maxX, LOT.maxZ]]) {

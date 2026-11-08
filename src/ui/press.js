@@ -13,6 +13,15 @@ const over = (el, e) => {
 };
 const isOff = (el) => el.disabled || el.getAttribute('aria-disabled') === 'true';
 
+// The click a phone sends after a finger lifts lands on whatever is under the finger by then: a button
+// that opened the menu (the pause's «Прогрес: код», «Вийти в меню») would press the menu's button that
+// appeared there («Грати»). For half a second after a finger press, a click on another element is dropped.
+let ghostUntil = 0, ghostFrom = null;
+function swallowGhost(el) { ghostUntil = performance.now() + 500; ghostFrom = el; }
+if (typeof document !== 'undefined') document.addEventListener('click', (e) => {
+  if (performance.now() < ghostUntil && ghostFrom && e.target !== ghostFrom && !ghostFrom.contains(e.target)) { e.preventDefault(); e.stopPropagation(); ghostUntil = 0; }
+}, true);
+
 export function bindPress(el, fn) {
   let p = null, lastPointer = -1e9;
   const scroller = () => el.closest('.scroll');
@@ -41,6 +50,7 @@ export function bindPress(el, fn) {
     p = null;
     el.classList.remove('down');
     if (pressHooks.onGesture && !cancelled) pressHooks.onGesture();
+    if (fire && e.pointerType !== 'mouse') swallowGhost(el);   // a finger: the screen may change under it
     if (fire) fn(e);
   };
   el.addEventListener('pointerup', (e) => end(e, false));
@@ -49,4 +59,18 @@ export function bindPress(el, fn) {
   // keyboard / screen reader only: the click that follows a finger or mouse press (some browsers send
   // it with detail 0 too) must not press the button a second time
   el.addEventListener('click', (e) => { if (e.detail === 0 && !isOff(el) && performance.now() - lastPointer > 1000) fn(e); });
+}
+
+// Every button's pressed look (menu design stage 2): .down while a finger or the mouse is on it — the plain
+// click buttons too (bindPress buttons set it themselves); the touch controls (#touch) keep their own.
+export function pressLook(root = document) {
+  let held = null;
+  const off = () => { if (held) { held.classList.remove('down'); held = null; } };
+  root.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest && e.target.closest('button, .lv-card');
+    if (!b || b.disabled || b.closest('#touch')) return;
+    off(); held = b; b.classList.add('down');
+  }, true);
+  for (const t of ['pointerup', 'pointercancel', 'blur']) root.addEventListener(t, off, true);
+  root.addEventListener('pointermove', (e) => { if (held && e.target !== held && !held.contains(e.target) && !(e.pointerType === 'touch')) off(); }, true);
 }

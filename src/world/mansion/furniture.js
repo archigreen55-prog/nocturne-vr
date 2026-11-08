@@ -174,7 +174,10 @@ export function furnish(ctx, FLOOR_Y) {
   F.counter(10.5, -4.85, 12.85, -4.15);                       // workbench
   F.shelves(9.0, 1.0, 12.0, 1.45);
   F.crate(4.6, 0.6, 0.8, 0.1); F.crate(5.5, 0.9, 0.6, -0.2, C.wood);
-  F.box(4.15, 1.8, -4.85, 6.0, 1.85, -3.9, C.woodDark);        // shelf above
+  // a shelf over the workbench, on the north wall with two brackets (it was a plank in the air at 1.8 m
+  // across the door from the hall: the owner's find, menu design stage 2; tests/geometry.test.mjs)
+  F.box(10.6, 1.6, -4.92, 12.75, 1.64, -4.6, C.woodDark);
+  F.box(10.85, 1.45, -4.92, 10.89, 1.6, -4.66, C.woodDark); F.box(12.45, 1.45, -4.92, 12.49, 1.6, -4.66, C.woodDark);
   F.ceilingLamp(8.5, -2);
 
   // ========== upstairs ==========

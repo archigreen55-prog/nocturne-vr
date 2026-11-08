@@ -12,9 +12,11 @@ import { shopRows, buyUpgrade } from './economy.js';
 import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
-import { dressLobby } from '../style/portraits.js';   // S4: the thieves' portraits in the lobby
+import { dressLobby } from '../style/portraits.js';
+import { renderPlayPage } from './playPage.js';
+import { pressLook } from '../ui/press.js';   // S4: the thieves' portraits in the lobby
 
-const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'testers'];
+const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'testers', 'howto'];   // howto: menu design stage 2
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
 let current = 'menu';
 
@@ -27,6 +29,7 @@ function show(page) {
   if (page === 'menu') renderMenu();
   if (page === 'play') renderPlay();
   if (page === 'friends') dressLobby();
+  if (page === 'settings' || page === 'testers') renderSettings();
   const card = document.querySelector('#overlay .card');
   if (card) card.scrollTop = 0;
 }
@@ -60,6 +63,7 @@ function renderMenu() {
   $('mmmic').hidden = !!ok;
 }
 function renderPlay() {
+  renderPlayPage();
   const ok = micText();
   $('playmic').textContent = ok || S.menu2.mic.none;
   $('playmicgo').hidden = !!(G.mic && G.mic.calibrated && !G.mic.noMic);
@@ -89,7 +93,7 @@ function renderLurkers() {
     const card = document.createElement('div');
     card.className = 'lcard' + (c.met ? '' : ' locked'); card.dataset.lurker = c.id;
     const b = document.createElement('b'); b.textContent = c.name; card.append(b);
-    for (const line of c.met ? [`${Lb.wants}: ${c.wants}`, `${Lb.warns}: ${c.warns}`, `${Lb.avoid}: ${c.avoid}`] : [S.lurkers.lockedHint]) {
+    for (const line of c.met ? [`${Lb.wants}: ${c.wants}`, `${Lb.warns}: ${c.warns}`, `${Lb.avoid}: ${c.avoid}`] : [c.hint || S.lurkers.lockedHint]) {
       const s = document.createElement('span'); s.textContent = line; card.append(s);
     }
     box.append(card);
@@ -105,6 +109,49 @@ function renderLurkers() {
     const s = document.createElement('span'); s.textContent = r.where;
     card.append(b, s); pb.append(card);
   }
+}
+
+// Menu design stage 2: a <select class="seg-src"> is shown as a row of big buttons (the select stays: the
+// code reads it and listens to its 'change'); kept in step when the code sets the value
+function segFor(sel) {
+  const next = sel.nextElementSibling;
+  if (next && next.classList.contains('seg')) return next;
+  const seg = document.createElement('div');
+  seg.className = 'seg'; seg.setAttribute('role', 'group');
+  sel.after(seg);
+  sel.addEventListener('change', () => syncSeg(sel));
+  return seg;
+}
+function syncSeg(sel) {
+  const seg = segFor(sel), opts = [...sel.options];
+  const sig = opts.map((o) => o.value + ':' + o.textContent).join('|');
+  if (seg.dataset.sig !== sig) {
+    seg.dataset.sig = sig; seg.replaceChildren();
+    seg.style.gridTemplateColumns = `repeat(${Math.max(1, opts.length)}, minmax(0, 1fr))`;
+    for (const o of opts) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.dataset.value = o.value; b.textContent = o.textContent.trim();
+      b.addEventListener('click', () => { if (sel.disabled) return; sel.value = o.value; sel.dispatchEvent(new Event('change')); syncSeg(sel); });
+      seg.append(b);
+    }
+  }
+  for (const b of seg.children) { const on = b.dataset.value === sel.value; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.disabled = sel.disabled; }
+}
+const syncSegs = () => { for (const sel of document.querySelectorAll('#overlay select.seg-src')) syncSeg(sel); };
+// the microphone's three steps: done ones ticked, the next one lit
+function renderSettings() {
+  syncSegs();
+  const mic = G.mic, wiz = $('micwiz');
+  if (!mic || !wiz) return;
+  const done = { allow: mic.state === 'on', cal: !!mic.calibrated, check: !!$('verifyres').textContent.trim() };
+  let now = null;
+  for (const li of wiz.children) {
+    const d = !!done[li.dataset.step];
+    li.classList.toggle('done', d);
+    if (!d && !now && !li.hidden && getComputedStyle(li).display !== 'none') now = li;
+  }
+  for (const li of wiz.children) li.classList.toggle('now', li === now);
+  wiz.classList.toggle('off', !!mic.noMic);
 }
 
 // The first run: no calibration and the microphone not turned off — «Налаштуємо мікрофон?»
@@ -140,6 +187,7 @@ function wireMicAsk() {
     if (askPending && G.mic.state === 'on' && !$('calbtn').disabled) { askPending = false; $('calbtn').click(); }
     if (current === 'menu') renderMenu();
     if (current === 'play') renderPlay();
+    if (current === 'settings') renderSettings();
   };
 }
 
@@ -147,6 +195,7 @@ export const menu = {
   id: 'menu',
   init() {
     if (!$('mmnav')) return;
+    pressLook();   // every button: pushed in and darker while pressed
     if (TEST.pages === 'all' && !params.has('page')) document.body.classList.add('pages-all');
     for (const b of document.querySelectorAll('#overlay [data-go]')) b.addEventListener('click', () => goPage(b.dataset.go));
     for (const b of document.querySelectorAll('#overlay [data-back]')) b.addEventListener('click', back);
@@ -170,6 +219,7 @@ export const menu = {
       if (wasHidden && !hidden && !document.body.classList.contains('pages-all')) show(G.net && G.net.t ? 'friends' : 'menu');   // T4c: with friends, back to the room
       wasHidden = hidden;
     }).observe($('overlay'), { attributes: true, attributeFilter: ['style'] });
+    syncSegs();   // menu design: the selects as rows of buttons
     // after the splash (or at once without it): the microphone on the first run
     if (window.__splashDone || !$('splash')) offerMic();
     else addEventListener('splashdone', offerMic, { once: true });
@@ -179,5 +229,6 @@ export const menu = {
     if (G.playingDesktop || $('overlay').style.display === 'none') return;
     if ((this.t = (this.t || 0) + 1) % 30) return;
     if (current === 'menu') renderMenu();
+    if (current === 'settings') renderSettings();   // the microphone's steps follow a calibration / check
   },
 };

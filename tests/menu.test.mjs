@@ -81,6 +81,11 @@ test('menu (S3): the first run offers the microphone — «Пізніше» clos
   const cards = () => p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}:${x.classList.contains('locked') ? 'locked' : 'open'}`));
   assert.equal((await cards()).length, 9);
   assert.ok((await cards()).every((c) => c.endsWith('locked')));
+  // a closed card says where to meet it (the house and the level; no name), the unbuilt ones say so honestly
+  const hints = await p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}: ${x.querySelector('span').textContent}`));
+  assert.equal(hints[0], 'wardrobe: Дача, з рівня 3. Прислухайся до шафи.');
+  assert.equal(hints[1], 'whisperer: Дача, з рівня 5. Подивись біля каміна.');
+  assert.ok(hints.slice(2).every((h) => h.endsWith('Ще не оселилося в жодному будинку.')), hints.join(' | '));
   await p3.evaluate(async () => { const { meetLurker } = await import('./src/game/story.js'); meetLurker('wardrobe'); });
   await p3.click('section[data-page="lurkers"] [data-back]');
   await p3.click('#mmnav [data-go="lurkers"]');

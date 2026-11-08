@@ -180,7 +180,41 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
       const top = o.geometry.boundingBox.max.y;
       if (top < 2.1 - 0.005) doorGaps.push({ mesh: o.name, top: +top.toFixed(3), gap: 'over the leaf ' + (2.1 - top).toFixed(3) + ' m' });
     });
-    out[id] = { parts: parts.length, walls: walls.length, openings: openings.length, doors: lv.doors.length, coplanar, through, inOpening, doorGaps };
+    // ---- 5. (menu design stage 2, the owner's find: a dark plank over the mansion garage's door) nothing
+    // hangs in the air, and nothing at head height stands in the walk through a doorway.
+    // In the air: a part above 0.3 m with nothing under it (a part reaching up to it), nothing over it it
+    // hangs from (a ceiling, a beam) and no wall it is fixed to (its face within 3 cm).
+    const ov = (p, q) => Math.min(p.bb.max.x, q.bb.max.x) - Math.max(p.bb.min.x, q.bb.min.x) > 0.001 && Math.min(p.bb.max.z, q.bb.max.z) - Math.max(p.bb.min.z, q.bb.min.z) > 0.001;
+    const floorUnder = (p) => { const ys = walls.filter((w) => w.y0 <= p.bb.min.y + 0.01).map((w) => w.y0); return ys.length ? Math.max(...ys) : 0; };
+    const onWall = (p) => walls.some((w) => {
+      if (p.bb.max.y < w.y0 || p.bb.min.y > w.y1) return false;
+      const [t0, t1, l0, l1] = w.alongX ? [p.bb.min.z, p.bb.max.z, p.bb.min.x, p.bb.max.x] : [p.bb.min.x, p.bb.max.x, p.bb.min.z, p.bb.max.z];
+      const f0 = w.c - w.t / 2, f1 = w.c + w.t / 2;
+      return Math.min(l1, w.b) - Math.max(l0, w.a) > 0.01 && (Math.abs(t0 - f1) < 0.03 || Math.abs(t1 - f0) < 0.03 || (t0 < f1 && t1 > f0));
+    });
+    const floating = [];
+    for (const p of deco) {
+      if (p.bb.min.y - floorUnder(p) < 0.3) continue;
+      const under = parts.some((q) => q !== p && q.bb.min.y < p.bb.min.y - 0.005 && q.bb.max.y >= p.bb.min.y - 0.03 && ov(p, q));
+      const over = parts.some((q) => q !== p && q.bb.max.y > p.bb.max.y + 0.005 && q.bb.min.y <= p.bb.max.y + 0.03 && ov(p, q));
+      // fixed to something solid: any collision box (a wall inside or out, a post, a piece of furniture) within 5 cm
+      // (a picture's canvas stands 3.5 cm off the wall in front of its frame)
+      const fixed = boxes.some((b) => p.bb.min.x < b.x1 + 0.05 && p.bb.max.x > b.x0 - 0.05 && p.bb.min.z < b.z1 + 0.05 && p.bb.max.z > b.z0 - 0.05);
+      if (!under && !over && !onWall(p) && !fixed) floating.push({ part: bbs(p.bb) });
+    }
+    // In a doorway's walk: from the wall's face up to 0.8 m out on either side, over the opening's width,
+    // between 0.3 m and the door's top (a mat or a step lies lower)
+    const inWalk = [];
+    for (const p of deco) for (const o of openings) {
+      const bb = p.bb;
+      const [l0, l1, t0, t1] = o.alongX ? [bb.min.x, bb.max.x, bb.min.z, bb.max.z] : [bb.min.z, bb.max.z, bb.min.x, bb.max.x];
+      const ol = Math.min(l1, o.b - 0.05) - Math.max(l0, o.a + 0.05);
+      const f0 = o.c - o.t / 2, f1 = o.c + o.t / 2;
+      const side = (Math.min(t1, f0 - 0.04) - Math.max(t0, f0 - 0.8) > 0.005) || (Math.min(t1, f1 + 0.8) - Math.max(t0, f1 + 0.04) > 0.005);
+      const oy = Math.min(bb.max.y, o.y0 + 2.0) - Math.max(bb.min.y, o.y0 + 0.3);
+      if (ol > 0.05 && side && oy > 0.005) inWalk.push({ part: bbs(bb), opening: (o.alongX ? 'z=' : 'x=') + o.c.toFixed(2) + ' ' + o.a.toFixed(2) + '..' + o.b.toFixed(2) + ' y0=' + o.y0 });
+    }
+    out[id] = { parts: parts.length, walls: walls.length, openings: openings.length, doors: lv.doors.length, coplanar, through, inOpening, doorGaps, floating, inWalk };
   }
   return out;
 }
@@ -213,6 +247,13 @@ test('geometry: no furniture, rug or picture through a wall or standing in a doo
   }
 });
 
+test('geometry: no furniture or shelf hanging in the air; nothing at head height in the walk through a doorway', async () => {
+  const R = await geometry();
+  for (const [id, r] of Object.entries(R)) {
+    assert.equal(r.floating.length, 0, `${id}: in the air:\n${list(r.floating)}`);
+    assert.equal(r.inWalk.length, 0, `${id}: in a doorway's walk:\n${list(r.inWalk)}`);
+  }
+});
 test('geometry: a closed door fills its opening (no gaps to look through)', async () => {
   for (const [id, r] of Object.entries(await geometry())) {
     assert.ok(r.doors > 3, `${id}: doors found`);

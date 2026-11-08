@@ -225,7 +225,7 @@ export class Board {
         g.fillText(`${Lb.wants}: ${c.wants}`, 70, y + 54, W - 120);
         g.fillText(`${Lb.warns}: ${c.warns}`, 70, y + 80, W - 120);
         g.fillText(`${Lb.avoid}: ${c.avoid}`, 70, y + 106, W - 120);
-      } else { g.fillStyle = '#6f8396'; g.fillText(S.lurkers.lockedHint, 70, y + 54); }
+      } else { g.fillStyle = '#6f8396'; g.fillText(c.hint || S.lurkers.lockedHint, 70, y + 54); }
     });
     if (L.noMic) { g.textAlign = 'left'; g.font = '20px system-ui, sans-serif'; g.fillStyle = '#ffb347'; g.fillText(S.lurkers.noMic, 305, 560); }
     if (pages > 1) {

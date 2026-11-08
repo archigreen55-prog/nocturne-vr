@@ -72,8 +72,7 @@ body.phone-playing { overscroll-behavior: none; }
 .pm-btn, .sm-btn { min-height: 42px; padding: 4px 12px; font: 700 15.5px system-ui, sans-serif; border-radius: 12px; border: 2px solid var(--accent); background: transparent; color: var(--accent); touch-action: none; user-select: none; -webkit-user-select: none; }
 .pm-btn.primary, .sm-btn.primary { background: var(--accent); color: #0a0f1c; }
 .pm-btn.quiet, .sm-btn.quiet { border-color: #3a4560; color: var(--muted); }
-.pm-btn.down, .sm-btn.down { background: rgba(127, 200, 255, .35); color: #fff; }
-.pm-btn.primary.down, .sm-btn.primary.down { background: #cfe9ff; color: #0a0f1c; }
+/* pressed: pushed in and darker (src/style/menu.css), the button's own colour — no blue wash */
 .pm-btn:disabled, .sm-btn:disabled { opacity: .4; }
 .pm-row { display: flex; align-items: stretch; gap: 8px; }
 .pm-row .step { width: 72px; flex: none; font-size: 22px; }

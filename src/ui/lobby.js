@@ -3,6 +3,7 @@
 // Pure DOM; the network is src/systems/net.js (it calls lobby.show(state) whenever something changes).
 import { S } from '../i18n/index.js';
 import { bindPress } from './press.js';
+import { LevelPick } from './levelPick.js';   // menu design: the same level cards as «Грати»
 import { prettyCode, cleanCode } from '../net/room.js';
 
 const THIEVES = ['zoya', 'frol', 'rita', 'nazar'];
@@ -13,31 +14,35 @@ export class Lobby {
   constructor(root, on, { name = '', thief = 'zoya', code = '' } = {}) {
     this.root = root; this.on = on;
     root.innerHTML = `
-      <h2>${esc(S.net.title)}</h2>
-      <p class="muted" id="netintro">${esc(S.net.intro)}</p>
-      <div class="row" id="netwho">
-        <label>${esc(S.net.name)} <input id="netname" maxlength="12" autocomplete="nickname" size="10"></label>
-        <label>${esc(S.net.thief)} <select id="netthief">${THIEVES.map((t) => `<option value="${t}">${esc(S.crew.names[t])}</option>`).join('')}</select></label>
+      <div id="netwho" class="nt-who">
+        <label class="nt-name"><span>${esc(S.net.name)}</span><input id="netname" maxlength="12" autocomplete="nickname" size="10"></label>
+        <label class="nt-thief"><span>${esc(S.net.thief)}</span><select id="netthief" class="seg-src">${THIEVES.map((t) => `<option value="${t}">${esc(S.crew.names[t])}</option>`).join('')}</select></label>
       </div>
-      <div class="row" id="netout">
-        <button id="netcreate">${esc(S.net.create)}</button>
-        <input id="netcode" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" size="8" placeholder="${esc(S.net.codePlaceholder)}" aria-label="${esc(S.net.codeLabel)}">
-        <button id="netjoin">${esc(S.net.join)}</button>
+      <div id="netout" class="nt-out">
+        <button id="netcreate" class="nt-big primary">${esc(S.net.create)}</button>
+        <div class="nt-join">
+          <input id="netcode" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" size="8" placeholder="${esc(S.net.codePlaceholder)}" aria-label="${esc(S.net.codeLabel)}">
+          <button id="netjoin" class="nt-big">${esc(S.net.join)}</button>
+        </div>
       </div>
-      <p id="netcard" class="muted" hidden></p>
-      <div id="netin" hidden>
-        <div class="row"><b id="netroom" style="font-size:24px;letter-spacing:2px"></b><canvas id="netqr" width="132" height="132" style="background:#fff;border-radius:6px"></canvas></div>
-        <div class="row"><button id="netshare">${esc(S.net.share)}</button><button id="netleave">${esc(S.net.leave)}</button></div>
-        <p class="muted" id="netlink" style="word-break:break-all"></p>
-        <p><b>${esc(S.net.who)}</b></p>
-        <ul id="netlist" style="margin:4px 0 8px;padding-left:20px"></ul>
-        <div class="row"><span id="netguardis" class="muted"></span><button id="netguard">${esc(S.hguard.becomeGuard)}</button></div>
-        <div id="netsetup">
-          <p><b>${esc(S.net.mission)}</b></p>
-          <div id="netpick"><div id="netlevels" class="row" style="flex-wrap:wrap;gap:6px"></div><div class="row" id="netdiffs" style="gap:6px;margin-top:6px"></div></div>
-          <p id="netchoice"></p>
-          <div class="row"><button id="nethouse" type="button"></button></div>
-          <div class="row"><button id="netstart" class="primary" type="button">${esc(S.net.start)}</button><span id="netwait" class="muted">${esc(S.net.waitStart)}</span></div>
+      <p id="netcard" class="nt-card" hidden></p>
+      <div id="netin" class="nt-room" hidden>
+        <div class="nt-left">
+          <div class="nt-code"><b id="netroom"></b><canvas id="netqr" width="132" height="132"></canvas></div>
+          <button id="netstart" class="primary nt-start" type="button">${esc(S.net.start)}</button>
+          <p id="netwait" class="nt-wait">${esc(S.net.waitStart)}</p>
+          <div class="nt-acts"><button id="netshare" class="nt-small">${esc(S.net.share)}</button><button id="netleave" class="nt-small">${esc(S.net.leave)}</button></div>
+          <p class="muted" id="netlink"></p>
+          <p class="nt-h">${esc(S.net.who)}</p>
+          <ul id="netlist" class="nt-list"></ul>
+          <div class="nt-guard"><span id="netguardis" class="muted"></span><button id="netguard" class="nt-small">${esc(S.hguard.becomeGuard)}</button></div>
+        </div>
+        <div id="netsetup" class="nt-right">
+          <p class="nt-h">${esc(S.net.mission)}</p>
+          <p id="netgoal" class="nt-goal"></p>
+          <div id="netpick"><div id="netlevels"></div><div class="seg" id="netdiffs"></div></div>
+          <p id="netchoice" class="nt-choice"></p>
+          <div class="nt-acts"><button id="nethouse" type="button" class="nt-small"></button></div>
         </div>
       </div>
       <p id="netstatus" style="color:var(--warn)"></p>
@@ -66,6 +71,7 @@ export class Lobby {
   show(st) {
     const e = this.el;
     e.out.hidden = !!st.inRoom; e.inn.hidden = !st.inRoom;
+    this.root.classList.toggle('in-room', !!st.inRoom);   // menu design: the thief and the name are picked before; the room is the room
     e.name.disabled = e.thief.disabled = !!st.inRoom;
     e.card.hidden = !st.card; e.card.textContent = st.card || '';
     e.status.textContent = st.status || '';
@@ -91,29 +97,25 @@ export class Lobby {
   showSetup(st) {
     const q = (id) => this.root.querySelector('#' + id);
     const host = st.role === 'host', pick = q('netpick'), choice = q('netchoice');
-    pick.hidden = !host;
     const start = q('netstart'), house = q('nethouse');
     start.hidden = house.hidden = !host; q('netwait').hidden = host;
     start.disabled = !st.canStart;
     if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
-    choice.textContent = st.choice || '';
-    if (!host) return;
-    const sig = JSON.stringify([(st.levels || []).map((l) => [l.id, l.label, l.locked]), (st.diffs || []).map((d) => d.id)]);
+    choice.textContent = host ? '' : st.choice || '';   // the host sees its choice on the cards
+    q('netgoal').textContent = st.goal || '';   // the goal of the chosen level, for the host and the guests
+    if (!this.pick) this.pick = new LevelPick(q('netlevels'), (id) => this.on.pickLevel && this.on.pickLevel(id));
+    this.pick.show(st.levels || [], !host);   // a guest sees the same cards, none pressable
+    const sig = JSON.stringify((st.diffs || []).map((d) => d.id));
     if (sig !== this.built) {
       this.built = sig;
-      const mk = (box, id, label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = id; b.textContent = label; bindPress(b, () => { if (!b.disabled) fn(id); }); box.append(b); return b; };
-      const lv = q('netlevels'), df = q('netdiffs');
-      lv.replaceChildren(); df.replaceChildren();
-      for (const l of st.levels || []) mk(lv, l.id, l.label, (id) => this.on.pickLevel && this.on.pickLevel(id));
-      for (const d of st.diffs || []) mk(df, d.id, d.name, (id) => this.on.pickDiff && this.on.pickDiff(id));
-    }
-    for (const b of q('netlevels').children) {
-      const l = (st.levels || []).find((x) => x.id === b.dataset.id) || {};
-      b.disabled = !!l.locked; b.classList.toggle('primary', !!l.current); b.setAttribute('aria-pressed', l.current ? 'true' : 'false');
+      const df = q('netdiffs');
+      df.replaceChildren();
+      for (const d of st.diffs || []) { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = d.id; b.textContent = d.name; bindPress(b, () => { if (!b.disabled && this.on.pickDiff) this.on.pickDiff(d.id); }); df.append(b); }
     }
     for (const b of q('netdiffs').children) {
       const d = (st.diffs || []).find((x) => x.id === b.dataset.id) || {};
-      b.classList.toggle('primary', !!d.current); b.setAttribute('aria-pressed', d.current ? 'true' : 'false');
+      b.disabled = !host;
+      b.classList.toggle('on', !!d.current); b.setAttribute('aria-pressed', d.current ? 'true' : 'false');
     }
   }
 
