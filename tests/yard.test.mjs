@@ -1,7 +1,8 @@
-// The dacha's yard (claude/dacha-yard, world/yard.js): the van waits on the street, round the corner
-// behind the hedge, 25–30 m from the house; the guard (AI or a friend) comes out to the porch and the
-// gate but never further, and from nowhere he can stand does he see the van; the longer walk fits in
-// the dacha's contracts (levels 0–7); several thieves at the van still work (the ring, the escape).
+// The dacha's yard (claude/dacha-yard, claude/dacha-yard-near, world/yard.js): a solid fence round the yard
+// with one gate; the van stands in the lane right behind it, 10–15 m from the front door; the guard (AI or a
+// friend) comes out to the porch and the front of the garden but never to the gate, and from nowhere he can
+// stand does he see the van; the walk fits in the dacha's contracts (levels 0–7); several thieves at the van
+// still work (the ring, the escape).
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
 import { browser, open, test, base } from './runner.mjs';
@@ -12,7 +13,7 @@ const campaignCtx = async () => {
   return ctx;
 };
 
-test('yard: the van is 25–30 m from the house, behind the hedge; from no point the guard can reach (the house, the porch, the garden, the gate) is the van or a thief at the ring in sight', async () => {
+test('yard: the van is 10–15 m from the front door, in the lane behind the solid fence; from no point the guard can reach (the house, the porch, the front of the garden) is the van or a thief at the ring in sight', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, base + '?map=dacha');
   const r = await page.evaluate(() => {
@@ -38,7 +39,7 @@ test('yard: the van is 25–30 m from the house, behind the hedge; from no point
     }
     // the spawn, the board and the ring are on the street side, out of the yard
     out.spawn = [L.spawn.x, L.spawn.z]; out.board = [L.board.x, L.board.z];
-    // the AI guard sent to the van: he stops at the gate
+    // the AI guard sent to the van: he stops at the leash
     const P = g.patrol;
     g.playing = true; g.newRound();
     g.player.teleport(V.x, V.z, 0);
@@ -49,7 +50,7 @@ test('yard: the van is 25–30 m from the house, behind the hedge; from no point
     for (let t = 0; t < 40; t += 1 / 30) { g.sim(1 / 30); maxZ = Math.max(maxZ, P.z); }
     out.walkMaxZ = +maxZ.toFixed(2);
     // ...and chasing a thief who runs to the van
-    P.interrupt(); P.x = 3; P.z = 14.5; P.state = 'chase'; P.lastSeen = { x: V.x, z: V.z }; P.lostT = 0; P.goTo(V.x, V.z);
+    P.interrupt(); P.x = 3; P.z = 4.0; P.state = 'chase'; P.lastSeen = { x: V.x, z: V.z }; P.lostT = 0; P.goTo(V.x, V.z);
     maxZ = -99;
     for (let t = 0; t < 20; t += 1 / 30) { g.sim(1 / 30); maxZ = Math.max(maxZ, P.z); if (g.round.phase === 'result') break; }
     out.chaseMaxZ = +maxZ.toFixed(2);
@@ -57,9 +58,9 @@ test('yard: the van is 25–30 m from the house, behind the hedge; from no point
     return out;
   });
   assert.equal(r.id, 'dacha');
-  assert.ok(r.dist >= 25 && r.dist <= 30, `the ring ${r.dist.toFixed(1)} m from the front door`);
-  assert.ok(r.spawn[1] > 23.8 && r.board[1] > 23.8 && r.ring[1] > 23.8, `spawn ${r.spawn}, board ${r.board}, ring ${r.ring}: behind the hedge`);
-  assert.ok(r.eyes > 1500, `guard points checked: ${r.eyes}`);
+  assert.ok(r.dist >= 10 && r.dist <= 15, `the ring ${r.dist.toFixed(1)} m from the front door`);
+  assert.ok(r.spawn[1] > 9.1 && r.board[1] > 9.1 && r.ring[1] > 9.1, `spawn ${r.spawn}, board ${r.board}, ring ${r.ring}: behind the fence`);
+  assert.ok(r.eyes > 1200, `guard points checked: ${r.eyes}`);
   assert.deepEqual(r.seen, [], `the van seen from: ${JSON.stringify(r.seen.slice(0, 5))}`);
   assert.ok(r.walkMaxZ <= r.leash + 0.05, `the guard walked to z ${r.walkMaxZ} (leash ${r.leash})`);
   assert.ok(r.chaseMaxZ <= r.leash + 0.05, `the guard chased to z ${r.chaseMaxZ} (leash ${r.leash})`);
@@ -95,7 +96,7 @@ test('yard: cover in the garden hides a crouching thief, not a standing one (bus
   assert.deepEqual(r.woodpile, { crouched: true, standing: false });
   assert.equal(r.shed, true, 'the shed hides a standing thief');
   const near = (x, z) => r.lamps.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.5);
-  assert.ok(near(0, 0.8) && near(1.6, 7.6) && near(3, 15.5), `lamps: ${JSON.stringify(r.lamps)}`);
+  assert.ok(near(0, 0.8) && near(2.6, 4.4) && near(5, 7.6), `lamps: ${JSON.stringify(r.lamps)}`);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -149,7 +150,7 @@ test('yard: the walk van ↔ house fits in the time of every dacha level (0–7)
     return out;
   });
   assert.deepEqual(r.unreachable, [], `every item can be walked to (door ${r.door} m): ${r.unreachable.join(" ")}`);
-  assert.ok(r.door >= 25 && r.door <= 40, `van → front door: ${r.door} m`);
+  assert.ok(r.door >= 10 && r.door <= 22, `van → front door: ${r.door} m`);
   for (const l of r.levels) {
     assert.ok(!l.missing, `level ${l.n} has its contract`);
     for (const [d, t] of Object.entries(l.times)) {
@@ -176,7 +177,7 @@ test('yard: co-op at the van — two thieves at the ring: each one\'s loot flies
     for (let i = 0; i < 30; i++) g.sim(1 / 30);
     out.readyBoth = g.round.phase === 'ready';
     out.spawnAtVan = Math.hypot(S0.x - V.x, S0.z - V.z) < g.CFG.round.startDist && g.round.atVan(friend.head);   // the spawn is beside the ring (as before), the clock not started
-    friend.head.set(3, 1.65, 14); g.sim(0.3);
+    friend.head.set(3, 1.65, 4); g.sim(0.3);
     out.started = g.round.phase !== 'ready';
     g.round.startEscape('test');
     g.player.teleport(V.x, V.z, 0); g.sim(0.5);

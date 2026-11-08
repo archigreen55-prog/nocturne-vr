@@ -1,95 +1,93 @@
-// The dacha's yard and street (owner's decision, claude/dacha-yard): the van no longer stands at the
-// back step — it waits on the street, round the corner behind the neighbours' hedge, ~28 m from the
-// house and out of the guard's sight. From the van: up the street, through the wicket gate (хвіртка),
-// across the garden (bushes, a low garden fence, the shed, the woodpile: cover; the lamps: circles where
-// you are seen) to the house. The guard comes out to the porch and to the gate, never further
-// (LEASH: enemies/patrol.js, systems/humanGuard.js), and from nowhere he can stand is the van in view
-// (tests/yard.test.mjs).
+// The dacha's yard and the lane (owner's decisions, claude/dacha-yard and claude/dacha-yard-near): a solid
+// wooden fence — taller than a person — runs round the yard; its one gap is the wicket gate (хвіртка) in
+// the south side. Right behind the gate is a dead-end lane and the van stands in it, rear to the fence,
+// 13 m from the front door. From the yard the van cannot be seen (the fence stops the sight line, the
+// guard never comes closer to the gate than LEASH), and from the van you cannot see the yard.
+// From the van: the gate -> the garden (bushes, a low fence, the shed, the woodpile: cover; the lamps:
+// circles where you are seen) -> the house. The guard comes out to the porch and the front of the garden
+// (LEASH: enemies/patrol.js, systems/humanGuard.js) — not to the gate. tests/yard.test.mjs checks it.
 //
 // Axes as in level.js: +X east, -Z north (the house: z -14..0, front door at x 0), +Z south.
 // The house itself (walls, rooms, doors, windows) stays in level.js; this file is everything outside it.
 import { lampPost, van } from './kit.js';
 
-// the yard: the old lot, fenced; the street and the neighbours' side past its south fence
-export const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 33 };   // the collision worlds' bounds
-export const YARD_FENCE_Z = 16;                                     // the yard's south fence (with the gate)
+export const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 22 };   // the collision worlds' bounds
+export const YARD_FENCE_Z = 9;                                      // the yard's south fence (with the gate)
+export const FENCE_H = 2.2;                                         // solid, taller than a person
 export const GATE = { x0: 2.3, x1: 3.7, z: YARD_FENCE_Z };          // the wicket gate's opening
-export const STREET = { minZ: 17.2, maxZ: 22.4 };                   // the asphalt
-export const HEDGE = { z0: 23.0, z1: 23.8, h: 2.2, gapX: 14.6 };    // the neighbours' hedge: open only at its east end (gapX..the fence) — round the corner to the van
-// the van: its rear (open doors) to the north at z 26, the cab south; the ring right behind it
-export const VAN = { x: 13.3, z: 26.0, yaw: 0 };
-export const DROP = { x: 13.3, z: 25.2, r: 0.6, flyTime: 0.3 };    // CFG.dropZone on this map
-export const VAN_ZONE = { x: 13.3, z: 25.2, r: 2.0 };               // CFG.round.vanZone («at the van»)
-export const CARGO = { minX: 12.4, maxX: 14.2, minZ: 26.05, maxZ: 29.55, y: 0.4, rear: 'min' };   // = kit.van's cargo (x 13.3, z 26, yaw 0)
-export const SPAWN = { x: 10.6, z: 25.4, yaw: 1.98 };   // beside the van, facing the board (contract menu); turned round (yaw - π) = towards the lane's way out to the street
-export const BOARD = { x: 8.8, z: 26.2, yaw: 1.98 };   // scoreboard stand next to the van, facing the spawn point
-// the guard goes no further south than this (the porch, the garden, the gate — not the street)
-export const LEASH = { maxZ: YARD_FENCE_Z - 0.2 };
+export const LANE = { x0: 5.0, x1: 11.0, z0: 10.6, z1: 21.5 };      // the dead-end lane (asphalt); the apron along the fence is x 2..11, z 9.1..10.6
+// the van: its rear (open doors) to the north at z 11, the cab south; the ring right behind it
+export const VAN = { x: 8.0, z: 11.0, yaw: 0 };
+export const DROP = { x: 8.0, z: 10.2, r: 0.6, flyTime: 0.3 };     // CFG.dropZone on this map
+export const VAN_ZONE = { x: 8.0, z: 10.2, r: 2.0 };                // CFG.round.vanZone («at the van»)
+export const CARGO = { minX: 7.1, maxX: 8.9, minZ: 11.05, maxZ: 14.55, y: 0.4, rear: 'min' };   // = kit.van's cargo (x 8, z 11, yaw 0)
+export const SPAWN = { x: 6.0, z: 10.6, yaw: -Math.PI / 2 };   // beside the ring, facing the board (contract menu); turned round it faces the house
+export const BOARD = { x: 10.2, z: 10.6, yaw: -Math.PI / 2 };   // scoreboard stand east of the van's rear, facing the spawn point
+// the guard goes no further south than this: the porch and the front of the garden — never the gate
+export const LEASH = { maxZ: 4.5 };
 
 // The lamps: CFG.stealth.lamps on this map (the circle = you are seen as in the flashlight beam).
-// The first one is the real point light over the garden path; the porch, the gate and the street
+// The first one is the real point light over the garden path; the porch, the gate and the lane
 // lamps glow (and keep their circles) without one: the page has three point lights only.
 export const LAMPS = [
-  { x: 1.6, z: 7.6, r: 3 },        // the garden path lamp (point light 0)
+  { x: 2.6, z: 4.4, r: 3 },        // the garden path lamp (point light 0)
   { x: 1.5, z: -12.9, r: 2.5 },    // the fireplace embers (as before)
   { x: -3.0, z: -6.0, r: 2.2 },    // the corridor night light (as before)
   { x: 0, z: 0.75, r: 1.6 },       // over the porch: the front door is lit
-  { x: 4.4, z: 15.4, r: 2.0 },     // at the gate (beside it, not in the way)
-  { x: -1.5, z: 22.9, r: 3 },      // the street lamp (the guard never comes here)
+  { x: 5.0, z: 7.6, r: 2.0 },      // at the gate, inside (beside the way)
+  { x: 4.4, z: 12.6, r: 2.5 },     // the lane's lamp, outside the fence (the guard never sees it)
 ];
 // the three point lights: [x, y, z, colour, intensity, distance] (systems/world.js puts them there)
 export const LIGHTS = [
-  [1.6, 2.8, 7.6, 0xffc98a, 6, 12],      // the garden path lamp
+  [2.6, 2.8, 4.4, 0xffc98a, 6, 12],      // the garden path lamp
   [1.5, 0.6, -12.9, 0xff7a3a, 3.5, 8],   // fireplace embers
   [-3.0, 2.3, -6.0, 0x7f9cff, 3, 10],    // corridor night light
 ];
 
-// The guard's nav points outside (enemies/nav.js): the porch, the path, the garden, the gate.
-export const YARD_NODES = [[0, 1.6], [1.0, 4.6], [-5, 3.2], [6.5, 3.2], [-3, -16], [2.4, 10.4], [3.0, 14.6], [-4.5, 13.6], [7.5, 13.4]];
+// The guard's nav points outside (enemies/nav.js): the porch and the front of the garden.
+export const YARD_NODES = [[0, 1.6], [1.4, 3.8], [-5, 3.2], [6.5, 3.2], [-3, -16]];
 
-// Cover in the garden: [x0, z0, x1, z1, h] — furniture for line of sight (a crouching thief behind a
-// bush or the low fence is hidden; standing, he is not), bodies bump into it.
+// Cover in the garden — furniture for line of sight (a crouching thief behind a bush or the low fence
+// is hidden; standing, he is not), bodies bump into it.
 export const COVER = {
-  bushes: [[-1.5, 4.6, 0.55], [2.9, 6.2, 0.6], [-0.6, 9.0, 0.55], [4.4, 11.1, 0.6], [1.0, 12.6, 0.55], [5.0, 14.4, 0.5]],   // [x, z, r]; 0.9 m high
-  shed: { x0: -9.5, z0: 9.5, x1: -6.5, z1: 12.5, h: 2.5 },
-  woodpile: { x0: 6.0, z0: 11.6, x1: 7.6, z1: 12.4, h: 1.0 },
-  lowFence: { z: 10.0, x0: -6.2, x1: 12, gap: [1.0, 2.7], h: 0.8 },   // the garden's low fence across the yard, the path through its gap
+  bushes: [[-1.8, 2.8, 0.55], [3.6, 3.3, 0.6], [-1.0, 5.4, 0.55], [4.6, 7.4, 0.6], [0.2, 8.0, 0.55], [6.8, 3.0, 0.5]],   // [x, z, r]; 0.9 m high
+  shed: { x0: -9.5, z0: 5.0, x1: -6.5, z1: 8.0, h: 2.5 },
+  woodpile: { x0: 9.2, z0: 6.6, x1: 10.8, z1: 7.4, h: 1.0 },
+  lowFence: { z: 6.4, x0: -6.0, x1: 8.0, gap: [1.0, 2.6], h: 0.8 },   // the garden's low fence across the yard, the path through its gap
 };
 
 const COL = {
-  road: 0x2a2c31, kerb: 0x4a4b4f, hedge: 0x1c3324, hedgeTop: 0x23402c, shed: 0x4a3a2e, shedRoof: 0x2c2628,
-  logs: 0x5a4434, logEnd: 0x8a6e52, low: 0x4a3e33,
+  road: 0x2a2c31, apron: 0x33353a, shed: 0x4a3a2e, shedRoof: 0x2c2628,
+  logs: 0x5a4434, logEnd: 0x8a6e52, low: 0x4a3e33, board: 0x4a3c30, cap: 0x2f2620,
 };
 
 // S, G: the static and the glow Builders; C: level.js's palette; solid(x0, z0, x1, z1, h, top):
 // a body box + furniture for line of sight; both(x0, z0, x1, z1): the walls-only world too (sound,
 // sight, thrown loot); furniture: the level's list (the van goes in). Returns the van's cargo floor.
 export function buildYard({ S, G, C, solid, both, furniture, world }) {
-  // ---------- the yard's fences: the old lot, the south side with the gate ----------
-  const rails = (x0, z0, x1, z1) => {   // two rails, as level.js's fence
-    const alongX = z0 === z1;
-    for (const y of [0.45, 1.0]) {
-      if (alongX) S.box(x0, y, z0 - 0.03, x1, y + 0.1, z0 + 0.03, C.fence);
-      else S.box(x0 - 0.03, y, z0 + 0.03, x0 + 0.03, y + 0.1, z1 - 0.03, C.fence);
-    }
-    both(Math.min(x0, x1) - 0.05, Math.min(z0, z1) - 0.05, Math.max(x0, x1) + 0.05, Math.max(z0, z1) + 0.05);
+  // ---------- the fence: solid boards, taller than a person, round the whole yard; one gap, the gate ----------
+  // Every piece is a thin slab (it stops bodies, sight, sound and thrown loot: `both`), a cap board on top
+  // and a post every 3 m. The side slabs stop at the south slab's face (no two tops in one place).
+  const T = 0.06, Y0 = -20, YS = YARD_FENCE_Z, post = (x, z) => S.boxAt(0.2, FENCE_H + 0.15, 0.2, x, 0, z, C.woodDark);
+  const slabX = (z, x0, x1) => {   // along X
+    S.box(x0, 0, z - T, x1, FENCE_H, z + T, COL.board); S.box(x0, FENCE_H, z - 0.12, x1, FENCE_H + 0.07, z + 0.12, COL.cap);
+    both(x0, z - T, x1, z + T);
   };
-  const postsX = (z, x0, x1) => { for (let x = x0; x <= x1 + 0.01; x += 2) S.boxAt(0.1, 1.2, 0.1, x, 0, z, C.fence); };
-  const postsZ = (x, z0, z1) => { for (let z = z0 + 2; z <= z1 - 1.99; z += 2) S.boxAt(0.1, 1.2, 0.1, x, 0, z, C.fence); };
-  const Y0 = -20, YS = YARD_FENCE_Z;
-  postsX(Y0, -16, 16); rails(-16, Y0, 16, Y0);                                         // north
-  postsZ(-16, Y0, YS); rails(-16, Y0, -16, YS); postsZ(16, Y0, YS); rails(16, Y0, 16, YS);   // west, east
-  postsX(YS, -16, 16);                                                                  // south: the gate between two of its posts
-  rails(-16, YS, GATE.x0, YS); rails(GATE.x1, YS, 16, YS);
-  for (const x of [GATE.x0, GATE.x1]) S.boxAt(0.12, 1.3, 0.12, x, 0, YS, C.fence);     // the gate's own posts
-  S.box(GATE.x0 + 0.06, 0.1, YS - 1.3, GATE.x0 + 0.1, 1.05, YS - 0.06, C.fence);       // its leaf, swung into the yard
-  // the street's sides and the far side (the neighbours' fences)
-  postsZ(-16, YS, LOT.maxZ - 1); rails(-16, YS, -16, LOT.maxZ - 1); postsZ(16, YS, LOT.maxZ - 1); rails(16, YS, 16, LOT.maxZ - 1);
-  postsX(LOT.maxZ - 1, -16, 16); rails(-16, LOT.maxZ - 1, 16, LOT.maxZ - 1);
+  const slabZ = (x, z0, z1) => {   // along Z
+    S.box(x - T, 0, z0, x + T, FENCE_H, z1, COL.board); S.box(x - 0.12, FENCE_H, z0 + 0.06, x + 0.12, FENCE_H + 0.07, z1 - 0.06, COL.cap);   // ends 0.06 short: the next slab's cap (corner) is not in the same place
+    both(x - T, z0, x + T, z1);
+  };
+  slabX(Y0, -16, 16); slabZ(-16, Y0 + T, YS - T); slabZ(16, Y0 + T, YS - T);                       // north, west, east
+  slabX(YS, -16, GATE.x0); slabX(YS, GATE.x1, 16);                                                   // south, with the gate between
+  for (let x = -16 + 3; x < 16; x += 3) { post(x, Y0); if (Math.abs(x - GATE.x0) > 0.4 && Math.abs(x - GATE.x1) > 0.4) post(x, YS); }
+  for (let z = Y0 + 3; z < YS - 1; z += 3) { post(-16, z); post(16, z); }
+  for (const x of [GATE.x0, GATE.x1]) post(x, YS);                                                   // the gate's own posts
+  // the lane's edge: no walls (the owner took the wall behind the road away) — only a border nobody can cross
+  world.addBox(-16, 22, 16, 22.2); world.addBox(-16.2, YS + 0.06, -16, 22.2); world.addBox(16, YS + 0.06, 16.2, 22.2);
 
   // ---------- the garden path: stepping stones from the back step to the gate ----------
-  for (let i = 0; i < 16; i++) {
-    const t = i / 15, x = 0.6 * Math.sin(t * Math.PI) + 3.0 * t * t + Math.sin(i * 1.7) * 0.12, z = 0.9 + 14.0 * t;
+  for (let i = 0; i < 12; i++) {
+    const t = i / 11, x = 0.5 * Math.sin(t * Math.PI) + 3.0 * t * t + Math.sin(i * 1.7) * 0.1, z = 0.9 + 7.9 * t;
     S.boxAt(0.55, 0.03, 0.45, x, 0, z, C.path, i * 0.7);
   }
   // ---------- cover ----------
@@ -116,8 +114,8 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
       solid(a, F.z - 0.06, b, F.z + 0.04, F.h, null);
     }
   }
-  // trees in the yard and on the street ("behind the trees": one at the hedge's corner)
-  for (const [x, z, s] of [[-12, 10, 1], [-13, 3, 0.8], [12.5, 12, 1.1], [13, -4, 0.9], [-13, -12, 1.2], [11, -17, 1], [-6, 14.6, 0.9], [9.5, 14.2, 0.8], [15.3, 30.5, 1.1], [8.5, 30.8, 0.9], [-9, 25.5, 1], [4, 28.5, 1.2]]) {
+  // trees: in the yard and a few round the lane's end (nothing walks through them: the lane is a dead end)
+  for (const [x, z, s] of [[-12, 6, 1], [-13, 2, 0.8], [12.5, 5.5, 1.1], [13, -4, 0.9], [-13, -12, 1.2], [11, -17, 1], [-6, 19.5, 1], [1.5, 20.5, 1.2], [13.5, 17, 1.1], [-12, 14, 0.9]]) {
     S.cyl(0.12 * s, 0.18 * s, 1.6 * s, x, 0, z, C.bark, 6);
     S.cyl(0, 1.3 * s, 2.2 * s, x, 1.2 * s, z, C.leaves, 7);
     S.cyl(0, 1.0 * s, 1.8 * s, x, 2.4 * s, z, C.leaves2, 7);
@@ -127,24 +125,15 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
   for (const x of [-8, -4.5, 4, 8]) { S.cyl(0.5, 0.6, 0.8, x, 0, 0.8, C.leaves2, 7); solid(x - 0.5, 0.3, x + 0.5, 1.3, 0.8, null); }
   S.box(-0.9, 0, 0.15, 0.9, 0.18, 0.7, C.stone); // back step
 
-  // ---------- the street ----------
-  S.box(-15.9, 0, STREET.minZ, 15.9, 0.02, STREET.maxZ, COL.road);
-  S.box(-15.9, 0, STREET.minZ - 0.25, 15.9, 0.08, STREET.minZ, COL.kerb);
-  for (let x = -14; x <= 14; x += 4) S.box(x - 0.9, 0.02, 19.75, x + 0.9, 0.025, 19.85, 0x8a8c80);   // the centre line
-  // the hedge: the van waits behind it, in the lane east of its end
-  for (const [a, b] of [[-15.9, HEDGE.gapX]]) {
-    S.box(a, 0, HEDGE.z0, b, HEDGE.h - 0.1, HEDGE.z1, COL.hedge);
-    S.box(a + 0.05, HEDGE.h - 0.1, HEDGE.z0 + 0.05, b - 0.05, HEDGE.h, HEDGE.z1 - 0.05, COL.hedgeTop);
-    both(a, HEDGE.z0, b, HEDGE.z1);
-  }
+  // ---------- the lane behind the gate: an apron along the fence and a dead-end lane south of it ----------
+  S.box(2.0, 0, YS + 0.1, LANE.x1, 0.02, LANE.z0, COL.apron);
+  S.box(LANE.x0, 0, LANE.z0, LANE.x1, 0.02, LANE.z1, COL.road);
   // ---------- the lamps (the porch and the gate: on the wall / a short post) ----------
-  S.cyl(0.05, 0.07, 2.9, 1.6, 0, 7.6, C.pole, 6); S.boxAt(0.3, 0.25, 0.3, 1.6, 2.9, 7.6, C.pole);   // the garden path lamp
-  G.box(1.47, 2.92, 7.47, 1.73, 3.12, 7.73, 0xffd9a0);
-  solid(1.5, 7.5, 1.7, 7.7, 3, null);
+  lampPost(S, G, solid, 2.6, 4.4, 2.9);                                                  // the garden path lamp
   G.box(-0.15, 2.3, 0.16, 0.15, 2.45, 0.24, 0xffd9a0);                                   // the porch lamp over the door
   S.box(-0.2, 2.25, 0.15, 0.2, 2.3, 0.3, C.pole);
-  lampPost(S, G, solid, 4.4, 15.4, 2.2);                                                 // at the gate (inside)
-  lampPost(S, G, solid, -1.5, 22.9, 3.4);                                                // the street lamp
+  lampPost(S, G, solid, 5.0, 7.6, 2.2);                                                  // at the gate (inside)
+  lampPost(S, G, solid, 4.4, 12.6, 3.4);                                                 // the lane's lamp
 
   // ---------- the van and the board ----------
   const V = van(S, G, VAN.x, VAN.z, VAN.yaw);
