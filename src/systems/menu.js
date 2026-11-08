@@ -93,7 +93,7 @@ function renderLurkers() {
     const card = document.createElement('div');
     card.className = 'lcard' + (c.met ? '' : ' locked'); card.dataset.lurker = c.id;
     const b = document.createElement('b'); b.textContent = c.name; card.append(b);
-    for (const line of c.met ? [`${Lb.wants}: ${c.wants}`, `${Lb.warns}: ${c.warns}`, `${Lb.avoid}: ${c.avoid}`] : [S.lurkers.lockedHint]) {
+    for (const line of c.met ? [`${Lb.wants}: ${c.wants}`, `${Lb.warns}: ${c.warns}`, `${Lb.avoid}: ${c.avoid}`] : [c.hint || S.lurkers.lockedHint]) {
       const s = document.createElement('span'); s.textContent = line; card.append(s);
     }
     box.append(card);

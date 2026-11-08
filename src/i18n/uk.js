@@ -1085,6 +1085,13 @@ export default {
     met: (n, total) => `зустрів ${n} з ${total}`,
     locked: '???',
     lockedHint: 'Картка відкриється після першої зустрічі.',
+    // where to meet one not met yet: the house and the level it wakes on (no name, no habits: no spoilers);
+    // the others are not in any house yet (the cards are a promise of the next waves)
+    where: {
+      wardrobe: 'Дача, з рівня 3. Прислухайся до шафи.',
+      whisperer: 'Дача, з рівня 5. Подивись біля каміна.',
+    },
+    notYet: 'Ще не оселилося в жодному будинку.',
     noMic: 'Без мікрофона Шепотун і Гучник сплять.',
     labels: { wants: 'Хоче', warns: 'Попереджає', avoid: 'Як обійти' },
     // У релізі відкриваються wardrobe і whisperer; решта — «???», доки не з'явиться вид

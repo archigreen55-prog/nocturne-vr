@@ -412,7 +412,13 @@ test('net: the host picks the level and the difficulty in the room, the guest se
   const g = await guest.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, text: document.querySelector('#netchoice').textContent, pick: document.querySelector('#netpick').hidden }));
   assert.equal(g.c, pick.id, 'the guest plays the host’s contract');
   assert.equal(g.d, 'hard');
-  assert.equal(g.pick, true, 'a guest has no buttons to pick');
+  assert.equal(g.pick, false, 'a guest sees the cards');
+  const gv = await guest.page.evaluate(() => ({ off: [...document.querySelectorAll('#netlevels .lv-card, #netdiffs button')].every((b) => b.disabled), on: document.querySelector('#netlevels .lv-card.on').dataset.level, amber: getComputedStyle(document.querySelector('#netlevels .lv-card.on')).backgroundColor, goal: document.querySelector('#netgoal').textContent, hostGoal: null }));
+  assert.equal(gv.off, true, 'none of the guest’s cards or difficulty buttons can be pressed');
+  assert.equal(gv.on, pick.id, 'the host’s choice is lit on the guest’s cards');
+  assert.equal(gv.amber, 'rgb(255, 179, 71)', 'in amber');
+  const hg = await host.page.evaluate(() => document.querySelector('#netgoal').textContent);
+  assert.ok(/^Мета: .+/.test(gv.goal) && gv.goal === hg, `the goal line, the same for both: ${gv.goal} / ${hg}`);
   assert.ok(g.text.startsWith('Хост обрав: ') && g.text.includes(pick.t) && /важк/i.test(g.text), g.text);
   assert.deepEqual(host.errors, []); assert.deepEqual(guest.errors, []);
   await ctx.close();

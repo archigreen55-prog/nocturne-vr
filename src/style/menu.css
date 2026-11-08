@@ -306,6 +306,14 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
   #overlay .nt-start { min-height: 50px; font-size: 19px; }
 }
 @media (max-width: 640px) and (orientation: portrait) { .nt-room, .nt-out { grid-template-columns: 1fr; } }
+/* a guest's cards: the same look as the host's, only not pressable (the chosen one in amber) */
+#overlay .lv-pick.ro .lv-card:disabled:not(.locked) { opacity: 1; cursor: default; }
+#overlay .lv-pick.ro .lv-card.on:disabled { background: var(--lamp); }
+.lv-pick.ro .lv-stars { visibility: hidden; }   /* the stars are the guest's own, not the host's */
+#overlay .seg button:disabled { opacity: 1; cursor: default; }
+#overlay .seg button.on:disabled { background: var(--lamp); color: var(--ink2); }
+.nt-goal { margin: 0; font: 700 14px system-ui, sans-serif; color: var(--paper); }
+.nt-goal:empty { display: none; }
 /* the way in: the thief and the name on the left, the two big buttons on the right (one screen on a phone) */
 #netbox:not(.in-room) { display: grid; grid-template-columns: minmax(0, auto) minmax(240px, 1fr); gap: 0 16px; align-items: start; }
 #netbox:not(.in-room) > * { grid-column: 1 / -1; }

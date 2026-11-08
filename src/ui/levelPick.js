@@ -11,12 +11,15 @@ export class LevelPick {
     root.classList.add('lv-pick');
   }
 
-  show(groups) {
+  // readOnly (a guest in the room): the same cards, none pressable; the host's choice lit in amber
+  show(groups, readOnly = false) {
+    this.root.classList.toggle('ro', !!readOnly);
     const sig = JSON.stringify(groups.map((g) => [g.map, g.note, g.levels.map((l) => [l.id, l.name, l.locked, l.stars])]));
     if (sig !== this.sig) { this.sig = sig; this.build(groups); }
     for (const g of groups) for (const l of g.levels) {
       const b = this.root.querySelector(`[data-level="${CSS.escape(l.id)}"]`);
       if (!b) continue;
+      b.disabled = readOnly || !!l.locked;
       b.classList.toggle('on', !!l.current);
       if (l.current && !b.dataset.shown && b.offsetParent) { b.dataset.shown = '1'; try { b.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch { /* old browsers */ } }
       b.setAttribute('aria-pressed', l.current ? 'true' : 'false');

@@ -39,6 +39,7 @@ export class Lobby {
         </div>
         <div id="netsetup" class="nt-right">
           <p class="nt-h">${esc(S.net.mission)}</p>
+          <p id="netgoal" class="nt-goal"></p>
           <div id="netpick"><div id="netlevels"></div><div class="seg" id="netdiffs"></div></div>
           <p id="netchoice" class="nt-choice"></p>
           <div class="nt-acts"><button id="nethouse" type="button" class="nt-small"></button></div>
@@ -96,24 +97,24 @@ export class Lobby {
   showSetup(st) {
     const q = (id) => this.root.querySelector('#' + id);
     const host = st.role === 'host', pick = q('netpick'), choice = q('netchoice');
-    pick.hidden = !host;
     const start = q('netstart'), house = q('nethouse');
     start.hidden = house.hidden = !host; q('netwait').hidden = host;
     start.disabled = !st.canStart;
     if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
     choice.textContent = host ? '' : st.choice || '';   // the host sees its choice on the cards
-    if (!host) return;
+    q('netgoal').textContent = st.goal || '';   // the goal of the chosen level, for the host and the guests
     if (!this.pick) this.pick = new LevelPick(q('netlevels'), (id) => this.on.pickLevel && this.on.pickLevel(id));
-    this.pick.show(st.levels || []);
+    this.pick.show(st.levels || [], !host);   // a guest sees the same cards, none pressable
     const sig = JSON.stringify((st.diffs || []).map((d) => d.id));
     if (sig !== this.built) {
       this.built = sig;
       const df = q('netdiffs');
       df.replaceChildren();
-      for (const d of st.diffs || []) { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = d.id; b.textContent = d.name; bindPress(b, () => this.on.pickDiff && this.on.pickDiff(d.id)); df.append(b); }
+      for (const d of st.diffs || []) { const b = document.createElement('button'); b.type = 'button'; b.dataset.id = d.id; b.textContent = d.name; bindPress(b, () => { if (!b.disabled && this.on.pickDiff) this.on.pickDiff(d.id); }); df.append(b); }
     }
     for (const b of q('netdiffs').children) {
       const d = (st.diffs || []).find((x) => x.id === b.dataset.id) || {};
+      b.disabled = !host;
       b.classList.toggle('on', !!d.current); b.setAttribute('aria-pressed', d.current ? 'true' : 'false');
     }
   }
