@@ -39,8 +39,13 @@ export const phoneCtx = (ua, extra = {}) => ({ ...devices['Pixel 7'], userAgent:
 export async function open(ctx, url) {
   const page = await ctx.newPage();
   const errors = watchErrors(page);
-  await page.goto(url);
-  await page.waitForFunction(() => window.__game, null, { timeout: 30000, polling: 200 });
+  // domcontentloaded, not the full load: with 2–4 pages of software-WebGL on one machine the second
+  // page's load event took 26+ s (the fonts finished last, at 4.4 s) and even dcl took 21.7 s — the
+  // 30 s goto timed out (T4b, T3). Both waits get 90 s: a third page's module scripts starve behind
+  // two pages already in a round, and dcl fires before the game is up anyway (i18n has top-level
+  // await, so __game can trail dcl). The readiness gate itself (window.__game) stays the same.
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await page.waitForFunction(() => window.__game, null, { timeout: 90000, polling: 200 });
   return { page, errors };
 }
 export const modeOf = (page) => page.evaluate(() => ({ ...window.__game.MODE }));
