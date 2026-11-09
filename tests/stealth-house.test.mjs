@@ -148,8 +148,10 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
   });
   assert.ok(big, 'the dacha has a two-handed item');
   await page.evaluate(() => { const g = window.__game; g.player.teleport(4.0, -13.35, 0); g.sim(0.1); });
-  await page.keyboard.press('KeyE'); await settle(page);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => /великою/.test(window.__game.flashText), null, { timeout: 5000 }).catch(() => {});   // the message, before anything else can replace it
   const bigR = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), flash: window.__game.flashText, held: !!window.__game.hands.desk }));
+  await settle(page);
   assert.ok(bigR.z > -14, `with a big item you stay inside: ${JSON.stringify(bigR)}`);
   assert.match(bigR.flash, /великою/, 'and it says why');
   assert.equal(bigR.held, true, 'the item is still in hands');
