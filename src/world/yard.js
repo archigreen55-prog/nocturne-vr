@@ -54,7 +54,7 @@ export const COVER = {
   bushes: [[-1.8, 2.8, 0.55], [3.6, 3.3, 0.6], [-1.0, 5.4, 0.55], [4.6, 7.4, 0.6], [0.2, 8.0, 0.55], [6.8, 3.0, 0.5]],   // [x, z, r]; 0.9 m high
   shed: { x0: -9.5, z0: 5.0, x1: -6.5, z1: 8.0, h: 2.5 },
   woodpile: { x0: 9.2, z0: 6.6, x1: 10.8, z1: 7.4, h: 1.0 },
-  barrel: { x: -4.0, z: 1.9, r: 0.42, h: 1.0 },                        // a rain barrel and crates by the porch, where a standing thief is seen most
+  barrel: { x: -5.6, z: 1.9, r: 0.42, h: 1.0 },                        // a rain barrel and crates by the porch, where a standing thief is seen most
   crates: { x0: 4.7, z0: 1.2, x1: 5.6, z1: 2.1, h: 1.1 },
   lowFence: { z: 6.4, x0: -6.0, x1: 8.0, gap: [1.0, 2.6], h: 0.8 },   // the garden's low fence across the yard, the path through its gap
 };

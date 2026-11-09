@@ -97,7 +97,7 @@ async function picture(step) {
     // the camera follows the player in the frame loop (stopped here): update the pose by hand
     const pose = () => { g.sim(1 / 72); g.scene.updateMatrixWorld(true); };   // one step: the pose, the flashlight's room mask (the round is not running: nothing moves)
     // 1. lit and dark: from the yard, the lamp-lit path and the dark house front
-    g.player.teleport(4.4, 9.5, 0.35); g.player.lookPitch = -0.25; pose();
+    g.player.teleport(3.2, 8.2, 0.35); g.player.lookPitch = -0.25; pose();
     let L = shot();
     out.lit = pct(L, 0.95); out.dark = pct(L, 0.25);
     // 2. the guard's flashlight: stand 1.2 m behind the guard, look along the beam; with and without it (cone + spot)
@@ -111,14 +111,14 @@ async function picture(step) {
     g.patrol.beam.visible = true; g.patrol.spot.intensity = spotI;
     ({ c: out.beam, px: out.beamPx } = weber(withBeam, noBeam));
     // 3. a noise ripple on the open yard ground, 2.5 m in front of the player, looking down at it
-    g.player.teleport(4.4, 9.5, 0.35); g.player.lookPitch = -0.6; pose();
+    g.player.teleport(3.2, 8.2, 0.35); g.player.lookPitch = -0.6; pose();
     const h = g.player.head, fwdX = -Math.sin(g.player.yaw), fwdZ = -Math.cos(g.player.yaw);
     const noRipple = shot(() => { g.noise.clear(); g.noise.update(0); });
     const ripple = shot(() => { g.noise.ripples.push({ x: h.x + fwdX * 2.5, y: 0.01, z: h.z + fwdZ * 2.5, r: 1.8, t: 0, color: 0x6f9fd8 }); g.noise.update(0.1); });
     g.noise.clear(); g.noise.update(0);
     ({ c: out.ripple, px: out.ripplePx } = weber(ripple, noRipple));
     // 4. the window / lamp glow, seen from the yard
-    g.player.teleport(4.4, 9.5, 0.35); g.player.lookPitch = -0.1; pose();
+    g.player.teleport(3.2, 8.2, 0.35); g.player.lookPitch = -0.1; pose();
     const glowMesh = g.level.group.getObjectByName('glow');
     const withGlow = shot();
     const noGlow = shot(() => { glowMesh.visible = false; });
