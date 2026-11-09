@@ -223,13 +223,15 @@ test('notes (this device only): E facing the fridge reads «Блюдце не ч
   await page.waitForFunction(() => window.__game.playing);
   const prep = () => page.evaluate(() => { const g = window.__game; for (const p of g.guards) p.update = () => null; for (const l of g.lurkers) l.update = () => {}; g.player.teleport(0, -2.5, 0); g.sim(0.3); });
   await prep();
+  await page.waitForFunction(() => window.__game.round.phase !== 'ready', null, { timeout: 8000 });   // the clock has started («Годинник пішов!» is already said: it must not come after the note)
   await standFacing(page, -9.13, -0.75, 0.9, Math.PI / 2);
   await page.waitForTimeout(200);
   const before = await page.evaluate(async () => {
     const S = await import('./src/systems/story.js');
     return { aimed: S.aimedNote() && S.aimedNote().id, total: window.__game.loot.tally().total, label: document.querySelector('#touch .act') ? 'phone' : 'pc' };
   });
-  await page.keyboard.press('KeyE'); await page.waitForTimeout(300);
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => /Записка/.test(window.__game.flashText), null, { timeout: 8000 }).catch(() => {});   // (a frame takes longer in software rendering)
   const after = await page.evaluate(async () => {
     const g = window.__game, St = await import('./src/game/story.js'), S = await import('./src/systems/story.js');
     const fridge = g.scene.getObjectByName('note: saucer');
