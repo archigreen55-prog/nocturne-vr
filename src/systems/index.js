@@ -49,6 +49,9 @@ import { menu } from './menu.js';
 import { campaign } from './campaign.js';
 import { humanGuard } from './humanGuard.js';
 import { backWindow } from './backWindow.js';
+import { puddles } from './puddles.js';
+import { placeSound } from './placeSound.js';
+import { yardGuide } from './yardGuide.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -72,6 +75,7 @@ export const SYSTEMS = [
   trapsSystem,   // W2b: traps from the van (placing, springing, the alarm clock), mischief points and combos
   distract,      // W2a: throwing (phone, PC: aim, arc), the devices (radio, phone, breaker), a can on the guard's head
   campaign,      // W19: what this level has (cans, devices), the board's note and its buttons
+  puddles,       // the dacha's puddles: a step in one splashes (noise + sound, after the player's step, before the guard hears)
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
   board,         // present: the board
   panel,         // frame: wrist panel / HUD
@@ -85,6 +89,8 @@ export const SYSTEMS = [
   guards,        // W6: the second guard (its step of the frame, its lamp's mask) and the radio chatter between the two
   brightness,    // display brightness and «Надворі» (phone, PC): the picture only
   humanGuard,    // W15: «За сторожа» — the guard's pose and view, the bench, who won (after net and guards)
+  placeSound,    // the dacha's ambience (headphones / no microphone only)
+  yardGuide,     // level 0: chalk arrows, the beacon over the gate, the gate's hint
 ];
 
 export const PHASES = ['pre', 'input', 'act', 'world', 'result', 'present'];

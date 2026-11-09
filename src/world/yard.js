@@ -6,6 +6,7 @@
 // From the van: the gate -> the garden (bushes, a low fence, the shed, the woodpile: cover; the lamps:
 // circles where you are seen) -> the house. The guard comes out to the porch and the front of the garden
 // (LEASH: enemies/patrol.js, systems/humanGuard.js) — not to the gate. tests/yard.test.mjs checks it.
+// The gate itself is a door (creaks like one when swung quickly, silent when slow); the test opens it.
 //
 // Axes as in level.js: +X east, -Z north (the house: z -14..0, front door at x 0), +Z south.
 // The house itself (walls, rooms, doors, windows) stays in level.js; this file is everything outside it.
@@ -14,7 +15,7 @@ import { lampPost, van } from './kit.js';
 export const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 22 };   // the collision worlds' bounds
 export const YARD_FENCE_Z = 9;                                      // the yard's south fence (with the gate)
 export const FENCE_H = 2.2;                                         // solid, taller than a person
-export const GATE = { x0: 2.3, x1: 3.7, z: YARD_FENCE_Z };          // the wicket gate's opening
+export const GATE = { x0: 2.4, x1: 3.6, z: YARD_FENCE_Z };          // the wicket gate's opening (its posts take 0.1 m each side: a 1.0 m leaf)
 export const LANE = { x0: 5.0, x1: 11.0, z0: 10.6, z1: 21.5 };      // the dead-end lane (asphalt); the apron along the fence is x 2..11, z 9.1..10.6
 // the van: its rear (open doors) to the north at z 11, the cab south; the ring right behind it
 export const VAN = { x: 8.0, z: 11.0, yaw: 0 };
@@ -53,6 +54,8 @@ export const COVER = {
   bushes: [[-1.8, 2.8, 0.55], [3.6, 3.3, 0.6], [-1.0, 5.4, 0.55], [4.6, 7.4, 0.6], [0.2, 8.0, 0.55], [6.8, 3.0, 0.5]],   // [x, z, r]; 0.9 m high
   shed: { x0: -9.5, z0: 5.0, x1: -6.5, z1: 8.0, h: 2.5 },
   woodpile: { x0: 9.2, z0: 6.6, x1: 10.8, z1: 7.4, h: 1.0 },
+  barrel: { x: -5.6, z: 1.9, r: 0.42, h: 1.0 },                        // a rain barrel and crates by the porch, where a standing thief is seen most
+  crates: { x0: 4.7, z0: 1.2, x1: 5.6, z1: 2.1, h: 1.1 },
   lowFence: { z: 6.4, x0: -6.0, x1: 8.0, gap: [1.0, 2.6], h: 0.8 },   // the garden's low fence across the yard, the path through its gap
 };
 
@@ -82,8 +85,24 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
   for (let x = -16 + 3; x < 16; x += 3) { post(x, Y0); if (Math.abs(x - GATE.x0) > 0.4 && Math.abs(x - GATE.x1) > 0.4) post(x, YS); }
   for (let z = Y0 + 3; z < YS - 1; z += 3) { post(-16, z); post(16, z); }
   for (const x of [GATE.x0, GATE.x1]) post(x, YS);                                                   // the gate's own posts
-  // the lane's edge: no walls (the owner took the wall behind the road away) — only a border nobody can cross
-  world.addBox(-16, 22, 16, 22.2); world.addBox(-16.2, YS + 0.06, -16, 22.2); world.addBox(16, YS + 0.06, 16.2, 22.2);
+  S.box(GATE.x0, 2.1, YS - T, GATE.x1, FENCE_H, YS + T, COL.board);                                  // over the leaf (sight is the leaf's: not a wall)
+  S.box(GATE.x0, FENCE_H, YS - 0.12, GATE.x1, FENCE_H + 0.07, YS + 0.12, COL.cap);
+  // the lane's edge: no wall behind the road (the owner took it away). A row of shrubs closes the lane's end and
+  // both sides (you walk into a bush, not into thin air), the bins stand at the lane's end, the neighbours' houses
+  // stand dark beyond (decor, no collision). Under the shrubs the same bodies as before: nobody can cross.
+  world.addBox(-16, 22.3, 16, 22.5); world.addBox(-16.4, YS + 0.06, -16.1, 22.5); world.addBox(16.1, YS + 0.06, 16.4, 22.5);
+  const shrub = (x, z, r) => { S.cyl(r * 0.8, r, 1.5, x, 0, z, C.leaves2, 7); S.cyl(0, r * 0.75, 0.6, x, 1.4, z, C.leaves, 7); solid(x - r * 0.75, z - r * 0.75, x + r * 0.75, z + r * 0.75, 1.6, null); };
+  for (let x = -15.2; x <= 15.3; x += 1.5) shrub(x, 22.0 + 0.15 * Math.sin(x * 2.3), 0.72 + 0.08 * Math.sin(x * 5.1));
+  for (let z = YS + 1.2; z <= 21.2; z += 1.5) { shrub(-15.6, z, 0.72 + 0.08 * Math.sin(z * 4.1)); shrub(15.6, z, 0.72 + 0.08 * Math.sin(z * 3.3)); }
+  for (const [x, z, ry] of [[6.2, 20.4, 0.2], [10.0, 20.9, -0.15]]) {   // the neighbours' wheelie bins at the lane's end
+    S.boxAt(0.6, 0.95, 0.7, x, 0, z, 0x2e5a46, ry); S.boxAt(0.66, 0.08, 0.76, x, 0.95, z, 0x23473a, ry);
+    solid(x - 0.4, z - 0.45, x + 0.4, z + 0.45, 1.0, null);
+  }
+  // the neighbours' houses beyond the shrubs: dark blocks with a few warm windows, only to be seen
+  for (const [x0, x1, z0, h, win] of [[-14.5, -5.5, 26, 5.5, [[-12, 3.2], [-8, 3.2]]], [-1.5, 6.5, 29, 6.5, [[1.5, 3.8]]], [11.5, 19.5, 27, 5.2, [[15, 3.0], [18, 3.0]]], [-22, -17, 12, 5, [[-17.1, 3.0]]]]) {
+    S.box(x0, 0, z0, x1, h, z0 + 8, 0x1d2230); S.box(x0 - 0.3, h, z0 - 0.3, x1 + 0.3, h + 0.5, z0 + 8.3, 0x15181f);
+    for (const [wx, wy] of win) G.box(wx - 0.4, wy - 0.4, z0 - 0.01, wx + 0.4, wy + 0.4, z0 + 0.01, 0x8a6a40);   // a hair into the wall: it is part of it
+  }
 
   // ---------- the garden path: stepping stones from the back step to the gate ----------
   for (let i = 0; i < 12; i++) {
@@ -100,6 +119,16 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
     solid(B.x0, B.z0, B.x1, B.z1, B.h, null);
   }
   {
+    const B = COVER.barrel;   // the rain barrel (a dark water ring on top)
+    S.cyl(B.r, B.r * 1.05, B.h, B.x, 0, B.z, 0x4b3a2c, 10); S.cyl(B.r * 0.86, B.r * 0.86, 0.04, B.x, B.h, B.z, 0x1c2a3a, 10); S.cyl(B.r * 1.08, B.r * 1.08, 0.05, B.x, 0.5, B.z, 0x2a2420, 10);
+    solid(B.x - B.r * 0.85, B.z - B.r * 0.85, B.x + B.r * 0.85, B.z + B.r * 0.85, B.h, null);
+    const K = COVER.crates;   // two stacked crates
+    const mx = (K.x0 + K.x1) / 2, mz = (K.z0 + K.z1) / 2;
+    S.box(K.x0, 0, K.z0, mx + 0.05, 0.55, K.z1, 0x6e5238); S.box(mx + 0.05, 0, K.z0 + 0.1, K.x1, 0.55, K.z1 - 0.1, 0x5e452f);
+    S.box(K.x0 + 0.1, 0.55, K.z0 + 0.1, K.x1 - 0.2, K.h, K.z1 - 0.1, 0x7a5c40);
+    solid(K.x0, K.z0, K.x1, K.z1, K.h, null);
+  }
+  {
     const W = COVER.woodpile;   // the woodpile: a crouching thief behind it is hidden
     S.box(W.x0, 0, W.z0, W.x1, 0.95, W.z1, COL.logs);
     S.box(W.x0 + 0.05, 0.95, W.z0 + 0.05, W.x1 - 0.05, 1.0, W.z1 - 0.05, COL.logEnd);
@@ -114,7 +143,7 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
       solid(a, F.z - 0.06, b, F.z + 0.04, F.h, null);
     }
   }
-  // trees: in the yard and a few round the lane's end (nothing walks through them: the lane is a dead end)
+  // trees: in the yard and a few outside the fence
   for (const [x, z, s] of [[-12, 6, 1], [-13, 2, 0.8], [12.5, 5.5, 1.1], [13, -4, 0.9], [-13, -12, 1.2], [11, -17, 1], [-6, 19.5, 1], [1.5, 20.5, 1.2], [13.5, 17, 1.1], [-12, 14, 0.9]]) {
     S.cyl(0.12 * s, 0.18 * s, 1.6 * s, x, 0, z, C.bark, 6);
     S.cyl(0, 1.3 * s, 2.2 * s, x, 1.2 * s, z, C.leaves, 7);
@@ -146,5 +175,7 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
     S.cyl(0.25, 0.25, 0.03, bx, 0, bz, C.pole, 10);
     solid(bx - 0.25, bz - 0.25, bx + 0.25, bz + 0.25, 1.9, null);
   }
-  return { cargo: { ...V.cargo, rear: 'min' } };
+  // the gate: a leaf of the fence's own boards (world/level.js Door, `gate`: its creak, no trap, the guards never use it)
+  const gateSpec = { axis: 'x', hx: GATE.x0 + 0.1, hz: YS, w: GATE.x1 - GATE.x0 - 0.2, locked: false, gate: true, y0: 0, floor: 0, color: COL.board };
+  return { cargo: { ...V.cargo, rear: 'min' }, gateSpec };
 }

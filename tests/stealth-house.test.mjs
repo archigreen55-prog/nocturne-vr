@@ -81,7 +81,7 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
     return { windows: w.map((d) => [+d.cx.toFixed(2), +d.cz.toFixed(2), +d.y0.toFixed(2), d.locked, d.open]), doors: L.doors.length, room: L.roomAt(4, -13.3), behind: L.roomAt(4, -14.6) };
   });
   assert.deepEqual(info.windows, [[4, -14, 0.9, false, false]], 'one closed window in the north wall: ' + JSON.stringify(info));
-  assert.equal(info.doors, 9);
+  assert.equal(info.doors, 9 + 1, 'the house’s doors, the back window and the yard’s gate (world/yard.js)');
   assert.equal(info.room, 'Вітальня');
 
   // a quick swing (T): opens, a quiet creak (a door's quick swing is ~8 m)

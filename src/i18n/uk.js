@@ -1284,6 +1284,10 @@ export default {
     hud: (n, m, ev) => `Сторож · спіймано ${n} з ${m} · ${ev ? 'Центральна: можна' : 'Центральна: спершу когось побач'}`,
     result: (won, n, saved) => `${won ? 'Сторож переміг' : 'Злодії втекли'} · спіймано: ${n} · збережено ${saved}`,
   },
+  // the dacha's yard (claude/dacha-yard-stage1): the gate
+  yard: {
+    gateHint: 'Хвіртка зачинена: відчини її, як двері. Швидко — скрипить, повільно — тихо',
+  },
   // the dacha's back window (the «stealth-house» branch)
   backWindow: {
     climb: 'Лізти у вікно',

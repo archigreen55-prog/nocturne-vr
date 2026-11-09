@@ -9,7 +9,7 @@ import { CFG } from '../config/index.js';
 const MAX = 24;
 const COLORS = {
   step: 0x6f9fd8, voice: 0xffd166, door: 0xc9a27a, drop: 0xff9f43, glass: 0xffffff, shout: 0xff4040,
-  run: 0xff7a1a, breath: 0xffd166, can: 0xffb347, device: 0xb48cff,
+  run: 0xff7a1a, breath: 0xffd166, can: 0xffb347, device: 0xb48cff, splash: 0x7fb8ff,
 };
 
 export class NoiseSystem {
@@ -35,7 +35,7 @@ export class NoiseSystem {
 
   on(fn) { this.listeners.push(fn); }
 
-  // kind: step | run | breath | voice | door | drop | glass | shout | can | device; source: 'player' | 'world' | 'patrol'
+  // kind: step | run | breath | voice | door | drop | glass | shout | can | device | splash; source: 'player' | 'world' | 'patrol'
   // device: the device making it (W2a: the guard goes to switch it off instead of looking around)
   // who: the player who made it (G.players; plan-multiplayer §4.1), null = this device's own player
   emit(x, z, radius, kind, { y = 0.03, source = 'player', ripple = true, device = null, who = null } = {}) {
