@@ -22,7 +22,7 @@ export const DROP = { x: 8.0, z: 10.2, r: 0.6, flyTime: 0.3 };     // CFG.dropZo
 export const VAN_ZONE = { x: 8.0, z: 10.2, r: 2.0 };                // CFG.round.vanZone («at the van»)
 export const CARGO = { minX: 7.1, maxX: 8.9, minZ: 11.05, maxZ: 14.55, y: 0.4, rear: 'min' };   // = kit.van's cargo (x 8, z 11, yaw 0)
 export const SPAWN = { x: 6.0, z: 10.6, yaw: -Math.PI / 2 };   // beside the ring, facing the board (contract menu); turned round it faces the house
-export const BOARD = { x: 10.2, z: 10.6, yaw: -Math.PI / 2 };   // scoreboard stand east of the van's rear, facing the spawn point
+export const BOARD = { x: 9.6, z: 10.6, yaw: -Math.PI / 2 };   // scoreboard stand east of the van's rear, facing the spawn point; 3.6 m from it: the finger's / pointer's reach is 4 m (ui/pointer.js MAX_DIST)
 // the guard goes no further south than this: the porch and the front of the garden — never the gate
 export const LEASH = { maxZ: 4.5 };
 
