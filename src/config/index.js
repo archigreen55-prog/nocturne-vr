@@ -25,6 +25,7 @@ import { story } from './story.js';
 import { campaign } from './campaign.js';
 import { humanGuard } from './humanGuard.js';
 import { backWindow } from './backWindow.js';
+import { puddle, gate, placeSound } from './placeSound.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
@@ -36,4 +37,5 @@ export const CFG = {
   story,   // W7
   campaign,   // W19
   backWindow,   // the dacha's back window
+  puddle, gate, placeSound,   // the dacha's yard: a puddle's splash, the gate, the place's sounds
 };

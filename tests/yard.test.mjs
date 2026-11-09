@@ -19,6 +19,7 @@ test('yard: the van is 10–15 m from the front door, in the lane behind the sol
   const r = await page.evaluate(() => {
     const g = window.__game, L = g.level, V = g.CFG.round.vanZone, D = g.CFG.dropZone, C = L.cargo, M = L.leash;
     const out = { id: L.id, leash: M && M.maxZ, ring: [D.x, D.z], zone: [V.x, V.z] };
+    for (const d of L.doors) if (d.gate) { d.angle = d.target = 1.4; d.update(0); }   // the worst case: the gate wide open (shut, it blocks the sight itself)
     out.dist = Math.hypot(D.x - 0, D.z - 0);   // from the front door (x 0, z 0)
     // the van: its cargo floor and body, a thief standing / crouching at the ring
     const targets = [];
