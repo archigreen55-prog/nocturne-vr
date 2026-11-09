@@ -625,6 +625,22 @@ export class Door {
     return 'open';
   }
 
+  // Open to `angle` rad in `time` s, away from (fromX, fromZ), without turning back an open one: the window's
+  // climb (systems/backWindow.js). A slow swing is silent (CFG.doors.creakFrom).
+  openTo(fromX, fromZ, angle, time) {
+    if (this.locked) return 'locked';
+    this.dragging = false;
+    let sign = Math.sign(this.angle) || Math.sign(this.target);
+    if (!sign) {
+      const nx = Math.cos(this.base + Math.PI / 2), nz = -Math.sin(this.base + Math.PI / 2);
+      sign = ((fromX - this.hx) * nx + (fromZ - this.hz) * nz) > 0 ? -1 : 1;
+    }
+    if (Math.abs(this.angle) >= angle - 0.02 && Math.sign(this.angle) === sign) { this.target = this.angle; return 'open'; }
+    this.target = sign * angle;
+    this.rate = Math.max(0.1, Math.abs(this.target - this.angle) / time);
+    return 'open';
+  }
+
   // Handle position (both sides share it in XZ), at 1 m height.
   handle(out) {
     const a = this.base + this.angle, d = this.w - 0.1;

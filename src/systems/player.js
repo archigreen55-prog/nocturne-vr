@@ -12,7 +12,7 @@ import { aimedDevice, useDevice } from './distract.js';
 import { aimedNote, readNote } from './story.js';
 import { placeAtDoor } from './traps.js';
 import { guardInteract, guardButton } from './humanGuard.js';
-import { windowAhead, startClimb, climbLabel } from './backWindow.js';
+import { windowAhead, startClimb, climbLabel, climbing } from './backWindow.js';
 import { S } from '../i18n/index.js';
 
 // A guest's E / «Взяти» / «Покласти»: the host decides (the item may be gone already); the item then
@@ -39,7 +39,7 @@ export const player = {
     else if (G.playingDesktop) {
       hands.aimDesk(player.head, player.yaw);
       // the context button: an item under the crosshair first, else a board button under it («Натиснути»)
-      if (ctl.interact) {
+      if (ctl.interact && !climbing()) {   // (not while climbing through the back window)
         const dev = aimedDevice();   // W2a: a device in front (nothing in hand, no item under the crosshair)
         const note = !hands.deskAim ? aimedNote() : null;   // W7: a note in front (read on this device only)
         if (note) readNote(note);
