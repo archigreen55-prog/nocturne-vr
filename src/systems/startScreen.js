@@ -27,6 +27,7 @@ import { beforeNow, storyReport } from './story.js';
 import { S } from '../i18n/index.js';
 import { renderPlayPage } from './playPage.js';
 import { whyClosed } from './levels.js';
+import { netReport } from './net.js';
 
 export function syncStartScreen() {
   const { contract, difficulty } = G;
@@ -76,6 +77,7 @@ export const reportText = () => {
       run: G.runStats && { ...G.runStats, vrRun: G.vrRun },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
       wallet: { ...wallet(), paid: undefined, openAll: openAll() },   // W3: cash, earned, spent, owned, the last entries
       distract: distractReport(), mischief: trapsReport(), story: storyReport() },   // W7: notes, cards, the whisperer, the crew's lines   // W2b: traps placed / sprung / avoided, points, combos, stock   // W2a: throws, hits, devices used, the windows they gave
+    net: netReport(),   // W8c: the room, directly or through TURN, the TURN permission
     screen: touch ? {
       ...screenState(), lookSpeed: optVal.look, breathMode: optVal.breath, hud: optVal.hud, paused: G.paused, pauses: pauseLog.slice(-10),
       feedback: G.feedback.state(), audioState: existingAudioContext() ? existingAudioContext().state : 'not started', audioSession: audioSessionState(),
