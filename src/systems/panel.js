@@ -24,6 +24,18 @@ export const panel = {
       if (st.hidden && !G.wasHidden && G.inVR) xrIn.pulse('left', 0.15, 20);   // a small tick: you are hidden
       if (st.hidden && !G.wasHidden && !G.paused) fx('hidden');
       G.wasHidden = st.hidden;
+      // The phone HUD's guard card: the nearest guard's id, re-aimed no more than once a second so the
+      // portrait does not flicker when two guards stand at the same distance (W6: the mansion's two)
+      G.cardGuardT = (G.cardGuardT || 0) - 0.1;
+      if (G.cardGuardT <= 0) {
+        G.cardGuardT = 1;
+        let best = null, bd = Infinity;
+        for (const g of (G.guards || [])) {
+          const d = Math.hypot(g.x - player.head.x, g.z - player.head.z, (g.y || 0) - (player.floorY || 0));
+          if (d < bd) { bd = d; best = g; }
+        }
+        G.cardGuard = best ? ((best.env.guard && best.env.guard.id) || 'petrovych') : null;
+      }
       G.guardLineT -= 0.1;
       // W7: who says it («Петрович: «…»»); the crew's yellow line when the guard is silent (systems/story.js)
       const guardName = (patrol.env.guard && patrol.env.guard.name) || S.guard.name;
@@ -44,6 +56,12 @@ export const panel = {
         gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),
         msg: G.flashT > 0 ? G.flashText : '', msgColor: G.flashColor,
         guardSpeech: G.guardLineT > 0, crewSpeech: !!crew, stance: player.crouched || player.virtualCrouch ? S.hud.crouched : S.hud.standing,
+        // the guard card: whose portrait (null = nobody / style off), the suspicion 0..100. Hidden in the
+        // human-guard mode (a plan decision: the suspicion there never counts, alert.js manualOnly) and
+        // on the summary screen.
+        guardCard: G.cardGuard || null,
+        suspicion: alert.suspicion,
+        susOn: G.role !== 'guard' && !G.humanGuard && round.phase !== 'result',
       };
       if (hud) hud.update(pnl, now); else wrist.draw(pnl);
       debugEl.style.display = wrist.showFps && !G.inVR ? 'block' : 'none';

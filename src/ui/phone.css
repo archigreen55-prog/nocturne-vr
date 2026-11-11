@@ -54,6 +54,13 @@ body.phone-playing { overscroll-behavior: none; }
 #hud .bar .fill { top: 3px; bottom: 3px; background: #5fd38d; }
 #hud .bar .tick { width: 2px; margin-left: -1px; background: #fff; opacity: .85; }
 #hud .micdb { font-size: 12px; font-weight: 600; color: #6f8396; }
+/* ---------- the guard's card in the top centre (the plan glm 2026-11-10): the nearest guard's
+   portrait + the suspicion scale 0..100; it leaves the joystick, the buttons, the microphone, the clock free */
+#hud .gsus { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 3px; }
+#hud .gsus .gsus-pic { width: 30px; height: 38px; flex: none; border-radius: 6px; border: 2px solid #05070d; box-sizing: border-box; background: #18223a; filter: drop-shadow(1px 1px 0 #05070d); }
+#hud .gsus .gsus-bar { position: relative; width: 84px; height: 12px; border-radius: 4px; overflow: hidden; background: #18223a; box-shadow: 0 0 0 1px #05070d; }
+#hud .gsus .gsus-bar i { position: absolute; top: 2px; bottom: 2px; left: 0; width: 0; border-radius: 2px; }
+body.outdoor #hud .gsus { background: rgba(0, 0, 0, .78); border-radius: 10px; padding: 4px 8px; }
 #hud .hud-msg { position: absolute; left: 50%; bottom: calc(var(--sb) + 2px); transform: translateX(-50%); max-width: 38vw; text-align: center; font-size: 16px; font-weight: 700; line-height: 1.25; padding: 4px 12px; border-radius: 10px; background: rgba(5, 8, 16, .45); }
 #edgeflash { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; }
 #pausemenu, #summary { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; touch-action: none;
