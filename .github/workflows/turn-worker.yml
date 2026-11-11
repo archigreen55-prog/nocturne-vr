@@ -1,0 +1,46 @@
+# W8c: the TURN Worker on Cloudflare (tools/turn-worker/). Deployed from main when its files change, or by
+# hand (Actions -> TURN Worker -> Run workflow). The four secrets come from Settings -> Secrets and variables
+# -> Actions (docs: guide-cloudflare-turn); without them the job only says so and succeeds — the game then
+# plays as before, with STUN only.
+name: TURN Worker (Cloudflare)
+
+on:
+  push:
+    branches: [main]
+    paths: ['tools/turn-worker/**', '.github/workflows/turn-worker.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turn-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TURN_KEY_ID: ${{ secrets.TURN_KEY_ID }}
+      TURN_KEY_API_TOKEN: ${{ secrets.TURN_KEY_API_TOKEN }}
+    steps:
+      - name: The secrets are there?
+        id: check
+        run: |
+          if [ -z "$CF_ACCOUNT" ] || [ -z "$CF_TOKEN" ] || [ -z "$TURN_KEY_ID" ] || [ -z "$TURN_KEY_API_TOKEN" ]; then
+            echo "::notice::TURN Worker not deployed: one of CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, TURN_KEY_ID, TURN_KEY_API_TOKEN is missing. The game plays without TURN."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ok == 'true'
+        with:
+          node-version: 20
+      - name: Deploy and check
+        if: steps.check.outputs.ok == 'true'
+        run: node tools/turn-worker/deploy.mjs

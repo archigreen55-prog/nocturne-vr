@@ -1172,6 +1172,7 @@ export default {
     },
     soloAfterLost: 'Грати самому',
     versionLine: (v) => `Версія гри: ${v}`,
+    link: { direct: 'напряму', turn: 'через TURN (Cloudflare)', mixed: 'частково через TURN', none: 'ще не з\'єдналось' },   // W8c: the report
     // T4: one room from the menu to the round
     mission: 'Місія',
     levelN: (n) => `Рівень ${n}`,
