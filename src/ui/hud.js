@@ -39,7 +39,7 @@ export class Hud {
         <div class="time"></div>
         <div class="alarm rev"></div>
         <div class="goal rev"></div>
-        <div class="gsus"><img class="gsus-pic" alt=""><span class="gsus-bar"><i></i></span></div>
+        <div class="gsus"><span class="gsus-ph"><img class="gsus-pic" alt=""><b class="gsus-mark"></b></span><span class="gsus-bar"><i></i></span></div>
       </div>
       <div class="hud-tr">
         <div class="miclabel"></div>
@@ -51,7 +51,7 @@ export class Hud {
     this.el = {
       eye: q('.hud-eye'), stance: q('.stance'), steps: q('.steps'), hold: q('.hold'), room: q('.room'),
       time: q('.time'), alarm: q('.alarm'), goal: q('.goal'),
-      gsus: q('.gsus'), gsusPic: q('.gsus-pic'), gsusFill: q('.gsus-bar i'),
+      gsus: q('.gsus'), gsusPh: q('.gsus-ph'), gsusPic: q('.gsus-pic'), gsusFill: q('.gsus-bar i'),
       miclabel: q('.miclabel'), micdb: q('.micdb'), bar: q('.bar'), fill: q('.fill'),
       zq: q('.zq'), zn: q('.zn'), zs: q('.zs'), tw: q('.tw'), ts: q('.ts'), msg: q('.hud-msg'),
     };
@@ -112,6 +112,7 @@ export class Hud {
         this.cache.gpic = src;
         this.attr('gsuspic', e.gsusPic, 'src', src);
         e.gsusPic.classList.toggle('gone', !src);   // the style off: the scale without the photo
+        e.gsusPh.classList.toggle('nopic', !src);   // ...and the «?» / «!» mark then sits beside the scale
       }
       // the minimal mode: it stays visible as long as there is something to hear (suspicion > 0 / checking)
       this.shown('gsus', e.gsus, src, now, sus > 0 || lvl > 0);

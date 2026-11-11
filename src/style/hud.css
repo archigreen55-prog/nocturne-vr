@@ -23,6 +23,8 @@ body:not(.outdoor) #hud .hud-tl:has(.hud-sub span:not(:empty)) { padding-bottom:
 #hud .gsus .gsus-bar i { background: #b07a2a; }
 #hud .gsus[data-lvl="2"] .gsus-bar i { background: #ff5468; }
 #hud .gsus[data-lvl="2"] .gsus-pic { border-color: #ff5468; }
+#hud .gsus[data-lvl="1"] .gsus-mark { color: #e0a64a; }
+#hud .gsus[data-lvl="2"] .gsus-mark { color: #ff5468; }
 
 /* the start screen's scale too */
 #meter { background: #0d1322; }

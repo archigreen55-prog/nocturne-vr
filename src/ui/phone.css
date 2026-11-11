@@ -57,6 +57,14 @@ body.phone-playing { overscroll-behavior: none; }
 /* ---------- the guard's card in the top centre (the plan glm 2026-11-10): the nearest guard's
    portrait + the suspicion scale 0..100; it leaves the joystick, the buttons, the microphone, the clock free */
 #hud .gsus { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 3px; }
+#hud .gsus .gsus-ph { position: relative; display: flex; flex: none; }
+/* the level mark (set by data-lvl on .gsus): none at 0, «?» at 1 (checking), «!» at 2 (alarm); a corner badge on the
+   portrait, or a plain badge beside the scale when there is no portrait (the style off) */
+#hud .gsus .gsus-mark { display: none; position: absolute; top: -6px; right: -7px; min-width: 15px; height: 15px; padding: 0 2px; box-sizing: border-box; border-radius: 8px; font: 800 12px/11px sans-serif; text-align: center; background: #05070d; border: 2px solid currentColor; }
+#hud .gsus[data-lvl="1"] .gsus-mark::before { content: "?"; }
+#hud .gsus[data-lvl="2"] .gsus-mark::before { content: "!"; }
+#hud .gsus[data-lvl="1"] .gsus-mark, #hud .gsus[data-lvl="2"] .gsus-mark { display: block; }
+#hud .gsus .gsus-ph.nopic .gsus-mark { position: static; }
 #hud .gsus .gsus-pic { width: 30px; height: 38px; flex: none; border-radius: 6px; border: 2px solid #05070d; box-sizing: border-box; background: #18223a; filter: drop-shadow(1px 1px 0 #05070d); }
 #hud .gsus .gsus-bar { position: relative; width: 84px; height: 12px; border-radius: 4px; overflow: hidden; background: #18223a; box-shadow: 0 0 0 1px #05070d; }
 #hud .gsus .gsus-bar i { position: absolute; top: 2px; bottom: 2px; left: 0; width: 0; border-radius: 2px; }

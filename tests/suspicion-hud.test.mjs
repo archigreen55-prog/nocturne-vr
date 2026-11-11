@@ -46,7 +46,7 @@ test('hud card: the scale mirrors alert.suspicion and decays, the states 0/1/2, 
   // its real alarm course: the radios, the escape and its time limit); the HUD reads only
   // alert.level, so the exact trigger does not matter for the card's logic
   await G(page, () => { const g = window.__game; g.alert.reset(); g.alert.full = true; g.sim(0.2); });
-  await frames(page, 2);
+  await page.waitForFunction(() => document.querySelector('#hud .gsus').getAttribute('data-lvl') === '2', null, { timeout: 8000 });   // the HUD refreshes ~10 Hz: wait for it, not a fixed number of frames
   assert.equal(await lvlOf(page), '2');
   // the portrait: a real png of the guard (Petrovych on the dacha, the nearest guard here)
   await recard(page);
@@ -138,6 +138,69 @@ test('a guest sees the host\'s suspicion through guestApply (the sync path), and
   // the marks and the bar over the guards stay behind walls with the body (depth test, not checks each frame)
   const dt = await G(page, () => ({ mark: window.__game.patrol.mark.material.depthTest, bar: window.__game.patrol.bar.material.depthTest }));
   assert.deepEqual(dt, { mark: true, bar: true }, 'the marks keep depthTest');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+// the level mark on the card: calm — none; checking (level 1) — «?»; alarm (level 2) — «!» and the red
+// frame (the frame is checked in the first test's states; here its colour). No green anywhere (decision 10).
+const markOf = (page) => G(page, () => {
+  const card = document.querySelector('#hud .gsus'), m = card.querySelector('.gsus-mark'), pic = card.querySelector('.gsus-pic');
+  const cs = getComputedStyle(m), r = m.getBoundingClientRect(), br = card.querySelector('.gsus-bar').getBoundingClientRect(), pr = pic.getBoundingClientRect();
+  const [R, Gc, B] = cs.color.match(/\d+/g).map(Number);
+  return {
+    shown: cs.display !== 'none' && r.width > 0, text: cs.display === 'none' ? '' : getComputedStyle(m, '::before').content.replace(/"/g, ''),
+    green: Gc > R && Gc > B, frame: getComputedStyle(pic).borderTopColor,
+    besideBar: r.right <= br.left + 1, onPortrait: r.right > pr.right - 12 && r.top < pr.top + 12, picShown: pr.width > 0,
+  };
+});
+async function checkMarks(page, withPortrait) {
+  await G(page, () => { for (const p of window.__game.guards) p.update = () => null; });
+  // level 0: calm — no mark
+  await G(page, () => { const g = window.__game; g.alert.reset(); g.sim(0.2); });
+  await frames(page, 3);
+  let m = await markOf(page);
+  assert.equal(await lvlOf(page), '0');
+  assert.equal(m.shown, false, 'calm: no mark');
+  assert.equal(m.text, '');
+  // level 1: a heard noise — «?»
+  await G(page, () => { const g = window.__game; g.alert.add(25, g.player.head.x, g.player.head.z); });
+  await page.waitForFunction(() => document.querySelector('#hud .gsus').getAttribute('data-lvl') === '1', null, { timeout: 8000 });
+  await frames(page, 2);
+  m = await markOf(page);
+  assert.equal(m.shown, true, 'checking: the mark is shown');
+  assert.equal(m.text, '?', 'checking: «?»');
+  assert.equal(m.green, false, 'the «?» is not green');
+  // level 2: the alarm — «!» and the red frame
+  await G(page, () => { const g = window.__game; g.alert.reset(); g.alert.full = true; g.sim(0.2); });
+  await page.waitForFunction(() => document.querySelector('#hud .gsus').getAttribute('data-lvl') === '2', null, { timeout: 8000 });
+  await frames(page, 2);
+  m = await markOf(page);
+  assert.equal(m.shown, true, 'alarm: the mark is shown');
+  assert.equal(m.text, '!', 'alarm: «!»');
+  assert.equal(m.green, false, 'the «!» is not green');
+  if (withPortrait) {
+    await page.waitForFunction(() => (document.querySelector('#hud .gsus-pic').src || '').startsWith('data:image/png'), null, { timeout: 8000 });
+    m = await markOf(page);
+    assert.equal(m.picShown, true, 'the portrait is there');
+    assert.equal(m.onPortrait, true, 'the mark sits in the portrait\'s corner');
+    assert.equal(m.frame, 'rgb(255, 84, 104)', 'alarm: the red frame (#ff5468)');
+  } else {
+    assert.equal(m.picShown, false, 'the style off: no portrait');
+    assert.equal(m.besideBar, true, 'the style off: the mark stays beside the scale');
+  }
+}
+
+test('hud card: the level mark — none at 0, «?» at 1, «!» + the red frame at 2', async () => {
+  const { ctx, page, errors } = await playPhoneAt(LAND);
+  await checkMarks(page, true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('hud card: with the style off (no portrait) the «?» / «!» still show beside the scale', async () => {
+  const { ctx, page, errors } = await playPhoneAt(LAND, base + '?figures=off');
+  await checkMarks(page, false);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
