@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { newContext, ROOT } from './harness.mjs';
 import { browser, open, test, base, preview, LAND, UA, fingerPressEl, quickTap } from './runner.mjs';
 
@@ -24,12 +25,16 @@ test('net: room code, invitation link, libraries, no secrets in the code', async
   // no keys, tokens or passwords in the game's code (it is public)
   const files = [];
   (function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (/\.(js|mjs|html|json)$/.test(f)) files.push(p); } })(join(ROOT, 'src'));
+  files.push(join(ROOT, 'tools/turn-worker/worker.js'), join(ROOT, 'tools/turn-worker/deploy.mjs'), join(ROOT, '.github/workflows/turn-worker.yml'));   // W8c: the TURN Worker too
   const bad = [];
   for (const f of files) {
     const s = readFileSync(f, 'utf8');
     for (const m of s.matchAll(/(api[_-]?key|token|secret|credential|password)\s*[:=]\s*['"`]([^'"`]{12,})['"`]/gi)) bad.push(`${f}: ${m[1]}`);
   }
-  assert.deepEqual(bad, [], 'secrets in src/');
+  assert.deepEqual(bad, [], 'secrets in src/ or the TURN Worker');
+  // the workflow takes the keys only from GitHub's secrets
+  const wf = readFileSync(join(ROOT, '.github/workflows/turn-worker.yml'), 'utf8');
+  for (const k of ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'TURN_KEY_ID', 'TURN_KEY_API_TOKEN']) assert.ok(wf.includes('${{ secrets.' + k + ' }}'), k);
   const net = readFileSync(join(ROOT, 'src/config/net.js'), 'utf8');
   for (const url of net.match(/['"](?:wss?|stun|turns?|https?):[^'"]*['"]/g) || []) assert.ok(!/[?&](key|token|secret)=/i.test(url), url);
 
@@ -582,5 +587,94 @@ test('net: a guest that leaves mid-round gets a clean solo game (B05)', async ()
   assert.ok(!g.url.includes('room='), g.url);
   assert.equal(g.role, null);
   assert.deepEqual(host.errors, []);
+  await ctx.close();
+});
+
+// W8c: the TURN Worker (tools/turn-worker/worker.js) run here in Node with a fake Cloudflare: only the game's
+// site gets a permission, OPTIONS for the browser's preflight, a brake per address, Cloudflare's answer passed on
+test('net (W8c): the TURN Worker — only the game’s pages, a brake per address, the permission from Cloudflare', async () => {
+  const { default: W } = await import(pathToFileURL(join(ROOT, 'tools/turn-worker/worker.js')).href + '?t=' + Date.now());
+  const env = { TURN_KEY_ID: 'kid', TURN_KEY_API_TOKEN: 'tok' };
+  const asked = [];
+  const fetch0 = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { asked.push({ url: String(url), auth: init.headers.Authorization, body: JSON.parse(init.body) }); return Response.json({ iceServers: { urls: ['stun:stun.cloudflare.com:3478', 'turn:turn.cloudflare.com:3478?transport=udp'], username: 'u', credential: 'c' } }); };
+  try {
+    const SITE = 'https://archigreen55-prog.github.io';
+    const req = (origin, ip = '1.1.1.1', method = 'GET') => new Request('https://w.example/', { method, headers: { ...(origin ? { Origin: origin } : {}), 'CF-Connecting-IP': ip } });
+    assert.equal((await W.fetch(req('https://evil.example'), env)).status, 403, 'another site');
+    assert.equal((await W.fetch(req(null), env)).status, 403, 'no Origin');
+    const pre = await W.fetch(req(SITE, '1.1.1.1', 'OPTIONS'), env);
+    assert.equal(pre.status, 204); assert.equal(pre.headers.get('Access-Control-Allow-Origin'), SITE);
+    const ok = await W.fetch(req(SITE), env);
+    assert.equal(ok.status, 200);
+    const j = await ok.json();
+    assert.equal(j.ttl, 14400, '4 hours');
+    assert.equal(j.iceServers.username, 'u');
+    assert.equal(asked[0].url, 'https://rtc.live.cloudflare.com/v1/turn/keys/kid/credentials/generate');
+    assert.equal(asked[0].auth, 'Bearer tok'); assert.equal(asked[0].body.ttl, 14400);
+    // the brake: 6 a minute from one address (the OPTIONS did not count)
+    const codes = [];
+    for (let i = 0; i < 6; i++) codes.push((await W.fetch(req(SITE), env)).status);
+    assert.deepEqual(codes, [200, 200, 200, 200, 200, 429]);
+    assert.equal((await W.fetch(req(SITE, '2.2.2.2'), env)).status, 200, 'another address is not braked');
+    // Cloudflare down: 502, no keys in the answer
+    globalThis.fetch = async () => new Response('x', { status: 500 });
+    const bad = await W.fetch(req(SITE, '3.3.3.3'), env);
+    assert.equal(bad.status, 502); assert.doesNotMatch(await bad.text(), /tok|kid/);
+  } finally { globalThis.fetch = fetch0; }
+});
+
+// W8c: the game asks the Worker for a permission and adds its TURN addresses (not port 53) to the ICE servers;
+// a Worker that is down or slow = STUN only, nothing for the player; the report has the «net» block
+test('net (W8c): the game takes a TURN permission (kept), plays on without one; the report says directly or through TURN', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 600 } });
+  let hits = 0, mode = 'ok';
+  await ctx.route('**/__turn', async (route) => {
+    hits++;
+    if (mode === 'down') return route.fulfill({ status: 502, body: 'x' });
+    if (mode === 'slow') { await new Promise((res) => setTimeout(res, 4000)); return route.abort().catch(() => {}); }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ iceServers: { urls: ['stun:stun.cloudflare.com:3478', 'turn:turn.cloudflare.com:3478?transport=udp', 'turns:turn.cloudflare.com:5349?transport=tcp', 'turn:turn.cloudflare.com:53?transport=udp'], username: 'u', credential: 'c' }, ttl: 14400 }) });
+  });
+  const { page, errors } = await open(ctx, base + '?net=local');
+  // the module the game uses (its ?v= address)
+  const ask = (fresh) => page.evaluate(async (fresh) => {
+    const M = await import(performance.getEntriesByType('resource').map((e) => e.name).find((u) => u.includes('/src/net/transport.js')));
+    const N = window.__game.CFG.net;
+    N.turnOrigin = location.origin; N.turnWorker = location.origin + '/__turn'; N.turnTimeout = 1;
+    if (fresh) M.forgetTurn();
+    const t0 = performance.now(), servers = await M.turnServers();
+    return { servers, state: { ...M.turnState }, ms: performance.now() - t0 };
+  }, fresh);
+  const a = await ask(true);
+  assert.equal(a.servers.length, 1);
+  assert.deepEqual(a.servers[0].urls, ['stun:stun.cloudflare.com:3478', 'turn:turn.cloudflare.com:3478?transport=udp', 'turns:turn.cloudflare.com:5349?transport=tcp'], 'port 53 left out: ' + JSON.stringify(a.servers));
+  assert.equal(a.servers[0].username, 'u');
+  assert.equal(a.state.got, true);
+  await ask(false);
+  assert.equal(hits, 1, 'kept for its 4 hours (less 10 min): asked once');
+  for (const m of ['down', 'slow']) {   // no TURN, no error for the player, at most the time-out
+    mode = m;
+    const r = await ask(true);
+    assert.deepEqual(r.servers, [], m + ': ' + JSON.stringify(r));
+    assert.ok(r.state.error, `${m}: the reason kept for the report`);
+    assert.ok(r.ms < 2500, `${m}: ${r.ms} ms`);
+  }
+  // another site never asks (the Worker would refuse it anyway)
+  const other = await page.evaluate(async () => {
+    const M = await import(performance.getEntriesByType('resource').map((e) => e.name).find((u) => u.includes('/src/net/transport.js')));
+    M.forgetTurn(); window.__game.CFG.net.turnOrigin = 'https://archigreen55-prog.github.io';
+    return { servers: await M.turnServers(), asked: M.turnState.asked };
+  });
+  assert.deepEqual(other, { servers: [], asked: 0 }, JSON.stringify(other));
+  // the report's «net» block: no room, then a room (nobody joined yet)
+  const rep = async () => JSON.parse(await page.evaluate(async () => (await import(performance.getEntriesByType('resource').map((e) => e.name).find((u) => u.includes('/src/systems/startScreen.js')))).reportText()));
+  const r0 = await rep();
+  assert.equal(r0.net.room, false); assert.equal(r0.net.turn.configured, true);
+  await page.evaluate(() => window.__game.net.open('606060', 'host', 'Аня', 'zoya'));
+  const r1 = await rep();
+  assert.equal(r1.net.room, true); assert.equal(r1.net.role, 'host');
+  assert.equal(r1.net.link, 'none'); assert.equal(r1.net.connection, 'ще не з\'єдналось');
+  // the browser's own line for the Worker's 502 / the aborted request is in the console; nothing else
+  assert.deepEqual(errors.filter((e) => !/Failed to load resource|__turn/.test(e)), [], JSON.stringify(errors));
   await ctx.close();
 });

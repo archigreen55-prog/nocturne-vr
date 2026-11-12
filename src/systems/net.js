@@ -11,7 +11,7 @@ import { CFG } from '../config/index.js';
 import { VERSION } from '../version.js';
 import { G, $, params } from './state.js';
 import { flash } from './messages.js';
-import { openTransport, sim } from '../net/transport.js';
+import { openTransport, sim, turnState } from '../net/transport.js';
 import { newCode, roomLink, roomFromUrl, playerId, validCode, prettyCode } from '../net/room.js';
 import { RemotePlayer } from '../net/remotePlayer.js';
 import { hostState, guestApply, guestGuardSounds, forgetSent, resetGuestView } from '../net/sync.js';
@@ -372,6 +372,21 @@ export function netIntent(a, data = {}) { if (N.t && N.role === 'guest' && N.hos
 // the friends' items still in hand when the round ends (game/round.js: stowed when you get away)
 export function netHeld() { return [...N.remotes.values()].map((r) => r.desk).filter(Boolean); }
 // for the report and the tests
+// W8c: the report's «net» block — the room, how the friends are connected (directly / through TURN), the
+// TURN permission (asked, got, why not); no addresses, no codes of other rooms
+export function netReport() {
+  const turn = { configured: !!CFG.net.turnWorker, ...turnState };
+  if (!N.t) return { room: false, turn };
+  const byPeer = N.links || {}, types = Object.values(byPeer).filter((x) => x !== 'unknown');
+  const link = !types.length ? 'none' : types.every((x) => x === 'relay') ? 'turn' : types.some((x) => x === 'relay') ? 'mixed' : 'direct';
+  const d = N.t.diag();
+  return {
+    room: true, role: N.role, welcomed: N.welcomed, players: lobbyPlayers().length, transport: d.kind, strategies: d.strategies, errors: d.errors,
+    link, connection: S.net.link[link],
+    links: Object.fromEntries(Object.entries(byPeer).map(([peer, type]) => [nameOf(N.pidOf.get(peer)) || peer.slice(0, 6), type])),
+    turn,
+  };
+}
 export function netState() {
   return {
     role: N.role, code: N.code, pid: N.pid, welcomed: N.welcomed, hostLost: N.hostLost, status: N.status,
@@ -450,6 +465,8 @@ export const net = {
   pre(dt, now) {
     if (!N.t) return;
     const t = performance.now();
+    // W8c: how each friend is connected (directly or through TURN), for the report; every 5 s
+    if (N.t.links && t - (N.linksT || 0) > 5000) { N.linksT = t; const tr = N.t; tr.links().then((l) => { if (N.t === tr) N.links = l; }, () => {}); }
     if (isHost()) {
       // friends: drawn where they were a moment ago; a silent one stays out of the guards' sight
       for (const [pid, r] of N.remotes) {

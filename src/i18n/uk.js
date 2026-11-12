@@ -558,6 +558,11 @@ export default {
       full: 'повні',
       min: 'мінімальні',
     },
+    hudnums: {   // для тестерів: слова й цифри в куті HUD (стійка · метри, кроки, кімната)
+      title: 'Цифри в HUD',
+      off: 'вимк',
+      on: 'увімк',
+    },
     fps: {
       title: 'Частота',
       fps60: '60 кадрів/с',
@@ -682,6 +687,7 @@ export default {
       snap: 'Поворот ривком:',
       look: 'Огляд пальцем:',
       hud: 'Індикатори:',
+      hudnums: 'Цифри в HUD:',
       fx: 'Вібрація:',
       quality: 'Якість:',
       fps: 'Частота:',
@@ -1172,6 +1178,7 @@ export default {
     },
     soloAfterLost: 'Грати самому',
     versionLine: (v) => `Версія гри: ${v}`,
+    link: { direct: 'напряму', turn: 'через TURN (Cloudflare)', mixed: 'частково через TURN', none: 'ще не з\'єдналось' },   // W8c: the report
     // T4: one room from the menu to the round
     mission: 'Місія',
     levelN: (n) => `Рівень ${n}`,

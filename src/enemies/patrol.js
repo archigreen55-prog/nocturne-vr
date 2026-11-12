@@ -89,11 +89,11 @@ export class Patrol {
       this.beam.name = 'flashlight beam';
       this.upper.add(this.beam);
     }
-    // "?" / "!" above the head
+    // "?" / "!" above the head (hidden behind walls together with the body: the sprites keep depthTest)
     this.markCanvas = document.createElement('canvas');
     this.markCanvas.width = this.markCanvas.height = 128;
     this.markTex = new THREE.CanvasTexture(this.markCanvas);
-    this.mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.markTex, depthTest: false, fog: false, transparent: true }));
+    this.mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.markTex, fog: false, transparent: true }));
     this.mark.scale.set(0.35, 0.35, 1);
     this.mark.position.set(0, 2.45, 0);
     this.mark.renderOrder = 20;
@@ -103,7 +103,7 @@ export class Patrol {
     this.barCanvas = document.createElement('canvas');
     this.barCanvas.width = 128; this.barCanvas.height = 20;
     this.barTex = new THREE.CanvasTexture(this.barCanvas);
-    this.bar = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.barTex, depthTest: false, fog: false, transparent: true }));
+    this.bar = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.barTex, fog: false, transparent: true }));
     this.bar.scale.set(0.7, 0.11, 1);
     this.bar.position.set(0, 2.15, 0);
     this.bar.renderOrder = 20;

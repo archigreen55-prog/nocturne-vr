@@ -1,6 +1,6 @@
 // Playing with friends (plan-multiplayer §1): rooms, the relays that let two browsers find each other,
 // how often the host and the guests talk, the time-outs. Only public addresses here: no keys, no tokens
-// (the public repository; tests/net.test.mjs checks). TURN comes later through a small Worker (W8c).
+// (the public repository; tests/net.test.mjs checks). TURN: a small Worker gives a 4-hour permission (W8c).
 export const net = {
   protocol: 'p1',              // a new number = a new space of rooms: old and new builds never meet
   appId: 'nocturne-vr/p1',
@@ -14,7 +14,11 @@ export const net = {
     torrent: [],
   },
   stun: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'],
-  turnWorker: '',              // W8c: the Worker that hands out short-lived TURN keys (Cloudflare); '' = no TURN
+  // W8c: the Worker that hands out short-lived TURN permissions (tools/turn-worker/, Cloudflare). Asked only
+  // from the game's site (the Worker refuses other pages); no answer in turnTimeout s = STUN only, as before
+  turnWorker: 'https://nocturne-turn.nocturne-game.workers.dev/',
+  turnOrigin: 'https://archigreen55-prog.github.io',
+  turnTimeout: 3,
   // how often (per second)
   poseHz: 20,                  // a guest -> the host: where it is, how it moves, its microphone
   stateHz: 15,                 // the host -> everybody: the guards, doors, loot, alarm, clock
