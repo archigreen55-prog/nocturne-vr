@@ -58,6 +58,7 @@ body.phone-playing { overscroll-behavior: none; }
    the words and numbers (stance · metres, steps, the room) are for testers: «Цифри в HUD» turns them on (#hud.digits) */
 #hud:not(.digits) .hud-eye .stance, #hud:not(.digits) .hud-sub { display: none; }
 #hud .hud-eye .hud-item { position: relative; display: inline-flex; flex: none; }
+#hud .hud-eye .hud-item.gone { display: none; }
 #hud .hud-eye .hud-item .ico { width: 24px; height: 24px; fill: none; stroke: #efe6d4; stroke-width: 1.9; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 1px 2px #000); }
 #hud .hud-item [data-k] { display: none; }
 #hud .hud-item[data-kind="light"] [data-k="light"], #hud .hud-item[data-kind="medium"] [data-k="medium"], #hud .hud-item[data-kind="crystal"] [data-k="crystal"] { display: inline; }
