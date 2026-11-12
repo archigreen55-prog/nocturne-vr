@@ -11,6 +11,7 @@ import { LEVELS } from '../audio/mic.js';
 import { fmtTime } from './board.js';
 import { S } from '../i18n/index.js';
 import { UI } from '../style/palette.js';   // W17 S4: the palette's meanings (decision 10: no green)
+import { guardPortrait } from '../style/portraits.js';
 
 const REVEAL_MS = 2500;
 const ALARM_WORDS = [S.board.alert.calm, S.board.alert.check, S.board.alert.alarm];
@@ -38,6 +39,7 @@ export class Hud {
         <div class="time"></div>
         <div class="alarm rev"></div>
         <div class="goal rev"></div>
+        <div class="gsus"><span class="gsus-ph"><img class="gsus-pic" alt=""><b class="gsus-mark"></b></span><span class="gsus-bar"><i></i></span></div>
       </div>
       <div class="hud-tr">
         <div class="miclabel"></div>
@@ -49,6 +51,7 @@ export class Hud {
     this.el = {
       eye: q('.hud-eye'), stance: q('.stance'), steps: q('.steps'), hold: q('.hold'), room: q('.room'),
       time: q('.time'), alarm: q('.alarm'), goal: q('.goal'),
+      gsus: q('.gsus'), gsusPh: q('.gsus-ph'), gsusPic: q('.gsus-pic'), gsusFill: q('.gsus-bar i'),
       miclabel: q('.miclabel'), micdb: q('.micdb'), bar: q('.bar'), fill: q('.fill'),
       zq: q('.zq'), zn: q('.zn'), zs: q('.zs'), tw: q('.tw'), ts: q('.ts'), msg: q('.hud-msg'),
     };
@@ -97,6 +100,26 @@ export class Hud {
     this.style('alarm', e.alarm, 'color', s.phase === 'escape' ? UI.alarm : ALARM_COLORS[s.alertLevel || 0]);
     this.attr('alarm', e.alarm, 'data-lvl', s.phase === 'escape' ? 'escape' : String(s.alertLevel || 0));   // W17 S4: the alarm's banner (style/hud.css)
     this.shown('alarm', e.alarm, word, now, s.phase === 'escape' || s.alertLevel > 0);
+    // the guard card: the nearest guard's portrait + the suspicion scale 0..100 (suspicion from the
+    // panel). No word of its own — the alarm word above is the state; the card adds the progress.
+    if (s.susOn) {
+      const sus = Math.min(100, Math.round(s.suspicion || 0)), lvl = s.alertLevel || 0;
+      this.attr('gsus', e.gsus, 'data-lvl', String(lvl));
+      this.style('gsusfill', e.gsusFill, 'width', sus + '%');
+      const pic = s.guardCard ? guardPortrait(s.guardCard) : null;
+      const src = pic || '';
+      if (this.cache.gpic !== src) {
+        this.cache.gpic = src;
+        this.attr('gsuspic', e.gsusPic, 'src', src);
+        e.gsusPic.classList.toggle('gone', !src);   // the style off: the scale without the photo
+        e.gsusPh.classList.toggle('nopic', !src);   // ...and the «?» / «!» mark then sits beside the scale
+      }
+      // the minimal mode: it stays visible as long as there is something to hear (suspicion > 0 / checking)
+      this.shown('gsus', e.gsus, src, now, sus > 0 || lvl > 0);
+    } else {
+      this.reveal.gsus = 0;
+      e.gsus.classList.add('gone');
+    }
     const goal = s.goal ? S.hud.goal(s.goal.text, s.goal.done) : '';
     this.text('goal', e.goal, goal);
     this.style('goal', e.goal, 'color', s.goal && s.goal.done ? UI.paper : UI.paper2);

@@ -11,6 +11,7 @@ import { S } from '../i18n/index.js';
 import { G } from '../systems/state.js';
 
 const THIEVES = ['zoya', 'frol', 'rita', 'nazar'];
+const GUARDS = ['petrovych', 'valera', 'zhora'];
 const PW = 120, PH = 150;
 const cache = {};
 
@@ -50,6 +51,14 @@ function portrait(who) {
     return c.toDataURL('image/png');
   });
   return (cache[who] = url);
+}
+
+// The guards' portraits for the phone HUD's card (systems/panel.js): the same recipe and the same
+// cache as the thieves'. Nothing (or null) when the style is off / no renderer yet — the card then
+// keeps the scale without the photo.
+export function guardPortrait(who) {
+  if (!FIGURES_ON || !G.renderer || !GUARDS.includes(who)) return null;
+  return portrait(who);
 }
 
 // called when «Грати з друзями» opens (systems/menu.js)

@@ -18,6 +18,13 @@ body:not(.outdoor) #hud .hud-tl:has(.hud-sub span:not(:empty)) { padding-bottom:
 #hud .bar .tick { background: #efe6d4; }
 #hud .hud-msg { background: rgba(13, 19, 34, .72); border: 2px solid #05070d; }
 #hud .hud-msg:empty { border: 0; }
+/* the guard's card: the suspicion fills amber and goes red for the alarm; the frame too (decision 10: no green) */
+#hud .gsus .gsus-bar { box-shadow: 0 0 0 1px #05070d; }
+#hud .gsus .gsus-bar i { background: #b07a2a; }
+#hud .gsus[data-lvl="2"] .gsus-bar i { background: #ff5468; }
+#hud .gsus[data-lvl="2"] .gsus-pic { border-color: #ff5468; }
+#hud .gsus[data-lvl="1"] .gsus-mark { color: #e0a64a; }
+#hud .gsus[data-lvl="2"] .gsus-mark { color: #ff5468; }
 
 /* the start screen's scale too */
 #meter { background: #0d1322; }
