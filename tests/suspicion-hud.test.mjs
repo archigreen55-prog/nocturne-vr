@@ -17,7 +17,11 @@ const fillOf = (page) => G(page, () => parseFloat(document.querySelector('#hud .
 // state's G (window.__game is the debug snapshot that hides them, tests read via state.js). The
 // panel is a frame-phase system: g.sim() runs only the logic phases, so the card moves on natural
 // (drawn) frames — reset its timer, then let a few real frames pass
-const recard = async (page) => { await G(page, async () => { const { G: S } = await import('./src/systems/state.js'); S.cardGuardT = 0; }); await frames(page, 4); };
+const recard = (page) => G(page, async () => {   // reset the timer, then wait until the panel (10 Hz) has really re-picked
+  const { G: S } = await import('./src/systems/state.js');
+  S.cardGuardT = 0;
+  for (const t0 = performance.now(); S.cardGuardT <= 0 && performance.now() - t0 < 8000;) await new Promise((r) => setTimeout(r, 50));
+});
 const cardGuardOf = (page) => G(page, async () => { const { G: S } = await import('./src/systems/state.js'); return S.cardGuard; });
 async function playPhoneAt(ctxOpts, url = base) {
   const ctx = await newContext(browser, ctxOpts);
@@ -56,12 +60,12 @@ test('hud card: the scale mirrors alert.suspicion and decays, the states 0/1/2, 
   const src0 = await G(page, () => document.querySelector('#hud .gsus-pic').src);
   // decay: the suspicion melts away (4 pts per second of game time) and the scale follows it
   const both = (page) => G(page, () => [parseFloat(document.querySelector('#hud .gsus .gsus-bar i').style.width), window.__game.alert.suspicion]);
-  await G(page, () => { const g = window.__game; g.alert.full = false; g.alert.suspicion = 40; });
-  await frames(page, 4);
+  await G(page, () => { const g = window.__game; g.alert.full = false; g.alert.suspicion = 40; for (const p of g.guards) p.meter = 0; });   // back to calm: the frozen guards' sight meters too
+  await page.waitForFunction(() => Math.abs(parseFloat(document.querySelector('#hud .gsus .gsus-bar i').style.width) - window.__game.alert.suspicion) <= 2, null, { timeout: 8000 });
   const [f1, s1] = await both(page);
   assert.ok(Math.abs(f1 - s1) <= 2 && s1 > 30, `the scale mirrors the suspicion (${f1} vs ${s1})`);
   await G(page, () => window.__game.sim(4));   // 40 - 4 * 4 ≈ 24 pts
-  await frames(page, 4);
+  await page.waitForFunction(() => Math.abs(parseFloat(document.querySelector('#hud .gsus .gsus-bar i').style.width) - window.__game.alert.suspicion) <= 2, null, { timeout: 8000 });
   const [f2, s2] = await both(page);
   assert.ok(s2 < s1 - 10 && Math.abs(f2 - s2) <= 2, `the scale falls with the suspicion (${f1}/${s1} -> ${f2}/${s2})`);
   // the minimal mode: hidden at calm, visible while the suspicion counts
@@ -107,7 +111,8 @@ test('mansion: the card picks the nearer guard — Valera by the spawn, Zhora af
   await G(page, () => { window.__game.player.teleport(10.5, -8.8, 0, 0); });
   await recard(page);
   assert.equal(await cardGuardOf(page), 'valera', 'the ground guard by the spawn');
-  // right at Zhora's spot upstairs: the floor wins, Valera loses
+  // right at Zhora's spot upstairs: the floor wins, Valera loses (both calm again: the main card is the most dangerous first, the nearest among the equal)
+  await G(page, () => { for (const p of window.__game.guards) { p.meter = 0; p.state = 'task'; p.visible = false; } });
   await placeG(VALERA, ZHORA);
   await G(page, () => { window.__game.player.teleport(-10, -9.2, Math.PI, 3); });
   await recard(page);
@@ -187,6 +192,7 @@ async function checkMarks(page, withPortrait) {
     assert.equal(m.frame, 'rgb(255, 84, 104)', 'alarm: the red frame (#ff5468)');
   } else {
     assert.equal(m.picShown, false, 'the style off: no portrait');
+    assert.equal(await G(page, () => document.querySelector('#hud .gsus .gmain .gsus-ini').textContent), 'П', 'the style off: the first letter of the name instead of the photo');
     assert.equal(m.besideBar, true, 'the style off: the mark stays beside the scale');
   }
 }

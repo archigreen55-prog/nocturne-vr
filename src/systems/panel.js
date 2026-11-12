@@ -5,6 +5,7 @@ import { CFG } from '../config/index.js';
 import { progress } from '../game/contracts.js';
 import { stealthState } from '../game/stealth.js';
 import { mischief } from '../game/mischief.js';
+import { listWatchers, houseScale, pickMain } from '../game/watchers.js';
 import { G } from './state.js';
 import { fx } from './messages.js';
 import { S } from '../i18n/index.js';
@@ -24,17 +25,15 @@ export const panel = {
       if (st.hidden && !G.wasHidden && G.inVR) xrIn.pulse('left', 0.15, 20);   // a small tick: you are hidden
       if (st.hidden && !G.wasHidden && !G.paused) fx('hidden');
       G.wasHidden = st.hidden;
-      // The phone HUD's guard card: the nearest guard's id, re-aimed no more than once a second so the
-      // portrait does not flicker when two guards stand at the same distance (W6: the mansion's two)
+      // The phone HUD's guards panel (game/watchers.js): everybody in G.guards as data; the main card is
+      // re-picked no more than once a second (CFG.hud.mainEvery) so it does not jump when two stand
+      // equally close (W6: the mansion's two). G.cardGuard stays the main one's id.
+      const ws = listWatchers(G.guards, alert, player.head, player.floorY || 0);
       G.cardGuardT = (G.cardGuardT || 0) - 0.1;
-      if (G.cardGuardT <= 0) {
-        G.cardGuardT = 1;
-        let best = null, bd = Infinity;
-        for (const g of (G.guards || [])) {
-          const d = Math.hypot(g.x - player.head.x, g.z - player.head.z, (g.y || 0) - (player.floorY || 0));
-          if (d < bd) { bd = d; best = g; }
-        }
-        G.cardGuard = best ? ((best.env.guard && best.env.guard.id) || 'petrovych') : null;
+      if (G.cardGuardT <= 0 || !ws[G.cardMain]) {
+        G.cardGuardT = CFG.hud.mainEvery;
+        G.cardMain = pickMain(ws, G.cardMain);
+        G.cardGuard = ws[G.cardMain] ? ws[G.cardMain].id : null;
       }
       G.guardLineT -= 0.1;
       // W7: who says it («Петрович: «…»»); the crew's yellow line when the guard is silent (systems/story.js)
@@ -56,10 +55,12 @@ export const panel = {
         gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),
         msg: G.flashT > 0 ? G.flashText : '', msgColor: G.flashColor,
         guardSpeech: G.guardLineT > 0, crewSpeech: !!crew, stance: player.crouched || player.virtualCrouch ? S.hud.crouched : S.hud.standing,
-        // the guard card: whose portrait (null = nobody / style off), the suspicion 0..100. Hidden in the
-        // human-guard mode (a plan decision: the suspicion there never counts, alert.js manualOnly) and
-        // on the summary screen.
-        guardCard: G.cardGuard || null,
+        // the guards panel: the watchers (data; `main` = the big card), the house scale 0..100 (the more of
+        // the heard suspicion and the strongest «seen»; 100 in full alarm) and the heard suspicion itself.
+        // Hidden in the human-guard mode (a plan decision: the suspicion there never counts, alert.js
+        // manualOnly) and on the summary screen.
+        watchers: ws.map((w) => ({ ...w, main: w.i === G.cardMain })),
+        house: houseScale(ws, alert),
         suspicion: alert.suspicion,
         susOn: G.role !== 'guard' && !G.humanGuard && round.phase !== 'result',
       };
