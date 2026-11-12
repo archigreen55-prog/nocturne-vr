@@ -49,6 +49,7 @@ export const panel = {
         door: dragging ? { creak: dragging.door.creak } : null,
         mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch, run: G.run,
         room: level.roomAt(player.head.x, player.head.z, player.floorY),
+        heldItem: held ? { kind: (held.def && held.def.kind) || 'light', damaged: !!held.damaged } : null,   // the phone HUD's icon
         holding: held ? `${held.name}${held.damaged ? S.hud.damagedMark : ''}` : '',
         clock: round.clock, phase: round.phase, alertLevel: alert.level,
         fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,

@@ -25,6 +25,14 @@ const EYE_SVG = `<svg viewBox="0 0 48 32" aria-hidden="true">
   <path class="shut" d="M4 14 Q24 30 44 14 M14 22 L12 28 M24 25 L24 31 M34 22 L36 28"/>
 </svg>`;
 
+// what you hold, as a small icon by the item's kind (light / medium / crystal); a red «!» on it = damaged.
+// Every kind is in the markup, CSS shows the one in data-kind.
+const ITEM_SVG = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+  <g data-k="light"><rect x="5" y="9" width="14" height="10" rx="2"/><path d="M8 9V6h8v3"/></g>
+  <g data-k="medium"><path d="M6 6h12l-1 14H7z"/><path d="M6 11h12"/></g>
+  <g data-k="crystal"><path d="M12 3l7 6-7 12L5 9z"/><path d="M5 9h14"/></g></svg>
+  <svg class="dmg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v7M12 16.5v1.5"/></svg>`;
+
 // a watcher's face: the portrait, or (no portrait: the style is off / nobody drew it yet) a letter or an icon; the mark in its corner
 const FACE = '<span class="gsus-ph" data-mk="0"><img class="gsus-pic" alt=""><span class="gsus-ini gone"></span><b class="gsus-mark"></b></span>';
 
@@ -36,7 +44,7 @@ export class Hud {
     this.reveal = {};      // key -> time (ms) until which a minimal-mode item stays visible
     root.innerHTML = `
       <div class="hud-tl">
-        <div class="hud-eye" data-eye="open">${EYE_SVG}<b class="stance"></b></div>
+        <div class="hud-eye" data-eye="open">${EYE_SVG}<span class="hud-item gone" data-kind="light">${ITEM_SVG}</span><b class="stance"></b></div>
         <div class="hud-sub"><span class="steps rev"></span><span class="hold rev"></span><span class="room rev"></span></div>
         <div class="gsus">
           <div class="gmain">${FACE}<div class="gmain-r"><span class="gsus-name"></span><span class="gsus-bar"><i></i></span></div></div>
@@ -57,7 +65,7 @@ export class Hud {
     const q = (s) => root.querySelector(s);
     this.minis = [];       // the small cards: { box, face }
     this.el = {
-      eye: q('.hud-eye'), stance: q('.stance'), steps: q('.steps'), hold: q('.hold'), room: q('.room'),
+      eye: q('.hud-eye'), item: q('.hud-item'), stance: q('.stance'), steps: q('.steps'), hold: q('.hold'), room: q('.room'),
       time: q('.time'), alarm: q('.alarm'), goal: q('.goal'),
       gsus: q('.gsus'), gminis: q('.gminis'), gsusFill: q('.gsus-bar i'), gsusName: q('.gsus-name'),
       miclabel: q('.miclabel'), micdb: q('.micdb'), bar: q('.bar'), fill: q('.fill'),
@@ -65,6 +73,8 @@ export class Hud {
     };
   }
 
+  // the numbers and words of the old corner (stance · metres, steps, the room): only for testers (settings «Цифри в HUD»); the icons are always there
+  setDigits(on) { this.root.classList.toggle('digits', !!on); }
   setMinimal(on) { this.minimal = !!on; this.root.classList.toggle('minimal', this.minimal); this.reveal = {}; }
   show(on) { this.root.hidden = !on; }
 
@@ -110,7 +120,7 @@ export class Hud {
     // eye + stance
     const st = s.stealth;
     this.attr('eye', e.eye, 'data-eye', st.eye);
-    this.style('eye', e.eye, 'color', st.eye === 'closed' ? UI.whisper : st.eye === 'half' ? UI.paper2 : st.lit ? UI.lamp : UI.paper);
+    this.style('eye', e.eye, 'color', st.eye === 'closed' ? UI.whisper : st.lit ? UI.lamp : st.eye === 'half' ? UI.paper2 : UI.paper);   // closed / under a lamp (amber) / half / open
     this.text('stance', e.stance, st.eye === 'closed' ? S.hud.hidden : S.hud.stanceRange(s.stance, st.range.toFixed(1)));
     // steps / hands / room
     // running (W1): «Кроки: БІГ» while running, «Захекався N с» while out of breath (always shown)
@@ -123,6 +133,12 @@ export class Hud {
     this.shown('hold', e.hold, s.holding, now);
     this.text('room', e.room, s.room);
     this.shown('room', e.room, s.room, now);
+    // the held item's icon (nothing in the hands: no icon); the minimal mode keeps it for a moment after it changes
+    const hi = s.heldItem;
+    this.attr('item', e.item, 'data-kind', hi ? hi.kind : 'light');
+    e.item.classList.toggle('hurt', !!(hi && hi.damaged));
+    this.shown('item', e.item, hi ? hi.kind + (hi.damaged ? '!' : '') : '', now, !!hi);
+    if (!hi) e.item.classList.add('gone');
     // clock + alarm + goal
     this.text('time', e.time, s.phase === 'result' ? '—:—' : fmtTime(s.clock));
     this.style('time', e.time, 'color', s.phase === 'escape' ? UI.alarm : s.clock < 60 && s.phase !== 'ready' ? UI.lamp : s.phase === 'ready' ? UI.muted : UI.paper);

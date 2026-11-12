@@ -60,7 +60,7 @@ test('hud card: the scale mirrors alert.suspicion and decays, the states 0/1/2, 
   const src0 = await G(page, () => document.querySelector('#hud .gsus-pic').src);
   // decay: the suspicion melts away (4 pts per second of game time) and the scale follows it
   const both = (page) => G(page, () => [parseFloat(document.querySelector('#hud .gsus .gsus-bar i').style.width), window.__game.alert.suspicion]);
-  await G(page, () => { const g = window.__game; g.alert.full = false; g.alert.suspicion = 40; for (const p of g.guards) p.meter = 0; });   // back to calm: the frozen guards' sight meters too
+  await G(page, () => { const g = window.__game; g.alert.full = false; g.alert.suspicion = 40; for (const p of g.guards) { p.meter = 0; p.state = 'task'; p.visible = false; } });   // back to calm: the frozen guards' minds too (a guard that checks keeps the card up)
   await page.waitForFunction(() => Math.abs(parseFloat(document.querySelector('#hud .gsus .gsus-bar i').style.width) - window.__game.alert.suspicion) <= 2, null, { timeout: 8000 });
   const [f1, s1] = await both(page);
   assert.ok(Math.abs(f1 - s1) <= 2 && s1 > 30, `the scale mirrors the suspicion (${f1} vs ${s1})`);
@@ -69,17 +69,17 @@ test('hud card: the scale mirrors alert.suspicion and decays, the states 0/1/2, 
   const [f2, s2] = await both(page);
   assert.ok(s2 < s1 - 10 && Math.abs(f2 - s2) <= 2, `the scale falls with the suspicion (${f1}/${s1} -> ${f2}/${s2})`);
   // the minimal mode: hidden at calm, visible while the suspicion counts
-  await G(page, () => { const g = window.__game; g.alert.reset(); g.sim(0.2); });
+  await G(page, () => { const g = window.__game; g.alert.reset(); for (const p of g.guards) { p.meter = 0; p.state = 'task'; p.visible = false; } g.sim(0.2); });
   await frames(page, 4);
   await G(page, () => { document.getElementById('hudmode').value = 'min'; document.getElementById('hudmode').dispatchEvent(new Event('change')); });
   await frames(page, 4);
   assert.equal(await goneOf(page), true, 'minimal mode: no card while calm');
   await G(page, () => { const g = window.__game; g.alert.suspicion = 40; g.sim(0.3); });
-  await frames(page, 4);
+  await page.waitForFunction(() => !document.querySelector('#hud .gsus').classList.contains('gone'), null, { timeout: 8000 });   // the HUD refreshes ~10 Hz
   assert.equal(await goneOf(page), false, 'minimal mode: the card shows while the suspicion counts');
   // and it drops back when the suspicion reaches 0
-  await G(page, () => { const g = window.__game; g.alert.suspicion = 0; g.sim(0.3); });
-  await frames(page, 4);
+  await G(page, () => { const g = window.__game; g.alert.suspicion = 0; for (const p of g.guards) { p.meter = 0; p.state = 'task'; p.visible = false; } g.sim(0.3); });
+  await page.waitForFunction(() => document.querySelector('#hud .gsus').classList.contains('gone'), null, { timeout: 8000 });
   assert.equal(await goneOf(page), true, 'minimal mode: the card hides at 0');
   // the human-guard mode: the card hides (the suspicion does not count there, it is always greenish-0)
   await G(page, async () => { const { G: S } = await import('./src/systems/state.js'); S.humanGuard = true; });

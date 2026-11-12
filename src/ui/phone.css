@@ -54,6 +54,17 @@ body.phone-playing { overscroll-behavior: none; }
 #hud .bar .fill { top: 3px; bottom: 3px; background: #5fd38d; }
 #hud .bar .tick { width: 2px; margin-left: -1px; background: #fff; opacity: .85; }
 #hud .micdb { font-size: 12px; font-weight: 600; color: #6f8396; }
+/* the corner is icons only: the eye (3 states, amber under a lamp) and, while you hold something, its icon with a red «!» when damaged;
+   the words and numbers (stance · metres, steps, the room) are for testers: «Цифри в HUD» turns them on (#hud.digits) */
+#hud:not(.digits) .hud-eye .stance, #hud:not(.digits) .hud-sub { display: none; }
+#hud .hud-eye .hud-item { position: relative; display: inline-flex; flex: none; }
+#hud .hud-eye .hud-item .ico { width: 24px; height: 24px; fill: none; stroke: #efe6d4; stroke-width: 1.9; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 1px 2px #000); }
+#hud .hud-item [data-k] { display: none; }
+#hud .hud-item[data-kind="light"] [data-k="light"], #hud .hud-item[data-kind="medium"] [data-k="medium"], #hud .hud-item[data-kind="crystal"] [data-k="crystal"] { display: inline; }
+#hud .hud-eye .hud-item .dmg { display: none; position: absolute; right: -6px; top: -5px; width: 14px; height: 14px; stroke: none; fill: none; filter: none; }
+#hud .hud-item.hurt .dmg { display: block; }
+#hud .hud-item .dmg circle { fill: #05070d; stroke: #ff5468; stroke-width: 2.4; }
+#hud .hud-item .dmg path { stroke: #ff5468; stroke-width: 2.6; stroke-linecap: round; }
 /* ---------- the guards panel under the eye (CFG.hud, game/watchers.js): the main watcher's big card with the house
    scale beside it + small cards (portrait + a thin «sees you» line) for the rest — as many as the level has.
    It stays inside the top-left corner: the clock, the microphone, the buttons and the joystick stay free */

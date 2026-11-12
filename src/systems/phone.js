@@ -103,6 +103,8 @@ export const phone = {
       look: { id: 'lookspeed', save: 'lookSpeed', def: 'normal', values: ['slow', 'normal', 'fast'], title: S.settings.look.title, names: { slow: S.settings.look.slow, normal: S.settings.look.normal, fast: S.settings.look.fast }, apply: (v) => { touch.lookSpeed = LOOK_SPEEDS[v]; } },
       breath: { id: 'breathmode', save: 'breathMode', def: 'hold', values: ['hold', 'toggle'], title: S.settings.breath.title, names: { hold: S.settings.breath.hold, toggle: S.settings.breath.toggle }, apply: (v) => { touch.breathToggle = v === 'toggle'; } },
       hud: { id: 'hudmode', save: 'hudMode', def: 'full', values: ['full', 'min'], title: S.settings.hud.title, names: { full: S.settings.hud.full, min: S.settings.hud.min }, apply: (v) => hud.setMinimal(v === 'min') },
+      // testers: the numbers and words of the HUD's corner (stance · metres, steps, the room); ?hudnums=on does it for a test
+      hudnums: { id: 'hudnums', save: 'hudNums', def: 'off', values: ['off', 'on'], title: S.settings.hudnums.title, names: { off: S.settings.hudnums.off, on: S.settings.hudnums.on }, apply: (v) => hud.setDigits(v === 'on' || new URLSearchParams(location.search).get('hudnums') === 'on') },
       fx: { id: 'feedback', save: 'feedback', def: 'auto', values: ['auto', 'flash', 'off'], title: S.settings.fx.title, names: { auto: S.settings.fx.auto, flash: S.settings.fx.flash, off: S.settings.fx.off }, apply: (v) => { G.feedback.mode = v; } },
       // T4: quality preset, frame cap, gyroscope
       quality: { id: 'quality', save: 'quality', def: 'auto', values: ['auto', 'low', 'medium', 'high'], title: S.settings.quality.title, names: { auto: S.settings.quality.auto, low: S.quality.low, medium: S.quality.medium, high: S.quality.high },
