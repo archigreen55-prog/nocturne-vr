@@ -306,7 +306,7 @@ export class Patrol {
     if (e.kind !== 'device') for (const m of this.env.level.maskZones || []) if (Math.hypot(m.x - this.x, m.z - this.z) < m.r) { r *= CFG.hearing.maskK; break; }   // W6: a fountain nearby (W2a: a playing radio too, but not for itself)
     if (d > r) return 0;
     const L = this.env.level;
-    const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? CFG.hearing.occludedK : 1);
+    const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? (e.wallK ?? CFG.hearing.occludedK) : 1);
     if (d > r * k) return 0;
     return Math.max(0.01, 1 - d / (r * k));
   }

@@ -26,13 +26,14 @@ export const puddles = {
       s.acc += d;
       if (s.acc < P.stride) continue;
       s.acc = 0;
-      const [r0, r1] = CFG.player.stepRadius, quiet = CFG.player.quietSpeed, k = Math.min(1, Math.max(0, (speed - quiet) / (CFG.player.maxSpeed - quiet)));
-      const base = speed > quiet ? r0 + (r1 - r0) * k : 0;
-      let radius = Math.min(P.maxRadius, Math.max(P.minRadius, base * P.radiusK));
+      // the radius by speed: creeping = minRadius, the stick's full = walkRadius, running = runRadius (config/placeSound.js)
+      const quiet = CFG.player.quietSpeed, top = CFG.player.maxSpeed, run = CFG.sprint.speed, lerp = (a, b, t) => a + (b - a) * Math.min(1, Math.max(0, t));
+      const k = Math.min(1, Math.max(0, (speed - quiet) / (top - quiet)));
+      let radius = speed <= quiet ? P.minRadius : speed <= top ? lerp(P.minRadius, P.walkRadius, k) : lerp(P.walkRadius, P.runRadius, (speed - top) / (run - top));
       if (p.crouched || p.virtualCrouch) radius *= P.crouchK;
       if (!live) continue;
       playSplash({ x: p.head.x, y: 0.05, z: p.head.z }, k, placeK(G.mic));
-      if (!G.isGuest) G.noise.emit(p.head.x, p.head.z, radius, 'splash', { who: p });
+      if (!G.isGuest) G.noise.emit(p.head.x, p.head.z, radius, 'splash', { who: p, wallK: P.wallK });
     }
   },
 };
