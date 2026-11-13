@@ -72,12 +72,15 @@ const atWindow = (page, z = -13.35, yaw = 0) => page.evaluate(([z, yaw]) => {
 const key = async (page, code, secs = 0.05) => { await page.keyboard.press(code); await page.evaluate((s) => window.__game.sim(s), secs); };
 
 // the climb takes ~3.1 s with a shut sash (align, open, rise, carry, drop), ~2.2 s with an open one (claude/dacha-window)
-const settle = (page, max = 6) => page.evaluate(async (max) => {
-  const g = window.__game, bw = await import('./src/systems/backWindow.js');
-  let w = 0; while (!bw.climbing() && w < 1) { g.sim(0.02); w += 0.02; }   // the key press is taken on the next frame
-  let t = 0; while (bw.climbing() && t < max) { g.sim(0.05); t += 0.05; }
-  return +t.toFixed(2);
-}, max);
+const settle = async (page, max = 6) => {
+  // the key press is taken on the next REAL frame (a slow machine: later): wait for the climb to begin (a refused press never does), then run it out
+  await page.waitForFunction(async () => (await import('./src/systems/backWindow.js')).climbing(), null, { timeout: 3000 }).catch(() => {});
+  return page.evaluate(async (max) => {
+    const g = window.__game, bw = await import('./src/systems/backWindow.js');
+    let t = 0; while (bw.climbing() && t < max) { g.sim(0.05); t += 0.05; }
+    return +t.toFixed(2);
+  }, max);
+};
 
 test('back window (PC): one window in the dacha\'s back wall; T opens it with a quiet creak, Q silently; E in front of it (shut or open) climbs through crouched in ~3 s, no walking meanwhile, and back; not with a big item, a small one goes along; the guard does not use it', async () => {
   const ctx = await newContext(browser);
@@ -85,6 +88,7 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
   const info = await page.evaluate(() => {
     const g = window.__game, L = g.level, w = L.doors.filter((d) => d.window);
     g.playing = true; g.sim(0.1);
+    for (const p of g.guards) p.update = () => null;   // the guard walks the living room while the test runs the climb in fast time and may catch the thief at the sash: his mind is off here (the guard's own use of the window is tested below by hand)
     window.__heard = []; g.noise.on((e) => window.__heard.push({ kind: e.kind, r: +e.radius.toFixed(2), x: +e.x.toFixed(1), z: +e.z.toFixed(1) }));
     return { windows: w.map((d) => [+d.cx.toFixed(2), +d.cz.toFixed(2), +d.y0.toFixed(2), d.locked, d.open]), doors: L.doors.length, room: L.roomAt(4, -13.3), behind: L.roomAt(4, -14.6) };
   });
@@ -161,7 +165,7 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
     return it.id;
   });
   await page.keyboard.press('KeyE'); await settle(page);
-  const smallR = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), held: window.__game.hands.desk && window.__game.hands.desk.id }));
+  const smallR = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), held: window.__game.hands.desk && window.__game.hands.desk.id, why: { flash: window.__game.flashText, active: window.__game.active, caughtT: window.__game.caughtT, phase: window.__game.round.phase, carrying: window.__game.hands.carrying } }));
   assert.ok(smallR.z < -14.4, `with a small item you climb out: ${JSON.stringify(smallR)}`);
   assert.equal(smallR.held, small, 'the small item went along');
 
@@ -180,11 +184,12 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
 
 test('back window (phone): in the zone of the SHUT window the context button says «Лізти у вікно» at once; one finger press opens, climbs and crouches', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
+  await page.evaluate(() => { for (const p of window.__game.guards) p.update = () => null; });   // see the PC test: a guard in the living room may catch the climber
   await atWindow(page);
   await page.waitForFunction(() => document.querySelector('#touch .act').textContent === 'Лізти у вікно' && !document.querySelector('#touch .act').hidden, null, { timeout: 10000 });
   await fingerPressEl(page, cdp, '#touch .act', { holdMs: 120 });
   await settle(page, 8);
-  const r = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), crouch: window.__game.player.virtualCrouch, open: Math.abs(window.__game.level.doors.find((d) => d.window).angle) }));
+  const r = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), crouch: window.__game.player.virtualCrouch, open: Math.abs(window.__game.level.doors.find((d) => d.window).angle), why: { flash: window.__game.flashText, active: window.__game.active, paused: window.__game.paused, caughtT: window.__game.caughtT, phase: window.__game.round.phase } }));
   assert.ok(r.z < -14.4 && r.crouch && r.open > 1.0, `one press: the finger climbed out, crouched: ${JSON.stringify(r)}`);
   assert.deepEqual(errors, []);
   await ctx.close();

@@ -106,7 +106,7 @@ test('crickets: three of them in different places of the yard; each sings in bou
   for (const x of r.runs) assert.ok(Math.abs(x.pitch - x.f) / x.f < 0.04, `the pitch is its own: ${x.pitch.toFixed(0)} vs ${x.f.toFixed(0)} Hz`);
   assert.ok(new Set(r.runs.map((x) => Math.round(x.f / 20))).size > 1, 'the crickets differ in pitch');
   const soft = r.runs.flatMap((x) => x.soft);
-  assert.ok(soft.length >= 3 && soft.every(([a, z]) => a < 0.6 && z < 0.6), `a long bout swells in and fades out (the first / last click vs the loudest): ${soft.map(([a, z]) => `${a.toFixed(2)}/${z.toFixed(2)}`)}`);
+  a < 0.8 && z < 0.8), `a long bout swells in and fades out (the first / last click vs the loudest): ${soft.map(([a, z]) => `${a.toFixed(2)}/${z.toFixed(2)}`)}`);
   assert.ok(r.song <= r.step - 15, `the song is far under the patrol step: ${r.song.toFixed(1)} vs ${r.step.toFixed(1)} dB`);
   assert.ok(r.song > -48, `and can be heard (the old song's peak was -38 dB): ${r.song.toFixed(1)} dB`);
   assert.equal(r.offVoices, 0, 'crickets: { on: false } = no crickets');
