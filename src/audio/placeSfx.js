@@ -136,13 +136,14 @@ export class PlaceAmbience {
   sing(q) {
     const c = this.c, S = CFG.placeSound.crickets, R = (r) => r[0] + Math.random() * (r[1] - r[0]), jit = (k) => 1 + (Math.random() - 0.5) * k;
     const t0 = Math.max(c.currentTime + 0.05, q.next), dur = R(S.bout), period = 1 / R(S.chirpRate), n = Math.round(R(S.pulses)), f = q.f * jit(0.03);
+    const fIn = Math.min(S.fadeIn, dur * 0.4), fOut = Math.min(S.fadeOut, dur * 0.5);   // a short bout swells and fades in proportion: a 1 s one must stay audible
     const pg = c.createGain(); pg.gain.value = 0; pg.connect(q.v.input);
     const o1 = c.createOscillator(), o2 = c.createOscillator(), g2 = c.createGain();
     o1.type = o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 1.011; g2.gain.value = 0.35;
     o1.connect(pg); o2.connect(g2).connect(pg);
     const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
     for (let t = 0; t < dur; t += period * jit(0.2)) {
-      const bout = smooth(t / S.fadeIn) * smooth((dur - t) / S.fadeOut);
+      const bout = smooth(t / fIn) * smooth((dur - t) / fOut);
       for (let i = 0; i < n; i++) {
         const tp = t0 + t + i * S.pulseGap * jit(0.2), a = S.peak * bout * (0.55 + 0.45 * (n > 1 ? i / (n - 1) : 1)) * jit(0.24);
         pg.gain.setValueAtTime(0, tp); pg.gain.linearRampToValueAtTime(a, tp + 0.002); pg.gain.setTargetAtTime(0, tp + 0.002, 0.0045);

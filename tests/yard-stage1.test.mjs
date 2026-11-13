@@ -158,8 +158,10 @@ test('yard stage 1: new sounds are quiet on the shared bus — a splash is under
     amb.update(0.1, 'yard', false); out.notBuilt = amb.layers === null;     // the speaker rule: not even created
     amb.update(0.1, 'yard', true); await new Promise((x) => setTimeout(x, 2500)); amb.update(0.1, 'yard', true);
     out.ambience = await lvl(() => amb.update(0.1, 'yard', true), 2500);
-    amb.update(0.1, 'yard', false); await new Promise((x) => setTimeout(x, 3500));
-    out.after = amb.gains();   // asked to stop: the layers' gains fall to ~0
+    amb.update(0.1, 'yard', false);
+    // asked to stop: the layers' gains fall to ~0 (the audio thread may run behind real time after a heavy test: wait for the fall, not for a fixed time)
+    for (const t0 = performance.now(); performance.now() - t0 < 15000;) { await new Promise((x) => setTimeout(x, 250)); const q = amb.gains(); if (q.crickets < 0.002 && q.wind < 0.002 && q.traffic < 0.002) break; }
+    out.after = amb.gains();
     out.ambOff = await lvl(() => amb.update(0.1, 'yard', false), 600);
     out.levels = amb.level;
     return out;

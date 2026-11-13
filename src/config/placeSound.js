@@ -55,7 +55,7 @@ export const placeSound = {
     chirpRate: [2.4, 4.2],        // chirps per second inside a bout (the tempo, new for every bout)
     pulses: [3, 5],               // clicks in a chirp
     pulseGap: 0.03,               // s between the clicks of a chirp
-    fadeIn: 0.8, fadeOut: 1.0,   // s: the bout swells in over a few chirps and fades out (a 1 s bout never reaches its full loudness)
+    fadeIn: 0.8, fadeOut: 1.0,   // s: the bout swells in over a few chirps and fades out (at most 40% / 50% of a short bout)
     peak: 7,                      // the loudest click before the zone's level above (the old continuous song's loudness: measured on the bus, see tests/placesound.test.mjs)
     refDistance: 3, rolloff: 0.4, // how the song fades with distance (gentle: a cricket in the next corner of the yard is a bit quieter, not far away)
   },
