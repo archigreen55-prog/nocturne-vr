@@ -61,10 +61,10 @@ const COL = {
   logs: 0x5a4434, logEnd: 0x8a6e52, low: 0x4a3e33,
 };
 
-// S, G: the static and the glow Builders; C: level.js's palette; solid(x0, z0, x1, z1, h, top):
+// S, G: the static and the glow Builders; P: the van's paint (its own mesh); C: level.js's palette; solid(x0, z0, x1, z1, h, top):
 // a body box + furniture for line of sight; both(x0, z0, x1, z1): the walls-only world too (sound,
 // sight, thrown loot); furniture: the level's list (the van goes in). Returns the van's cargo floor.
-export function buildYard({ S, G, C, solid, both, furniture, world }) {
+export function buildYard({ S, G, P, C, solid, both, furniture, world }) {
   // ---------- the yard's fences: the old lot, the south side with the gate ----------
   const rails = (x0, z0, x1, z1) => {   // two rails, as level.js's fence
     const alongX = z0 === z1;
@@ -147,7 +147,7 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
   lampPost(S, G, solid, -1.5, 22.9, 3.4);                                                // the street lamp
 
   // ---------- the van and the board ----------
-  const V = van(S, G, VAN.x, VAN.z, VAN.yaw);
+  const V = van(S, G, VAN.x, VAN.z, VAN.yaw, P);
   world.addBox(V.body.minX, V.body.minZ, V.body.maxX, V.body.maxZ);
   for (const d of V.doors) world.addBox(d.minX, d.minZ, d.maxX, d.maxZ);
   furniture.push({ ...V.body, h: 2.2, top: null });
