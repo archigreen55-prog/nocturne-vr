@@ -306,7 +306,7 @@ export class Patrol {
     if (e.kind !== 'device') for (const m of this.env.level.maskZones || []) if (Math.hypot(m.x - this.x, m.z - this.z) < m.r) { r *= CFG.hearing.maskK; break; }   // W6: a fountain nearby (W2a: a playing radio too, but not for itself)
     if (d > r) return 0;
     const L = this.env.level;
-    const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? CFG.hearing.occludedK : 1);
+    const k = L.soundK ? L.soundK(this.x, this.z, e.x, e.z, this.y, ey) : (L.soundOccluded(this.x, this.z, e.x, e.z) ? (e.wallK ?? CFG.hearing.occludedK) : 1);
     if (d > r * k) return 0;
     return Math.max(0.01, 1 - d / (r * k));
   }
@@ -544,7 +544,7 @@ export class Patrol {
   // Opens a closed door between it and the next point (a creak the player can hear).
   openDoors(tx, tz) {
     for (const door of this.env.level.doors) {
-      if (door.locked || door.window || door.open || door.floor !== this.floor) continue;   // the guards never use the back window
+      if (door.locked || door.window || door.gate || door.open || door.floor !== this.floor) continue;   // the guards never use the back window
       if (Math.hypot(door.cx - this.x, door.cz - this.z) > 1.3) continue;
       const nx = -Math.sin(door.base), nz = -Math.cos(door.base);   // normal of the closed leaf
       const s1 = (this.x - door.hx) * nx + (this.z - door.hz) * nz, s2 = (tx - door.hx) * nx + (tz - door.hz) * nz;

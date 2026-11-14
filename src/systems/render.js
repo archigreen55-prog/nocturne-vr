@@ -64,7 +64,7 @@ export const render = {
     scene.add(moonLight);
     const points = G.points = [];
     for (const [x, y, z, color, intensity, dist] of [
-      [1.6, 2.8, 7.6, 0xffc98a, 6, 12],     // yard lamp over the garden path (world/yard.js LIGHTS)
+      [2.6, 2.8, 4.4, 0xffc98a, 6, 12],     // yard lamp over the garden path (world/yard.js LIGHTS)
       [1.5, 0.6, -12.9, 0xff7a3a, 3.5, 8],  // fireplace embers
       [-3.0, 2.3, -6.0, 0x7f9cff, 3, 10],   // corridor night light
     ]) {

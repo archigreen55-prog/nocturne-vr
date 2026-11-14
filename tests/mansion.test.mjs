@@ -52,7 +52,7 @@ test('mansion (M1): ?map=mansion opens the second map on a preview and is rememb
   await page2.close();
   // the main site (no preview): the mansion is closed (no stars yet), ?map=mansion is ignored
   const page3 = (await open(ctx, base + '?map=mansion')).page;
-  assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.filter((i) => !i.throwable).length].join()), 'dacha,9,14', 'the first map as before (its 8 doors + the back window, its 8 items and the 6 small ones of W18)');
+  assert.equal(await page3.evaluate(() => [window.__game.level.id, window.__game.level.doors.length, window.__game.loot.items.filter((i) => !i.throwable).length].join()), 'dacha,10,14', 'the first map as before (its 8 doors + the back window + the yard’s gate, its 8 items and the 6 small ones of W18)');
   await page3.close();
   // back
   const page4 = (await open(ctx, preview + '?map=dacha')).page;

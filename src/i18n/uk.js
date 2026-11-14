@@ -1282,7 +1282,7 @@ export default {
     },
     up: 'Знову на ногах',
     fence: 'Біля фургона — не твоя ділянка',
-    gate: 'За хвіртку — ні ногою: твоя ділянка — двір',
+    gate: 'Далі — не твоя ділянка: ти на ґанку й у дворі',
     benched: (n, s) => `${n}: спіймали, ${s} с у фургоні`,
     benchMe: (s) => `Тебе спіймали: у фургоні ще ${s} с`,
     free: 'Знову в справі!',
@@ -1291,11 +1291,25 @@ export default {
     hud: (n, m, ev) => `Сторож · спіймано ${n} з ${m} · ${ev ? 'Центральна: можна' : 'Центральна: спершу когось побач'}`,
     result: (won, n, saved) => `${won ? 'Сторож переміг' : 'Злодії втекли'} · спіймано: ${n} · збережено ${saved}`,
   },
+  // the dacha's yard (claude/dacha-yard-stage1): the gate
+  yard: {
+    enter: 'ЗАХОДЬ',         // the big chalk arrow on the lane's ground at the gate (level 0)
+    start: 'СТАРТ',          // the chalk start line (the dacha's gate, the mansion's ring round the van)
+    gateHint: 'Хвіртка зачинена: відчини її, як двері. Швидко — скрипить, повільно — тихо',
+  },
+  // the start of a round: the big banner (phone, PC) and its second line
+  go: {
+    go: 'ПІШЛИ!',
+    rehearsal: 'Репетиція: часу нема',
+    clock: 'Годинник пішов',
+  },
   // the dacha's back window (the «stealth-house» branch)
   backWindow: {
     climb: 'Лізти у вікно',
     climbing: 'Лізеш у вікно… тихо',
     tooBig: 'З такою великою річчю у вікно не пролізеш',
     guard: 'Сторож вікнами не лазить',
+    blocked: 'Тут не пролізти',
+    busy: 'Вікно зайняте',
   },
 };

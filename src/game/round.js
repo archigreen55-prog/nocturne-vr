@@ -10,6 +10,14 @@ export const RESULT_TITLES = {
   left: S.result.left, escaped: S.result.escaped, caught: S.result.caught, late: S.result.late,
 };
 
+// Is this head past the start line? A map with a `startRegion` (the dacha: the yard behind the gate) starts the clock when anybody is
+// inside it; the others (the mansion) when anybody is startDist from the drop-off ring.
+export function pastStart(head) {
+  const R = CFG.round, B = R.startRegion;
+  if (B) return head.x >= B.minX && head.x <= B.maxX && head.z >= B.minZ && head.z <= B.maxZ;
+  return Math.hypot(head.x - R.vanZone.x, head.z - R.vanZone.z) > R.startDist;
+}
+
 export class Round {
   // env: { loot, hands, alert, patrol, lurker, scream, onMessage(text, color, s), onPhase(phase) }
   constructor(env) {
@@ -58,7 +66,7 @@ export class Round {
     const R = CFG.round;
     players = asList(players);
     if (this.phase === 'ready') {
-      if (players.some((p) => Math.hypot(p.head.x - R.vanZone.x, p.head.z - R.vanZone.z) > R.startDist)) {
+      if (players.some((p) => pastStart(p.head))) {
         this.phase = 'heist';
         this.env.onMessage(R.noClock ? S.campaign.noClock : S.round.clockStarts, '#ffd166', 3);   // W19: the rehearsal's clock stands
         this.env.onPhase('heist');

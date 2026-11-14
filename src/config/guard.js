@@ -26,13 +26,13 @@ export const patrol = {
 // Stealth read-out: lit spots (lamps) where you are seen as far as in the flashlight beam, and what
 // counts as cover (furniture at least this close below your eyes, within `coverDist`).
 export const stealth = {
-  lamps: [{ x: 1.6, z: 7.6, r: 3 }, { x: 1.5, z: -12.9, r: 2.5 }, { x: -3.0, z: -6.0, r: 2.2 }],   // the dacha's own list: world/yard.js LAMPS
+  lamps: [{ x: 2.6, z: 4.4, r: 3 }, { x: 1.5, z: -12.9, r: 2.5 }, { x: -3.0, z: -6.0, r: 2.2 }],   // the dacha's own list: world/yard.js LAMPS
   coverBelowEyes: 0.3, coverDist: 0.9,
   coverMaxEye: 2.5,   // eyes higher than this over your floor (the gallery, the floor above) look over the cover
 };
 
 export const alert = {
-  points: { step: 12, voice: 18, door: 25, drop: 30, glass: 60, can: 10, device: 0 },  // suspicion per heard noise (a device: the guard's own count, CFG.devices.points)
+  points: { step: 12, splash: 14, voice: 18, door: 25, drop: 30, glass: 60, can: 10, device: 0 },  // suspicion per heard noise (a device: the guard's own count, CFG.devices.points)
   full: 100,             // suspicion that triggers full alarm (a shout or being seen does it at once)
   decay: 4,              // suspicion lost per second
 };
@@ -60,8 +60,8 @@ export const guard = {
     [S.rooms.anteroom]: [[-3, -10.5]],
     [S.rooms.living]: [[1.5, -8], [-0.9, -12.6], [3.9, -9]],
     [S.rooms.bedroom]: [[7.5, -10.2], [6.2, -12.8]],
-    // the dacha's yard (world/yard.js): out on the porch and down to the gate — never to the street
-    [S.rooms.yard]: [[0, 1.6], [3.0, 14.6]],
+    // the dacha's yard (world/yard.js): out on the porch and the front of the garden — never to the gate
+    [S.rooms.yard]: [[0, 1.6], [2.0, 3.8]],
   },
   lootWeight: 0.5,
   lookTime: 2.5,         // s it looks around in a room
