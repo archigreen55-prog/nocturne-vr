@@ -1,8 +1,10 @@
-// The crew's van (owner's choice, claude/van-frol): a moving-company box truck, «ПЕРЕЇЗДИ / Фрол і Ко».
-// A tall cream box (the будка) with the name on both sides, a flat-faced red cab with a roof rack (a rolled rug
-// and a crate) and the crew's badge (a little wardrobe in a round plate) on the cab doors, on the rear doors and
-// on the header over the rear opening. Built from the same kinds of parts as the rest of the world (boxes, a few
-// cylinders) plus the lettering: flat polygons cut from the outlines of the game's heading font (below).
+// The crew's van (owner's choice, claude/van-frol): a moving-company truck, «ПЕРЕЇЗДИ / Фрол і Ко».
+// A mustard-yellow box (the будка) with the name on both sides and one thin brown stripe; a cab from the bulgy
+// minibus (round headlamp «eyes», a sloping bonnet, a leaning windscreen, a chrome belt line) with a roof rack
+// (a rug rolled across with fringe, a crate, a chair upside down); the crew's badge (a little wardrobe in a round
+// plate) on the cab doors, on the rear doors and on the header over the rear opening. Built from the same kinds
+// of parts as the rest of the world (boxes, a few cylinders) plus the lettering: flat polygons cut from the
+// outlines of the game's heading font (below).
 //
 // The van is built in its own frame: x across (±1), y up, z from the rear (0, open doors) to the cab (5);
 // kit.js turns it and puts it on the map. What the game relies on does not change: the footprint (2 x 5 m), the
@@ -14,28 +16,24 @@
 // language without those letters gets the badge and no words.
 import * as THREE from 'three';
 import { S as STR } from '../i18n/index.js';
-import { lit, STYLE_ON } from '../style/materials.js';
+import { lit } from '../style/materials.js';
 
 // ---------- the van's paint ----------
-// The night grade (style/materials.js) pulls every colour of the world towards the night's blue, and the moon's
-// light is blue as well: whatever red is painted on the world's material comes out magenta (hue 310-318 at the
-// standard brightness, for every red from brick to orange). The van is the first thing a player sees and stands
-// out on purpose, so it is drawn as its own mesh with a gentler grade, like the loot («keeps more of its own»),
-// and a little extra exposure: the red stays red and the box stands out of the night. One more draw call.
-export const VAN_GRADE = 0.03, VAN_EXPOSURE = 1.5;
-export function vanMaterial() {
-  const m = lit({ grade: VAN_GRADE });
-  if (STYLE_ON) m.color.setScalar(VAN_EXPOSURE);
-  return m;
-}
+// The night grade (style/materials.js) pulls every colour of the world towards the night's blue and the moon's
+// light is blue as well: a warm paint (yellow, orange, red) on the world's material comes out lilac grey, whatever
+// it was. So the van is drawn as its own mesh with a gentler grade, like the loot («keeps more of its own»):
+// the mustard stays mustard, and it is as bright as the rest of the world (no extra exposure, nothing glows).
+// One more draw call, only while the van is in view.
+export const VAN_GRADE = 0.1;
+export function vanMaterial() { return lit({ grade: VAN_GRADE }); }
 
-// ---------- colours: chosen at the game's standard brightness (the night grade pulls everything to blue:
-// the red is deep enough to stay red, the box light enough to stand out of the night) ----------
+// the owner's palette: mustard body, brown trim, near-black brown letters, a cream plate for the badge
+const PAL = { body: 0xdca621, accent: 0x5a3416, letters: 0x1c0e05, plate: 0xf3e7c0, ink: 0x2a1608, rug: [0xb5532b, 0xf0e2bb, 0x2f4a7a] };
+
+// ---------- colours ----------
 const K = {
-  tyre: 0x1a1a1c, glass: 0x4a6784, chrome: 0x9aa1ab, dark: 0x1b1c20, woodDark: 0x3b2d25, metal: 0x777c85,
-  cab: 0xff3b1f, red: 0xe8301c, box: 0xfff2c4, boxShade: 0xd8cfa4, letters: 0xa81e16, onRed: 0xfff2c4,
-  wine: 0xe08a2c, wineCore: 0x7a4514, crate: 0xb48c55, strap: 0x2a2523, badgeInk: 0x7a1f1a,
-  headlight: 0xefe6bd, tail: 0xe02a1a,
+  tyre: 0x1a1a1c, glass: 0x4a6784, chrome: 0xb4bac2, dark: 0x1b1c20, woodDark: 0x3b2d25, metal: 0x777c85,
+  lens: 0xf3e7c0, wood: 0x9a6a3c, strap: 0x2a2523, tail: 0xc02a1a,
 };
 
 // ---------- the lettering ----------
@@ -90,104 +88,130 @@ export function buildVan() {
     const g = new THREE.BoxGeometry(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0));
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); push(g, col, glow);
   };
-  // a cylinder along an axis ('x' wheels, 'z' lamps and rolls)
+  // a box centred at (cx, cy, cz), size w x h x d, turned about X, Y, Z (radians)
+  const R = (cx, cy, cz, w, h, d, rx, ry, rz, col) => {
+    const g = new THREE.BoxGeometry(w, h, d);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz)));
+    g.translate(cx, cy, cz); push(g, col);
+  };
   const Y = (x, y, z, r, len, axis, col, seg = 10, glow = false) => {
     const g = new THREE.CylinderGeometry(r, r, len, seg);
     if (axis === 'x') g.rotateZ(Math.PI / 2); else if (axis === 'z') g.rotateX(Math.PI / 2);
     g.translate(x, y, z); push(g, col, glow);
   };
-  const wheel = (x, z, r = 0.4) => {
+  const disc = (x, y, z, r, dir, col, seg = 10) => { const g = new THREE.CircleGeometry(r, seg); g.rotateY(dir * Math.PI / 2); g.translate(x, y, z); push(g, col); };
+  const wheel = (x, z, r = 0.38) => {
     Y(x, r, z, r, 0.26, 'x', K.tyre, 10);
     Y(x + Math.sign(x) * 0.135, r, z, r * 0.45, 0.02, 'x', K.chrome, 8);
   };
-  // a flat sign (text, a badge) on a surface: the sign is made in its own frame (u right, v up, facing +z);
-  // `frame` puts that frame where it belongs; stick() copies it there, moved by (du, dv, dz) first
   const frame = (x, y, z, ry) => new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z);
   const stick = (list, M, du = 0, dv = 0, dz = 0) => { for (const [g, col] of list) { const k = g.clone(); k.translate(du, dv, dz); k.applyMatrix4(M); push(k, col); } };
   const words = (text, cap, col) => { const [geos, w] = line(text, cap); return [geos.map((g) => [g, col]), w]; };
-  // the crew's badge: a round cream plate with a little wardrobe (cornice, two doors), centred at (u, v)
-  const badge = (u, v, r, plateCol = K.onRed, ink = K.badgeInk) => {
-    const w = r * 0.62, h = r * 1.1, plate = new THREE.CylinderGeometry(r, r, 0.02, 10);
+  // the crew's badge: a ROUND plate (18 sides) with a little wardrobe
+  const badge = (u, v, r, plateCol, ink, seg = 18) => {
+    const w = r * 0.62, h = r * 1.1, plate = new THREE.CylinderGeometry(r, r, 0.02, seg);
     plate.rotateX(Math.PI / 2); plate.translate(u, v, 0.011);
     const box = (bw, bh, bd, x, y, z) => { const g = new THREE.BoxGeometry(bw, bh, bd); g.translate(u + x, v + y, z); return g; };
     return [[plate, plateCol], [box(w, h, 0.012, 0, 0, 0.026), ink], [box(w * 1.22, h * 0.1, 0.012, 0, h * 0.55, 0.026), ink],
       [box(r * 0.05, h * 0.86, 0.008, 0, 0, 0.03), plateCol]];
   };
+  const BODY = PAL.body, ACC = PAL.accent;
 
   // ---------- chassis and wheels ----------
   B(-0.75, 0.26, 0, 0.75, 0.35, 5.0, K.dark);
   wheel(-0.95, 0.9); wheel(0.95, 0.9); wheel(-0.95, 4.2); wheel(0.95, 4.2);
-  for (const s of [-1, 1]) B(s * 0.82 - (s < 0 ? 0.3 : 0), 0.82, 0.45, s * 0.82 + (s < 0 ? 0 : 0.3), 0.88, 1.35, K.dark);   // mudguard over the rear wheel
+  for (const s of [-1, 1]) {   // mudguards over the wheels, in the accent colour
+    B(s * 1.04 - (s < 0 ? 0.1 : 0), 0.76, 0.4, s * 1.04 + (s < 0 ? 0 : 0.1), 0.82, 1.4, ACC);
+    B(s * 1.04 - (s < 0 ? 0.1 : 0), 0.76, 3.7, s * 1.04 + (s < 0 ? 0 : 0.1), 0.82, 4.7, ACC);
+  }
 
-  // ---------- the box (будка): open at the back; the same inside as the old van, so the loot reads the same ----------
-  B(-1.0, 0.35, 0, -0.95, 2.2, 3.65, K.box); B(0.95, 0.35, 0, 1.0, 2.2, 3.65, K.box);
-  B(-1.03, 2.2, -0.03, 1.03, 2.27, 3.68, K.box);                                           // the roof, a little proud
-  B(-0.95, 0.35, 3.6, 0.95, 2.2, 3.7, K.boxShade);                                        // its front wall
-  B(-0.95, 0.4, 0.02, -0.94, 2.12, 3.64, 0x2e3036); B(0.94, 0.4, 0.02, 0.95, 2.12, 3.64, 0x2e3036);   // liners
-  B(-0.9, 0.36, 0.02, 0.9, 0.4, 3.6, K.woodDark);                                         // the cargo floor
+  // ---------- the box (будка): open at the back, the same inside; the roof corners rounded ----------
+  B(-1.0, 0.35, 0, -0.95, 2.0, 3.65, BODY); B(0.95, 0.35, 0, 1.0, 2.0, 3.65, BODY);
+  for (const s of [-1, 1]) R(s * 0.93, 2.135, 1.82, 0.31, 0.05, 3.65, 0, 0, -s * 1.09, BODY);   // the shoulders
+  B(-0.86, 2.22, 0, 0.86, 2.27, 3.65, BODY);                                                       // the roof
+  B(-0.95, 0.35, 3.6, 0.95, 2.2, 3.7, BODY);                                                      // its front wall
+  B(-0.95, 0.4, 0.02, -0.94, 2.12, 3.6, 0x2e3036); B(0.94, 0.4, 0.02, 0.95, 2.12, 3.6, 0x2e3036);
+  B(-0.9, 0.36, 0.02, 0.9, 0.4, 3.6, K.woodDark);
   B(-0.9, 2.1, 0.05, 0.9, 2.12, 3.65, 0x3a3c40);
-  B(-0.94, 0.4, 3.64, 0.94, 2.12, 3.65, 0x0b0d12, true);                                  // dark front wall inside
-  B(-0.4, 2.13, 0.8, 0.4, 2.14, 1.1, 0x8a6a40, true);                                     // the dim cargo lamp
-  B(-0.999, 0.28, -0.04, 0.999, 0.36, 0.02, K.metal);                                     // rear sill
-  B(-0.7, 0.2, -0.35, 0.7, 0.3, 0, K.metal);                                              // step / drop-off lip
-  B(-0.97, 0.6, -0.03, -0.88, 0.8, 0.0, K.tail, true); B(0.88, 0.6, -0.03, 0.97, 0.8, 0.0, K.tail, true);   // tail lights
+  B(-0.94, 0.4, 3.64, 0.94, 2.12, 3.65, 0x0b0d12, true);
+  B(-0.4, 2.13, 0.8, 0.4, 2.14, 1.1, 0x8a6a40, true);
+  B(-0.999, 0.28, -0.04, 0.999, 0.36, 0.02, K.metal);
+  B(-0.7, 0.2, -0.35, 0.7, 0.3, 0, K.metal);
+  B(-0.97, 0.6, -0.03, -0.9, 0.76, 0.0, K.tail, true); B(0.9, 0.6, -0.03, 0.97, 0.76, 0.0, K.tail, true);   // small tail lights
   for (const s of [-1, 1]) {
     const o = s < 0 ? -1 : 0;
-    B(s + o * 0.02, 0.35, 0, s + (o + 1) * 0.02, 2.25, 0.12, K.boxShade);                  // corner posts
-    B(s + o * 0.014, 0.45, 0.12, s + (o + 1) * 0.014, 0.64, 3.53, K.red);                  // the red stripe along the foot
-    B(s + o * 0.014, 1.98, 0.12, s + (o + 1) * 0.014, 2.08, 3.53, K.red);                  // and under the roof
+    B(s + o * 0.012, 0.66, 0.12, s + (o + 1) * 0.012, 0.7, 3.55, ACC);                    // ONE thin stripe along the foot
   }
-  // the name on both sides: clear of the folded-back rear doors (from the start they hide the wall up to z 1.3)
-  // and of the corner post (z > 3.53)
   {
-    const [big, bw] = words(STR.van.sign, 0.325, K.letters), [small, sw] = words(STR.van.crew, 0.18, K.letters);
-    const z0 = 1.3, span = 2.22;   // the free stretch of the side: from z0, span long
-    for (const M of [frame(-1.016, 0, z0, -Math.PI / 2), frame(1.016, 0, z0 + span, Math.PI / 2)]) {   // west: u runs to +z; east: to -z
-      stick(big, M, (span - bw) / 2, 1.34); stick(small, M, (span - sw) / 2, 0.98);
+    const [big, bw] = words(STR.van.sign, 0.325, PAL.letters), [small, sw] = words(STR.van.crew, 0.18, PAL.letters);
+    const z0 = 1.3, span = 2.22;
+    for (const M of [frame(-1.016, 0, z0, -Math.PI / 2), frame(1.016, 0, z0 + span, Math.PI / 2)]) {
+      stick(big, M, (span - bw) / 2, 1.3); stick(small, M, (span - sw) / 2, 0.94);
     }
   }
-  // the rear header: a red board over the opening with the badge and the crew's name (seen from behind: from the ring)
-  B(-0.95, 1.88, -0.04, 0.95, 2.2, 0.02, K.red);
+  // the rear header: the accent colour, the badge and the name
+  B(-0.93, 1.86, -0.04, 0.93, 2.16, 0.02, ACC);
   {
-    const [list, w] = words(STR.van.crew, 0.13, K.onRed), total = 0.26 + 0.12 + w, u0 = -total / 2;
-    const M = frame(0, 0, -0.048, Math.PI);   // facing the rear: u runs towards -x
-    stick(badge(u0 + 0.13, 2.04, 0.13), M); stick(list, M, u0 + 0.38, 1.995);
+    const [list, w] = words(STR.van.crew, 0.13, PAL.plate), total = 0.26 + 0.12 + w, u0 = -total / 2;
+    const M = frame(0, 0, -0.048, Math.PI);
+    stick(badge(u0 + 0.13, 2.01, 0.13, PAL.plate, ACC, 14), M); stick(list, M, u0 + 0.38, 1.965);
   }
 
-  // ---------- the cab: flat-faced, red ----------
-  B(-0.9, 0.35, 3.7, 0.9, 2.05, 3.78, K.dark);                                           // the gap between the box and the cab
-  B(-0.97, 0.35, 3.78, 0.97, 2.05, 5.0, K.cab);
-  B(-0.99, 2.05, 3.76, 0.99, 2.1, 5.02, K.cab);                                          // the roof
-  B(-0.88, 1.38, 4.99, 0.88, 1.97, 5.03, K.glass);                                       // the windscreen
-  B(-0.6, 0.52, 5.0, 0.6, 0.98, 5.03, K.dark); B(-0.6, 0.72, 5.03, 0.6, 0.77, 5.05, K.chrome);   // grille
-  B(-0.99, 0.38, 4.98, 0.99, 0.55, 5.15, K.dark);                                        // bumper
+  // ---------- the cab: the bulgy minibus's (round eyes, a sloping bonnet, a leaning windscreen, chrome belt line) ----------
+  B(-0.9, 0.35, 3.7, 0.9, 1.9, 3.78, K.dark);                                            // the gap behind the cab
+  B(-0.98, 0.35, 3.78, 0.98, 1.15, 4.55, BODY);                                          // lower body, bulging out
+  B(-0.96, 0.35, 4.55, 0.96, 1.0, 5.0, BODY);                                            // the nose
+  R(0, 1.07, 4.78, 1.94, 0.08, 0.58, 0.17, 0, 0, BODY);                                  // the sloping bonnet
+  B(-0.9, 1.15, 3.78, 0.9, 1.86, 4.3, BODY);                                             // the cab proper, a little narrower
+  for (const s of [-1, 1]) R(s * 0.83, 1.86, 4.04, 0.3, 0.05, 0.48, 0, 0, -s * 0.8, BODY);   // rounded roof edges
+  B(-0.68, 1.88, 3.78, 0.68, 1.93, 4.3, BODY);                                           // the roof
+  B(-0.9, 1.15, 4.3, 0.9, 1.22, 4.62, BODY);                                             // scuttle
+  R(0, 1.52, 4.43, 1.76, 0.8, 0.04, -0.42, 0, 0, K.glass);                               // the windscreen, leaning back
+  B(-1.02, 1.1, 3.8, -0.95, 1.17, 4.98, K.chrome); B(0.95, 1.1, 3.8, 1.02, 1.17, 4.98, K.chrome);   // the chrome belt line
+  B(-0.975, 0.97, 4.99, 0.975, 1.03, 5.04, K.chrome);                                      // ... round the nose
+  B(-0.42, 0.5, 5.0, 0.42, 0.74, 5.03, K.dark); B(-0.42, 0.6, 5.03, 0.42, 0.64, 5.05, K.chrome);   // grille
+  B(-1.03, 0.4, 4.95, 1.03, 0.54, 5.12, K.chrome);                                       // bumper
   for (const s of [-1, 1]) {
-    const o = s < 0 ? -1 : 0, face = (y0, y1, z0, z1, col) => B(s * 0.975 + o * 0.012, y0, z0, s * 0.975 + (o + 1) * 0.012, y1, z1, col);
-    Y(s * 0.76, 0.72, 5.0, 0.15, 0.1, 'z', K.headlight, 10);   // parked: the lamps are off
-    face(1.42, 1.95, 4.05, 4.85, K.glass);                                         // door window
-    B(s * 1.0 + o * 0.03, 1.26, 4.08, s * 1.0 + (o + 1) * 0.03, 1.3, 4.2, K.chrome);     // handle
-    B(s * 1.0, 0.5, 4.0, s * 1.1, 0.55, 4.7, K.dark);                                    // step
-    B(s * 0.97, 1.78, 4.9, s * 1.22, 1.9, 4.94, K.dark); B(s * 1.2, 1.3, 4.86, s * 1.26, 1.84, 4.98, K.dark);   // mirror: a head hanging from its arm
-    stick(badge(0, 0, 0.22), s < 0 ? frame(-0.99, 0.92, 4.5, -Math.PI / 2) : frame(0.99, 0.92, 4.5, Math.PI / 2));   // the badge on the door
+    Y(s * 0.62, 0.84, 5.0, 0.17, 0.1, 'z', K.lens, 14); Y(s * 0.62, 0.84, 4.985, 0.205, 0.06, 'z', K.chrome, 14);   // the round "eyes"
+    B(s * 0.905 + (s < 0 ? -0.01 : 0), 1.34, 3.86, s * 0.905 + (s < 0 ? 0 : 0.01), 1.8, 4.22, K.glass);   // side window
+    B(s * 0.97, 1.58, 4.42, s * 1.22, 1.64, 4.46, K.dark); Y(s * 1.22, 1.5, 4.44, 0.1, 0.03, 'x', K.chrome, 10);   // round mirror
+    stick(badge(0, 0, 0.2, PAL.plate, PAL.ink), s < 0 ? frame(-0.99, 0.78, 4.15, -Math.PI / 2) : frame(0.99, 0.78, 4.15, Math.PI / 2));   // the door badge
   }
-  // the roof rack: rails, bars, a rolled rug and a crate with two bands
-  for (const s of [-1, 1]) B(s * 0.85 - 0.02, 2.14, 3.9, s * 0.85 + 0.02, 2.18, 4.96, K.chrome);
-  for (const z of [3.93, 4.93]) B(-0.89, 2.145, z - 0.02, 0.89, 2.175, z + 0.02, K.chrome);
-  Y(-0.42, 2.35, 4.45, 0.17, 1.0, 'z', K.wine, 10); Y(-0.42, 2.35, 4.45, 0.1, 1.02, 'z', K.wineCore, 8);
-  Y(-0.42, 2.35, 4.2, 0.175, 0.05, 'z', K.strap, 10);
-  B(0.0, 2.18, 3.98, 0.78, 2.62, 4.74, K.crate);
-  B(-0.005, 2.3, 3.975, 0.785, 2.34, 4.745, K.strap); B(-0.005, 2.46, 3.975, 0.785, 2.5, 4.745, K.strap);
-
-  // ---------- the rear doors: open, folded back along the sides as before (the same two leaves); the face turned
-  // to the player carries the badge and the name ----------
+  // ---------- the roof rack: a rug rolled across (stripes, a pattern and fringe at the ends), a crate, an upturned chair ----------
+  for (const z of [3.84, 4.2]) B(-0.88, 1.955, z - 0.02, 0.88, 1.985, z + 0.02, K.chrome);
+  for (const x of [-0.84, 0.84]) B(x - 0.02, 1.95, 3.8, x + 0.02, 1.99, 4.24, K.chrome);
   {
-    const [small, sw] = words(STR.van.crew, 0.12, K.letters);
+    const [r1, r2, r3] = PAL.rug, x0 = -0.82, len = 1.0, cy = 2.16, cz = 4.02, r = 0.16;
+    Y(x0 + len / 2, cy, cz, r, len, 'x', r1, 10);
+    for (const x of [x0 + 0.2, x0 + 0.5, x0 + 0.8]) Y(x, cy, cz, r + 0.006, 0.05, 'x', r3, 10);      // stripes
+    for (const dir of [-1, 1]) {   // the ends: fringe + the spiral of the roll
+      const xe = dir < 0 ? x0 : x0 + len;
+      Y(xe + dir * 0.04, cy, cz, r * 0.96, 0.08, 'x', r2, 10);                                          // fringe
+      disc(xe + dir * 0.082, cy, cz, r * 0.9, dir, r1); disc(xe + dir * 0.084, cy, cz, r * 0.66, dir, r2);
+      disc(xe + dir * 0.086, cy, cz, r * 0.44, dir, r3); disc(xe + dir * 0.088, cy, cz, r * 0.2, dir, r2);
+    }
+  }
+  B(0.28, 1.99, 3.84, 0.8, 2.37, 4.2, K.wood);                                            // the crate
+  B(0.275, 2.1, 3.835, 0.805, 2.14, 4.205, K.strap);
+  {   // the chair upside down on the crate: it rests on the top of its back and the front edge of its seat (43 degrees)
+    const th = 0.75, M = new THREE.Matrix4().makeTranslation(0.54, 2.37 + 0.18 * Math.sin(th), 4.02).multiply(new THREE.Matrix4().makeRotationX(th));
+    const cb = (x0, y0, z0, x1, y1, z1) => { const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); g.applyMatrix4(M); push(g, K.wood); };
+    cb(-0.18, 0, -0.18, 0.18, 0.04, 0.18);                                                  // the seat
+    for (const lx of [-0.15, 0.15]) for (const lz of [-0.15, 0.15]) cb(lx - 0.025, 0.04, lz - 0.025, lx + 0.025, 0.4, lz + 0.025);   // the legs, up
+    for (const lz of [-0.15, 0.15]) cb(-0.15, 0.2, lz - 0.015, 0.15, 0.23, lz + 0.015);   // rungs
+    for (const lx of [-0.15, 0.15]) cb(lx - 0.015, -0.34, -0.2, lx + 0.015, 0, -0.16);      // the back's posts, hanging down
+    cb(-0.185, -0.34, -0.205, 0.185, -0.27, -0.155);                                          // the back's top rail
+  }
+
+  // ---------- the rear doors: folded back along the sides as before; the face to the player carries the badge and the name ----------
+  {
+    const [small, sw] = words(STR.van.crew, 0.12, PAL.letters);
     for (const s of [-1, 1]) {
-      const hx = s < 0 ? -1.0 : 1.0, cx = -s * 0.49;   // the leaf's centre across, from its hinge
+      const hx = s < 0 ? -1.0 : 1.0, cx = -s * 0.49;
       const leaf = (yc, h, col) => { const g = new THREE.BoxGeometry(0.98, h, 0.05); g.translate(cx, yc, 0); g.rotateY(s * 1.9); g.translate(hx, 0, 0); push(g, col); };
-      leaf(0.675, 0.55, K.red); leaf(1.57, 1.24, K.box);   // 0.4..0.95 red, 0.95..2.19 cream (the old leaf's 0.4..2.19)
-      const M = new THREE.Matrix4().makeTranslation(hx, 0, 0).multiply(new THREE.Matrix4().makeRotationY(s * 1.9));   // the leaf's frame: the hinge at the origin, the face towards the player = +z
-      stick(badge(cx, 1.76, 0.25, K.red, K.onRed), M, 0, 0, 0.025); stick(small, M, cx - sw / 2, 1.25, 0.029);
+      leaf(0.675, 0.55, ACC); leaf(1.57, 1.24, BODY);
+      const M = new THREE.Matrix4().makeTranslation(hx, 0, 0).multiply(new THREE.Matrix4().makeRotationY(s * 1.9));
+      stick(badge(cx, 1.76, 0.25, PAL.plate, PAL.ink), M, 0, 0, 0.025); stick(small, M, cx - sw / 2, 1.25, 0.029);
     }
   }
   return { parts };
