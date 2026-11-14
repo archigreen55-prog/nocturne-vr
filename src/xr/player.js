@@ -37,6 +37,8 @@ export class Player {
     this.speed = 0;
     this.virtualCrouch = false;
     this.crouchT = 0;
+    this.climbY = 0;          // the back window's climb (systems/backWindow.js): the camera's lift (m) and tilt (rad), flat modes only
+    this.climbPitch = 0;
     this.standingHeight = loadSetting('height', 1.65);
     this.pendingRecenter = null;
     this.turnedThisFrame = 0;
@@ -103,7 +105,7 @@ export class Player {
       this.headYawLocal = 0;
       this.rig.rotation.set(0, 0, 0);
       this.camera.position.set(0, DESKTOP_EYE, 0);
-      this.camera.rotation.set(this.lookPitch, this.lookYaw, 0, 'YXZ');
+      this.camera.rotation.set(this.lookPitch + this.climbPitch, this.lookYaw, 0, 'YXZ');
     }
     this.rig.updateMatrixWorld();
     this.head.copy(this.headLocal).applyMatrix4(this.rig.matrixWorld);
@@ -154,7 +156,7 @@ export class Player {
     const fy = level.floorY ? level.floorY(hx, hz, this.floorY) : 0;
     this.floorY += (fy - this.floorY) * (1 - Math.exp(-dt / FLOOR_TAU));
     if (Math.abs(fy - this.floorY) < 1e-4) this.floorY = fy;
-    this.rig.position.y = this.floorY - CROUCH_DROP * this.crouchT;
+    this.rig.position.y = this.floorY - CROUCH_DROP * this.crouchT + (this.inVR ? 0 : this.climbY);
 
     // move the head circle and push it out of walls, furniture and doors; the rig follows the head
     const [nx, nz] = level.resolve(hx + this.vel.x * dt, hz + this.vel.y * dt, RADIUS, this.floorY);

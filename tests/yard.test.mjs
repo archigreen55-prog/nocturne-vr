@@ -1,7 +1,8 @@
-// The dacha's yard (claude/dacha-yard, world/yard.js): the van waits on the street, round the corner
-// behind the hedge, 25–30 m from the house; the guard (AI or a friend) comes out to the porch and the
-// gate but never further, and from nowhere he can stand does he see the van; the longer walk fits in
-// the dacha's contracts (levels 0–7); several thieves at the van still work (the ring, the escape).
+// The dacha's yard (claude/dacha-yard, claude/dacha-yard-near, world/yard.js): a solid fence round the yard
+// with one gate; the van stands on the street right behind it (a through street, end-on on its near edge), 10–15 m from the front door; the guard (AI or a
+// friend) comes out to the porch and the front of the garden but never to the gate, and from nowhere he can
+// stand does he see the van; the walk fits in the dacha's contracts (levels 0–7); several thieves at the van
+// still work (the ring, the escape).
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
 import { browser, open, test, base } from './runner.mjs';
@@ -12,12 +13,13 @@ const campaignCtx = async () => {
   return ctx;
 };
 
-test('yard: the van is 25–30 m from the house, behind the hedge; from no point the guard can reach (the house, the porch, the garden, the gate) is the van or a thief at the ring in sight', async () => {
+test('yard: the van is 10–15 m from the front door, on the street behind the solid fence; from no point the guard can reach (the house, the porch, the front of the garden) is the van or a thief at the ring in sight', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, base + '?map=dacha');
   const r = await page.evaluate(() => {
     const g = window.__game, L = g.level, V = g.CFG.round.vanZone, D = g.CFG.dropZone, C = L.cargo, M = L.leash;
     const out = { id: L.id, leash: M && M.maxZ, ring: [D.x, D.z], zone: [V.x, V.z] };
+    for (const d of L.doors) if (d.gate) { d.angle = d.target = 1.4; d.update(0); }   // the worst case: the gate wide open (shut, it blocks the sight itself)
     out.dist = Math.hypot(D.x - 0, D.z - 0);   // from the front door (x 0, z 0)
     // the van: its cargo floor and body, a thief standing / crouching at the ring
     const targets = [];
@@ -38,7 +40,7 @@ test('yard: the van is 25–30 m from the house, behind the hedge; from no point
     }
     // the spawn, the board and the ring are on the street side, out of the yard
     out.spawn = [L.spawn.x, L.spawn.z]; out.board = [L.board.x, L.board.z];
-    // the AI guard sent to the van: he stops at the gate
+    // the AI guard sent to the van: he stops at the leash
     const P = g.patrol;
     g.playing = true; g.newRound();
     g.player.teleport(V.x, V.z, 0);
@@ -49,7 +51,7 @@ test('yard: the van is 25–30 m from the house, behind the hedge; from no point
     for (let t = 0; t < 40; t += 1 / 30) { g.sim(1 / 30); maxZ = Math.max(maxZ, P.z); }
     out.walkMaxZ = +maxZ.toFixed(2);
     // ...and chasing a thief who runs to the van
-    P.interrupt(); P.x = 3; P.z = 14.5; P.state = 'chase'; P.lastSeen = { x: V.x, z: V.z }; P.lostT = 0; P.goTo(V.x, V.z);
+    P.interrupt(); P.x = 3; P.z = 4.0; P.state = 'chase'; P.lastSeen = { x: V.x, z: V.z }; P.lostT = 0; P.goTo(V.x, V.z);
     maxZ = -99;
     for (let t = 0; t < 20; t += 1 / 30) { g.sim(1 / 30); maxZ = Math.max(maxZ, P.z); if (g.round.phase === 'result') break; }
     out.chaseMaxZ = +maxZ.toFixed(2);
@@ -57,9 +59,9 @@ test('yard: the van is 25–30 m from the house, behind the hedge; from no point
     return out;
   });
   assert.equal(r.id, 'dacha');
-  assert.ok(r.dist >= 25 && r.dist <= 30, `the ring ${r.dist.toFixed(1)} m from the front door`);
-  assert.ok(r.spawn[1] > 23.8 && r.board[1] > 23.8 && r.ring[1] > 23.8, `spawn ${r.spawn}, board ${r.board}, ring ${r.ring}: behind the hedge`);
-  assert.ok(r.eyes > 1500, `guard points checked: ${r.eyes}`);
+  assert.ok(r.dist >= 10 && r.dist <= 15, `the ring ${r.dist.toFixed(1)} m from the front door`);
+  assert.ok(r.spawn[1] > 9.1 && r.board[1] > 9.1 && r.ring[1] > 9.1, `spawn ${r.spawn}, board ${r.board}, ring ${r.ring}: behind the fence`);
+  assert.ok(r.eyes > 1200, `guard points checked: ${r.eyes}`);
   assert.deepEqual(r.seen, [], `the van seen from: ${JSON.stringify(r.seen.slice(0, 5))}`);
   assert.ok(r.walkMaxZ <= r.leash + 0.05, `the guard walked to z ${r.walkMaxZ} (leash ${r.leash})`);
   assert.ok(r.chaseMaxZ <= r.leash + 0.05, `the guard chased to z ${r.chaseMaxZ} (leash ${r.leash})`);
@@ -95,7 +97,7 @@ test('yard: cover in the garden hides a crouching thief, not a standing one (bus
   assert.deepEqual(r.woodpile, { crouched: true, standing: false });
   assert.equal(r.shed, true, 'the shed hides a standing thief');
   const near = (x, z) => r.lamps.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.5);
-  assert.ok(near(0, 0.8) && near(1.6, 7.6) && near(3, 15.5), `lamps: ${JSON.stringify(r.lamps)}`);
+  assert.ok(near(0, 0.8) && near(2.6, 4.4) && near(5, 7.6), `lamps: ${JSON.stringify(r.lamps)}`);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -149,7 +151,7 @@ test('yard: the walk van ↔ house fits in the time of every dacha level (0–7)
     return out;
   });
   assert.deepEqual(r.unreachable, [], `every item can be walked to (door ${r.door} m): ${r.unreachable.join(" ")}`);
-  assert.ok(r.door >= 25 && r.door <= 40, `van → front door: ${r.door} m`);
+  assert.ok(r.door >= 10 && r.door <= 22, `van → front door: ${r.door} m`);
   for (const l of r.levels) {
     assert.ok(!l.missing, `level ${l.n} has its contract`);
     for (const [d, t] of Object.entries(l.times)) {
@@ -176,7 +178,7 @@ test('yard: co-op at the van — two thieves at the ring: each one\'s loot flies
     for (let i = 0; i < 30; i++) g.sim(1 / 30);
     out.readyBoth = g.round.phase === 'ready';
     out.spawnAtVan = Math.hypot(S0.x - V.x, S0.z - V.z) < g.CFG.round.startDist && g.round.atVan(friend.head);   // the spawn is beside the ring (as before), the clock not started
-    friend.head.set(3, 1.65, 14); g.sim(0.3);
+    friend.head.set(3, 1.65, 4); g.sim(0.3);
     out.started = g.round.phase !== 'ready';
     g.round.startEscape('test');
     g.player.teleport(V.x, V.z, 0); g.sim(0.5);
@@ -189,6 +191,78 @@ test('yard: co-op at the van — two thieves at the ring: each one\'s loot flies
   });
   const at = r.at; delete r.at;
   assert.deepEqual(r, { readyBoth: true, spawnAtVan: true, started: true, waits: true, escaped: true }, JSON.stringify(at));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('yard: a through street right behind the fence — asphalt the whole width of the lot and on into the dark, a kerb on the far side, a dashed centre line (not under the van), nothing on it; the bodies\' limits are what they were', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, L = g.level, T = g.THREE, Y = await import('./src/world/yard.js');
+    const hex = (h) => { const c = new T.Color(); c.setHex(h); return [c.r, c.g, c.b]; };
+    const near = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) < 1e-4;
+    let mesh = null; g.scene.traverse((o) => { if (!mesh && o.isMesh && o.name === 'level') mesh = o; });
+    const ext = (col, y) => {   // the extent (x, z) of the vertices of that colour at that height, in the static mesh
+      const P = mesh.geometry.attributes.position, C = mesh.geometry.attributes.color, e = { minX: 1e9, maxX: -1e9, minZ: 1e9, maxZ: -1e9, n: 0 };
+      for (let i = 0; i < P.count; i++) {
+        if (!near([C.getX(i), C.getY(i), C.getZ(i)], col) || Math.abs(P.getY(i) - y) > 1e-4) continue;
+        e.minX = Math.min(e.minX, P.getX(i)); e.maxX = Math.max(e.maxX, P.getX(i)); e.minZ = Math.min(e.minZ, P.getZ(i)); e.maxZ = Math.max(e.maxZ, P.getZ(i)); e.n++;
+      }
+      return e;
+    };
+    const out = { S: Y.STREET, VAN: Y.VAN, road: ext(hex(0x2a2c31), 0.02), kerb: ext(hex(0x4a4b4f), 0.08), dash: ext(hex(0x8a8c80), 0.025) };
+    // walkable: a grid across the street inside the lot, without the van and its folded doors, the board's stand, the lamp post
+    const blocked = [];
+    for (let x = -15; x <= 15; x += 0.5) for (let z = Y.STREET.minZ + 0.6; z <= Y.STREET.maxZ - 0.3; z += 0.5) {
+      if (x > 6.2 && x < 9.8 && z < 16.6) continue;
+      if (x > 9.2 && x < 10.2 && z < 11.3) continue;
+      if (Math.hypot(x - 4.4, z - 12.6) < 0.7) continue;
+      const [nx, nz] = L.resolveBody(x, z, 0.25);
+      if (Math.hypot(nx - x, nz - z) > 1e-3) blocked.push([x, z]);
+    }
+    out.blocked = blocked.slice(0, 8);
+    // the limits are what they were: a body put into the lot's thin side walls or the far wall is pushed out
+    const push = ([x, z]) => { const [nx, nz] = L.resolveBody(x, z, 0.25); return Math.hypot(nx - x, nz - z); };
+    out.edge = { east: push([16.25, 13]), west: push([-16.25, 13]), south: push([0, 22.4]) };
+    out.spawn = [L.spawn.x, L.spawn.z]; out.board = [L.board.x, L.board.z]; out.ring = [g.CFG.dropZone.x, g.CFG.dropZone.z];
+    return out;
+  });
+  assert.deepEqual([r.VAN.x, r.VAN.z, r.VAN.yaw], [8, 11, 0], 'the van where it was');
+  assert.ok(r.road.minX <= -60 && r.road.maxX >= 60, `the asphalt runs on out of the lot both ways: x ${r.road.minX}..${r.road.maxX}`);
+  assert.ok(Math.abs(r.road.minZ - r.S.minZ) < 0.01 && Math.abs(r.road.maxZ - r.S.maxZ) < 0.01 && r.S.minZ < 9.2, `asphalt right behind the fence: z ${r.road.minZ}..${r.road.maxZ}`);
+  assert.ok(r.kerb.n > 0 && Math.abs(r.kerb.minZ - r.S.maxZ) < 0.01 && r.kerb.maxZ > r.S.maxZ + 0.2 && r.kerb.minX <= -60 && r.kerb.maxX >= 60, `the kerb on the far side: ${JSON.stringify(r.kerb)}`);
+  assert.ok(r.dash.n >= 100 && r.dash.minZ > r.S.minZ && r.dash.maxZ < r.S.maxZ, `a dashed line in the middle: ${JSON.stringify(r.dash)}`);
+  assert.deepEqual(r.blocked, [], `a shrub, a tree or something else stands on the street: ${JSON.stringify(r.blocked)}`);
+  assert.ok(r.edge.east > 0.05 && r.edge.west > 0.05 && r.edge.south > 0.05, `the limits: ${JSON.stringify(r.edge)}`);
+  assert.ok(r.spawn[1] > 9.1 && r.board[1] > 9.1 && r.ring[1] > 9.1, 'spawn, board and ring are on the street');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('van: the name on both sides, on the header and on the rear doors; the mirrors are fixed to the cab\'s wall by holders (no gap); nothing outside the body but the swung-out doors, mirrors and wheels', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const V = await import('./src/world/vans.js?t=' + Math.random());
+    const parts = V.buildVan().parts.map(([g, col]) => { g.computeBoundingBox(); return { type: g.type, bb: g.boundingBox, col }; });
+    const out = { shapes: parts.filter((p) => p.type === 'ShapeGeometry').length, discs: 0, holders: [], walls: [], wide: [], long: [] };
+    for (const d of parts.filter((p) => p.type === 'CylinderGeometry' && Math.abs(p.bb.max.x - p.bb.min.x - 0.03) < 1e-3 && Math.abs(p.bb.min.x) > 1.15 && p.bb.min.y > 1.3)) {   // a mirror head
+      out.discs++;
+      const s = Math.sign(d.bb.min.x + d.bb.max.x), lo = (p) => (s > 0 ? p.bb.min.x : -p.bb.max.x), hi = (p) => (s > 0 ? p.bb.max.x : -p.bb.min.x);   // x across, measured outwards
+      const reach = parts.filter((p) => p.type === 'BoxGeometry' && lo(p) <= 0.9 && hi(p) >= Math.min(Math.abs(d.bb.min.x), Math.abs(d.bb.max.x)) && p.bb.max.y > d.bb.min.y - 0.15 && p.bb.min.y < d.bb.max.y && p.bb.min.z < d.bb.max.z && p.bb.max.z > d.bb.min.z);
+      out.holders.push(reach.length);
+      out.walls.push(parts.filter((p) => p.type === 'BoxGeometry' && lo(p) <= 0.9 + 1e-6 && hi(p) >= 0.9 - 1e-6 && hi(p) <= 1.0 && p.bb.min.y <= 1.4 && p.bb.max.y >= 1.6 && p.bb.min.z <= (d.bb.min.z + d.bb.max.z) / 2 && p.bb.max.z >= (d.bb.min.z + d.bb.max.z) / 2).length);
+    }
+    for (const p of parts) { if (Math.abs(p.bb.min.x) > 1.4 || Math.abs(p.bb.max.x) > 1.4) out.wide.push([p.type, p.bb.min.x, p.bb.max.x].join(' ')); if (p.bb.min.z < -0.5 || p.bb.max.z > 5.2) out.long.push([p.type, p.bb.min.z, p.bb.max.z].join(' ')); }
+    return out;
+  });
+  assert.equal(r.shapes, 51, 'the letters: the name (8 + 7 glyphs) on both sides, the crew name (7) on the header and on both rear doors');
+  assert.equal(r.discs, 2, 'two mirror heads');
+  assert.ok(r.holders.every((n) => n >= 2), `each mirror has at least two holders reaching the cab: ${r.holders}`);
+  assert.ok(r.walls.every((n) => n >= 1), `the cab's wall is there at the holders' end: ${r.walls}`);
+  assert.deepEqual(r.wide, [], 'nothing wider than the mirrors: ' + JSON.stringify(r.wide));
+  assert.deepEqual(r.long, [], 'nothing longer than the body: ' + JSON.stringify(r.long));
   assert.deepEqual(errors, []);
   await ctx.close();
 });

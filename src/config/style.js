@@ -21,9 +21,9 @@ export const style = {
   fog: { near: 6, far: 24, alarm: 0.25 },   // alarm: how far the fog's colour goes to Тривога in a full alarm
   pools: { k: 0.45 },                          // the lamps' circles on the floor: brightness of the amber rim
   blobs: { guard: 0.42, friend: 0.36, item: 0.2 },   // radius of the soft shadow under what moves (m)
-  // water: the mansion's fountain (rings run out from the middle) and puddles in the dacha's yard (still)
+  // water: the mansion's fountain (rings run out from the middle) and puddles in the dacha's yard (still; stepping in one splashes: CFG.puddle, systems/puddles.js)
   water: {
     mansion: [{ x: 0, z: 13, r: 1.42, y: 0.605, rings: true }],
-    dacha: [{ x: -1.7, z: 3.4, r: 0.55, y: 0.012 }, { x: 2.6, z: 2.3, r: 0.38, y: 0.012 }, { x: -4.6, z: 9.2, r: 0.7, y: 0.012 }],
+    dacha: [{ x: -1.7, z: 3.4, r: 0.55, y: 0.012 }, { x: 2.6, z: 2.3, r: 0.38, y: 0.012 }, { x: -4.0, z: 7.7, r: 0.7, y: 0.012 }, { x: 3.3, z: 6.7, r: 0.55, y: 0.012 }],
   },
 };

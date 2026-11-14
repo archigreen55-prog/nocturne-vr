@@ -36,7 +36,7 @@ export const world = {
     scene.add(level.group);
     const SPAWN = level.spawn;
     // the map's own van: the drop-off ring and the "at the van" zone (kept across difficulty resets)
-    if (level.dropZone) setMapBase({ dropZone: level.dropZone, round: { vanZone: level.vanZone } });
+    if (level.dropZone) setMapBase({ dropZone: level.dropZone, round: { vanZone: level.vanZone, ...(level.startRegion ? { startRegion: level.startRegion } : {}) } });   // startRegion: the clock starts inside this box (the dacha: through the gate); none = startDist from the van
     if (level.lamps) CFG.stealth.lamps = level.lamps;
     // the three point lights go where this map's lamps are
     if (level.lights) G.points.forEach((l, i) => {

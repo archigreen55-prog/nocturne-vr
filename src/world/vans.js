@@ -174,7 +174,9 @@ export function buildVan() {
   for (const s of [-1, 1]) {
     Y(s * 0.62, 0.84, 5.0, 0.17, 0.1, 'z', K.lens, 14); Y(s * 0.62, 0.84, 4.985, 0.205, 0.06, 'z', K.chrome, 14);   // the round "eyes"
     B(s * 0.905 + (s < 0 ? -0.01 : 0), 1.34, 3.86, s * 0.905 + (s < 0 ? 0 : 0.01), 1.8, 4.22, K.glass);   // side window
-    B(s * 0.97, 1.58, 4.42, s * 1.22, 1.64, 4.46, K.dark); Y(s * 1.22, 1.5, 4.44, 0.1, 0.03, 'x', K.chrome, 10);   // round mirror
+    // round mirror on the cab's pillar: two holders go into the cab's wall (x 0.9) and out to the head, no gap
+    for (const y of [1.36, 1.58]) B(s * 0.88, y, 4.24, s * 1.22, y + 0.06, 4.28, K.dark);
+    Y(s * 1.22, 1.5, 4.26, 0.1, 0.03, 'x', K.chrome, 10);
     stick(badge(0, 0, 0.2, PAL.plate, PAL.ink), s < 0 ? frame(-0.99, 0.78, 4.15, -Math.PI / 2) : frame(0.99, 0.78, 4.15, Math.PI / 2));   // the door badge
   }
   // ---------- the roof rack: a rug rolled across (stripes, a pattern and fringe at the ends), a crate, an upturned chair ----------
