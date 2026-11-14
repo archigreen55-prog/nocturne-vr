@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { CollisionWorld } from '../collision.js';
 import { Builder, Door, C } from '../level.js';
 import { Floors } from '../floors.js';
+import { vanMaterial } from '../vans.js';
 import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T, JAMB } from '../kit.js';
 import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
 // the crate of the second lurker: in the garage by the gate, its lid pops up in the telegraph
@@ -60,6 +61,7 @@ export function buildMansion() {
   const SA = new Builder(), S0 = new Builder(), S1 = new Builder();   // static, lit: always / ground floor / upstairs
   const S = SA;              // the default for everything seen from both floors
   const G = new Builder();   // glow, unlit
+  const P = new Builder();   // the van's paint: its own mesh (vans.js)
   const floors = new Floors({ levels: FLOOR_Y, ramps: STAIRS.ramps, flats: STAIRS.flats });
   const worlds = FLOOR_Y.map(() => new CollisionWorld(LOT));   // everything a body bumps into, per floor
   const walls = FLOOR_Y.map(() => new CollisionWorld(LOT));    // walls and fence only: sound, line of sight
@@ -260,7 +262,7 @@ export function buildMansion() {
   lampPost(S, G, (x0, z0, x1, z1, h, top) => block(0, x0, z0, x1, z1, h, top), -10, 20);
 
   // the van in the alley, rear doors towards the drop-off ring
-  const V = van(S, G, VAN.x, VAN.z, VAN.yaw);
+  const V = van(S, G, VAN.x, VAN.z, VAN.yaw, P);
   worlds[0].addBox(V.body.minX, V.body.minZ, V.body.maxX, V.body.maxZ);
   furniture.push({ ...V.body, h: 2.2, top: null, floor: 0 });
   for (const d of V.doors) { worlds[0].addBox(d.minX, d.minZ, d.maxX, d.maxZ); furniture.push({ ...d, h: 2.2, top: null, floor: 0 }); }   // the open rear doors (W18)
@@ -285,12 +287,15 @@ export function buildMansion() {
   const glowMesh = G.mesh(new THREE.MeshBasicMaterial({ vertexColors: true }));
   glowMesh.name = 'glow';
   glowMesh.matrixAutoUpdate = false;
+  const vanMesh = P.mesh(vanMaterial());
+  vanMesh.name = 'van';
+  vanMesh.matrixAutoUpdate = false;
   const doorMat = litMat();
   const doors = doorSpecs.map((spec) => new Door(spec, doorMat));   // their own meshes stay unused: one instanced mesh draws all of them
   const doorMesh = instancedDoors(doors, doorMat);
   const group = new THREE.Group();
-  group.add(meshA, mesh0, mesh1, glowMesh, doorMesh, moon);
-  const triangles = [meshA, mesh0, mesh1, glowMesh].reduce((n, m) => n + m.geometry.index.count / 3, 0);
+  group.add(meshA, mesh0, mesh1, glowMesh, vanMesh, doorMesh, moon);
+  const triangles = [meshA, mesh0, mesh1, glowMesh, vanMesh].reduce((n, m) => n + m.geometry.index.count / 3, 0);
   // rooms with the height band the flashlight mask lights (plan-W6 §2.5); the stair well is a
   // pseudo-room open through both floors
   const rooms = ROOMS.map((r) => ({ ...r, yMin: FLOOR_Y[r.floor] - 0.1, yMax: FLOOR_Y[r.floor] + WALL_H + 0.2 }));

@@ -12,6 +12,7 @@ import { S } from '../i18n/index.js';
 import { lit as litMat, STYLE_ON } from '../style/materials.js';
 import { inkWeight } from '../style/ink.js';
 import { quietRandom } from '../style/quiet.js';
+import { vanMaterial } from './vans.js';
 import { buildYard, LOT, SPAWN, BOARD, CARGO, DROP, VAN_ZONE, LAMPS, LIGHTS, LEASH, YARD_NODES } from './yard.js';
 import { NODES } from '../enemies/nav.js';
 
@@ -119,6 +120,7 @@ export class Builder {
 export function buildLevel() {
   const S = new Builder();   // static, lit
   const G = new Builder();   // glow, unlit
+  const P = new Builder();   // the van's paint: its own mesh (vans.js)
   const world = new CollisionWorld(LOT);   // everything the player bumps into
   const walls = new CollisionWorld(LOT);   // walls and fence only: sound, line of sight, thrown loot
   const both = (x0, z0, x1, z1) => { world.addBox(x0, z0, x1, z1); walls.addBox(x0, z0, x1, z1); };
@@ -424,7 +426,7 @@ export function buildLevel() {
   ceilingLamp(7.8, -10.5);
 
   // ---------- yard, street, van (world/yard.js) ----------
-  const yard = buildYard({ S, G, C, solid, both, furniture, world });
+  const yard = buildYard({ S, G, P, C, solid, both, furniture, world });
 
   // moon, far away, unaffected by fog
   const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 12), new THREE.MeshBasicMaterial({ color: GLOW.moon, fog: false }));
@@ -441,12 +443,15 @@ export function buildLevel() {
   const glowMesh = G.mesh(new THREE.MeshBasicMaterial({ vertexColors: true }));
   glowMesh.name = 'glow';
   glowMesh.matrixAutoUpdate = false;
+  const vanMesh = P.mesh(vanMaterial());
+  vanMesh.name = 'van';
+  vanMesh.matrixAutoUpdate = false;
 
   const doorMat = litMat();
   for (const spec of [...doorSpecs, ...windowSpecs]) doors.push(new Door(spec, doorMat));
 
   const group = new THREE.Group();
-  group.add(staticMesh, glowMesh, moon);
+  group.add(staticMesh, glowMesh, vanMesh, moon);
   for (const d of doors) group.add(d.mesh);
 
   const surfaces = furniture.filter((b) => b.top != null);
@@ -455,7 +460,7 @@ export function buildLevel() {
 
   return {
     group, world, walls, doors, furniture, moon, glowMaterial: glowMesh.material, occluders, roomAt: (x, z) => roomAt(x, z),
-    triangles: staticMesh.geometry.index.count / 3 + glowMesh.geometry.index.count / 3,
+    triangles: staticMesh.geometry.index.count / 3 + glowMesh.geometry.index.count / 3 + vanMesh.geometry.index.count / 3,
     // the map descriptor (W6): what the other systems need to know about this map
     id: 'dacha', rooms: ROOMS, links: ROOM_LINKS, outside: [ROOMS_OUTSIDE], house: HOUSE,
     spawn: SPAWN, board: BOARD, cargo: CARGO, wardrobe: WARDROBE,
