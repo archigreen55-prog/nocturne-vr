@@ -14,7 +14,7 @@ import { CLASSIC } from './campaign.js';
 // sits in his armchair all round (it sees only close by); noClock — the round's clock does not run.
 const ALL = [
   { id: 'rehearsal', name: S.contracts.rehearsal.name, brief: S.contracts.rehearsal.brief, goal: { count: 2 }, bonus: 'none', campaign: true, practice: true, mods: { armchairAtStart: true, noClock: true } },
-  { id: 'first', name: S.contracts.first.name, brief: S.contracts.first.brief, goal: { sum: 2000 }, bonus: 'clean' },
+  { id: 'first', name: S.contracts.first.name, brief: S.contracts.first.brief, goal: { sum: 700 }, bonus: 'clean' },
   { id: 'clock', name: S.contracts.clock.name, brief: S.contracts.clock.brief, goal: { item: 'clock' }, bonus: 'clean' },
   { id: 'wardrobe', name: S.contracts.wardrobe.name, brief: S.contracts.wardrobe.brief, goal: { item: 'jewelbox' }, bonus: 'clean', campaign: true },
   { id: 'quiet', name: S.contracts.quiet.name, brief: S.contracts.quiet.brief, goal: { sum: 1500, noAlarm: true }, bonus: 'intact' },

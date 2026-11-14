@@ -9,5 +9,6 @@ export const start = {
     knocks: [0, 0.22, 0.44],   // s: the three soft knocks
     bellAt: 0.72,       // s: the bell after the last knock
   },
+  hintAfter: 20,        // s: level 0 — the small chalk arrows from the van show only if nobody has gone through the gate by then
   mark: { dash: 0.45, gap: 0.25 },   // m: the dashes of the mansion's start arc
 };
