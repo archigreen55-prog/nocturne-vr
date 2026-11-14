@@ -1293,7 +1293,15 @@ export default {
   },
   // the dacha's yard (claude/dacha-yard-stage1): the gate
   yard: {
+    enter: 'ЗАХОДЬ',         // the big chalk arrow on the lane's ground at the gate (level 0)
+    start: 'СТАРТ',          // the chalk start line (the dacha's gate, the mansion's ring round the van)
     gateHint: 'Хвіртка зачинена: відчини її, як двері. Швидко — скрипить, повільно — тихо',
+  },
+  // the start of a round: the big banner (phone, PC) and its second line
+  go: {
+    go: 'ПІШЛИ!',
+    rehearsal: 'Репетиція: часу нема',
+    clock: 'Годинник пішов',
   },
   // the dacha's back window (the «stealth-house» branch)
   backWindow: {

@@ -14,8 +14,13 @@ import { lampPost, van } from './kit.js';
 
 export const LOT = { minX: -16, maxX: 16, minZ: -20, maxZ: 22 };   // the collision worlds' bounds
 export const YARD_FENCE_Z = 9;                                      // the yard's south fence (with the gate)
+export const START_LINE_Z = YARD_FENCE_Z - 0.6;                     // the start line: just inside the gate (chalk «СТАРТ», systems/startLine.js)
+// the round's clock starts when anybody's head is inside this box — has come through the gate (CFG.round.startRegion; game/round.js)
+export const START_REGION = { minX: -16, maxX: 16, minZ: -20, maxZ: START_LINE_Z };
 export const FENCE_H = 2.2;                                         // solid, taller than a person
 export const GATE = { x0: 2.4, x1: 3.6, z: YARD_FENCE_Z };          // the wicket gate's opening (its posts take 0.1 m each side: a 1.0 m leaf)
+// where the chalk start line lies (systems/startLine.js): across the gate, just inside it
+export const START_MARK = { kind: 'line', x0: GATE.x0 - 1.2, x1: GATE.x1 + 1.2, z: START_LINE_Z };
 export const LANE = { x0: 5.0, x1: 11.0, z0: 10.6, z1: 21.5 };      // the dead-end lane (asphalt); the apron along the fence is x 2..11, z 9.1..10.6
 // the van: its rear (open doors) to the north at z 11, the cab south; the ring right behind it
 export const VAN = { x: 8.0, z: 11.0, yaw: 0 };

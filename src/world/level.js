@@ -12,7 +12,7 @@ import { S } from '../i18n/index.js';
 import { lit as litMat, STYLE_ON } from '../style/materials.js';
 import { inkWeight } from '../style/ink.js';
 import { quietRandom } from '../style/quiet.js';
-import { buildYard, LOT, SPAWN, BOARD, CARGO, DROP, VAN_ZONE, LAMPS, LIGHTS, LEASH, YARD_NODES } from './yard.js';
+import { buildYard, LOT, SPAWN, BOARD, CARGO, DROP, VAN_ZONE, START_REGION, START_MARK, LAMPS, LIGHTS, LEASH, YARD_NODES } from './yard.js';
 import { NODES } from '../enemies/nav.js';
 
 const WALL_H = 2.7;
@@ -459,7 +459,7 @@ export function buildLevel() {
     // the map descriptor (W6): what the other systems need to know about this map
     id: 'dacha', rooms: ROOMS, links: ROOM_LINKS, outside: [ROOMS_OUTSIDE], house: HOUSE,
     spawn: SPAWN, board: BOARD, cargo: CARGO, wardrobe: WARDROBE,
-    dropZone: DROP, vanZone: VAN_ZONE, lamps: LAMPS, lights: LIGHTS, leash: LEASH,
+    dropZone: DROP, vanZone: VAN_ZONE, startRegion: START_REGION, startMark: START_MARK, lamps: LAMPS, lights: LIGHTS, leash: LEASH,
     // the guard's nav points: the house's (enemies/nav.js) with the yard's own (the porch, the garden, the gate)
     nav: { nodes: YARD_NODES.concat(NODES.slice(7)) },
     roomAt: (x, z) => roomAt(x, z),
