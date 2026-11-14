@@ -18,6 +18,7 @@ import { applyLevel, campaignPress } from './campaign.js';
 import { CLASSIC, currentLevel } from '../game/campaign.js';
 import { whyClosed } from './levels.js';
 import { S } from '../i18n/index.js';
+import { ensureMic } from './micAuto.js';
 
 // fromHost: a guest starts a new round only when the host does (systems/net.js)
 export function newRound(fromHost = false) {
@@ -32,6 +33,7 @@ export function newRound(fromHost = false) {
   newRoundTraps();   // W2b: the van loaded from the stock again, the points from zero
   applyLevel();      // W19: the cans, the devices of this level
   G.caughtT = -1; G.resultT = -1;
+  G.micOffRound = false;   // mic v2: a new round, heard from its start (systems/micAuto.js)
   board.placeAtStand();
   player.virtualCrouch = false;
   const SPAWN = level.spawn;
@@ -64,8 +66,8 @@ export function setDifficulty(id) {
 async function calibrateInVR() {
   const { mic, touch } = G;
   if (G.calib || mic.state !== 'on') return;
-  G.calib = { i: 0, step: { title: '', say: '' }, phase: 'prep', left: 1.5, total: touch ? 5 : 4 };
-  const res = await runCalibration(mic, (st) => { G.calib = st; G.boardDirty = true; }, touch ? { phone: true, playGame } : undefined);
+  G.calib = { i: 0, step: { title: '', say: '' }, phase: 'prep', left: 1.5, total: 5 };
+  const res = await runCalibration(mic, (st) => { G.calib = st; G.boardDirty = true; }, { phone: !!touch, game: true, playGame });   // «Звуки гри» in VR too: the headset's speakers sit by its microphone
   G.calib = null;
   if (res.ok) mic.setCalibration(res.cal);
   G.calibNotes = (res.ok ? S.calib.done : '') + res.notes.join(' ');
@@ -81,6 +83,7 @@ async function micOnInVR() {
 export function pressBoard(id) {
   const { round, mic, scream } = G;
   const all = CFG.contracts, i = all.indexOf(G.contract);
+  if (id !== 'nomic' && id !== 'micon') ensureMic({ ask: true });   // Б1: in VR the board is the menu — a set-up microphone comes back with a press
   if (G.isGuest && !CFG.net.guestBoard.includes(id)) { G.boardDirty = true; return; }   // T5: the host's board — silently (no «Вирішує хост» every second)
   if (G.role === 'guard' && id === 'leave') { flash(S.net.hostDecides, 2, '#93a1b8'); G.boardDirty = true; return; }   // the host's round (W15: the guard player cannot end it)
   if (id === 'leave' && (round.phase === 'heist' || round.phase === 'ready')) round.finish('left');

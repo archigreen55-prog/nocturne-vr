@@ -25,6 +25,7 @@ import { throwablesFor } from '../loot/throw.js';
 import { unlocked } from '../game/campaign.js';
 import { score } from './traps.js';
 import { storyLurkerWake, storyLurkerLost } from './story.js';
+import { roundNoMic } from './micAuto.js';
 import { nearest } from '../game/players.js';
 
 export const world = {
@@ -142,7 +143,7 @@ export const world = {
             G.comfort.fadeIn(0.8);
           }
           G.resultT = 0; G.autoPlayed = false;
-          const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
+          const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: roundNoMic(), difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
           verdict.newBest = G.role === 'guard' ? false : recordStars(G.contract.id, G.difficulty, verdict.stars, G.net ? 'coop' : G.MODE.mode);   // with friends: the coop table (plan-multiplayer §5); the guard (W15) wins no stars
           if (G.netEvent) G.netEvent('result', { R, alarmed: round.alarmed });
           flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');

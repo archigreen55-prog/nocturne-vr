@@ -52,18 +52,22 @@ test('menu (S3): the splash (the loading screen; a tap skips it), then the main 
   await ctx.close();
 });
 
+// the microphone not refused (a context with only clipboard permissions reads it as refused: «Мікрофон заборонено»)
+const MICLAND = { ...LAND, permissions: [...LAND.permissions, 'microphone'] };
 test('menu (S3): the first run offers the microphone — «Пізніше» closes it for this visit, «Грати без мікрофона» ticks the box; a calibrated microphone is not asked about; Тихарник shows W7\'s cards and opens one met', async () => {
-  const ctx = await newContext(browser, LAND, { menu: true });
+  const ctx = await newContext(browser, MICLAND, { menu: true });
   let { page, errors } = await open(ctx, preview + '?nosplash=1');
   await page.waitForSelector('#micask:not([hidden])');
   await page.click('#asklater');
   assert.equal(!!(await page.$('#micask:not([hidden])')), false);
   assert.equal(await page.isVisible('#mmmic'), true, 'the menu still says «Мікрофон: не налаштовано»');
+  assert.equal(await page.textContent('#mmmicline'), 'Мікрофон не налаштовано');
+  assert.equal(await page.isVisible('#mmmic button'), true, '«Налаштувати (30 с)»');
   await page.reload(); await page.waitForFunction(() => window.__game);
   assert.equal(!!(await page.$('#micask:not([hidden])')), false, '«Пізніше»: not again on this visit');
   await page.close();
   // a new visit: «Грати без мікрофона»
-  ({ page, errors } = await open(await newContext(browser, LAND, { menu: true }), preview + '?nosplash=1'));
+  ({ page, errors } = await open(await newContext(browser, MICLAND, { menu: true }), preview + '?nosplash=1'));
   await page.waitForSelector('#micask:not([hidden])');
   await page.click('#asknone');
   assert.equal(await page.evaluate(() => window.__game.mic.noMic), true, 'no microphone');
@@ -71,11 +75,14 @@ test('menu (S3): the first run offers the microphone — «Пізніше» clos
   assert.deepEqual(errors, []);
   await page.context().close();
   // calibrated before: no card
-  const c3 = await newContext(browser, LAND, { menu: true });
+  const c3 = await newContext(browser, MICLAND, { menu: true });
   await c3.addInitScript(() => { try { localStorage.setItem('nocturne.preview.mic', JSON.stringify({ floor: -60, normal: -30, whisper: -45, shout: -15 })); } catch { /* opaque */ } });
   const p3 = (await open(c3, preview + '?nosplash=1')).page;
   await p3.waitForTimeout(500);
   assert.equal(!!(await p3.$('#micask:not([hidden])')), false, 'calibrated: nothing to ask');
+  // Б1 (mic v2): not «Мікрофон ✓» from an old calibration while the microphone is off — it opens on «Грати»
+  assert.equal(await p3.textContent('#mmmicline'), 'Мікрофон увімкнеться, коли натиснеш «Грати»');
+  assert.equal(await p3.evaluate(() => window.__game.mic.state), 'off', 'not opened while the page loads');
   // Тихарник: nine cards, «???» until met; meeting Шафник opens his
   await p3.click('#mmnav [data-go="lurkers"]');
   const cards = () => p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}:${x.classList.contains('locked') ? 'locked' : 'open'}`));

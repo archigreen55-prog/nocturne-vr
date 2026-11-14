@@ -79,7 +79,7 @@ export class Summary {
     else if (R.shouts > 0) {
       text = s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—');
       color = UI.lamp;
-    } else { text = s.noMic ? S.board.mic.noMic : S.board.res.noShouts; color = UI.whisper; }
+    } else { text = s.noMic ? S.board.res.noMic : S.board.res.noShouts; color = UI.whisper; }
     const key = text + (s.playing ? '|p' : '') + (s.clip ? '|c' : '');
     if (key === this.refs.last) return;
     this.refs.last = key;

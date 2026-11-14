@@ -15,6 +15,7 @@ import { mapsForBoard } from '../world/maps.js';
 import { mischiefText } from './traps.js';
 import { beforeNow, afterNow } from './story.js';
 import { campaignNote, nextOpen } from './campaign.js';
+import { roundNoMic } from './micAuto.js';
 import { screamBy, lurkerCards, lurkersMet, papers, notesCount, thief } from '../game/story.js';
 
 // Everything the board shows, as one string: the same string = nothing to redraw.
@@ -24,7 +25,7 @@ function boardSignature(T, lv) {
   return JSON.stringify([
     round.phase, Math.ceil(round.clock), alert.level, T.sum, T.inVan, T.list.length, T.damaged, R && R.kind, R && R.sum,
     !!scream.best, scream.best && scream.best.t, !!scream.playing, scream.modeName, G.boardPage, contract.id, G.difficulty, bestStars(contract.id),
-    V && V.stars, V && V.newBest, mic.noMic, mic.state, mic.calibrated, board.hover, progress(contract, T, loot).text,
+    V && V.stars, V && V.newBest, mic.noMic, mic.state, mic.calibrated, !!G.micOffRound, mic.permission, board.hover, progress(contract, T, loot).text,
     calib && [calib.i, calib.phase, calib.left.toFixed(1)], G.calibNotes,
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
     wallet().cash, wallet().owned.length, JSON.stringify(wallet().stock || {}), G.shopPage, lockText(contract), incomeText(), mischiefText(), G.boardPage === 'map' ? mapsForBoard(G.level.id).map((m) => m.lock) : 0,
@@ -62,7 +63,7 @@ export const board = {
         page: G.isGuest ? 'contract' : G.boardPage, guest: G.isGuest ? (G.net && G.net.hostName) || '?' : null, contract,   // T5: a guest sees the host's board contractIndex: CFG.contracts.indexOf(contract), contractCount: CFG.contracts.length,
         goalText: goalText(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
         diffName: CFG.difficulties[difficulty].name, difficulty, progress: progress(contract, T, loot), verdict: G.verdict,
-        noMic: mic.noMic, mic, calib: G.calib, calibNotes: G.calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: G.touch ? 5 : 4,
+        noMic: roundNoMic(), mic, calib: G.calib, calibNotes: G.calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: 5,   // mic v2: noMic = the round without a microphone (also refused / switched off); «Звуки гри» on every device
         wallet: S.shop.wallet(money(wallet().cash)), lock: lockText(contract), income: incomeText(),
         shop: G.boardPage === 'shop' ? { rows: shopPageRows(), page: G.shopPage, pages: shopPages() } : null,
         maps: mapsForBoard(G.level.id),   // W6

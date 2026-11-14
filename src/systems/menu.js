@@ -49,24 +49,31 @@ function back() {
   else show('menu');
 }
 
-function micText() {
+// Б1 (plan 2026-11-12-mic-v2 §2.2): what the microphone really does now — not «✓» from an old calibration
+// while it is switched off. go: the «Налаштувати» button is useful in this state.
+function micLine() {
   const mic = G.mic;
   if (!mic) return null;
-  if (mic.noMic) return S.menu2.mic.off;
-  return mic.calibrated ? S.menu2.mic.ok : null;
+  const st = mic.status;
+  return { st, text: S.micState.line(st, mic.problem), go: !['ok', 'willStart', 'pending'].includes(st) };
 }
 function renderMenu() {
   const w = wallet(), L = lurkersMet();
   $('mmwallet').textContent = money(w.cash);
   $('mmlurkers').textContent = S.lurkers.met(L.n, L.total);
-  const ok = micText();
-  $('mmmic').hidden = !!ok;
+  const m = micLine();
+  $('mmmic').hidden = !m || m.st === 'nomic';
+  if (m) {
+    $('mmmicline').textContent = m.text;
+    $('mmmic').querySelector('button').hidden = !m.go;
+    $('mmmic').dataset.st = m.st;
+  }
 }
 function renderPlay() {
   renderPlayPage();
-  const ok = micText();
-  $('playmic').textContent = ok || S.menu2.mic.none;
-  $('playmicgo').hidden = !!(G.mic && G.mic.calibrated && !G.mic.noMic);
+  const m = micLine();
+  $('playmic').textContent = m ? m.text : S.menu2.mic.none;
+  $('playmicgo').hidden = !!m && !m.go;
 }
 function renderShop() {
   const box = $('shoplist');
@@ -229,6 +236,7 @@ export const menu = {
     if (G.playingDesktop || $('overlay').style.display === 'none') return;
     if ((this.t = (this.t || 0) + 1) % 30) return;
     if (current === 'menu') renderMenu();
+    if (current === 'play') renderPlay();           // Б1: the microphone's line follows its state
     if (current === 'settings') renderSettings();   // the microphone's steps follow a calibration / check
   },
 };

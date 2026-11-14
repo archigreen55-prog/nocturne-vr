@@ -9,7 +9,7 @@ test('fake microphone: permission, level of a -23 dBFS tone, track settings in t
   const { page, errors } = await open(ctx, base);
   await page.click('#micbtn');
   await page.waitForFunction(() => window.__game.mic.state === 'on');
-  assert.equal(await page.textContent('#calbtn'), 'Калібрувати (4 кроки)', 'PC: the 4-step calibration as before');
+  assert.equal(await page.textContent('#calbtn'), 'Калібрувати (5 кроків)', 'PC: «Звуки гри» too (mic v2: the game\'s sound from laptop speakers)');
   await page.waitForTimeout(1500);
   const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
   assert.equal(r.mic.state, 'on');
@@ -350,5 +350,120 @@ test('iPhone (UA in Chromium): audio session playback -> play-and-record with th
   assert.equal(r.phone.audioSession.type, 'play-and-record'); assert.equal(r.phone.audioSession.ios, true);
   assert.equal(r.mic.game.measured, false); assert.equal(r.mic.game.bleedDb, -34, 'estimate until the step is done');
   assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+// ---------- mic v2 stage 1 (plan 2026-11-12-mic-v2): Б1, the honest state, the game's sound on a PC, Р6 ----------
+const shoutInRound = (page) => page.evaluate(async () => {
+  const g = window.__game, m = g.mic, s0 = g.round.shouts;
+  g.player.teleport(0, 2, 0);   // away from the van: the clock starts
+  window.__v = -62; m.feed = () => window.__v + Math.random() - 0.5;
+  const wait = async (secs) => { const t0 = m.t, w0 = performance.now(); while (m.t - t0 < secs && performance.now() - w0 < 30000) await new Promise((r) => setTimeout(r, 30)); };
+  await wait(0.8); window.__v = -3; await wait(1.2); window.__v = -62; await wait(0.3);
+  return { shouts: g.round.shouts - s0, phase: g.round.phase, micOff: g.micOffRound };
+});
+
+test('Б1 (mic v2): a set-up microphone comes back by itself — not while the page loads; the first tap in the menu opens an allowed one; the menu says «✓» only when it is on; the round hears a shout; the scream replay records', async () => {
+  const ctx = await newContext(browser, { permissions: ['microphone'] }, { menu: true });
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -80 });
+  const { page, errors } = await open(ctx, base + '?nosplash=1');
+  await page.waitForFunction(() => window.__game.mic.permission === 'granted');
+  await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => window.__game.mic.state), 'off', 'not while the page loads (a newcomer\'s microphone mark stays dark)');
+  assert.equal(await page.textContent('#mmmicline'), 'Мікрофон увімкнеться, коли натиснеш «Грати»', 'not «Мікрофон ✓» from the old calibration');
+  assert.equal(await page.isVisible('#mmmic button'), false);
+  // any tap in the menu: allowed before, so no dialog — it opens
+  await page.click('#mmnav [data-go="shop"]');
+  await page.waitForFunction(() => window.__game.mic.state === 'on', null, { timeout: 10000 });
+  await page.waitForFunction(() => ['worklet', 'script', 'recorder', 'none'].includes(window.__game.scream.mode), null, { timeout: 10000 });
+  assert.notEqual(await page.evaluate(() => window.__game.scream.mode), 'none', 'the scream replay records (it was only started by the microphone buttons)');
+  await page.click('section[data-page="shop"] [data-back]');
+  await page.waitForFunction(() => document.getElementById('mmmicline').textContent === 'Мікрофон ✓', null, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => window.__game.mic.status), 'ok');
+  await page.click('#mmnav [data-go="play"]');
+  assert.equal(await page.textContent('#playmic'), 'Мікрофон ✓');
+  assert.equal(await page.isVisible('#playmicgo'), false);
+  await page.click('#start'); await page.waitForFunction(() => window.__game.playing);
+  const r = await shoutInRound(page);
+  assert.equal(r.phase === 'heist' || r.phase === 'escape', true, JSON.stringify(r));
+  assert.ok(r.shouts >= 1, `the round heard the shout ${JSON.stringify(r)}`);
+  assert.equal(r.micOff, false, 'a round with the microphone');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('Б1 (mic v2): not allowed yet (iPhone, «цього разу»): a menu tap asks nothing, «Грати» opens it with the same tap; «без мікрофона» never opens it and the round goes without it', async () => {
+  const ctx = await newContext(browser, {}, { menu: true });
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -80 });
+  const { page, errors } = await open(ctx, base + '?nosplash=1');
+  await page.waitForFunction(() => window.__game.mic.permission !== 'unknown');
+  await page.click('#mmnav [data-go="play"]');
+  await page.waitForTimeout(800);
+  assert.equal(await page.evaluate(() => window.__game.mic.state), 'off', 'a menu tap shows no permission dialog');
+  assert.equal(await page.textContent('#playmic'), 'Мікрофон увімкнеться, коли натиснеш «Грати»');
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.mic.state === 'on' && window.__game.playing, null, { timeout: 10000 });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // «Грати без мікрофона»: nothing opens it; the round goes without it (the result says so, not «жодного крику»)
+  const c2 = await newContext(browser, { permissions: ['microphone'] }, { menu: true });
+  await c2.addInitScript((cal) => { localStorage.setItem('nocturne.mic', JSON.stringify(cal)); localStorage.setItem('nocturne.nomic', 'true'); }, MIC_CAL);
+  const p2 = await open(c2, base + '?nosplash=1');
+  assert.equal(await p2.page.isVisible('#mmmic'), false, '«Граєш без мікрофона»: the box itself says it');
+  await p2.page.click('#mmnav [data-go="play"]');
+  assert.equal(await p2.page.textContent('#playmic'), 'Граєш без мікрофона.');
+  await p2.page.click('#start'); await p2.page.waitForFunction(() => window.__game.playing);
+  await p2.page.evaluate(() => window.__game.player.teleport(0, 2, 0));
+  await p2.page.waitForFunction(() => window.__game.round.phase === 'heist');
+  await p2.page.waitForTimeout(300);
+  assert.deepEqual(await p2.page.evaluate(() => [window.__game.mic.state, window.__game.micOffRound]), ['off', true]);
+  assert.deepEqual(p2.errors, []);
+  await c2.close();
+});
+
+test('mic v2 on a PC: the game\'s own sound from laptop speakers is not your voice (it was phone only, audit Б8); the estimate until «Звуки гри» is measured', async () => {
+  const ctx = await newContext(browser, { permissions: ['microphone'] });
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { ...MIC_CAL, bleed: -10 });
+  const { page, errors } = await open(ctx, base);
+  assert.equal(await page.evaluate(() => window.__game.MODE.mode), 'pc');
+  await page.click('#micbtn'); await page.waitForFunction(() => window.__game.mic.state === 'on');
+  assert.equal(await page.evaluate(() => typeof window.__game.mic.gameDbFn), 'function', 'the game bus is measured on a PC');
+  await page.evaluate(() => { window.__game.playingDesktop = true; window.__game.player.teleport(0, 2, 0); });
+  // the microphone hears only the game (loud speakers: bus - 10 dB)
+  const seen = await page.evaluate(async () => {
+    const g = window.__game, m = g.mic, out = { normal: 0, shout: 0, bus: -100 };
+    m.feed = () => Math.max(-62 + Math.random(), m.gameDb - 10);
+    g.siren.set(true);
+    const t0 = m.t, w0 = performance.now(); let next = 0;
+    while (m.t - t0 < 3 && performance.now() - w0 < 40000) {
+      if (performance.now() - w0 >= next) { g.playGame(); next += 1200; }
+      await new Promise((r) => setTimeout(r, 30));
+      if (m.level === 'normal') out.normal++;
+      if (m.level === 'shout') out.shout++;
+      out.bus = Math.max(out.bus, m.gameDb);
+    }
+    g.siren.set(false);
+    return out;
+  });
+  assert.ok(seen.bus > -40, `the game was loud (${seen.bus.toFixed(1)} dB)`);
+  assert.equal(seen.normal + seen.shout, 0, `the game's sound is not a voice on a PC ${JSON.stringify(seen)}`);
+  // not measured yet: the laptop estimate
+  assert.equal(await page.evaluate(() => { const m = window.__game.mic; delete m.cal.bleed; return m.bleedDb; }), -40);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('Р6 (owner 14.11): without a microphone the campaign goes on — «Тихий контракт» counts its goal, only the «без жодного крику» stars do not', async () => {
+  const ctx = await newContext(browser);
+  const { page } = await open(ctx, base);
+  const r = await page.evaluate(() => {
+    const g = window.__game, c = g.CFG.contracts.find((x) => x.id === 'silent');
+    const R = (shouts) => ({ kind: 'left', sum: 2000, shouts, damaged: 0, broken: 0, inVan: 3 });
+    const ev = (shouts, noMic) => { const v = g.evaluate(c, R(shouts), { alarmed: false, noMic, difficulty: 'hard', loot: g.loot, guards: [] }); return [v.goal, v.stars]; };
+    return { noMic: ev(0, true), quiet: ev(0, false), shouted: ev(1, false) };
+  });
+  assert.deepEqual(r.noMic, [true, 1], 'no microphone: the goal, one star (level 6 opens)');
+  assert.deepEqual(r.quiet, [true, 3], 'with the microphone, quiet: as before');
+  assert.deepEqual(r.shouted, [false, 0], 'with the microphone, a shout: failed as before');
   await ctx.close();
 });
