@@ -111,11 +111,11 @@ export function buildVan() {
     plate.rotateX(Math.PI / 2); plate.translate(u, v, 0.011);
     const box = (bw, bh, bd, x, y, z) => { const g = new THREE.BoxGeometry(bw, bh, bd); g.translate(u + x, v + y, z); return g; };
     return [[plate, plateCol], [box(w, h, 0.012, 0, 0, 0.026), ink], [box(w * 1.22, h * 0.1, 0.012, 0, h * 0.55, 0.026), ink],
-      [box(r * 0.05, h * 0.86, 0.006, 0, 0, 0.034), plateCol]];
+      [box(r * 0.05, h * 0.86, 0.008, 0, 0, 0.03), plateCol]];
   };
 
   // ---------- chassis and wheels ----------
-  B(-0.75, 0.28, 0, 0.75, 0.35, 5.0, K.dark);
+  B(-0.75, 0.26, 0, 0.75, 0.35, 5.0, K.dark);
   wheel(-0.95, 0.9); wheel(0.95, 0.9); wheel(-0.95, 4.2); wheel(0.95, 4.2);
   for (const s of [-1, 1]) B(s * 0.82 - (s < 0 ? 0.3 : 0), 0.82, 0.45, s * 0.82 + (s < 0 ? 0 : 0.3), 0.88, 1.35, K.dark);   // mudguard over the rear wheel
 
@@ -167,12 +167,12 @@ export function buildVan() {
     face(1.42, 1.95, 4.05, 4.85, K.glass);                                         // door window
     B(s * 1.0 + o * 0.03, 1.26, 4.08, s * 1.0 + (o + 1) * 0.03, 1.3, 4.2, K.chrome);     // handle
     B(s * 1.0, 0.5, 4.0, s * 1.1, 0.55, 4.7, K.dark);                                    // step
-    B(s * 0.97, 1.5, 4.9, s * 1.2, 1.54, 4.94, K.dark); B(s * 1.2, 1.3, 4.86, s * 1.26, 1.9, 4.98, K.dark);   // mirror: an arm and a head
+    B(s * 0.97, 1.78, 4.9, s * 1.22, 1.9, 4.94, K.dark); B(s * 1.2, 1.3, 4.86, s * 1.26, 1.84, 4.98, K.dark);   // mirror: a head hanging from its arm
     stick(badge(0, 0, 0.22), s < 0 ? frame(-0.99, 0.92, 4.5, -Math.PI / 2) : frame(0.99, 0.92, 4.5, Math.PI / 2));   // the badge on the door
   }
   // the roof rack: rails, bars, a rolled rug and a crate with two bands
   for (const s of [-1, 1]) B(s * 0.85 - 0.02, 2.14, 3.9, s * 0.85 + 0.02, 2.18, 4.96, K.chrome);
-  for (const z of [3.92, 4.94]) B(-0.87, 2.14, z - 0.02, 0.87, 2.18, z + 0.02, K.chrome);
+  for (const z of [3.93, 4.93]) B(-0.89, 2.145, z - 0.02, 0.89, 2.175, z + 0.02, K.chrome);
   Y(-0.42, 2.35, 4.45, 0.17, 1.0, 'z', K.wine, 10); Y(-0.42, 2.35, 4.45, 0.1, 1.02, 'z', K.wineCore, 8);
   Y(-0.42, 2.35, 4.2, 0.175, 0.05, 'z', K.strap, 10);
   B(0.0, 2.18, 3.98, 0.78, 2.62, 4.74, K.crate);
