@@ -69,11 +69,14 @@ export function evaluate(c, r, ctx) {
   if (G.sum && r.sum < G.sum) { goal = false; why.push(S.goal.why.sum(money(r.sum), money(G.sum))); }
   if (G.mischief && mischief.score < G.mischief) { goal = false; why.push(S.goal.why.mischief(mischief.score, G.mischief)); }   // W2b: the loot does not count
   if (G.noAlarm && ctx.alarmed) { goal = false; why.push(S.goal.why.alarm); }
-  if (G.noShout && (r.shouts > 0 || ctx.noMic)) { goal = false; why.push(ctx.noMic ? S.goal.why.noMic : S.goal.why.shouted); }
+  // owner's decision Р6 (14.11): without a microphone the campaign can be finished — «без жодного крику» is
+  // simply not counted (no bonus stars), not a failed goal
+  if (G.noShout && !ctx.noMic && r.shouts > 0) { goal = false; why.push(S.goal.why.shouted); }
+  if (G.noShout && ctx.noMic) why.push(S.goal.why.noMic);
   if (!got) why.unshift(r.kind === 'caught' ? S.goal.why.caught : S.goal.why.late);
   // clean: no full alarm and no shout (without a microphone only the alarm counts)
   const E = CFG.traps.evening;
-  const bonus = c.bonus === 'none' ? false   // W19: the rehearsal — one star
+  const bonus = c.bonus === 'none' || (G.noShout && ctx.noMic) ? false   // W19: the rehearsal — one star; Р6: «тиша» not counted without a microphone
     : c.bonus === 'intact' ? r.damaged === 0 && r.broken === 0
     : c.bonus === 'mischief' ? mischief.score >= E.bonus || mischief.best >= E.comboStars   // W2b, decision R7 A
       : !ctx.alarmed && r.shouts === 0;

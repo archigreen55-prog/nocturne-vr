@@ -18,6 +18,10 @@ export const mic = {
   // calibration step "Звуки гри"); while the game sounds, your whisper boundary / shout threshold sit
   // at least maskWhisper / maskShout dB above the game as the microphone hears it.
   bleedDefault: -34,     // estimate until the step is done (speaker; headphones measure far lower)
+  // mic v2 stage 1: the same protection on a laptop and in a headset (owner's condition 09.11); estimates
+  // until «Звуки гри» is done there (the microphone lab of stage 2 will measure them)
+  bleedDefaultPc: -40,   // laptop speakers, the microphone in the lid
+  bleedDefaultVr: -30,   // headset speakers a few cm from its microphone
   maskWhisper: 4,
   maskShout: 8,
   shoutOverAgc: 6,       // shout step skipped and the browser keeps auto gain on (iPhone): voice + this

@@ -12,17 +12,17 @@ export const STEPS = [
   { id: 'shout', title: S.calib.steps.shout.title, say: S.calib.steps.shout.say, secs: 2.5, pct: 0.98 },
 ];
 
-// Phone only (plan-phone-mode §2.3): after the silence, the game plays its loud sounds from the
-// speaker while you keep quiet; the microphone measures how much of the game it hears ("bleed").
+// After the silence (plan-phone-mode §2.3; every device since mic v2 stage 1), the game plays its loud
+// sounds from the speaker while you keep quiet; the microphone measures how much of the game it hears ("bleed").
 export const GAME_STEP = { id: 'game', title: S.calib.steps.game.title, say: S.calib.steps.game.say, secs: 3.2, pct: 0.9, game: true };
-export const stepsFor = (phone) => (phone ? [STEPS[0], GAME_STEP, ...STEPS.slice(1)] : STEPS);
+export const stepsFor = (game) => (game ? [STEPS[0], GAME_STEP, ...STEPS.slice(1)] : STEPS);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // onStep({ i, step, phase: 'prep' | 'rec', left, total }) ~10 times a second. Resolves with judge(...).
-// opts.phone adds the "Звуки гри" step; opts.playGame() plays the sample sounds (audio.playSampleSounds).
-export async function runCalibration(mic, onStep, { phone = false, playGame = null } = {}) {
-  const m = {}, steps = stepsFor(phone), total = steps.length;
+// opts.game (default: opts.phone) adds the "Звуки гри" step; opts.playGame() plays the sample sounds (audio.playSampleSounds).
+export async function runCalibration(mic, onStep, { phone = false, game = phone, playGame = null } = {}) {
+  const m = {}, steps = stepsFor(game), total = steps.length;
   for (let i = 0; i < total; i++) {
     const s = steps[i];
     for (let k = 15; k > 0; k--) { onStep({ i, step: s, phase: 'prep', left: k / 10, total }); await sleep(100); }
@@ -35,11 +35,11 @@ export async function runCalibration(mic, onStep, { phone = false, playGame = nu
     } else m[s.id] = await mic.measure(s.secs, s.pct);
     clearInterval(timer);
   }
-  return judge(m, { phone });
+  return judge(m, { game });
 }
 
-// Measured dB -> { ok, cal, notes }
-export function judge(m, { phone = false } = {}) {
+// Measured dB -> { ok, cal, notes }; game: the "Звуки гри" step was in (opts.phone: the old name)
+export function judge(m, { phone = false, game = phone } = {}) {
   const notes = [];
   if (m.floor == null || m.normal == null) return { ok: false, notes: [S.calib.notes.noSound] };
   if (m.normal - m.floor < 8) return { ok: false, notes: [S.calib.notes.tooQuiet(m.floor.toFixed(0), m.normal.toFixed(0))] };
@@ -51,7 +51,7 @@ export function judge(m, { phone = false } = {}) {
   }
   if (m.shout != null && m.shout > m.normal + 6) { cal.shout = m.normal + Math.max(6, 0.5 * (m.shout - m.normal)); notes.push(S.calib.notes.shoutMiddle); }
   else notes.push(S.calib.notes.shoutSkipped(CFG.mic.shoutOver));
-  if (phone) {
+  if (game) {
     if (m.game == null || m.gameBus == null || m.gameBus < -70) notes.push(S.calib.notes.gameNotPlayed);
     else if (m.game - m.floor < 3) { cal.bleed = -80; notes.push(S.calib.notes.gameNotHeard); }
     else {

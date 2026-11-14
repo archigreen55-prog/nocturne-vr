@@ -26,6 +26,7 @@ import { levelGroups, pickLevel as pickLevelOf } from './levels.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
+import { ensureMic } from './micAuto.js';
 import { storyNetEcho } from './story.js';
 import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js';
 import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.js';
@@ -415,9 +416,10 @@ export const net = {
     if (!box) return;
     const code = roomFromUrl();
     lobby = new Lobby(box, {
-      create: (name, thief) => { N.name = name; N.thief = thief; open(newCode(), 'host'); },
+      create: (name, thief) => { ensureMic({ ask: true }); N.name = name; N.thief = thief; open(newCode(), 'host'); },
       // T4b: the tap on «Увійти» is the guest's gesture for the sound (the host's «Почати» starts its round later)
-      join: (c, name, thief) => { unlockAudio(); N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
+      join: (c, name, thief) => { unlockAudio(); ensureMic({ ask: true });   // Б1: the guest's own tap (the host's «Почати» is not one)
+        N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
       // B05: a guest that leaves in the middle of a round would keep the host's half-world (its clock, guards,
       // doors): the page reloads clean on «Грати з друзями» instead
       leave: () => {

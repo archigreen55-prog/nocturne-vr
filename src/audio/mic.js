@@ -62,7 +62,7 @@ export class Mic {
     }
     if (this.clampedOnLoad) saveSetting('mic', this.cal);
     this.hist.fill(-100);
-    // phone only (set by main): the game bus level, for the protection against the game's own sounds
+    // set by systems/flatScreen.js: the game bus level, for the protection against the game's own sounds
     this.gameDbFn = null;
     this.gameDb = -100;
     this.gameEnv = -100;
@@ -77,12 +77,27 @@ export class Mic {
     this.onChange = null;       // permission / device / stream changes: refresh the UI
     this.feed = null;           // tests: () => dB instead of the analyser
     this.agcAdjust = false;     // phone: a smaller default voice -> shout gap when auto gain stays on
+    this.bleedGuess = null;     // dB: how loud the game is in the microphone until «Звуки гри» measures it (by device type, systems/flatScreen.js)
   }
 
-  // ---- protection against the game's own sounds (phone) ----
+  // this device's microphone is heard by the game now
+  get live() { return this.state === 'on' && !this.noMic; }
+  // Б1 (plan 2026-11-12-mic-v2 §2.2): one honest state for every place that shows the microphone
+  // ok | uncal (on, not calibrated) | problem (on, but not heard: mic.problem) | pending | willStart
+  // (calibrated, opens on «Грати») | off (never set up) | denied | none | nomic (the player's choice)
+  get status() {
+    if (this.noMic) return 'nomic';
+    if (this.state === 'on') return this.problem ? 'problem' : this.calibrated ? 'ok' : 'uncal';
+    if (this.state === 'pending') return 'pending';
+    if (this.state === 'denied' || this.permission === 'denied') return 'denied';
+    if (this.state === 'none') return 'none';
+    return this.calibrated ? 'willStart' : 'off';
+  }
+
+  // ---- protection against the game's own sounds (every device since mic v2 stage 1; was phone only) ----
   // bleed: the calibration's measurement, else (phone, not measured yet) an estimate; null = no protection
   get bleedMeasured() { return Number.isFinite(this.cal.bleed); }
-  get bleedDb() { return this.bleedMeasured ? this.cal.bleed : this.gameDbFn ? CFG.mic.bleedDefault : null; }
+  get bleedDb() { return this.bleedMeasured ? this.cal.bleed : this.gameDbFn ? this.bleedGuess ?? CFG.mic.bleedDefault : null; }
   get gameHold() { return this.gameEnv; }
   // the game as the microphone hears it now (dBFS), -Infinity when silent or unprotected
   get gameInMic() {

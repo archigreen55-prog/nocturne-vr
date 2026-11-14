@@ -276,7 +276,7 @@ export class Board {
     g.font = `800 34px ${HEAD}`; g.fillStyle = '#ffb347';
     g.fillText(S.board.micTitle, 50, 80);
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
-    const status = M.noMic ? S.board.mic.noMic : M.state !== 'on' ? S.board.mic.off : M.calibrated ? S.board.mic.calibrated : S.board.mic.notCalibrated;
+    const status = M.status === 'ok' ? S.board.mic.calibrated : M.status === 'uncal' ? S.board.mic.notCalibrated : S.micState.line(M.status, M.problem);   // Б1: the honest state
     g.fillText(status, 320, 78);
     if (s.calib) {   // the wizard is running
       g.font = 'bold 40px system-ui, sans-serif'; g.fillStyle = s.calib.phase === 'rec' ? '#ffb347' : '#9aa7bf';
@@ -381,7 +381,7 @@ export class Board {
     else if (R.shouts > 0) {
       g.fillStyle = '#ffb347';
       g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 458);
-    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 458); }
+    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.res.noMic : S.board.res.noShouts, W / 2, 458); }
     g.font = '18px system-ui, sans-serif'; g.fillStyle = '#6f8396';
     g.fillText(R.shouts > 0 && s.screamBy ? `${s.screamBy} · ${S.board.res.memoryOnly}` : S.board.res.memoryOnly, W / 2, 484, W - 80);   // W7: the thief's line under the replay
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });

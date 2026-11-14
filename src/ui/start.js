@@ -14,7 +14,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
   const micBtn = $('micbtn'), calBtn = $('calbtn'), state = $('micstate'), step = $('calstep');
   const startBtn = $('start');
   let calibrating = false, meterT = 0;
-  const nSteps = stepsFor(phone).length, stepsWord = S.start.steps(nSteps);
+  const nSteps = stepsFor(true).length, stepsWord = S.start.steps(nSteps);
   const ios = dev && (dev.device === 'iPhone' || dev.device === 'iPad');
   if (phone) $('michold').textContent = HOLD_TEXT;
   if (ios) { $('iosnote').textContent = IOS_SOUND; $('iosnote').hidden = false; }
@@ -34,7 +34,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
     // things to redo: another microphone / headphones, a calibration from before the "game sounds" step
     const notes = [];
     if (s === 'on' && mic.deviceChanged) notes.push(S.start.note.deviceChanged);
-    if (phone && s === 'on' && mic.calibrated && !mic.bleedMeasured) notes.push(S.start.note.noGameStep);
+    if (s === 'on' && mic.calibrated && !mic.bleedMeasured) notes.push(S.start.note.noGameStep);   // every device (mic v2 stage 1)
     if (phone && s === 'on' && mic.agc) notes.push(S.start.note.agc);
     if (s === 'on' && mic.problem) notes.push(mic.problem);
     $('micnote').textContent = notes.join(' ');
@@ -43,7 +43,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
     else if (s === 'denied') state.textContent = S.start.state.denied;
     else if (s === 'none') state.textContent = S.start.state.none(mic.error);
     else if (s === 'pending') state.textContent = S.start.state.pending;
-    else state.textContent = S.start.state.ask;
+    else state.textContent = mic.calibrated ? S.micState.willStart : S.start.state.ask;   // Б1: a set-up microphone opens on «Грати»
     const z = (id, a, b, color) => { const e = $(id); e.style.left = a * 100 + '%'; e.style.width = (b - a) * 100 + '%'; e.style.background = color; };
     const pw = mic.barPos(mic.whisperDb), ps = mic.barPos(mic.shoutDb);
     z('zq', 0, pw, '#1f3b2b'); z('zn', pw, ps, '#3f3a1c'); z('zs', ps, 1, '#4a1c1c');
@@ -77,20 +77,23 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
   $('adjreset').addEventListener('click', () => { mic.resetAdjust(); note(S.start.limit.reset); showState(); if (onChange) onChange(); });
   $('nomic').addEventListener('change', () => { mic.setNoMic($('nomic').checked); showState(); if (onChange) onChange(); });
 
+  // the microphone is on (this button, or Б1's automatic start: systems/micAuto.js): the scream recorder
+  async function micReady() {
+    if (mic.state !== 'on' || !onMicOn) return;
+    const rec = $('recstate');
+    rec.textContent = S.start.rec.checking;
+    const mode = await onMicOn();
+    rec.textContent = mode === 'none'
+      ? S.start.rec.none
+      : S.start.rec.works({ worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder' }[mode] || mode);
+    rec.style.color = mode === 'none' ? '#ffb347' : '#7fd0ff';   // W17: the microphone is the whisper's colour
+  }
   bindPress(micBtn, async () => {
     showState();
     await mic.enable();
     showState();
     if (mic.state === 'on' && !mic.calibrated) step.textContent = S.start.pressCalibrate;
-    if (mic.state === 'on' && onMicOn) {
-      const rec = $('recstate');
-      rec.textContent = S.start.rec.checking;
-      const mode = await onMicOn();
-      rec.textContent = mode === 'none'
-        ? S.start.rec.none
-        : S.start.rec.works({ worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder' }[mode] || mode);
-      rec.style.color = mode === 'none' ? '#ffb347' : '#7fd0ff';   // W17: the microphone is the whisper's colour
-    }
+    await micReady();
   });
 
   bindPress(calBtn, async () => {
@@ -101,7 +104,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
       step.textContent = phase === 'prep'
         ? S.start.cal.prep(i + 1, total, st.title, left.toFixed(1))
         : S.start.cal.rec(i + 1, total, st.title.toUpperCase(), st.say, left.toFixed(1));
-    }, { phone, playGame });
+    }, { phone, game: true, playGame });   // «Звуки гри» on every device (mic v2 stage 1)
     calibrating = false;
     if (res.ok) { mic.setCalibration(res.cal); step.textContent = S.calib.done + res.notes.join(' ') + (phone ? S.start.cal.nextPhone : S.start.cal.nextPc); }
     else step.textContent = res.notes.join(' ');
@@ -139,6 +142,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
   return {
     play,
     refresh: showState,
+    micReady,
     // live meter while the start screen is visible (~15 Hz)
     tick(dt) {
       meterT -= dt;
@@ -150,6 +154,9 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
       $('fill').style.background = lv.color;
       $('level').textContent = on ? S.start.level(lv.label, mic.env.toFixed(0)) : '';
       $('level').style.color = lv.color;
+      // Б1: the main menu's microphone line — a dot that lights up with your voice (only while it really hears)
+      const dot = $('mmmicdot');
+      if (dot) { dot.hidden = !(on && !mic.noMic); dot.style.opacity = on ? (0.25 + 0.75 * mic.barPos(mic.env)).toFixed(2) : '0'; dot.style.background = lv.color; }
     },
   };
 }

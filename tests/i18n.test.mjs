@@ -64,6 +64,11 @@ test('texts: no player text in code outside src/i18n/ (comments aside); every in
   const { GAME_NAME } = await import(pathToFileURL(join(ROOT, 'src/i18n/name.js')));
   assert.match(html, new RegExp(`<title>${uk.app.pageTitle(GAME_NAME)}</title>`));
   assert.match(html, new RegExp(`<meta name="apple-mobile-web-app-title" content="${GAME_NAME}">`));
+  // the link card: the name, one sentence and a 1200×630 picture that is in the repository
+  for (const [attr, v] of [['property="og:title"', GAME_NAME], ['property="og:site_name"', GAME_NAME], ['property="og:description"', uk.app.description], ['name="description"', uk.app.description], ['property="og:image:alt"', uk.app.ogAlt]]) assert.ok(html.includes(`<meta ${attr} content="${v}">`), `index.html: <meta ${attr}> = «${v}»`);
+  assert.match(html, /<meta property="og:image" content="https:\/\/[^"]+\/og\.png">/);
+  const og = await readFile(join(ROOT, 'og.png'));
+  assert.deepEqual([og.readUInt32BE(16), og.readUInt32BE(20)], [1200, 630], 'og.png is 1200×630');
   const manifest = JSON.parse(await readFile(join(ROOT, 'manifest.webmanifest'), 'utf8'));
   assert.equal(manifest.name, GAME_NAME); assert.equal(manifest.short_name, GAME_NAME); assert.equal(manifest.description, uk.app.description);
   try {
