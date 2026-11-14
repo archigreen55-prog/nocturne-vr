@@ -71,7 +71,15 @@ const atWindow = (page, z = -13.35, yaw = 0) => page.evaluate(([z, yaw]) => {
 }, [z, yaw]);
 const key = async (page, code, secs = 0.05) => { await page.keyboard.press(code); await page.evaluate((s) => window.__game.sim(s), secs); };
 
-test('back window (PC): one window in the dacha\'s back wall; T opens it with a quiet creak, Q silently; E climbs through in 1.5 s crouched (no walking meanwhile) and back; not with a big item, a small one goes along; the guard does not use it', async () => {
+// the climb takes ~3.1 s with a shut sash (align, open, rise, carry, drop), ~2.2 s with an open one (claude/dacha-window)
+const settle = (page, max = 6) => page.evaluate(async (max) => {
+  const g = window.__game, bw = await import('./src/systems/backWindow.js');
+  let w = 0; while (!bw.climbing() && w < 1) { g.sim(0.02); w += 0.02; }   // the key press is taken on the next frame
+  let t = 0; while (bw.climbing() && t < max) { g.sim(0.05); t += 0.05; }
+  return +t.toFixed(2);
+}, max);
+
+test('back window (PC): one window in the dacha\'s back wall; T opens it with a quiet creak, Q silently; E in front of it (shut or open) climbs through crouched in ~3 s, no walking meanwhile, and back; not with a big item, a small one goes along; the guard does not use it', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, dacha);
   const info = await page.evaluate(() => {
@@ -81,7 +89,7 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
     return { windows: w.map((d) => [+d.cx.toFixed(2), +d.cz.toFixed(2), +d.y0.toFixed(2), d.locked, d.open]), doors: L.doors.length, room: L.roomAt(4, -13.3), behind: L.roomAt(4, -14.6) };
   });
   assert.deepEqual(info.windows, [[4, -14, 0.9, false, false]], 'one closed window in the north wall: ' + JSON.stringify(info));
-  assert.equal(info.doors, 9);
+  assert.equal(info.doors, 9 + 1, 'the house’s doors, the back window and the yard’s gate (world/yard.js)');
   assert.equal(info.room, 'Вітальня');
 
   // a quick swing (T): opens, a quiet creak (a door's quick swing is ~8 m)
@@ -97,35 +105,39 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
   const slow = await page.evaluate(() => { const w = window.__game.level.doors.find((d) => d.window); return { angle: +w.angle.toFixed(2), heard: window.__heard.splice(0) }; });
   assert.equal(slow.angle, 0, 'Q closed it');
   assert.deepEqual(slow.heard.filter((h) => h.kind === 'door'), [], 'slowly: silent');
-  // closed: E does not climb
-  assert.equal(await page.evaluate(async () => (await import('./src/systems/backWindow.js')).climbLabel()), null, 'a closed window: nothing to climb');
+  // shut: the button is there all the same (the zone, not the open sash)
+  assert.equal(await page.evaluate(async () => (await import('./src/systems/backWindow.js')).climbLabel()), 'Лізти у вікно', 'a shut window: the button is there');
 
-  // open slowly (Q), then E: climbing, crouched; walking (D, sideways) does nothing meanwhile
-  await key(page, 'KeyQ', 2.6);
+  // E at the shut window: the sash opens by itself (silent), you climb through, crouched; D (sideways) does nothing meanwhile
   const t0 = await page.evaluate(() => window.__game.simT);
   await page.keyboard.press('KeyE');
   await page.keyboard.down('KeyD');
   const climb = await page.evaluate(async () => {
     const g = window.__game, P = g.player, bw = await import('./src/systems/backWindow.js'), out = [];
-    for (let i = 0; i < 25; i++) { g.sim(0.1); out.push({ t: +g.simT.toFixed(2), on: bw.climbing(), z: +P.head.z.toFixed(2), x: +P.head.x.toFixed(2), crouch: P.virtualCrouch }); }
-    return { out, heard: window.__heard.splice(0) };
+    for (let i = 0; i < 40; i++) { g.sim(0.1); out.push({ t: +g.simT.toFixed(2), on: bw.climbing(), z: +P.head.z.toFixed(2), x: +P.head.x.toFixed(2), crouch: P.virtualCrouch }); }
+    const w = g.level.doors.find((d) => d.window);
+    return { out, heard: window.__heard.splice(0), angle: +w.angle.toFixed(2) };
   });
   await page.keyboard.up('KeyD');
   const on = climb.out.filter((s) => s.on), after = climb.out.filter((s) => !s.on);
   const ends = after.length ? after[0].t : Infinity, dur = ends - t0;
   assert.ok(on.length && on.every((s) => s.crouch), `climbing, crouched at once ${JSON.stringify(climb.out)}`);
-  assert.ok(dur > 1.4 && dur < 1.75, `the climb takes 1.5 s: ${dur.toFixed(2)} ${JSON.stringify(climb.out)}`);
-  assert.ok(on.every((s) => Math.abs(s.x - 4) < 0.02), `D held: no walking while climbing ${JSON.stringify(climb.out)}`);
-  assert.ok(after[0].z < -14.5, `outside behind the house: ${JSON.stringify(climb.out)}`);
-  assert.ok(after[after.length - 1].x > 4.2, `after the climb D walks again: ${JSON.stringify(climb.out)}`);
+  assert.ok(dur > 2.9 && dur < 3.5, `a shut window: ~3.1 s: ${dur.toFixed(2)}`);
+  assert.ok(Math.abs(climb.angle) >= 1.1, `the sash opened itself: ${climb.angle}`);
+  assert.deepEqual(climb.heard.filter((h) => h.kind === 'door'), [], 'opened slowly: no creak');
+  assert.ok(on.every((s) => Math.abs(s.x - 4) < 0.7), `D held: no walking while climbing ${JSON.stringify(on.slice(-3))}`);
+  assert.ok(after[0].z < -14.4, `outside behind the house: ${JSON.stringify(after[0])}`);
+  assert.ok(after[after.length - 1].x > 4.15, `after the climb D walks again: ${JSON.stringify(after[after.length - 1])}`);
   assert.ok(after.every((s) => s.crouch), 'still crouched after the climb');
   assert.ok(!climb.heard.some((h) => h.kind === 'step' && h.z < -13), `crouched and slow: no steps while climbing ${JSON.stringify(climb.heard)}`);
   const behind = await page.evaluate(() => window.__game.level.roomAt(window.__game.player.head.x, window.__game.player.head.z));
   assert.equal(behind, info.behind, 'in the yard behind the house');
 
-  // and back in (facing the house: yaw π)
+  // and back in (facing away from the house: any facing but the back to the window works; the sash is open now: ~2.2 s)
   await page.evaluate(() => { const g = window.__game; g.player.teleport(4.0, -14.6, Math.PI); g.sim(0.1); });
-  await key(page, 'KeyE', 1.7);
+  await page.keyboard.press('KeyE');
+  const back = await settle(page);
+  assert.ok(back > 1.4 && back < 2.6, `an open window: ~2.2 s (less than the shut one’s 3.1; the real frames in between count): ${back}`);
   assert.ok(await page.evaluate(() => window.__game.player.head.z > -13.6), 'climbed back into the living room');
 
   // a big (two-handed) item: no; a small one: yes, it goes along
@@ -135,19 +147,22 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
     return it ? it.id : null;
   });
   assert.ok(big, 'the dacha has a two-handed item');
-  await key(page, 'KeyE', 1.7);
+  await page.evaluate(() => { const g = window.__game; g.player.teleport(4.0, -13.35, 0); g.sim(0.1); });
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => /великою/.test(window.__game.flashText), null, { timeout: 5000 }).catch(() => {});   // the message, before anything else can replace it
   const bigR = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), flash: window.__game.flashText, held: !!window.__game.hands.desk }));
+  await settle(page);
   assert.ok(bigR.z > -14, `with a big item you stay inside: ${JSON.stringify(bigR)}`);
   assert.match(bigR.flash, /великою/, 'and it says why');
   assert.equal(bigR.held, true, 'the item is still in hands');
   const small = await page.evaluate(() => {
     const g = window.__game, it = g.loot.items.find((x) => x.takeable && !x.twoHanded && !x.throwable && !x.trap && !x.heavy && !x.prop);
-    g.hands.desk = it; g.sim(0.1);
+    g.hands.desk = it; g.player.teleport(4.0, -13.35, 0); g.sim(0.1);   // at the window again, as for the big item
     return it.id;
   });
-  await key(page, 'KeyE', 1.7);
+  await page.keyboard.press('KeyE'); await settle(page);
   const smallR = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), held: window.__game.hands.desk && window.__game.hands.desk.id }));
-  assert.ok(smallR.z < -14.5, `with a small item you climb out: ${JSON.stringify(smallR)}`);
+  assert.ok(smallR.z < -14.4, `with a small item you climb out: ${JSON.stringify(smallR)}`);
   assert.equal(smallR.held, small, 'the small item went along');
 
   // the guard never opens the window on its way, even with its next point behind it
@@ -163,20 +178,19 @@ test('back window (PC): one window in the dacha\'s back wall; T opens it with a 
   await ctx.close();
 });
 
-test('back window (phone): in front of the open window the context button says «Лізти у вікно»; a finger climbs through', async () => {
+test('back window (phone): in the zone of the SHUT window the context button says «Лізти у вікно» at once; one finger press opens, climbs and crouches', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
-  await page.evaluate(() => { const g = window.__game, w = g.level.doors.find((d) => d.window); w.toggle(4, -13.3, 0.5); g.sim(0.8); });
   await atWindow(page);
   await page.waitForFunction(() => document.querySelector('#touch .act').textContent === 'Лізти у вікно' && !document.querySelector('#touch .act').hidden, null, { timeout: 10000 });
   await fingerPressEl(page, cdp, '#touch .act', { holdMs: 120 });
-  await page.evaluate(() => window.__game.sim(1.7));
-  const r = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), crouch: window.__game.player.virtualCrouch }));
-  assert.ok(r.z < -14.5 && r.crouch, `the finger climbed out, crouched: ${JSON.stringify(r)}`);
+  await settle(page, 8);
+  const r = await page.evaluate(() => ({ z: +window.__game.player.head.z.toFixed(2), crouch: window.__game.player.virtualCrouch, open: Math.abs(window.__game.level.doors.find((d) => d.window).angle) }));
+  assert.ok(r.z < -14.4 && r.crouch && r.open > 1.0, `one press: the finger climbed out, crouched: ${JSON.stringify(r)}`);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
 
-test('back window (friends): the guest asks the host to open the window like a door; both see it open; the guest climbs through and the host sees it behind the house', async () => {
+test('back window (friends): the guest presses once — the host opens the sash for it, the guest climbs at once and the host sees it behind the house, rising over the sill, not through the wall', async () => {
   const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
   const host = await open(ctx, preview + '?map=dacha&net=local');
   const code = '314159';
@@ -188,16 +202,17 @@ test('back window (friends): the guest asks the host to open the window like a d
   for (const p of pages) await p.evaluate(() => { const g = window.__game; g.playing = true; for (const l of g.lurkers) l.update = () => {}; g.patrol.x = -8; g.patrol.z = -2; });
   const run = async (secs) => { for (let t = 0; t < secs; t += 0.1) { for (const p of pages) await p.evaluate(() => window.__game.sim(0.1)); await host.page.waitForTimeout(30); } };
   await run(0.6);
-  await guest.page.evaluate(() => { const g = window.__game; g.player.teleport(4.0, -13.35, 0); g.sim(0.2); g.useDoor(g.nearestDoor(g.player.head.x, g.player.head.z, 1.6, g.player.yaw)); });
-  await run(1.5);
-  const st = await Promise.all(pages.map((p) => p.evaluate(() => +window.__game.level.doors.find((d) => d.window).target.toFixed(2))));
-  assert.ok(Math.abs(st[0]) > 1.5, `the host opened the window for the guest: ${st}`);
-  assert.equal(st[0], st[1], 'the guest shows the host’s window');
+  // one press by the guest (no «Двері» first): the sash is shut, the guest is in its zone
+  await guest.page.evaluate(() => { const g = window.__game; g.player.teleport(4.0, -13.35, 0); g.sim(0.2); });
   await guest.page.keyboard.press('KeyE');
-  await run(2.2);
+  const ys = [];
+  for (let t = 0; t < 3.6; t += 0.1) { for (const p of pages) await p.evaluate(() => window.__game.sim(0.1)); ys.push(await host.page.evaluate(() => { const r = window.__game.net.state().remotes[0]; return r ? [r.x, r.z] : null; })); await host.page.waitForTimeout(30); }
+  const st = await Promise.all(pages.map((p) => p.evaluate(() => +window.__game.level.doors.find((d) => d.window).target.toFixed(2))));
+  assert.ok(Math.abs(st[0]) >= 1.1, `the host opened the window for the guest: ${st}`);
+  assert.equal(st[0], st[1], 'the guest shows the host’s window');
   const g = await guest.page.evaluate(() => +window.__game.player.head.z.toFixed(2));
   const seen = await host.page.evaluate(() => window.__game.net.state().remotes[0]);
-  assert.ok(g < -14.5, `the guest climbed out: ${g}`);
+  assert.ok(g < -14.4, `the guest climbed out: ${g}`);
   assert.ok(seen.z < -14.3, `the host sees the guest behind the house: ${JSON.stringify(seen)}`);
   assert.deepEqual(host.errors, []);
   assert.deepEqual(guest.errors, []);

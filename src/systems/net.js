@@ -31,6 +31,7 @@ import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js
 import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.js';
 import { mapOpen } from '../world/maps.js';
 import { S } from '../i18n/index.js';
+import { hostClimb, climbDenied } from './backWindow.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const N = {
@@ -245,6 +246,8 @@ function hostIntent(r, m) {
     if (m.a === 'doorSwing') { d.swingTime(+m.time || CFG.doors.fastTime); return; }
     d.lastUser = r.id === G.guardPid ? 'patrol' : 'player';   // the guard's own doors are no news to the guards
     d.toggle(r.head.x, r.head.z, +m.time || CFG.doors.fastTime);
+  } else if (m.a === 'climb') {   // the back window: the guest climbs at once; the host opens the sash or says no (systems/backWindow.js)
+    hostClimb(r, m, (why) => send({ type: 'ev', k: 'climbNo', why }, N.peerOf.get(r.id)));
   } else if (m.a === 'take') {
     const it = loot.items[m.i];
     if (!it || r.desk || !it.takeable || it.held || it.state === 'fall') return;
@@ -336,6 +339,7 @@ function guestEvent(m) {
       break;
     }
     case 'flash': flash(m.t, m.s || 2.5, m.c); break;
+    case 'climbNo': climbDenied(m.why); break;
     case 'say': { const g = G.guards[m.g]; if (g) g.env.say(m.text, true); break; }
     case 'wecho': storyNetEcho(m, m.who === N.pid); break;   // W7: Шепотун's echo (yours: its card)
     case 'gsnd': { const g = G.guards[m.g]; if (g) g.env.sound(m.kind, m.x, m.z, m.o || {}); break; }

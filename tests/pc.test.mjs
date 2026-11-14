@@ -16,9 +16,10 @@ test('PC keyboard as before: WASD walks, E picks up / puts down, T door, C crouc
   assert.equal(await page.evaluate(() => window.__game.paused), false, 'PC does not auto-pause');
   await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); });
   await page.evaluate(() => window.__game.player.teleport(window.__game.level.spawn.x, window.__game.level.spawn.z, window.__game.level.spawn.yaw - Math.PI));
-  const p0 = await page.evaluate(() => window.__game.player.head.z);
+  const p0 = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));
   await page.keyboard.down('KeyW'); await keepFor(page, 800); await page.keyboard.up('KeyW');
-  assert.ok(Math.abs(await page.evaluate(() => window.__game.player.head.z) - p0) > 0.3, 'W walks');
+  const p1 = await page.evaluate(() => ({ x: window.__game.player.head.x, z: window.__game.player.head.z }));
+  assert.ok(Math.hypot(p1.x - p0.x, p1.z - p0.z) > 0.3, 'W walks');   // the spawn faces west now: x moves, not z
   const item = await page.evaluate(() => { const g = window.__game, it = g.loot.items.find((i) => !i.twoHanded); const c = it.mesh.getWorldPosition(new g.THREE.Vector3()); return { x: c.x, z: c.z }; });
   await standFacing(page, item.x, item.z, 1.0, 0.3);
   await page.keyboard.press('KeyE');
