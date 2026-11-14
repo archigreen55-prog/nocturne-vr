@@ -12,7 +12,7 @@ import { S } from '../i18n/index.js';
 import { lit as litMat, STYLE_ON } from '../style/materials.js';
 import { inkWeight } from '../style/ink.js';
 import { quietRandom } from '../style/quiet.js';
-import { buildYard, LOT, SPAWN, BOARD, CARGO, DROP, VAN_ZONE, LAMPS, LIGHTS, LEASH, YARD_NODES } from './yard.js';
+import { buildYard, LOT, SPAWN, BOARD, CARGO, DROP, VAN_ZONE, START_REGION, START_MARK, LAMPS, LIGHTS, LEASH, YARD_NODES } from './yard.js';
 import { NODES } from '../enemies/nav.js';
 
 const WALL_H = 2.7;
@@ -443,7 +443,7 @@ export function buildLevel() {
   glowMesh.matrixAutoUpdate = false;
 
   const doorMat = litMat();
-  for (const spec of [...doorSpecs, ...windowSpecs]) doors.push(new Door(spec, doorMat));
+  for (const spec of [...doorSpecs, ...windowSpecs, yard.gateSpec]) doors.push(new Door(spec, doorMat));   // the yard's gate last: the others keep their indexes
 
   const group = new THREE.Group();
   group.add(staticMesh, glowMesh, moon);
@@ -459,7 +459,7 @@ export function buildLevel() {
     // the map descriptor (W6): what the other systems need to know about this map
     id: 'dacha', rooms: ROOMS, links: ROOM_LINKS, outside: [ROOMS_OUTSIDE], house: HOUSE,
     spawn: SPAWN, board: BOARD, cargo: CARGO, wardrobe: WARDROBE,
-    dropZone: DROP, vanZone: VAN_ZONE, lamps: LAMPS, lights: LIGHTS, leash: LEASH,
+    dropZone: DROP, vanZone: VAN_ZONE, startRegion: START_REGION, startMark: START_MARK, lamps: LAMPS, lights: LIGHTS, leash: LEASH,
     // the guard's nav points: the house's (enemies/nav.js) with the yard's own (the porch, the garden, the gate)
     nav: { nodes: YARD_NODES.concat(NODES.slice(7)) },
     roomAt: (x, z) => roomAt(x, z),
@@ -568,7 +568,8 @@ export class Door {
     this.dragTarget = 0;
     const B = new Builder();
     this.window = !!spec.window;   // the dacha's back window: a sash on a hinge, swung like a door (config/backWindow.js)
-    this.creakK = this.window ? CFG.backWindow.creakK : 1;
+    this.gate = !!spec.gate;   // the yard's gate (world/yard.js): boards like the fence, its own creak; no trap on it, the guards leave it alone
+    this.creakK = this.window ? CFG.backWindow.creakK : this.gate ? CFG.gate.creakK : 1;
     this.handleY = this.window ? spec.h / 2 : 1.0;
     if (this.window) {
       const H = spec.h, F = 0.06;
@@ -578,6 +579,10 @@ export class Door {
       B.box(F, 0.525, -LEAF_T / 2 + 0.006, this.w / 2 - 0.02, 0.575, LEAF_T / 2 - 0.006, C.trim); B.box(this.w / 2 + 0.02, 0.525, -LEAF_T / 2 + 0.006, this.w - F, 0.575, LEAF_T / 2 - 0.006, C.trim);   // transom, as the other windows
       B.box(F, F, -0.008, this.w - F, H - F, 0.008, GLOW.window);                                                                              // the glass (the other windows' colour)
       for (const s of [-1, 1]) B.box(this.w - 0.11, H / 2 - 0.03, s * (LEAF_T / 2), this.w - 0.07, H / 2 + 0.03, s * (LEAF_T / 2 + 0.04), C.knob);
+    } else if (this.gate) {
+      B.box(0, 0.016, -LEAF_T / 2, this.w, DOOR_H - 0.003, LEAF_T / 2, spec.color);   // the fence's own boards
+      for (const y of [0.3, 1.7]) for (const s of [-1, 1]) B.box(0.02, y, s * (LEAF_T / 2 + 0.008), this.w - 0.02, y + 0.12, s * LEAF_T / 2, C.woodDark);   // two cross braces
+      for (const s of [-1, 1]) B.box(this.w - 0.14, 0.95, s * (LEAF_T / 2), this.w - 0.04, 1.0, s * (LEAF_T / 2 + 0.05), C.knob);   // the latch
     } else {
       const col = spec.front ? C.doorFront : C.door;
       B.box(0, 0.016, -LEAF_T / 2, this.w, DOOR_H - 0.003, LEAF_T / 2, col);   // floor to 3 mm under the lintel
@@ -585,7 +590,7 @@ export class Door {
       for (const s of [-1, 1]) B.box(this.w - 0.12, 0.98, s * (LEAF_T / 2), this.w - 0.07, 1.04, s * (LEAF_T / 2 + 0.06), C.knob);
     }
     this.mesh = B.mesh(material);
-    this.mesh.name = this.window ? 'window' : spec.locked ? 'door (locked)' : 'door';
+    this.mesh.name = this.window ? 'window' : this.gate ? 'door (gate)' : spec.locked ? 'door (locked)' : 'door';
     this.mesh.position.set(this.hx, this.y0, this.hz);
     this.mesh.rotation.y = this.base;
     // centre of the doorway, for picking the door to use
@@ -617,6 +622,22 @@ export class Door {
     const nx = Math.cos(this.base + Math.PI / 2), nz = -Math.sin(this.base + Math.PI / 2);
     const side = (fromX - this.hx) * nx + (fromZ - this.hz) * nz;
     this.target = side > 0 ? -OPEN_ANGLE : OPEN_ANGLE;
+    return 'open';
+  }
+
+  // Open to `angle` rad in `time` s, away from (fromX, fromZ), without turning back an open one: the window's
+  // climb (systems/backWindow.js). A slow swing is silent (CFG.doors.creakFrom).
+  openTo(fromX, fromZ, angle, time) {
+    if (this.locked) return 'locked';
+    this.dragging = false;
+    let sign = Math.sign(this.angle) || Math.sign(this.target);
+    if (!sign) {
+      const nx = Math.cos(this.base + Math.PI / 2), nz = -Math.sin(this.base + Math.PI / 2);
+      sign = ((fromX - this.hx) * nx + (fromZ - this.hz) * nz) > 0 ? -1 : 1;
+    }
+    if (Math.abs(this.angle) >= angle - 0.02 && Math.sign(this.angle) === sign) { this.target = this.angle; return 'open'; }
+    this.target = sign * angle;
+    this.rate = Math.max(0.1, Math.abs(this.target - this.angle) / time);
     return 'open';
   }
 

@@ -185,3 +185,10 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 .pm-story i { color: #e6d8b0; }
 .pm-crew { color: #ffd166; font-style: italic; }
 .pm-card-lurker.soon .pm-shop-text b { color: #5a6680; }
+
+/* ---------- the big «ПІШЛИ!» when the round's clock starts (systems/goBanner.js; phone and PC) ---------- */
+#gobanner { position: fixed; left: 0; right: 0; top: 17%; z-index: 7; text-align: center; pointer-events: none; opacity: 0; font-family: system-ui, sans-serif; }
+#gobanner b { display: block; font-weight: 900; font-size: clamp(44px, 17vmin, 130px); line-height: 1; letter-spacing: .04em; color: #ffb347; text-shadow: 0 0 24px rgba(255, 170, 50, .75), 0 3px 0 #5a3300, 0 0 8px #000; }
+#gobanner span { display: block; margin-top: 8px; font-weight: 700; font-size: clamp(14px, 4.4vmin, 26px); color: #efe6d4; text-shadow: 0 1px 4px #000, 0 0 10px #000; }
+#gobanner.on { animation: gopop var(--go-total, 1.9s) ease-out forwards; }
+@keyframes gopop { 0% { opacity: 0; transform: scale(1.4); } 10% { opacity: 1; transform: scale(1); } 68% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.04); } }

@@ -168,6 +168,7 @@ async function inspect({ TOL, MIN_AREA, MIN_SIZE }) {
     // ---- 4. a closed leaf fills its opening: at most 12 mm at each side (the frame covers 10), 5 mm at the top
     const doorGaps = [];
     for (const d of lv.doors) {
+      if (d.gate) continue;   // the yard's gate is a door of the fence, not of a house wall (tests/yard.test.mjs: it fills its own gap)
       const alongX = Math.abs(Math.cos(d.base)) > 0.5, y0 = d.y0 || 0;
       const o = d.window ? winOpenings.find((q) => winOf(q) === d) : openings.find((q) => q.alongX === alongX && Math.abs(q.y0 - y0) < 0.05 && Math.abs((alongX ? d.cz : d.cx) - q.c) < 0.05 && (alongX ? d.cx : d.cx * 0 + d.cz) > q.a && (alongX ? d.cx : d.cz) < q.b);
       if (!o) { doorGaps.push({ door: [d.cx, d.cz], gap: 'no opening found' }); continue; }

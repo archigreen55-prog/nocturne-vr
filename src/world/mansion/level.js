@@ -11,7 +11,7 @@ import { CollisionWorld } from '../collision.js';
 import { Builder, Door, C } from '../level.js';
 import { Floors } from '../floors.js';
 import { wallKit, fence, lampPost, van, WALL_H, EXT_T, INT_T, JAMB } from '../kit.js';
-import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
+import { FLOOR_Y, LOT, HOUSE, ROOMS, OUTSIDE, LINKS, WELL_NAME, STAIRS, SPAWN, BOARD, VAN, DROP, VAN_ZONE, START_MARK, LIGHTS, LAMPS, LAMP_LIST, WARDROBE, NAV_NODES, NAV_STAIRS } from './layout.js';
 // the crate of the second lurker: in the garage by the gate, its lid pops up in the telegraph
 const CRATE = { x: 12.2, z: 0.2, y0: 0, kind: 'crate', size: 0.9, minZ: -0.25, maxZ: 0.65 };
 import { mansion as MCFG } from '../../config/mansion.js';
@@ -344,7 +344,7 @@ export function buildMansion() {
     outbuildings: [{ minX: -19, maxX: -15, minZ: 18, maxZ: 21 }],   // the shed: walls with a door outside the house
     world: worlds[0], walls: walls[0],   // as on the first map: the ground floor
     worlds, floors, rooms, links: LINKS, outside: OUTSIDE, house: HOUSE,
-    spawn: SPAWN, board: BOARD, cargo: CARGO, dropZone: DROP, vanZone: VAN_ZONE, lights: LIGHTS, lamps: LAMPS, lampList: LAMP_LIST,
+    spawn: SPAWN, board: BOARD, cargo: CARGO, dropZone: DROP, vanZone: VAN_ZONE, startMark: START_MARK, lights: LIGHTS, lamps: LAMPS, lampList: LAMP_LIST,
     floorMeshes: [mesh0, mesh1],
     // draw the rooms of floor f only (the hall band, the stairs and the outside are always drawn)
     setFloorVisible(f) { mesh0.visible = f === 0; mesh1.visible = f === 1; },

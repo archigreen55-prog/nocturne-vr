@@ -410,7 +410,8 @@ test('phone: the menu shop sells the traps by finger (into the van at once); the
     g.player.teleport(d.cx + 0.5 * Math.sin(0), d.cz + 0.5, 0); g.sim(0.05);
     return { i: g.level.doors.indexOf(d) };
   });
-  await pc.keyboard.press('KeyE'); await pc.waitForTimeout(200);
+  await pc.keyboard.press('KeyE');
+  await pc.waitForFunction(() => !window.__game.hands.desk, null, { timeout: 5000 }).catch(() => {});   // (a frame takes longer in software rendering: wait for the key to be taken)
   const rope = await pc.evaluate((i) => { const g = window.__game, it = g.loot.items.find((x) => x.trap === 'rope' && !x.gone); return { held: !!g.hands.desk, door: it.door === g.level.doors[i], armed: it.armed }; }, r2.i);
   assert.deepEqual(rope, { held: false, door: true, armed: true });
   assert.deepEqual(e2, []);

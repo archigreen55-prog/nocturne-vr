@@ -185,7 +185,7 @@ export class Brain {
     }
     // doors it keeps closed, found open (by you)
     for (const d of this.env.level.doors) {
-      if (d.locked || this.noticedDoors.has(d) || d.lastUser !== 'player' || Math.abs(d.angle) < 0.3) continue;
+      if (d.locked || d.gate || this.noticedDoors.has(d) || d.lastUser !== 'player' || Math.abs(d.angle) < 0.3) continue;
       if (!this.canSee(d.cx, 1.0, d.cz)) continue;
       this.noticedDoors.add(d);
       this.env.say(S.guard.say.whoOpened);

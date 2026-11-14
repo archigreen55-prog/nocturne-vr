@@ -91,6 +91,8 @@ export const BOARD = { x: 14.55, z: -2.25, yaw: 2.914 };
 export const VAN = { x: 16.5, z: -6.4, yaw: Math.PI };  // rear doors facing south (+Z)
 export const DROP = { x: 16.5, z: -5.35, r: 0.6 };
 export const VAN_ZONE = { x: 16.5, z: -5.35, r: 2.0 };
+// the chalk start arc (systems/startLine.js): the ring CFG.round.startDist round the van's zone, only where the alley is open (x >= minX)
+export const START_MARK = { kind: 'arc', minX: 13.5 };
 
 // The three point lights of the scene move here: [x, y, z, colour, intensity, distance]
 export const LIGHTS = [
