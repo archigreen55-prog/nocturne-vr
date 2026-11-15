@@ -175,7 +175,7 @@ body.pages-all .pl-legacy { display: block; }   /* the tests' long card still ha
 .lv-stars3 .st3 { display: grid; grid-template-columns: 3.3em 1fr auto auto; gap: 6px; align-items: baseline; font-size: 12px; color: #c9d3e3; }
 .lv-stars3 .st3 i { font-style: normal; color: var(--lamp); letter-spacing: 1px; }
 .lv-stars3 .st3 b { font: 700 12px/1.2 system-ui, sans-serif; color: var(--lamp); }
-.lv-stars3 .st3 em { font-style: normal; color: #5fd38d; font-weight: 800; min-width: 1em; }
+.lv-stars3 .st3 em { font-style: normal; color: var(--paper); font-weight: 800; min-width: 1em; }
 .lv-stars3 .st3.got span { color: var(--paper); }
 .lv-info .lv-info-meta { font-size: 12px; color: #9aa7bf; }
 .st-diff { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }

@@ -181,7 +181,7 @@ export class Board {
       g.fillStyle = got ? '#efe6d4' : '#d6cfbf'; g.fillText(r.text, 130, y, W - 130 - 200);
       g.textAlign = 'right'; g.font = 'bold 24px system-ui, sans-serif'; g.fillStyle = '#ffb347';
       g.fillText(S.campaign2.star.money(money(r.price)), W - 90, y);
-      if (got) { g.fillStyle = '#5fd38d'; g.fillText(S.campaign2.star.got, W - 50, y); }
+      if (got) { g.fillStyle = '#efe6d4'; g.fillText(S.campaign2.star.got, W - 50, y); }
       y += 32;
     }
     g.textAlign = 'left';
@@ -399,7 +399,7 @@ export class Board {
       g.fillStyle = '#ffb347'; g.fillText('★'.repeat(r.n), 50, y);
       g.fillStyle = r.got ? '#efe6d4' : '#9aa7bf'; g.fillText(r.text, 130, y, 540);
       g.textAlign = 'right'; g.font = 'bold 25px system-ui, sans-serif';
-      g.fillStyle = r.got ? '#5fd38d' : '#ff9f43';
+      g.fillStyle = r.got ? '#efe6d4' : '#ff9f43';
       g.fillText(`${r.got ? S.campaign2.star.got : S.campaign2.star.missed}${r.note ? ' ' + r.note : ''}`, W - 50, y, 300);
       y += 32;
     }

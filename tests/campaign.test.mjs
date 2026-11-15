@@ -198,7 +198,7 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
     out.page = new URL(location.href).searchParams.get('page');
     return out;
   });
-  assert.deepEqual(r.buttons.filter((b) => b !== 'lurkers' && b !== 'papers'), ['go', 'levels'], r.buttons.join(' '));
+  assert.deepEqual(r.buttons.filter((b) => b !== 'lurkers' && b !== 'papers' && b !== 'how'), ['go', 'levels'], r.buttons.join(' '));   // campaign v2: «Як це?» too
   assert.ok(r.said.includes('РІВЕНЬ 1 · ТИХИЙ КУТ'), r.said.join(' | '));
   assert.ok(r.said.includes('винеси щонайменше $500'), 'the goal: the first star\'s row');
   assert.ok(r.said.includes('Нове: сторож ходить'), 'what is new');

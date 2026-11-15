@@ -169,7 +169,7 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 .pm-stars { display: flex; flex-direction: column; gap: 1px; margin: 3px 0; }
 .pm-star { display: grid; grid-template-columns: 3em 1fr auto 1.2em; gap: 6px; align-items: baseline; font-size: 12px; color: var(--muted); }
 .pm-star i { font-style: normal; color: #ffd166; letter-spacing: 1px; } .pm-star b { color: #ffd166; } .pm-star em { font-style: normal; font-weight: 800; }
-.pm-star.got span { color: #c9d3e3; } .pm-star.got em { color: #5fd38d; } .pm-star.lost em, .pm-star.lost span { color: #ff9f43; }
+.pm-star.got span { color: #c9d3e3; } .pm-star.got em { color: #efe6d4; } .pm-star.lost em, .pm-star.lost span { color: #ff9f43; }
 .pm-shop { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid rgba(201, 211, 227, .12); }
 .pm-shop-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; line-height: 1.3; }
 .pm-shop-text span { color: var(--muted); font-size: 12px; }
@@ -184,7 +184,7 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 .sm-check { display: grid; grid-template-columns: 3.3em 1fr auto; gap: 6px; align-items: baseline; font-size: 13px; line-height: 1.35; color: var(--muted); }
 .sm-check i { font-style: normal; color: #ffd166; letter-spacing: 1px; }
 .sm-check b { color: #ff9f43; font-size: 12.5px; text-align: right; }
-.sm-check.got span { color: #c9d3e3; } .sm-check.got b { color: #5fd38d; }
+.sm-check.got span { color: #c9d3e3; } .sm-check.got b { color: #ffd166; }
 .sm-buttons2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
 .sm-buttons2 > :only-child { grid-column: 1 / -1; }
 .sm-quietrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }

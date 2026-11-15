@@ -25,6 +25,20 @@ export function applyLevel() {
     }
   }
   if (G.devices) G.devices.setEnabled(unlocked('devices', c));
+  placeItems(c);
+}
+// campaign v2: a level's own places for some items (CFG.campaign.levels[].place; the rehearsal: a book by the back
+// window); every other level: where they always lie. Moved only while the round waits at the van.
+function placeItems(c) {
+  if (!G.loot) return;
+  const l = !CLASSIC && levelOf(c.id), P = (l && l.place) || {};
+  for (const it of G.loot.items) {
+    if (!it.def0) it.def0 = it.def;
+    const want = P[it.id] ? { ...it.def0, pos: P[it.id] } : it.def0;
+    if (it.def === want || (it.def.pos === want.pos)) continue;
+    it.def = want;
+    if (G.round && G.round.phase === 'ready' && !it.held && !it.delivered && it.state === 'rest') it.reset();
+  }
 }
 
 // The board's note (null in the classic game or off the ladder): the level, its act, what is new

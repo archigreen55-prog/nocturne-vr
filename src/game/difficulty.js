@@ -55,6 +55,9 @@ export function applyDifficulty(id, contract) {
   // W19, the rehearsal: the guard sits in his armchair all round (no other habits); the clock stands
   CFG.run.armchairAtStart = !!M.armchairAtStart;
   if (M.armchairAtStart) CFG.run.habits = [];
+  // campaign v2: a level's guard sits at one place all round, awake (no habits: they would open its post by the clock)
+  CFG.run.sitAt = M.sitAt || null;
+  if (M.sitAt) CFG.run.habits = [];
   CFG.round.noClock = !!M.noClock;
   applyUpgrades();
   return D;

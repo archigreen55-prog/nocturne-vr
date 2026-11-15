@@ -7,7 +7,7 @@
 // in hand. These pages run the campaign (`campaign: true`); the classic test game keeps the old rules.
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
-import { browser, open, test, base, LAND } from './runner.mjs';
+import { browser, open, test, base, LAND, preview } from './runner.mjs';
 
 async function camp(url = base, { stars = null, stars2 = null, wallet = null, phone = false } = {}) {
   const ctx = await newContext(browser, phone ? LAND : {}, { menu: true });
@@ -221,7 +221,7 @@ test('campaign v2 (b): «Як це?» — once per mechanic at the van (not on t
     const g = window.__game, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js'), PP = await import('./src/systems/playPage.js');
     const card = () => { const el = document.getElementById('howcard'); return el.hidden ? null : { title: document.getElementById('howtitle').textContent, steps: [...document.querySelectorAll('#howsteps li')].map((x) => x.textContent), ok: document.getElementById('howok').textContent }; };
     const out = {};
-    g.newRound(); g.setContract('rehearsal'); g.playing = true; g.sim(0.2); out.rehearsal = card();
+    g.newRound(); g.setContract('rehearsal'); g.playing = true; g.sim(0.2); out.rehearsal = card(); document.getElementById('howok').click(); g.sim(0.1);
     g.newRound(); g.setContract('first'); g.sim(0.2); out.first = card();
     document.getElementById('howok').click(); g.sim(0.2);
     out.closed = card(); out.seen = JSON.parse(localStorage.getItem('nocturne.howSeen'));
@@ -237,10 +237,10 @@ test('campaign v2 (b): «Як це?» — once per mechanic at the van (not on t
     g.pressBoard('howok'); out.back = G.boardPage;
     return out;
   });
-  assert.equal(r.rehearsal, null, 'the rehearsal: the first-run tutorial, no card');
+  assert.deepEqual(r.rehearsal && r.rehearsal.steps[0], 'У дім можна зайти дверима або вікном', 'the rehearsal: the window card (the controls are the first-run tutorial\'s)');
   assert.deepEqual(r.first, { title: 'Як це: сторож ходить', steps: ['Промінь ліхтаря — його погляд: не стій у ньому', 'Присядь за меблями — і ти схований', '«?» над ним — він щось почув. Замри'], ok: 'Зрозуміло' });
   assert.equal(r.closed, null);
-  assert.deepEqual(r.seen, ['guard']);
+  assert.deepEqual(r.seen, ['windowIn', 'guard']);
   assert.equal(r.again, null, 'once per mechanic');
   assert.equal(r.btn, true);
   assert.equal(r.fromCard, 'Як це: сторож ходить', 'the level card\'s button opens it again');
@@ -266,4 +266,152 @@ test('campaign v2 (b): «Як це?» — once per mechanic at the van (not on t
   const p2 = await open(c2, base);
   assert.equal(await p2.page.evaluate(() => { const g = window.__game; g.newRound(); g.playing = true; g.sim(0.3); return document.getElementById('howcard').hidden; }), true);
   await c2.close();
+});
+
+// level 5 and the back window (plan §7.2, the owner's decisions of 16.11)
+const WIN = `(g) => g.level.doors.find((d) => d.window)`;
+test('campaign v2 (в): the rehearsal shows the back window — a book by it in the living room (elsewhere on other levels), a small chalk «АБО СЮДИ», the card «У дім можна зайти дверима або вікном»; the window opens and you climb in', async () => {
+  const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1 } });
+  const r = await page.evaluate(async (WIN) => {
+    const g = window.__game, win = eval(WIN)(g), book = () => { const b = g.loot.items.find((i) => i.id === 'book'); return [+b.mesh.position.x.toFixed(2), +b.mesh.position.z.toFixed(2), b.takeable]; };
+    const out = {};
+    g.newRound(); g.setContract('rehearsal'); g.sim(0.2);
+    out.book0 = book(); out.room = g.level.roomAt(out.book0[0], out.book0[1]);
+    out.sign = g.scene.getObjectByName('level 0 guide').visible;
+    g.newRound(); g.setContract('first'); g.sim(0.2); out.book1 = book();
+    g.newRound(); g.setContract('rehearsal'); g.playing = true; g.sim(0.2);
+    for (const p of g.guards) p.update = () => null;
+    g.player.teleport(4.0, -14.75, Math.PI); g.sim(0.3);   // outside, under the window, facing it
+    const { startClimb, windowAhead } = await import('./src/systems/backWindow.js');
+    out.ahead = !!windowAhead(); startClimb(); g.sim(4);
+    out.inside = +g.player.head.z.toFixed(2); out.open = Math.abs(win.angle) > 0.9;
+    return out;
+  }, WIN);
+  assert.equal(r.room, 'Вітальня', `the book lies in the living room on level 0: ${r.book0}`);
+  assert.ok(Math.hypot(r.book0[0] - 4.0, r.book0[1] + 14) < 1.3 && r.book0[2], `by the window, takeable: ${r.book0}`);
+  assert.deepEqual(r.book1.slice(0, 2), [-6.75, -9.1], 'elsewhere it is on the library desk');
+  assert.equal(r.sign, true, 'the chalk on level 0');
+  assert.equal(r.ahead, true);
+  assert.ok(r.inside > -13.9 && r.open, `climbed in through the window it opened: ${JSON.stringify(r)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('campaign v2 (в): level 5 — Petrovych sits on his post in the hall (no habits) and goes back after a noise; the card teaches only the action; a shut sash with the clock in hand says so; open, «Спустити у вікно»: the clock flies over the sill onto the flowerbed unharmed, with a quiet rustle; VR: let go over the sill', async () => {
+  const STARS = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1 };
+  const { ctx, page, errors } = await camp(base, { stars: STARS });
+  const r = await page.evaluate(async (WIN) => {
+    const g = window.__game, { G } = await import('./src/systems/state.js'), B = await import('./src/systems/backWindow.js'), out = {};
+    const win = eval(WIN)(g), clock = g.loot.items.find((i) => i.id === 'clock'), P = g.guards[0];
+    g.newRound(); g.setContract('clock'); g.playing = true; g.sim(0.1);
+    out.card = document.getElementById('howcard').hidden ? null : [...document.querySelectorAll('#howsteps li')].map((x) => x.textContent);
+    if (out.card) document.getElementById('howok').click();
+    out.brief = g.contract.brief; out.habits = g.CFG.run.habits.length;
+    g.player.teleport(0, 2, 0); g.sim(0.3);
+    g.player.teleport(-8, 3, 0);
+    g.sim(25, 1 / 30);
+    out.post = { sitting: P.sitting, x: +P.x.toFixed(1), z: +P.z.toFixed(1) };
+    g.noise.emit(0.3, -4.0, 8, 'drop', { y: 0.1, source: 'world' }); g.sim(1);
+    out.up = P.sitting; g.sim(40, 1 / 30); out.back = { sitting: P.sitting, x: +P.x.toFixed(1), z: +P.z.toFixed(1) };
+    P.update = () => null;
+    // the clock in hand at the shut window
+    g.player.teleport(4.0, -13.3, 0); g.sim(0.2); G.hands.desk = clock; clock.holders.push('desk'); clock.state = 'held';
+    out.label = B.climbLabel();
+    B.startClimb(); g.sim(0.1); out.shut = { flash: g.flashText, still: G.hands.desk === clock };
+    // open it (put the clock down first: big item, no doors) — here: the sash opened by the test
+    win.openTo(4.0, -13.3, 1.2, 0.3); g.sim(0.6);
+    const heard = []; const off = g.noise.on((e) => heard.push(e.radius));
+    B.startClimb(); out.flying = { desk: G.hands.desk, takeable: clock.takeable };
+    g.sim(2);
+    const p = clock.mesh.position; out.landed = { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), damaged: clock.damaged, state: clock.state, takeable: clock.takeable };
+    out.heard = heard; if (typeof off === 'function') off();
+    // VR: the vase let go over the open sill
+    const vase = g.loot.items.find((i) => i.id === 'vase'); vase.mesh.position.set(4.0, 1.1, -13.9);
+    out.vr = B.lowerAtRelease(vase); g.sim(2); out.vrAt = +vase.mesh.position.z.toFixed(2);
+    vase.mesh.position.set(4.0, 1.1, -12.0); out.vrFar = B.lowerAtRelease(vase);
+    return out;
+  }, WIN);
+  assert.deepEqual(r.card, ['Речі можна спускати у вікно', 'Стань біля відчиненого вікна з річчю в руках', '«Спустити у вікно» — і вона надворі'], 'the card: the action only');
+  assert.match(r.brief, /Петрович у холі\. Двері під його носом\./);
+  assert.equal(r.habits, 0, 'no habits on his post');
+  assert.ok(r.post.sitting && Math.hypot(r.post.x - 2.4, r.post.z + 2.6) < 0.3, `on his post: ${JSON.stringify(r.post)}`);
+  assert.equal(r.up, false, 'a noise gets him up');
+  assert.ok(r.back.sitting && Math.hypot(r.back.x - 2.4, r.back.z + 2.6) < 0.3, `and back on his post: ${JSON.stringify(r.back)}`);
+  assert.equal(r.label, 'Спустити у вікно');
+  assert.deepEqual(r.shut, { flash: 'Вікно зачинене, а руки зайняті: спершу постав річ і відчини', still: true });
+  assert.deepEqual(r.flying, { desk: null, takeable: false }, 'out of the hands, not takeable in the air');
+  assert.ok(r.landed.x > 3.15 && r.landed.x < 4.85 && r.landed.z > -15.05 && r.landed.z < -14.2 && r.landed.y < 0.2, `on the flowerbed: ${JSON.stringify(r.landed)}`);
+  assert.deepEqual([r.landed.damaged, r.landed.state, r.landed.takeable], [false, 'rest', true], 'unharmed, can be taken');
+  assert.ok(r.heard.includes(3), `the flowerbed's quiet rustle: ${r.heard}`);
+  assert.equal(r.vr, true); assert.ok(r.vrAt < -14.2, `VR: the vase went out: ${r.vrAt}`);
+  assert.equal(r.vrFar, false, 'not from across the room');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('campaign v2 (в): level 5\'s hints in steps — Зоя after 75 s with the clock still in the house (at once if he doubts while you hold it), the chalk ring and «В ОБХІД» after 150 s; after 2 failed rounds the chalk from the start; none once the clock is out', async () => {
+  const STARS = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1 };
+  const { ctx, page, errors } = await camp(base, { stars: STARS });
+  const r = await page.evaluate(async () => {
+    const g = window.__game, { G } = await import('./src/systems/state.js'), out = {};
+    localStorage.setItem('nocturne.howSeen', JSON.stringify(['windowDrop']));
+    const chalk = () => g.scene.getObjectByName('level hints (chalk)').visible;
+    const round = () => { g.newRound(); g.setContract('clock'); g.playing = true; for (const p of g.guards) p.update = () => null; g.player.teleport(0, 2, 0); g.sim(0.3); };
+    round();
+    g.sim(70, 1 / 20); out.at70 = { zoya: G.crewLineT > 0 && G.crewLine && G.crewLine.line, chalk: chalk() };
+    g.sim(8, 1 / 20); out.at78 = { zoya: G.crewLine && G.crewLine.line, chalk: chalk() };
+    g.sim(75, 1 / 20); out.at153 = chalk();
+    g.round.finish('caught'); g.sim(0.3);
+    round(); g.round.finish('caught'); g.sim(0.3);
+    round(); out.fails = JSON.parse(localStorage.getItem('nocturne.levelFails')).clock; out.start = chalk();
+    // the clock out of the house: no more hints
+    G.crewLine = null; G.crewLineT = 0; localStorage.setItem('nocturne.levelFails', '{}');
+    round(); const c = g.loot.items.find((i) => i.id === 'clock'); c.mesh.position.set(4, 0, -14.6);
+    g.sim(80, 1 / 20); out.outside = { zoya: !!G.crewLine, chalk: chalk() };
+    return out;
+  });
+  assert.deepEqual(r.at70, { zoya: false, chalk: false }, 'nothing before 75 s');
+  assert.deepEqual(r.at78, { zoya: 'Петрович дивиться на двері. А вікна?', chalk: false });
+  assert.equal(r.at153, true, 'the chalk after 150 s');
+  assert.deepEqual([r.fails, r.start], [2, true], 'two failed rounds: the chalk from the start');
+  assert.deepEqual(r.outside, { zoya: false, chalk: false });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('campaign v2 (в): with friends the guest lowers the clock — the host decides and flies it, both see it on the flowerbed; the host\'s own lowering the guest sees too', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  await ctx.addInitScript(() => { window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true }; localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, first: { medium: 1 }, chest: { medium: 1 }, quiet: { medium: 1 }, wardrobe: { medium: 1 } })); localStorage.setItem('nocturne.howSeen', '["windowDrop"]'); });
+  const host = await open(ctx, preview + '?map=dacha&net=local');
+  const code = '271828';
+  await host.page.evaluate((code) => { window.__game.setContract('clock'); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, code);
+  const guest = await open(ctx, preview + '?map=dacha&net=local');
+  await guest.page.evaluate((code) => window.__game.net.open(code, 'guest', 'Оля', 'rita'), code);
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  const pages = [host.page, guest.page];
+  for (const p of pages) await p.evaluate(() => { const g = window.__game; g.playing = true; for (const l of g.lurkers) l.update = () => {}; for (const q of g.guards) q.update = () => null; });
+  const run = async (secs) => { for (let t = 0; t < secs; t += 0.1) { for (const p of pages) await p.evaluate(() => window.__game.sim(0.1)); await host.page.waitForTimeout(30); } };
+  await run(0.6);
+  // the host opens the window; the guest goes to the clock and takes it (through the host)
+  await host.page.evaluate(() => { const g = window.__game; g.level.doors.find((d) => d.window).openTo(4.0, -13.3, 1.2, 0.3); });
+  await guest.page.evaluate(() => { const g = window.__game; g.player.teleport(2.4, -13.0, 0); g.sim(0.1); });
+  await run(0.6);
+  await guest.page.evaluate(async () => { const g = window.__game, { G } = await import('./src/systems/state.js'); G.netIntent('take', { i: g.loot.items.findIndex((i) => i.id === 'clock') }); });
+  await run(0.8);
+  const holds = await guest.page.evaluate(() => { const g = window.__game; return !!(g.hands.desk && g.hands.desk.id === 'clock'); });
+  assert.equal(holds, true, 'the guest carries the clock');
+  await guest.page.evaluate(() => { const g = window.__game; g.player.teleport(4.0, -13.3, 0); g.sim(0.1); });
+  await run(0.6);
+  await guest.page.keyboard.press('KeyE');
+  await run(2.5);
+  const at = await Promise.all(pages.map((p) => p.evaluate(() => { const c = window.__game.loot.items.find((i) => i.id === 'clock').mesh.position; return [+c.x.toFixed(1), +c.z.toFixed(1)]; })));
+  for (const [x, z] of at) assert.ok(x > 3.1 && x < 4.9 && z > -15.1 && z < -14.15, `on the flowerbed for both: ${JSON.stringify(at)}`);
+  // the host lowers the vase itself: the guest sees it go out
+  await host.page.evaluate(async () => { const g = window.__game, B = await import('./src/systems/backWindow.js'); const v = g.loot.items.find((i) => i.id === 'vase'); v.mesh.position.set(4.0, 1.1, -13.9); B.lowerAtRelease(v); });
+  await run(2.5);
+  const vz = await guest.page.evaluate(() => +window.__game.loot.items.find((i) => i.id === 'vase').mesh.position.z.toFixed(1));
+  assert.ok(vz < -14.15, `the guest sees the host's vase outside: ${vz}`);
+  assert.deepEqual(host.errors, []);
+  assert.deepEqual(guest.errors, []);
+  await ctx.close();
 });

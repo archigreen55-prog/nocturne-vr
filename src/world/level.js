@@ -425,6 +425,15 @@ export function buildLevel() {
 
   // ---------- yard, street, van (world/yard.js) ----------
   const yard = buildYard({ S, G, C, solid, both, furniture, world });
+  // campaign v2 (plan §7.2): the flowerbed under the back window, outside — soil and a few low flowers; an item lowered
+  // through the sash lands on it softly (softAt); bodies walk over it (it is not a solid)
+  const FB = CFG.backWindow.flowerbed;
+  S.box(FB.x0, 0, FB.z0, FB.x1, 0.06, FB.z1, 0x3a2a20);
+  for (let i = 0; i < 7; i++) {
+    const fx = FB.x0 + 0.15 + i * (FB.x1 - FB.x0 - 0.3) / 6, fz = (i % 2 ? FB.z0 + 0.22 : FB.z1 - 0.22);
+    S.box(fx - 0.03, 0.06, fz - 0.03, fx + 0.03, 0.22, fz + 0.03, C.leaves2); S.box(fx - 0.05, 0.22, fz - 0.05, fx + 0.05, 0.27, fz + 0.05, i % 3 ? 0x8a5a7a : 0x9a8a4a);
+  }
+  const SOFT = [{ minX: FB.x0, maxX: FB.x1, minZ: FB.z0, maxZ: FB.z1, k: FB.soft, noise: FB.rustle }];
 
   // moon, far away, unaffected by fog
   const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 12), new THREE.MeshBasicMaterial({ color: GLOW.moon, fog: false }));
@@ -464,6 +473,7 @@ export function buildLevel() {
     nav: { nodes: YARD_NODES.concat(NODES.slice(7)) },
     roomAt: (x, z) => roomAt(x, z),
     floorY: () => 0, floorIndex: () => 0, onRamp: () => false, worldAt: () => world,
+    softAt(x, z) { for (const s of SOFT) if (x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ) return s; return null; },   // the flowerbed (campaign v2)
     resolveBody: (x, z, r) => world.resolveCircle(x, z, r),
 
     // Push a circle out of the static world and all door leaves (the player). Returns [x, z].

@@ -51,6 +51,12 @@ export class Brain {
       this.queueHabit({ id: 'armchair', ...this.cfg.habits.armchair, dur: A.dur, sightK: A.sightK, hearK: A.hearK, fovK: A.fovK });
       return;
     }
+    // campaign v2: a level's post — it sits there, awake, and goes back there after anything else
+    const sit = (CFG.run || {}).sitAt;
+    if (sit && (!sit.who || this.cfg.id === sit.who)) {
+      this.queueHabit({ id: 'armchair', go: sit.go, stand: sit.stand, face: sit.face, dur: 1e6, label: S.campaign2.guardSits, say: '' });
+      return;
+    }
     const t = this.env.roundTime();
     if (t !== null) {
       const h = this.habits.find((x) => !x.done && t >= x.at);
@@ -122,7 +128,7 @@ export class Brain {
         break;
       }
       case 'armchair':
-        q.push({ type: 'walk', to: h.go || [-0.9, -12.6], label: S.guard.act.armchair, onStart: say(S.guard.say.armchair) });
+        q.push({ type: 'walk', to: h.go || [-0.9, -12.6], label: S.guard.act.armchair, onStart: h.say === '' ? null : say(S.guard.say.armchair) });
         q.push({ type: 'wait', t: h.dur, face: h.face, sit: h.stand, label: h.label, mods });
         break;
     }

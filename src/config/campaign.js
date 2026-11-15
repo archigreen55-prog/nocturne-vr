@@ -20,15 +20,21 @@ export const campaign = {
   // { doubts: 0 } (no guard ever got a «?» from you). ★★ is «Тихо» (no full alarm, no shout) on every level
   // but 0. The contracts left out (silent, rush, evening, m9, m11, m13, m14) are not in the campaign's lists
   // (config/contracts.js, config/mansion.js): their stars stay saved, the levels are not shown.
-  // `window`: level 5 becomes the clock through the back window once that code is in (plan §7.2); until then
-  // it is the old «Годинник» through the door (decision R1: fallback В).
+  // `guardSits`: { go, stand, face, who? } — that guard (the first; `who`: its id) sits there all round with its
+  // own sight and hearing; a noise gets it up, then it goes back. `place`: { itemId: [x, y, z] } — where items lie
+  // on this level instead. `hints` (decision R9 А, steps): { zoya: s, chalk: s, fails: n } — systems/levelHints.js.
   levels: [
-    { n: 0, id: 'rehearsal', act: 1, intro: ['basics'] },
+    // level 0 also shows the back window (decision 2 of 16.11): a book on the living room's floor by it, a small chalk «АБО СЮДИ»
+    { n: 0, id: 'rehearsal', act: 1, intro: ['basics', 'windowIn'], place: { book: [3.0, 0, -13.55] } },
     { n: 1, id: 'first', act: 1, intro: ['guard'], goal: { sum: 500 }, time: 300, star3: { doubts: 0 } },
     { n: 2, id: 'chest', act: 1, intro: ['twoHanded'], time: 300, star3: { intact: true } },
     { n: 3, id: 'quiet', act: 1, intro: ['throw'], goal: { sum: 700 }, time: 360, star3: { sum: 1400 } },
     { n: 4, id: 'wardrobe', act: 1, intro: ['wardrobe'], goal: { item: 'jewelbox', sum: 1000 }, time: 360, star3: { scares: 0 } },
-    { n: 5, id: 'clock', act: 1, intro: [], time: 420, star3: { intact: true } },
+    // level 5 (plan §7.2, decisions of 16.11): the clock through the back window. Petrovych sits in the hall all round
+    // (awake: the difficulty's sight and hearing); the card teaches the action only; the hints come step by step
+    { n: 5, id: 'clock', act: 1, intro: ['windowDrop'], time: 420, star3: { intact: true },
+      guardSits: { go: [1.4, -2.0], stand: [2.4, -2.6], face: [0.0, -4.6] },
+      hints: { zoya: 75, chalk: 150, fails: 2 } },
     { n: 6, id: 'm8', act: 2, intro: ['twoGuards'], goal: { sum: 1500 }, time: 420, star3: { time: 240 } },
     { n: 7, id: 'm10', act: 2, intro: ['balcony'], goal: { floorItems: { floor: 1, n: 3 } }, time: 420, star3: { intact: true } },
     { n: 8, id: 'm12', act: 2, intro: ['swap'], time: 480, star3: { doubts: 0 } },
@@ -70,7 +76,8 @@ export function ladderOf(all, texts = {}) {
     if (!c) continue;
     const v = { ...c, ...(texts[c.id] || {}), level: l.n, star3: l.star3 || null };
     if (l.goal) v.goal = { ...l.goal };
-    if (l.time) v.mods = { ...(c.mods || {}), levelTime: l.time };
+    if (l.time || l.guardSits) v.mods = { ...(c.mods || {}), ...(l.time ? { levelTime: l.time } : {}), ...(l.guardSits ? { sitAt: l.guardSits } : {}) };
+    if (l.goal) delete v.locked;   // a placeholder given a goal of its own is a level now («Кабінет»)
     out.push(v);
   }
   return out;
