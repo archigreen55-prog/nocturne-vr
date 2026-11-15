@@ -41,7 +41,7 @@ export const LAMPS = [
   { x: -3.0, z: -6.0, r: 2.2 },    // the corridor night light (as before)
   { x: 0, z: 0.75, r: 1.6 },       // over the porch: the front door is lit
   { x: 5.0, z: 7.6, r: 2.0 },      // at the gate, inside (beside the way)
-  { x: 4.6, z: 9.45, r: 2.5 },     // the street lamp, on the verge by the fence beside the gate (the guard never sees it)
+  { x: 10.0, z: 9.45, r: 2.5 },    // the street lamp, along the fence east of the van and the board: its circle misses the gate and the «ЗАХОДЬ» arrow (the guard never sees it)
 ];
 // the three point lights: [x, y, z, colour, intensity, distance] (systems/world.js puts them there)
 export const LIGHTS = [
@@ -110,6 +110,36 @@ export function buildYard({ S, G, P, C, solid, both, furniture, world }) {
     for (const [wx, wy] of win) G.box(wx - 0.4, wy - 0.4, z0 - 0.01, wx + 0.4, wy + 0.4, z0 + 0.01, 0x8a6a40);   // a hair into the wall: it is part of it
   }
 
+  // ---------- the street's ends (decor, no bodies): as far as the fog lets you see, both ways ----------
+  // Our side: the neighbours' fences and hedges in line with our fence, a few dark houses over them; the far side: a hedge
+  // along the verge, houses and trees behind. All dark, a few warm windows, lost in the fog. About 980 triangles.
+  {
+    const FAR = 47, fence2 = 0x3a3028, hedge = 0x16281c;
+    for (const sg of [-1, 1]) {
+      const span = (a0, a1) => (sg > 0 ? [a0, a1] : [-a1, -a0]);
+      for (const [a0, a1, k] of [[16, 23, 'f'], [23, 29, 'h'], [29, 38, 'f'], [38, 43, 'h'], [43, FAR, 'f']]) {
+        const [x0, x1] = span(a0, a1);
+        if (k === 'f') { S.box(x0, 0, YS - T, x1, 1.9, YS + T, fence2); S.box(x0, 1.9, YS - 0.1, x1, 1.96, YS + 0.1, COL.cap); }
+        else S.box(x0, 0, YS - 0.5, x1, 2.1, YS - 0.05, hedge);
+      }
+      for (const [a0, a1, z1, h, wins] of [[20, 27, 4, 5, [[23.5, 3.0]]], [33, 41, 5, 5.8, [[36, 3.2], [39, 3.2]]]]) {   // over our side's fences
+        const [x0, x1] = span(a0, a1);
+        S.box(x0, 0, z1 - 7, x1, h, z1, 0x1d2230); S.box(x0 - 0.3, h, z1 - 7.3, x1 + 0.3, h + 0.5, z1 + 0.3, 0x15181f);
+        for (const [w, wy] of wins) G.box(sg * w - 0.4, wy - 0.4, z1 - 0.01, sg * w + 0.4, wy + 0.4, z1 + 0.01, 0x8a6a40);
+      }
+      { const [x0, x1] = span(16.5, FAR); S.box(x0, 0, 21.6, x1, 1.5, 22.5, hedge); }   // the far verge's hedge
+      for (const [a0, a1, z0, h, wins] of [[21, 27.5, 26, 5.5, [[24, 3.0]]], [31, 39, 28, 6.2, [[34, 3.4], [37, 3.0]]], [43, 49, 26, 5.0, []]]) {
+        const [x0, x1] = span(a0, a1);
+        S.box(x0, 0, z0, x1, h, z0 + 8, 0x1b2030); S.box(x0 - 0.3, h, z0 - 0.3, x1 + 0.3, h + 0.5, z0 + 8.3, 0x14171e);
+        for (const [w, wy] of wins) G.box(sg * w - 0.4, wy - 0.4, z0 - 0.01, sg * w + 0.4, wy + 0.4, z0 + 0.01, 0x8a6a40);
+      }
+      for (const [a, z, sc] of [[17.5, 24.5, 1.0], [28.5, 24.0, 1.2], [29.5, 20.4, 0.8], [40.5, 23.5, 1.1], [45, 21, 0.9]]) {   // trees
+        S.cyl(0.12 * sc, 0.18 * sc, 1.6 * sc, sg * a, 0, z, C.bark, 6);
+        S.cyl(0, 1.3 * sc, 2.4 * sc, sg * a, 1.2 * sc, z, sc > 1 ? C.leaves : C.leaves2, 7);
+      }
+    }
+  }
+
   // ---------- the garden path: stepping stones from the back step to the gate ----------
   for (let i = 0; i < 12; i++) {
     const t = i / 11, x = 0.5 * Math.sin(t * Math.PI) + 3.0 * t * t + Math.sin(i * 1.7) * 0.1, z = 0.9 + 7.9 * t;
@@ -172,7 +202,7 @@ export function buildYard({ S, G, P, C, solid, both, furniture, world }) {
   G.box(-0.15, 2.3, 0.16, 0.15, 2.45, 0.24, 0xffd9a0);                                   // the porch lamp over the door
   S.box(-0.2, 2.25, 0.15, 0.2, 2.3, 0.3, C.pole);
   lampPost(S, G, solid, 5.0, 7.6, 2.2);                                                  // at the gate (inside)
-  lampPost(S, G, solid, 4.6, 9.45, 3.4);                                                 // the street lamp, by the fence beside the gate
+  lampPost(S, G, solid, 10.0, 9.45, 3.4);                                                // the street lamp: it lights the van and the road, not the gate
 
   // ---------- the van and the board ----------
   const V = van(S, G, VAN.x, VAN.z, VAN.yaw, P);
