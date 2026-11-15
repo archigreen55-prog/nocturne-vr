@@ -66,6 +66,17 @@ export class PauseMenu {
       info.className = 'pm-info';
       info.textContent = S.menu.info(I.contractName, I.diffName, I.phase === 'ready' ? S.menu.beforeStart : I.phase === 'result' ? S.menu.roundOver : fmtTime(I.clock), money(I.vanSum));
       head.append(info);
+      if (I.stars) {   // campaign v2: the level's three stars (✓ won, ✗ lost in this round), each with its money
+        const box = document.createElement('div');
+        box.className = 'pm-stars';
+        for (const r of I.stars) {
+          const row = document.createElement('div');
+          row.className = 'pm-star' + (r.mark === S.campaign2.star.got ? ' got' : r.mark ? ' lost' : '');
+          for (const [tag, text] of [['i', '★'.repeat(r.n)], ['span', r.text], ['b', r.money], ['em', r.mark]]) { const e = document.createElement(tag); e.textContent = text; row.append(e); }
+          box.append(row);
+        }
+        head.append(box);
+      }
       const mic = document.createElement('p');
       mic.className = 'pm-info';
       mic.textContent = I.micText;

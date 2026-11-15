@@ -11,7 +11,8 @@ import { Summary } from '../ui/summary.js';
 import { bindPress } from '../ui/press.js';
 import { unlockAudio, setAudioStateHook, setPanning, suspendAudio } from '../audio/audio.js';
 import { DIFFS } from '../game/difficulty.js';
-import { goalText, bonusText, isLevel, starChecklist, againLabel } from '../game/contracts.js';
+import { goalText, bonusText, isLevel, starChecklist, againLabel, starRows, bestBits } from '../game/contracts.js';
+import { lostNow } from './levelStars.js';
 import { PRESETS } from '../perf/quality.js';
 import { copyReport } from '../debug/report.js';
 import { G, $ } from './state.js';
@@ -92,6 +93,14 @@ export const summaryState = () => ({
   next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
   ...levelSummary(),   // campaign v2: the stars' checklist, «Ще раз за ★★★», «Далі»
 });
+// The pause menu's star rows (plan §3.4): [{ n, text, money, mark }] — mark ✓ won before, ✗ lost in this round, '' open
+function pauseStars() {
+  const c = G.contract;
+  if (!isLevel(c)) return null;
+  const got = bestBits(c.id), lost = lostNow(), live = G.round.phase === 'heist' || G.round.phase === 'escape';
+  return starRows(c, G.loot.items).map((r) => ({ n: r.n, text: r.text, money: S.campaign2.star.money(money(r.price)),
+    mark: got[r.n - 1] ? S.campaign2.star.got : live && ((r.n === 2 && lost.quiet) || (r.n === 3 && lost.star3)) ? S.campaign2.star.missed : '' }));
+}
 function levelSummary() {
   const c = G.contract, V = G.verdict, n = nextOpen();
   if (!isLevel(c) || !V || !V.bits) return {};
@@ -125,6 +134,7 @@ export const phone = {
         contractName: G.contract.name, diffName: CFG.difficulties[G.difficulty].name, phase: round.phase, clock: round.clock, vanSum: loot.tally().sum,
         canChange: round.phase === 'ready', brief: G.contract.brief, story: beforeNow(), goalText: goalText(G.contract, loot.items), bonusText: bonusText(G.contract),   // W7: story = the customer's lines and the crew's
         micText: S.menu.micText(mic), lock: lockText(G.contract),
+        stars: pauseStars(),   // campaign v2: the level's three stars, their money, ✓ won / ✗ lost this round
       }),
       shopRows, buy: (id) => buyUpgrade(id), walletText: () => S.shop.wallet(money(wallet().cash)),
       lurkers: () => ({ cards: lurkerCards(), met: lurkersMet(), noMic: mic.noMic || mic.state !== 'on' }), papers: () => ({ rows: papers(), count: notesCount() }),   // W7 (game/story.js)

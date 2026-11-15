@@ -21,6 +21,9 @@ function star3Lost(T, round) {
   return '';
 }
 
+// what this round has lost so far (the pause menu marks it): { quiet, star3 }
+export const lostNow = () => ({ quiet: local.quiet, star3: local.star3 });
+
 export const levelStars = {
   id: 'levelStars',
   present() {

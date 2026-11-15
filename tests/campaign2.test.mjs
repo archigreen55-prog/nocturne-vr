@@ -7,10 +7,10 @@
 // in hand. These pages run the campaign (`campaign: true`); the classic test game keeps the old rules.
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
-import { browser, open, test, base } from './runner.mjs';
+import { browser, open, test, base, LAND } from './runner.mjs';
 
-async function camp(url = base, { stars = null, stars2 = null, wallet = null } = {}) {
-  const ctx = await newContext(browser, {}, { menu: true });
+async function camp(url = base, { stars = null, stars2 = null, wallet = null, phone = false } = {}) {
+  const ctx = await newContext(browser, phone ? LAND : {}, { menu: true });
   await ctx.addInitScript(([stars, stars2, wallet]) => {
     window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true };
     if (!sessionStorage.getItem('seeded')) {
@@ -195,4 +195,22 @@ test('campaign v2: a big item in hand on a PC opens no door (as in VR; the class
   assert.equal(opened, true, 'classic: a big item on the desk still opens doors');
   assert.deepEqual(p2.errors, []);
   await c2.close();
+});
+
+test('campaign v2 (a): the phone\'s pause shows the level\'s three stars with their money — ✓ the ones won, ✗ the one this round has just lost', async () => {
+  const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1 }, stars2: { first: [1, 0, 0] }, phone: true });
+  const r = await page.evaluate(async () => {
+    const g = window.__game, { G } = await import('./src/systems/state.js');
+    g.newRound(); g.setContract('first'); g.playing = true;
+    for (const p of g.guards) p.update = () => null;
+    g.player.teleport(0, 2, 0); g.sim(0.3);
+    const rows = () => { G.menu.page = 'main'; G.menu.render(); return [...document.querySelectorAll('#pausemenu .pm-star')].map((x) => [...x.children].map((c) => c.textContent).join('|')); };
+    const before = rows();
+    g.alert.setFull('test', 0, 0); g.sim(0.2);
+    return { before, after: rows() };
+  });
+  assert.deepEqual(r.before, ['★|винеси щонайменше $500|+$200|✓', '★★|тихо: без тривоги й крику|+$300|', '★★★|👂 жодного «?» від сторожа|+$500|']);
+  assert.deepEqual(r.after.map((x) => x.split('|').pop()), ['✓', '✗', ''], 'the alarm: ★★ lost in this round');
+  assert.deepEqual(errors, []);
+  await ctx.close();
 });
