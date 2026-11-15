@@ -105,7 +105,7 @@ test('HUD: the left corner (the eye, the guards panel) has no plate — no backg
   await ctx.close();
 });
 
-test('mansion: the wardrobe has the old Шафник (no style outline, no resting arms), the garage crate the blue-eyed one; the dacha\'s wardrobe is unchanged', async () => {
+test('mansion: the wardrobe has the old Шафник (no style outline, no resting arms), the garage crate the blue-eyed one; the dacha\'s wardrobe has the old one too', async () => {
   const ctx = await newContext(browser);
   await ctx.addInitScript(() => { window.__NOCTURNE_TEST = { pages: 'all', splash: false }; try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque */ } });
   const look = (url) => async () => {
@@ -124,6 +124,6 @@ test('mansion: the wardrobe has the old Шафник (no style outline, no resti
   const [ward, crate] = m.list;
   assert.deepEqual([ward.kind, ward.outlined, ward.rest], ['wardrobe', false, false], 'the mansion\'s wardrobe: the old one');
   assert.deepEqual([crate.kind, crate.outlined], ['crate', true], 'the garage crate: the blue-eyed one');
-  assert.deepEqual([d.list[0].kind, d.list[0].outlined, d.list[0].rest], ['wardrobe', true, true], 'the dacha\'s wardrobe: as before');
+  assert.deepEqual([d.list[0].kind, d.list[0].outlined, d.list[0].rest], ['wardrobe', false, false], 'the dacha\'s wardrobe: the old one too');
   await ctx.close();
 });

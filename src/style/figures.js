@@ -268,13 +268,13 @@ export function restyleLurker(L) {
 const WOOD_OLD = new THREE.Color(0x3b2d25), WOOD_BLUE = new THREE.Color(0x34436a);
 export function dressLurker(L, levelId) {
   if (L.kind === 'crate' || L.restArms) return;
-  if (levelId === 'mansion') return;   // the mansion's wardrobe keeps the old Шафник (enemies/lurker.js): no sock, no resting arms of the new one
   if (STYLE_ON && levelId === 'dacha') for (const d of [L.door1, L.door2]) d.traverse((m) => {
     const c = m.isMesh && m.geometry.attributes.color;
     if (!c) return;
     for (let i = 0; i < c.count; i++) if (Math.abs(c.getX(i) - WOOD_OLD.r) < 0.004 && Math.abs(c.getY(i) - WOOD_OLD.g) < 0.004 && Math.abs(c.getZ(i) - WOOD_OLD.b) < 0.004) c.setXYZ(i, WOOD_BLUE.r, WOOD_BLUE.g, WOOD_BLUE.b);
     c.needsUpdate = true;
   });
+  if (L.kind === 'wardrobe') return;   // every wardrobe keeps the old Шафник (enemies/lurker.js): no sock, no resting arms of the new one (the dacha's doors stay blue above)
   if (!FIGURES_ON) return;
   quietRandom(() => {
     const g = lurkerGeometries(), W = L.spec;
