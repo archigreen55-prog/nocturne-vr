@@ -3,13 +3,26 @@
 
 export const mic = {
   whisperK: 0.5,         // whisper threshold = silence + K x (voice - silence), from calibration
-  shoutOver: 9,          // dB above the calibrated voice (when the shout step of the calibration was skipped)
-  shoutRise: 6,          // dB rise within 0.1 s needed to start a shout
-  shoutMin: 0.25,        // s the level must stay above the shout threshold (a plosive or one loud syllable is not a shout)
+  shoutOver: 7,          // dB above the calibrated voice (when the shout step of the calibration was skipped; was 9)
+  // A shout (plan «голос і кільця», 15.11): shoutShare of the analyses over the last shoutWindow s above the
+  // threshold — a steady loud voice is a shout too (no sudden jump needed any more); a knock on the phone,
+  // a cough or one loud syllable is shorter than the window
+  shoutWindow: 0.4,
+  shoutShare: 0.75,
+  // the threshold from the calibration: voice + the larger of shoutGapMin dB and shoutGapK of the way from
+  // your voice to your shout (was half the way: a loud voice never reached it)
+  shoutGapK: 0.35,
+  shoutGapMin: 5,
   voicePct: 0.95,        // calibration: "normal" = this percentile of the voice (its loud syllables)
-  normalRadius: 3,       // talking normally: a noise of this radius...
-  normalAfter: 0.7,      // ...only after this much continuous speech (pauses under 0.35 s do not break it)
+  normalAfter: 0.7,      // talking: a noise only after this much continuous speech (pauses under 0.35 s do not break it; the difficulty sets it)
   normalEvery: 1,        // ...and then once per this many seconds while it lasts
+  // What the guard hears of your voice (m; x the difficulty's hearing CFG.hearing.radiusK; through a wall x
+  // wallK, else CFG.hearing.occludedK). The ring on the floor is this radius: what you see is what it hears.
+  voice: { radius: 6 },                         // talking: a room (3 m through a wall on medium)
+  whisper: { radius: 1.2, every: 1.5, wallK: 0 },   // whispering: right next to it only, never through a wall
+  // shouting: the whole house hears it (walls barely stop it); closer than alarmK of the way to the ring's
+  // edge = the full alarm (medium, hard), farther = `points` suspicion and it comes to look at once
+  shout: { radius: 18, wallK: 0.85, alarmK: 0.5, points: 60 },
   // sane limits for the player's ± corrections (dB): the shout threshold stays this far above the
   // calibrated voice, the whisper boundary this far above the whisper (or silence) and below the voice
   limitMargin: { shoutOverVoice: 4, whisper: 3, voiceOverWhisper: 3 },

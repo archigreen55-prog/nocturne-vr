@@ -523,7 +523,8 @@ export const net = {
       if (r.id === G.guardPid || r.benchT > 0) { r.mic.shoutSeen = r.mic.shouts; continue; }
       const shout = r.mic.shouts > r.mic.shoutSeen;
       r.mic.shoutSeen = r.mic.shouts;
-      voiceNoise(r, r.speak, dt, r.mic.live && !r.mic.breath && G.caughtT < 0, r.mic.level, shout, false);
+      const live = r.mic.live && !r.mic.breath && G.caughtT < 0;
+      voiceNoise(r, r.speak, dt, live, r.mic.level, shout, false, live && r.mic.whisper);   // W7's `wh`: the friend whispers
     }
   },
 

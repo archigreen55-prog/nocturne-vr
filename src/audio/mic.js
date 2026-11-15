@@ -38,12 +38,10 @@ export class Mic {
     this.db = -100;            // last raw RMS, dBFS
     this.env = -100;           // smoothed envelope, dBFS
     this.level = 'quiet';
-    this.hist = new Float32Array(8);  // envelope history at RATE, for the rise test
-    this.histI = 0;
+    this.win = [];             // the last CFG.mic.shoutWindow s of analyses: [time, above the shout threshold 0 / 1, …]
     this.shoutUntil = 0;
     this.aboveT = 0;
     this.dipT = 0;
-    this.riseOk = false;
     this.acc = 0;
     this.t = 0;
     this.collect = null;       // array while calibrating
@@ -61,7 +59,6 @@ export class Mic {
       if (v !== this.cal[k]) { this.cal[k] = v; this.clampedOnLoad = true; }
     }
     if (this.clampedOnLoad) saveSetting('mic', this.cal);
-    this.hist.fill(-100);
     // set by systems/flatScreen.js: the game bus level, for the protection against the game's own sounds
     this.gameDbFn = null;
     this.gameDb = -100;
@@ -142,9 +139,22 @@ export class Mic {
     const [lo, hi] = this.whisperLimits;
     return Math.min(hi, Math.max(lo, this.whisperBase + (this.cal.adjW || 0)));
   }
-  // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver; plus
-  // your correction, never below your calibrated voice + a margin (else normal talk would be a shout).
-  get shoutBase() { return Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + (this.agcAdjust && this.agc ? CFG.mic.shoutOverAgc : CFG.mic.shoutOver); }
+  // Shout threshold: your voice + the larger of shoutGapMin dB and shoutGapK of the way from your voice to
+  // your shout (the calibration's shout step), else voice + shoutOver; plus your correction, never below your
+  // calibrated voice + a margin (else normal talk would be a shout). Plan «голос і кільця» (15.11): it was
+  // half the way, and a loud steady voice never reached it (the owner's calibration: voice -22.4, threshold
+  // -15.2, a loud voice about -17). Older calibrations kept only that half-way threshold: the shout's own
+  // level is recovered from it.
+  get shoutPeak() {
+    const c = this.cal;
+    if (Number.isFinite(c.shoutPeak)) return c.shoutPeak;
+    return Number.isFinite(c.shout) ? c.normal + 2 * (c.shout - c.normal) : null;
+  }
+  get shoutBase() {
+    const c = this.cal, M = CFG.mic, peak = this.shoutPeak;
+    if (peak !== null) return c.normal + Math.max(M.shoutGapMin, M.shoutGapK * (peak - c.normal));
+    return c.normal + (this.agcAdjust && this.agc ? Math.min(CFG.mic.shoutOverAgc, M.shoutOver) : M.shoutOver);
+  }
   get shoutMin() { return this.cal.normal + CFG.mic.limitMargin.shoutOverVoice; }
   get shoutDb() { return Math.max(this.shoutMin, this.shoutBase + (this.cal.adj || 0)); }
 
@@ -293,23 +303,20 @@ export class Mic {
       this.covered = this.lowT >= CFG.mic.coverSecs;
     }
 
-    // rise over ~100 ms: compare with the envelope 3 analyses ago
-    const past = this.hist[(this.histI + this.hist.length - 3) % this.hist.length];
-    this.hist[this.histI] = this.env;
-    this.histI = (this.histI + 1) % this.hist.length;
-    // A shout: the raw level jumps (shoutRise dB above the envelope of 0.1 s ago) over the threshold
-    // and stays there for shoutMin s (dips under 70 ms allowed). Loud talk that builds up slowly, a
-    // plosive "p" or one stressed syllable is not a shout.
-    // (the effective boundaries: raised while the game's own sound is loud in the microphone)
-    if (this.db > this.shoutEff) {
-      if (this.aboveT === 0) this.riseOk = this.db - past > CFG.mic.shoutRise;
-      this.aboveT += step; this.dipT = 0;
-      if (this.t < this.shoutUntil) this.shoutUntil = Math.max(this.shoutUntil, this.t + 0.3);   // still shouting
-      else if (this.riseOk && this.aboveT >= CFG.mic.shoutMin) { this.shoutOnset = true; this.shoutUntil = this.t + SHOUT_HOLD; }
-    } else {
-      this.dipT += step;
-      if (this.dipT > 0.07) { this.aboveT = 0; this.riseOk = false; }
-    }
+    // A shout (plan «голос і кільця», 15.11): CFG.mic.shoutShare of the analyses of the last shoutWindow s
+    // above the threshold — a steady loud voice too, not only a sudden jump (that rule kept a yell rising
+    // out of talk a «НОРМАЛЬНО» forever). A knock on the phone, a cough, a plosive «п» or one stressed
+    // syllable are shorter than the window. (The effective boundaries: raised while the game's own sound is
+    // loud in the microphone.)
+    const W = CFG.mic.shoutWindow, above = this.db > this.shoutEff;
+    this.win.push(this.t, above ? 1 : 0);
+    while (this.win.length > 2 && this.win[0] <= this.t - W) this.win.splice(0, 2);
+    let n = 0, up = 0;
+    for (let i = 1; i < this.win.length; i += 2) { n++; up += this.win[i]; }
+    const full = this.t - this.win[0] + step >= 0.8 * W;   // the window has filled (not the first moments)
+    if (above) { this.aboveT += step; this.dipT = 0; } else { this.dipT += step; if (this.dipT > 0.07) this.aboveT = 0; }
+    if (above && this.t < this.shoutUntil) this.shoutUntil = Math.max(this.shoutUntil, this.t + 0.3);   // still shouting
+    else if (above && full && up >= CFG.mic.shoutShare * n) { this.shoutOnset = true; this.shoutUntil = this.t + SHOUT_HOLD; }
     if (this.t < this.shoutUntil) this.level = 'shout';
     else this.level = this.env >= this.whisperEff ? 'normal' : 'quiet';
     if (this.level !== 'quiet') this.loudT = this.t;   // W7: the tail of a voice is not a whisper
@@ -334,6 +341,7 @@ export class Mic {
   // cal: { floor, normal, whisper (or null), shout (threshold, or null = voice + shoutOver), bleed (phone) }
   setCalibration(cal) {
     this.cal = { floor: cal.floor, normal: cal.normal, whisper: cal.whisper ?? null, shout: cal.shout ?? null, adj: 0, adjW: 0 };
+    if (Number.isFinite(cal.shoutPeak)) this.cal.shoutPeak = cal.shoutPeak;   // the shout step's own level (the threshold comes from it)
     if (Number.isFinite(cal.bleed)) this.cal.bleed = cal.bleed;   // phone: the game's sound in the microphone
     this.calibrated = true;
     this.deviceChanged = false;

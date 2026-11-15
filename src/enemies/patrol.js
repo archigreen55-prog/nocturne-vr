@@ -121,7 +121,7 @@ export class Patrol {
     switch (this.state) {
       case 'chase': return S.guard.state.chase;
       case 'hunt': return S.guard.state.hunt;
-      case 'react': return S.guard.state.react;
+      case 'react': case 'glance': return S.guard.state.react;
       case 'investigate': return S.guard.state.investigate;
       case 'look': return S.guard.state.look;
       default: return (this.queue[0] && this.queue[0].label) || S.guard.state.thinks;
@@ -242,6 +242,25 @@ export class Patrol {
     this.reactAt = [x, z, f];
   }
 
+  // A small noise (CFG.alert.investigateAt): stop where it is for CFG.patrol.glance s, the head turned to it,
+  // «?» over it; then back to its plan (not dropped: it does not stand up from the armchair for it).
+  glance(x, z) {
+    if (this.manual) return;
+    if (this.state !== 'glance') { this.taskTimer = this.timer; this.timer = 0; }   // its plan's own clock goes on afterwards
+    this.state = 'glance';
+    this.glanceAt = [x, z];
+  }
+
+  // A shout heard from afar (systems/world.js shoutHeard): «?», no pause, at its search speed straight there.
+  heardShout(x, z, f) {
+    if (this.manual || this.state === 'chase') return;
+    this.interrupt();
+    playGrunt(this.voice, 'curious');
+    this.state = 'investigate'; this.timer = 0;
+    this.runFollow = true; this.runRetarget = CFG.sprint.retarget;   // at the hunt speed, like a running step
+    this.goTo(x, z, f);
+  }
+
   // Drop the calm plan (stand up from the armchair, forget the doors to close).
   interrupt() {
     if (this.sitting) { this.sitting = false; [this.x, this.z] = this.standBack; }
@@ -319,6 +338,9 @@ export class Patrol {
     const f = this.env.level.floorIndex ? this.env.level.floorIndex(ey) : undefined;
     if (this.env.alert.full) this.hunt(e.x, e.z, f);
     else if (e.kind === 'run' && CFG.sprint.react === 'fast') this.heardRun(e.x, e.z, f);
+    // owner 15.11 (Р2 A): not at every rustle — while the suspicion (already counting this noise) is under
+    // CFG.alert.investigateAt and it is calm, it only stops, turns its head and says «?»
+    else if ((this.state === 'task' || this.state === 'glance') && this.env.alert.suspicion < CFG.alert.investigateAt) this.glance(e.x, e.z);
     else this.react(e.x, e.z, f);
   }
 
@@ -354,6 +376,10 @@ export class Patrol {
     switch (this.state) {
       case 'task':
         look = this.runTask(dt);
+        break;
+      case 'glance':
+        speed = 0; this.speed = 0;
+        if (this.timer >= P.glance) { this.state = 'task'; this.timer = this.taskTimer || 0; }
         break;
       case 'react':
         speed = 0; this.speed = 0;
@@ -404,6 +430,7 @@ export class Patrol {
     const lookAt = (x, z) => angleDiff(Math.atan2(-(x - this.x), -(z - this.z)), this.heading);
     const wantHead = this.state === 'chase' && this.visible ? lookAt(player.head.x, player.head.z)
       : this.state === 'react' ? lookAt(this.reactAt[0], this.reactAt[1])
+        : this.state === 'glance' ? lookAt(this.glanceAt[0], this.glanceAt[1])
         : step && step.face && step.type === 'wait' ? 0 : sweep;
     this.headYaw += (Math.max(-1.2, Math.min(1.2, wantHead)) - this.headYaw) * (1 - Math.exp(-dt / 0.15));
 

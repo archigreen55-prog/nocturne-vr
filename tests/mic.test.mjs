@@ -31,7 +31,8 @@ test('mic limits: the Android report (corrections -12 / -10) is brought back to 
   assert.deepEqual([m.adj, m.adjW], [-3, -7], 'saved corrections clamped');
   // without corrections the calibration's own thresholds are untouched
   const raw = await page.evaluate(() => { const m = window.__game.mic; m.resetAdjust(); return [m.shoutDb, m.whisperDb]; });
-  assert.ok(Math.abs(raw[0] - -15.152) < 1e-6 && Math.abs(raw[1] - (-44.69 + 0.45 * (-22.408 + 44.69))) < 1e-6, String(raw));
+  // 15.11: the shout threshold a third of the way from the voice to the shout (the shout recovered from the old half-way threshold)
+  assert.ok(Math.abs(raw[0] - (-22.408 + 0.35 * 2 * (-15.152 + 22.408))) < 1e-6 && Math.abs(raw[1] - (-44.69 + 0.45 * (-22.408 + 44.69))) < 1e-6, String(raw));
   await ctx.close();
 });
 

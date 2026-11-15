@@ -49,7 +49,9 @@ export function judge(m, { phone = false, game = phone } = {}) {
     cal.whisper = m.whisper;
     if (m.normal - m.whisper < 4) notes.push(S.calib.notes.whisperLikeVoice);
   }
-  if (m.shout != null && m.shout > m.normal + 6) { cal.shout = m.normal + Math.max(6, 0.5 * (m.shout - m.normal)); notes.push(S.calib.notes.shoutMiddle); }
+  // the shout's own level is kept (mic.shoutBase puts the threshold CFG.mic.shoutGapK of the way up to it);
+  // cal.shout: that threshold, for the reports and older builds
+  if (m.shout != null && m.shout > m.normal + 6) { cal.shoutPeak = m.shout; cal.shout = m.normal + Math.max(CFG.mic.shoutGapMin, CFG.mic.shoutGapK * (m.shout - m.normal)); notes.push(S.calib.notes.shoutMiddle); }
   else notes.push(S.calib.notes.shoutSkipped(CFG.mic.shoutOver));
   if (game) {
     if (m.game == null || m.gameBus == null || m.gameBus < -70) notes.push(S.calib.notes.gameNotPlayed);

@@ -28,6 +28,19 @@ import { storyLurkerWake, storyLurkerLost } from './story.js';
 import { roundNoMic } from './micAuto.js';
 import { nearest } from '../game/players.js';
 
+// A shout (plan «голос і кільця», 15.11; owner's decision Р1 A): heard close by (within CFG.mic.shout.alarmK
+// of the way to its ring's edge) it is the full alarm (medium, hard); farther it adds CFG.mic.shout.points of
+// suspicion and that guard comes to look at once; out of every guard's hearing it is only a shout (the
+// «без жодного крику» contracts still count it). k: how loud it was to the guard who heard it best.
+function shoutHeard(guard, k, e, ey) {
+  const { alert } = G;
+  if (!guard) { if (e.source === 'player' && !alert.manualOnly && !alert.full) flash(S.messages.shoutUnheard, 3, '#ff9f43'); return; }
+  if (alert.manualOnly || alert.full) { guard.reactTo(e, ey); return; }   // W15: the friend playing the guard decides; an alarm already: it hunts there
+  if (k >= CFG.mic.shout.alarmK && CFG.run.shoutFull) { alert.setFull(S.cause.shout, e.x, e.z); flash(S.messages.shoutFull, 3, '#ff4d4d'); return; }
+  alert.add(CFG.mic.shout.points, e.x, e.z);
+  if (!alert.full) { guard.heardShout(e.x, e.z, G.level.floorIndex ? G.level.floorIndex(ey) : undefined); flash(S.messages.shoutEasy, 3, '#ff4d4d'); }
+}
+
 export const world = {
   id: 'world',
   init() {
@@ -158,7 +171,9 @@ export const world = {
       const ey = e.source === 'world' ? e.y : (e.who || player).floorY;   // a dropped item's noise is at its height; a player's noises on that player's floor
       let best = null, bestK = 0;
       for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
-      if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); }
+      if (e.kind === 'shout') shoutHeard(best, bestK, e, ey);
+      // the suspicion first: a small noise (still under CFG.alert.investigateAt) only gets a glance and a «?»
+      else if (best) { alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); best.reactTo(e, ey); }
       for (const l of lurkers) l.hear(e);
     });
     alert.onFull = (cause, x, z) => {
