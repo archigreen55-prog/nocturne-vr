@@ -13,6 +13,7 @@ import { unlockAudio, setAudioStateHook, setPanning, suspendAudio } from '../aud
 import { DIFFS } from '../game/difficulty.js';
 import { goalText, bonusText, isLevel, starChecklist, againLabel, starRows, bestBits } from '../game/contracts.js';
 import { lostNow } from './levelStars.js';
+import { howCards, openHow } from './howCard.js';
 import { PRESETS } from '../perf/quality.js';
 import { copyReport } from '../debug/report.js';
 import { G, $ } from './state.js';
@@ -135,6 +136,7 @@ export const phone = {
         canChange: round.phase === 'ready', brief: G.contract.brief, story: beforeNow(), goalText: goalText(G.contract, loot.items), bonusText: bonusText(G.contract),   // W7: story = the customer's lines and the crew's
         micText: S.menu.micText(mic), lock: lockText(G.contract),
         stars: pauseStars(),   // campaign v2: the level's three stars, their money, ✓ won / ✗ lost this round
+        how: howCards(G.contract).length > 0,   // campaign v2: «Як це?»
       }),
       shopRows, buy: (id) => buyUpgrade(id), walletText: () => S.shop.wallet(money(wallet().cash)),
       lurkers: () => ({ cards: lurkerCards(), met: lurkersMet(), noMic: mic.noMic || mic.state !== 'on' }), papers: () => ({ rows: papers(), count: notesCount() }),   // W7 (game/story.js)
@@ -142,6 +144,7 @@ export const phone = {
       cycle: (key) => { G.gyroReady = true; const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },
       resume: pauseResume,
       home: () => { goHome(); pauseResume(); },
+      how: () => openHow(G.contract),   // campaign v2: over the pause
       newRound: () => { newRound(); pauseResume(); },
       toStart: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); },
       // B02: the microphone and the progress code live on the «Налаштування» page (the overlay opens the main menu first)

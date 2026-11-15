@@ -11,6 +11,7 @@ import { switchMap } from '../world/maps.js';
 import { goalText, starRows, bestBits, isLevel } from '../game/contracts.js';
 import { levelOf, CLASSIC, introOf } from '../game/campaign.js';
 import { lootRecord } from '../game/economy.js';
+import { howCards, openHow } from './howCard.js';
 import { money, fmtTime } from '../ui/board.js';
 import { flash } from './messages.js';
 import { S } from '../i18n/index.js';
@@ -55,7 +56,7 @@ export function renderPlayPage() {
 function renderStars(c, why) {
   const box = $('lvinfostars'), meta = $('lvinfometa');
   if (!box || !meta) return;
-  if (!isLevel(c) || why) { box.replaceChildren(); meta.textContent = ''; return; }
+  if (!isLevel(c) || why) { box.replaceChildren(); meta.textContent = ''; if ($('lvinfohow')) $('lvinfohow').hidden = true; return; }
   $('lvinfogoal').textContent = '';   // the goal is the first star's row
   const got = bestBits(c.id), rows = starRows(c, G.loot.items);
   box.replaceChildren(...rows.map((r) => {
@@ -66,6 +67,8 @@ function renderStars(c, why) {
     const e = document.createElement('em'); e.textContent = got[r.n - 1] ? S.campaign2.star.got : '';
     row.append(i, t, m, e); return row;
   }));
+  const how = $('lvinfohow');
+  if (how) { how.hidden = !howCards(c).length; if (!how.dataset.wired) { how.dataset.wired = '1'; how.addEventListener('click', () => openHow(G.contract)); } }
   const l = levelOf(c.id), parts = [];
   if (c.bonus === 'none') parts.push(S.campaign2.star.practice);
   const isNew = introOf(l, S.campaign.mechanics).filter((x) => x.id !== 'basics').map((x) => x.name);

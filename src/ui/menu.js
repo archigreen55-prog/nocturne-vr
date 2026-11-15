@@ -90,8 +90,9 @@ export class PauseMenu {
         this.btn(S.menu.resume, () => h.resume(), 'primary wide'),
         this.btn(S.menu.home, () => h.home()),
         this.btn(S.menu.title.settings, () => this.go('settings')),
-        this.btn(S.menu.toStart, () => h.toStart(), 'quiet wide'),
       );
+      if (I.how) grid.append(this.btn(S.campaign2.how.button, () => h.how(), 'small'));   // campaign v2: the level's card «Як це?»
+      grid.append(this.btn(S.menu.toStart, () => h.toStart(), 'quiet wide'));
     } else {
       for (const key of ['look', 'breath', 'hud', 'fx', 'quality', 'fps', 'gyro']) {
         grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'small'));

@@ -70,6 +70,7 @@ export class Board {
     else if (s.phase === 'ready' && s.page === 'map' && s.maps) this.drawMap(s);
     else if (s.phase === 'ready' && s.page === 'lurkers' && s.lurkers) this.drawLurkers(s);   // W7
     else if (s.phase === 'ready' && s.page === 'papers' && s.papers) this.drawPapers(s);
+    else if (s.phase === 'ready' && s.page === 'how' && s.how && s.how.length) this.drawHow(s);   // campaign v2
     else if (s.phase === 'ready') this.drawContract(s);
     else this.drawRound(s);
     if (s.guest) {   // T5: with friends the board is the host's — no control buttons, who runs it
@@ -166,6 +167,7 @@ export class Board {
     else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.campaign.goHint, 50, 448, W - 100); }
     this.buttons.push({ id: 'go', label: S.campaign.go, x: 50, y: 470, w: 600, h: 120, font: 44, enabled: !s.lock });
     this.buttons.push({ id: 'levels', label: S.campaign.map, x: 670, y: 470, w: 304, h: 120, font: 32 });
+    if (s.how && s.how.length) this.buttons.push({ id: 'how', label: S.campaign2.how.button, x: 774, y: 84, w: 200, h: 56, font: 24 });   // campaign v2
   }
 
   // Campaign v2 (plan §3.5 A): the level's star rows — the stars, the condition, its money, ✓ when won.
@@ -217,6 +219,7 @@ export class Board {
     // W7 (decision R2 A): Тихарник and «Папери», small, above the bottom row
     this.buttons.push({ id: 'lurkers', label: S.board.lurkersPage, x: 560, y: 418, w: 200, h: 44, font: 22 });
     this.buttons.push({ id: 'papers', label: S.board.papersPage, x: 774, y: 418, w: 200, h: 44, font: 22 });
+    if (s.how && s.how.length) this.buttons.push({ id: 'how', label: S.campaign2.how.button, x: 774, y: 362, w: 200, h: 44, font: 22 });   // campaign v2 (VR reads the card here)
     if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffb347'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
     this.buttons.push({ id: 'cprev', label: '◀', x: 50, y: 470, w: 90, h: 120, font: 48 });
     this.buttons.push({ id: 'cnext', label: '▶', x: 150, y: 470, w: 90, h: 120, font: 48 });
@@ -258,6 +261,22 @@ export class Board {
     }
     this.buttons.push({ id: 'back', label: S.menu.back, x: 744, y: 500, w: 230, h: 100, font: 30 });
   }
+  // Campaign v2: «Як це?» — the level's new mechanic in three numbered steps (the first card; most levels have one)
+  drawHow(s) {
+    const g = this.g;
+    let y = 80;
+    for (const c of s.how.slice(0, 2)) {
+      g.textAlign = 'left'; g.font = `800 34px ${HEAD}`; g.fillStyle = '#ffb347';
+      g.fillText(c.title, 50, y, W - 100); y += 54;
+      c.lines.forEach((t, i) => {
+        g.font = `800 30px ${HEAD}`; g.fillStyle = '#ffb347'; g.fillText(`${i + 1}`, 50, y);
+        g.font = '27px system-ui, sans-serif'; g.fillStyle = '#efe6d4'; g.fillText(t, 100, y, W - 150); y += 44;
+      });
+      y += 30;
+    }
+    this.buttons.push({ id: 'howok', label: S.hints.ok, x: 674, y: 500, w: 300, h: 100, font: 32 });
+  }
+
   // W7: «Папери» — the notes found (place — text)
   drawPapers(s) {
     const g = this.g, P = s.papers;

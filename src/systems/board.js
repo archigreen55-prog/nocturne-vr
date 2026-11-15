@@ -15,6 +15,7 @@ import { mapsForBoard } from '../world/maps.js';
 import { mischiefText } from './traps.js';
 import { beforeNow, afterNow } from './story.js';
 import { campaignNote, nextOpen, nextLabel } from './campaign.js';
+import { howCards } from './howCard.js';
 import { screamBy, lurkerCards, lurkersMet, papers, notesCount, thief } from '../game/story.js';
 
 // Everything the board shows, as one string: the same string = nothing to redraw.
@@ -53,6 +54,7 @@ function levelBoard(c) {
     stars3: { rows: starRows(c, items), got: bestBits(c.id), meta: meta.join(' · ') },
     checklist: G.round.phase === 'result' && V && V.bits ? starChecklist(c, items, V, (G.income && G.income.fresh) || []) : null,
     againLabel: againLabel(c, V), nextLabel: n ? nextLabel(n) : '',
+    how: howCards(c),   // «Як це?»: the button on the note, the board's page 'how' (VR reads it there)
   };
 }
 

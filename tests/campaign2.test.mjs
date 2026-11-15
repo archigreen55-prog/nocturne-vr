@@ -214,3 +214,56 @@ test('campaign v2 (a): the phone\'s pause shows the level\'s three stars with th
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('campaign v2 (b): «Як це?» — once per mechanic at the van (not on the rehearsal), three steps, «Зрозуміло» closes it for good; again from the level card, the phone\'s pause and the board (its page «how»); the classic game has none', async () => {
+  const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1, first: S1 } });
+  const r = await page.evaluate(async () => {
+    const g = window.__game, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js'), PP = await import('./src/systems/playPage.js');
+    const card = () => { const el = document.getElementById('howcard'); return el.hidden ? null : { title: document.getElementById('howtitle').textContent, steps: [...document.querySelectorAll('#howsteps li')].map((x) => x.textContent), ok: document.getElementById('howok').textContent }; };
+    const out = {};
+    g.newRound(); g.setContract('rehearsal'); g.playing = true; g.sim(0.2); out.rehearsal = card();
+    g.newRound(); g.setContract('first'); g.sim(0.2); out.first = card();
+    document.getElementById('howok').click(); g.sim(0.2);
+    out.closed = card(); out.seen = JSON.parse(localStorage.getItem('nocturne.howSeen'));
+    g.newRound(); g.setContract('first'); g.sim(0.2); out.again = card();
+    PP.renderPlayPage(); out.btn = !document.getElementById('lvinfohow').hidden;
+    document.getElementById('lvinfohow').click(); out.fromCard = card() && card().title;
+    document.getElementById('howok').click();
+    g.newRound(); g.setContract('chest'); g.sim(0.2); out.chest = card() && card().steps[1]; document.getElementById('howok').click();
+    G.boardPage = 'contract'; G.lastBoardSig = null; G.boardDirty = true; board.present(0.1);
+    out.boardBtn = g.board.buttons.some((b) => b.id === 'how');
+    g.pressBoard('how'); G.lastBoardSig = null; G.boardDirty = true; board.present(0.1);
+    out.howPage = G.boardPage; out.howOk = g.board.buttons.map((b) => b.id).join(',');
+    g.pressBoard('howok'); out.back = G.boardPage;
+    return out;
+  });
+  assert.equal(r.rehearsal, null, 'the rehearsal: the first-run tutorial, no card');
+  assert.deepEqual(r.first, { title: 'Як це: сторож ходить', steps: ['Промінь ліхтаря — його погляд: не стій у ньому', 'Присядь за меблями — і ти схований', '«?» над ним — він щось почув. Замри'], ok: 'Зрозуміло' });
+  assert.equal(r.closed, null);
+  assert.deepEqual(r.seen, ['guard']);
+  assert.equal(r.again, null, 'once per mechanic');
+  assert.equal(r.btn, true);
+  assert.equal(r.fromCard, 'Як це: сторож ходить', 'the level card\'s button opens it again');
+  assert.equal(r.chest, 'З нею в руках двері не відчиниш');
+  assert.equal(r.boardBtn, true);
+  assert.deepEqual([r.howPage, r.howOk, r.back], ['how', 'howok', 'contract']);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // the phone's pause has the button
+  const ph = await camp(base, { stars: { rehearsal: S1 }, phone: true });
+  const pause = await ph.page.evaluate(async () => {
+    const g = window.__game, { G } = await import('./src/systems/state.js');
+    g.newRound(); g.setContract('first'); G.menu.page = 'main'; G.menu.render();
+    const b = [...document.querySelectorAll('#pausemenu button')].find((x) => x.textContent === 'Як це?');
+    if (b) b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    return { has: !!b, open: !document.getElementById('howcard').hidden };
+  });
+  assert.deepEqual(pause, { has: true, open: true });
+  assert.deepEqual(ph.errors, []);
+  await ph.ctx.close();
+  // the classic test game: no cards
+  const c2 = await newContext(browser);
+  const p2 = await open(c2, base);
+  assert.equal(await p2.page.evaluate(() => { const g = window.__game; g.newRound(); g.playing = true; g.sim(0.3); return document.getElementById('howcard').hidden; }), true);
+  await c2.close();
+});

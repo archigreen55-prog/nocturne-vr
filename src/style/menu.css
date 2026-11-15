@@ -103,6 +103,16 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 /* the first run: «Налаштуємо мікрофон?» */
 #micask { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .78); }
 #micask[hidden] { display: none; }
+/* campaign v2: the card «Як це?» (systems/howCard.js) — the same paper box as the microphone's question, three numbered steps */
+#howcard { --accent: var(--whisper); position: fixed; inset: 0; z-index: 56; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .7); }
+#howcard[hidden] { display: none; }
+#howcard .box { max-width: 460px; width: calc(100% - 32px); box-sizing: border-box; padding: 16px 20px; border-radius: 14px; background: var(--paper); color: var(--ink2); border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); }
+#howcard h2 { margin: 0 0 8px; font: 800 18px var(--head); color: var(--ink2); }
+#howcard ol { margin: 0 0 12px; padding-left: 1.6em; font-size: 15px; line-height: 1.45; color: #2a2a2a; }
+#howcard ol li::marker { font: 800 16px var(--head); color: var(--ink2); }
+#howcard button { font-size: 15px; min-height: 44px; padding: 4px 18px; border: 2px solid var(--ink2); border-radius: 10px; background: var(--lamp); color: var(--ink2); box-shadow: 3px 3px 0 var(--ink2); }
+@media (max-height: 460px) { #howcard ol { font-size: 14px; line-height: 1.35; margin-bottom: 8px; } #howcard .box { padding: 12px 16px; } }
+#overlay .lv-how { align-self: flex-start; margin-top: 4px; min-height: 32px; padding: 2px 12px; font: 700 12px system-ui, sans-serif; border: 2px solid var(--lamp); border-radius: 9px; background: transparent; color: var(--lamp); }
 #micask .box { max-width: 460px; width: calc(100% - 32px); box-sizing: border-box; padding: 18px 20px; border-radius: 14px; background: var(--paper); color: var(--ink2); border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); }
 #micask h2 { margin: 0 0 6px; font: 800 18px var(--head); color: var(--ink2); }
 #micask p { margin: 0 0 12px; font-size: 15px; color: #2a2a2a; }

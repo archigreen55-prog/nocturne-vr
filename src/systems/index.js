@@ -55,6 +55,7 @@ import { startLine } from './startLine.js';
 import { placeSound } from './placeSound.js';
 import { yardGuide } from './yardGuide.js';
 import { levelStars } from './levelStars.js';
+import { howCard } from './howCard.js';
 
 export const SYSTEMS = [
   render,        // renderer, scene, lights, quality (phone), resize
@@ -79,6 +80,7 @@ export const SYSTEMS = [
   distract,      // W2a: throwing (phone, PC: aim, arc), the devices (radio, phone, breaker), a can on the guard's head
   campaign,      // W19: what this level has (cans, devices), the board's note and its buttons
   levelStars,    // campaign v2: present: «★★ втрачено: тривога» the moment a star of the level is lost
+  howCard,       // campaign v2: the cards «Як це?» — once per mechanic at the van; again from the card, the pause, the board
   startLine,     // world: the chalk start line (the dacha's gate, the mansion's ring round the van) before the clock starts
   puddles,       // the dacha's puddles: a step in one splashes (noise + sound, after the player's step, before the guard hears)
   heist,         // world: noise, voice, guard, lurker, alarm, round clock; present: ripples
