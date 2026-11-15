@@ -33,7 +33,7 @@ export const campaign = {
     // level 5 (plan §7.2, decisions of 16.11): the clock through the back window. Petrovych sits in the hall all round
     // (awake: the difficulty's sight and hearing); the card teaches the action only; the hints come step by step
     { n: 5, id: 'clock', act: 1, intro: ['windowDrop'], time: 420, star3: { intact: true },
-      guardSits: { go: [1.4, -2.0], stand: [2.4, -2.6], face: [0.0, -4.6] },
+      guardSits: { go: [1.4, -2.0], stand: [2.4, -2.6], face: [0.0, -0.2] },   // on the hall bench, facing the front door (under the porch lamp)
       hints: { zoya: 75, chalk: 150, fails: 2 } },
     { n: 6, id: 'm8', act: 2, intro: ['twoGuards'], goal: { sum: 1500 }, time: 420, star3: { time: 240 } },
     { n: 7, id: 'm10', act: 2, intro: ['balcony'], goal: { floorItems: { floor: 1, n: 3 } }, time: 420, star3: { intact: true } },
