@@ -23,8 +23,8 @@ G.last = performance.now();
 G.lampT = 0;
 function frame(now, xrFrame) {
   const { quality, renderer, scene, camera, gpu, perf, frameStats, comfort, player, cpu } = G;
-  // phone: the 30 / 60 cap (a 90 / 120 Hz screen calls this more often)
-  if (quality && G.playingDesktop && !G.paused && !G.inVR && now - G.last < 1000 / quality.cap - 2) return;
+  // phone: the 30 / 60 cap at an even step of the screen's own rate (90 Hz -> 45, 120 Hz -> 60: perf/quality.js)
+  if (quality && quality.skip(now, G.playingDesktop && !G.paused && !G.inVR)) return;
   const cpuStart = performance.now();
   if (quality && G.playingDesktop && !G.paused && !G.inVR) quality.frame(now - G.last);
   const dt = Math.min(0.1, Math.max(0, (now - G.last) / 1000));
@@ -51,6 +51,7 @@ function frame(now, xrFrame) {
     perf.fps = (perf.frames * 1000) / (now - perf.since);
     perf.frames = 0; perf.since = now;
   }
+  if (quality) quality.drawn(draw);   // the next frame's interval is the screen's own when nothing was drawn
   for (const fn of after) fn(dt, now);   // after the frame is drawn: HUD / wrist, messages, start screen
   cpu.sum += performance.now() - cpuStart; cpu.n++;
 }
