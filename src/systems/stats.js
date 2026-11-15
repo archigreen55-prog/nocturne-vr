@@ -20,7 +20,7 @@ export const stats = {
     G.perf = { fps: 0, frames: 0, since: performance.now(), calls: 0, tris: 0 };
     const frameStats = G.frameStats = new FrameStats();   // for the report: last 60 s and per minute
     // phone: each minute also says which preset / pixel ratio / cap it ran with (heat shows as falling FPS)
-    if (quality) frameStats.tag = () => ({ q: quality.preset, pr: quality.pr, cap: quality.cap });
+    if (quality) frameStats.tag = () => ({ q: quality.preset, pr: quality.pr, cap: quality.cap, hz: quality.hz });
     // battery at the start and now (Chrome on Android; §5.2 p. 10: 3 rounds in a row)
     const battery = G.battery = { start: null, now: null, charging: null };
     if (G.PHONE && navigator.getBattery) navigator.getBattery().then((b) => {

@@ -39,7 +39,7 @@ test('phone quality: presets (pixel ratio, MSAA note, far lamps off on low), aut
   assert.equal(q.pixelRatio, Math.min(1.5, devices['Pixel 7 landscape'].deviceScaleFactor)); assert.equal(q.dynamicSteps, 2);
   // the report: each minute says preset / pixel ratio / cap
   const minute = await page.evaluate(() => { const f = window.__game.frameStats; for (let i = 0; i < 62; i++) f.add(990); return f.minutes.at(-1); });
-  assert.deepEqual(Object.keys(minute).sort(), ['cap', 'fps', 'pr', 'q', 'worstMs']);
+  assert.deepEqual(Object.keys(minute).sort(), ['cap', 'fps', 'hz', 'pr', 'q', 'worstMs']);   // V1: hz = the screen's rate
   // 30 FPS cap: rendered frames at least ~31 ms apart while playing
   await page.evaluate(() => { const s = document.getElementById('fpscap'); s.value = '30'; s.dispatchEvent(new Event('change')); window.__game.playing = true; });
   // the intervals the game itself recorded between the frames it ran (rAF times, as frameStats uses them)
