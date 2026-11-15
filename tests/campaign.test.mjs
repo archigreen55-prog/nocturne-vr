@@ -38,7 +38,7 @@ test('the ladder (campaign v2): a new player starts at level 0 «Репетиц�
   });
   assert.equal(fresh.contract, 'rehearsal', 'a new player starts at the rehearsal');
   assert.equal(fresh.current, 0);
-  assert.equal(fresh.ladder, '0:rehearsal 1:first 2:chest 3:quiet 4:wardrobe 5:clock 6:m8 7:m10 8:m12');
+  assert.equal(fresh.ladder, '0:rehearsal 1:first 2:chest 3:quiet 4:wardrobe 5:clock 6:m8 7:m10 8:m9 9:m12');
   assert.match(fresh.list[0], /^0\. Репетиція$/);
   assert.match(fresh.list[3], /🔒.*3\. Бляшанка/);
   assert.match(fresh.list[4], /🔒.*4\. Шафа/);
@@ -216,10 +216,10 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
 // remembered value, the board's ◀ ▶, «Грати»); a level of the other house reloads the page there
 const STARS8 = { rehearsal: { medium: 1 }, first: { medium: 3 }, chest: { medium: 3 }, quiet: { medium: 1 }, wardrobe: { medium: 1 }, clock: { medium: 1 } };   // campaign v2: the mansion after a star on 5
 const cards = (page) => page.evaluate(() => [...document.querySelectorAll('#levelpick .lv-card')].map((b) => ({ id: b.dataset.level, n: b.querySelector('.lv-n').textContent, off: b.disabled, on: b.classList.contains('on') })));
-test('«Грати» (T1): a new player — level 0 on the dacha, «Грати» on; every level 0–8 in the ladder order, the closed ones 🔒 and not pressable', async () => {
+test('«Грати» (T1): a new player — level 0 on the dacha, «Грати» on; every level 0–9 in the ladder order, the closed ones 🔒 and not pressable', async () => {
   const { ctx, page, errors } = await camp();
   const c = await cards(page);
-  assert.deepEqual(c.map((x) => x.id), ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock', 'm8', 'm10', 'm12']);
+  assert.deepEqual(c.map((x) => x.id), ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock', 'm8', 'm10', 'm9', 'm12']);
   assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal'], 'only level 0 is open');
   assert.ok(c.filter((x) => x.off).every((x) => x.n.includes('🔒')));
   const st = await page.evaluate(() => ({ map: window.__game.level.id, c: window.__game.contract.id, start: document.getElementById('start').disabled, note: document.querySelector('.lv-house[data-house="mansion"] .lv-note').textContent }));
@@ -237,7 +237,7 @@ test('«Грати» (T1): a new player — level 0 on the dacha, «Грати»
   assert.deepEqual(errors, []);
   await ctx.close();
 });
-test('«Грати» (T1): a remembered closed level and a remembered mansion — the page opens on an open level; all 9 cards whatever the map; a dacha card reloads the page on the dacha with that level', async () => {
+test('«Грати» (T1): a remembered closed level and a remembered mansion — the page opens on an open level; all 10 cards whatever the map; a dacha card reloads the page on the dacha with that level', async () => {
   // a remembered closed level: back to where the ladder stands
   {
     const { ctx, page, errors } = await camp(base, { stars: { rehearsal: { medium: 1 } } });
@@ -251,7 +251,7 @@ test('«Грати» (T1): a remembered closed level and a remembered mansion �
   const { ctx, page, errors } = await camp(base + '?map=mansion', { stars: STARS8 });
   assert.equal(await page.evaluate(() => window.__game.level.id), 'mansion');
   const c = await cards(page);
-  assert.equal(c.length, 9, 'every level, not only the mansion’s');
+  assert.equal(c.length, 10, 'every level, not only the mansion’s');
   assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock', 'm8'], JSON.stringify(c));
   assert.equal(c.find((x) => x.on).id, 'm8');
   // a dacha card from the mansion page: the page reloads on the dacha with that level

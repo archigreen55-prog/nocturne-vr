@@ -25,7 +25,7 @@ async function camp(url = base, { stars = null, stars2 = null, wallet = null, ph
 }
 const S1 = { medium: 1 };
 
-test('campaign v2: the ladder 0–8 (dacha 0–5, mansion 6–8), its goals and round times by difficulty; the left-out levels are not there; the mansion opens after a star on level 5', async () => {
+test('campaign v2: the ladder 0–9 (dacha 0–5, mansion 6–9), its goals and round times by difficulty; the left-out levels are not there; the mansion opens after a star on level 5', async () => {
   const { ctx, page, errors } = await camp();
   const r = await page.evaluate(async () => {
     const g = window.__game, Cm = await import('./src/game/campaign.js'), E = await import('./src/game/economy.js');
@@ -45,9 +45,9 @@ test('campaign v2: the ladder 0–8 (dacha 0–5, mansion 6–8), its goals and 
     out.mansion5 = E.mapOpen('mansion');
     return out;
   });
-  assert.equal(r.ladder, '0:rehearsal 1:first 2:chest 3:quiet 4:wardrobe 5:clock 6:m8 7:m10 8:m12');
+  assert.equal(r.ladder, '0:rehearsal 1:first 2:chest 3:quiet 4:wardrobe 5:clock 6:m8 7:m10 8:m9 9:m12');
   assert.equal(r.dacha, 'rehearsal first chest quiet wardrobe clock');
-  assert.equal(r.mansion, 'm8 m10 m12');
+  assert.equal(r.mansion, 'm8 m10 m9 m12');
   assert.deepEqual(r.goals, ['rehearsal=винеси 2 будь-які речі', 'first=винеси щонайменше $500', 'chest=винеси: Скриня', 'quiet=винеси щонайменше $700', 'wardrobe=винеси: Шкатулка, винеси щонайменше $1,000', 'clock=винеси: Годинник']);
   assert.deepEqual(r.times, ['375/300/240', '375/300/240', '450/360/288', '450/360/288', '525/420/336']);
   assert.equal(r.warn, 336 - 60, 'the lights flicker a minute before the end');
@@ -413,5 +413,41 @@ test('campaign v2 (в): with friends the guest lowers the clock — the host dec
   assert.ok(vz < -14.15, `the guest sees the host's vase outside: ${vz}`);
   assert.deepEqual(host.errors, []);
   assert.deepEqual(guest.errors, []);
+  await ctx.close();
+});
+
+test('campaign v2 (г): «Кабінет» (level 8) — the laptop is the goal, the devices come here («Як це: пристрої»), Valera sits at the study\'s desk all round; the breaker sends him to the boiler room and his desk is free; «Підміна» is level 9', async () => {
+  const stars = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1, clock: S1, m8: S1, m10: S1 };
+  const { ctx, page, errors } = await camp(base + '?map=mansion', { stars });
+  const r = await page.evaluate(async () => {
+    const g = window.__game, out = {}, Cm = await import('./src/game/campaign.js');
+    g.newRound(); g.setContract('m9'); g.setDifficulty('medium'); g.playing = true; g.sim(0.1);
+    out.card = document.getElementById('howcard').hidden ? null : document.getElementById('howtitle').textContent;
+    if (out.card) document.getElementById('howok').click();
+    out.goal = g.goalText(g.contract, g.loot.items); out.locked = !!g.contract.locked; out.dev = g.devices.enabled;
+    out.open = Cm.isOpenLevel(Cm.levelOf('m9')); out.next = Cm.nextLevel('m9').n;
+    g.player.teleport(15, -9, 0); g.sim(0.3);   // the alley, by the van: the round begins
+    g.sim(25, 1 / 30);
+    const V = g.guards[0], Z = g.guards[1];
+    for (const z of g.guards.slice(1)) z.update = () => null;
+    out.post = { sitting: V.sitting, x: +V.x.toFixed(1), z: +V.z.toFixed(1) };
+    const br = g.devices.list.find((d) => d.kind === 'breaker');
+    const { useDevice } = await import('./src/systems/distract.js');
+    g.player.teleport(-0.2, -4.0, 0); g.sim(0.1); useDevice(br); g.player.teleport(15, -9, 0); g.sim(9, 1 / 30);   // flip it, step away to the alley
+    out.away = { claimed: br.claimed === V, sitting: V.sitting, d: +Math.hypot(V.x - 9.6, V.z + 9.6).toFixed(1) };
+    out.laptop = g.loot.items.find((i) => i.id === 'm_laptop').takeable;
+    const trail = [];
+    for (let i = 0; i < 16; i++) { g.sim(5, 1 / 30); trail.push(`${V.state}:${V.sitting ? "s" : ""}${V.x.toFixed(1)},${V.z.toFixed(1)}:${V.queue[0] ? V.queue[0].type + "/" + (V.queue[0].to || []).join("|") + "/" + V.timer.toFixed(0) : "-"}`); }
+    out.trail = trail;
+    out.back = { sitting: V.sitting, d: +Math.hypot(V.x - 9.6, V.z + 9.6).toFixed(1) };
+    return out;
+  });
+  assert.equal(r.card, 'Як це: пристрої');
+  assert.deepEqual([r.goal, r.locked, r.dev, r.open, r.next], ['винеси: Ноутбук з кабінету', false, true, true, 9]);
+  assert.ok(r.post.sitting && Math.hypot(r.post.x - 9.6, r.post.z + 9.6) < 0.4, `Valera at the desk: ${JSON.stringify(r.post)}`);
+  assert.ok(r.away.claimed && !r.away.sitting && r.away.d > 4, `the breaker took him away from the desk: ${JSON.stringify(r.away)}`);
+  assert.equal(r.laptop, true);
+  assert.ok(r.back.sitting && r.back.d < 0.5, `then back at the desk: ${JSON.stringify(r.back)} ${r.trail.join(' ')}`);
+  assert.deepEqual(errors, []);
   await ctx.close();
 });

@@ -13,7 +13,7 @@ export const campaign = {
   start: 'rehearsal',   // a new player's first level
   // the ladder: n (shown on the map), the contract's id, its act, `intro`: what is new on it (the hint
   // cards «Як це?», plan §5). Campaign v2 (plan 2026-11-15 «кампанія, зірки й економіка», the owner's
-  // decisions of 15.11): the live test's ladder — the dacha 0–5, the mansion 6–8 — one new thing a level.
+  // decisions of 15.11): the live test's ladder — the dacha 0–5, the mansion 6–9 — one new thing a level.
   // A level may set its own `goal` (over the contract's), `time` (s of the round on the normal difficulty;
   // x levelTimeK by difficulty) and `star3` — its ★★★, one of: { time: s } (done within), { sum: $ } (at
   // least), { intact: true } (nothing damaged or broken), { scares: 0 } (Шафник never scared you),
@@ -37,7 +37,11 @@ export const campaign = {
       hints: { zoya: 75, chalk: 150, fails: 2 } },
     { n: 6, id: 'm8', act: 2, intro: ['twoGuards'], goal: { sum: 1500 }, time: 420, star3: { time: 240 } },
     { n: 7, id: 'm10', act: 2, intro: ['balcony'], goal: { floorItems: { floor: 1, n: 3 } }, time: 420, star3: { intact: true } },
-    { n: 8, id: 'm12', act: 2, intro: ['swap'], time: 480, star3: { doubts: 0 } },
+    // «Кабінет» (plan §10 item 9; the old placeholder's id, nobody has stars on it): Valera sits at the study's desk all
+    // round, the laptop right under his hands; the devices (the breaker sends the nearest guard: him) are the way
+    { n: 8, id: 'm9', act: 2, intro: ['devices'], goal: { item: 'm_laptop' }, time: 360, star3: { time: 180 },
+      guardSits: { who: 'valera', go: [9.6, -8.6], stand: [9.6, -9.6], face: [9.6, -11.2] } },
+    { n: 9, id: 'm12', act: 2, intro: ['swap'], time: 480, star3: { doubts: 0 } },
   ],
   // a level's `time` on each difficulty (the dacha's own rounds are 600 / 480 / 380 s: the same steps)
   levelTimeK: { easy: 1.25, medium: 1, hard: 0.8 },
@@ -51,8 +55,8 @@ export const campaign = {
   armchair: { dur: 1e6, sightK: 0.3, hearK: 0.6, fovK: 0.6 },
   acts: [{ n: 1, map: 'dacha' }, { n: 2, map: 'mansion' }],   // the museum (act 3) is not shown before it exists (plan §2.5)
   // from which level a mechanic is there (below it: no cans on the map, the shop's rows hidden, the
-  // wardrobe asleep…). v2: the cans from 3, Шафник from 4; the traps and the devices wait for their own
-  // levels («Кабінет», «Мило»: plan §10 items 9 and 11), so no level of this ladder has them (99).
+  // wardrobe asleep…). v2: the cans from 3, Шафник from 4, the devices from 8 («Кабінет»); the traps wait for
+  // their own level («Мило»: plan §10 item 11), so no level of this ladder has them (99).
   mechanics: {
     guard: 1,        // the guard walks (level 0: Petrovych sits in his armchair)
     clock: 1,        // the round's clock runs
@@ -60,7 +64,7 @@ export const campaign = {
     throw: 3,        // cans and bottles lie in the house
     'trap:soap': 99, 'trap:marbles': 99,
     'trap:bucket': 99, 'trap:clock': 99, 'trap:rope': 99,
-    devices: 99,     // the radio, the house phone, the breaker
+    devices: 8,      // the radio, the house phone, the breaker: from «Кабінет»
   },
 };
 
