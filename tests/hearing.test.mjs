@@ -126,6 +126,7 @@ test('levels 0–2 stay passable with the new hearing (campaign): talking 3 s be
     out[id] = await page.evaluate((id) => {
       const g = window.__game, P = g.patrol, M = g.CFG.mic, o = {};
       g.newRound(); g.setContract(id); g.newRound(); g.playing = true; o.contract = g.contract.id;   // a contract changes only before the clock
+      const sight = g.CFG.patrol.sight; g.CFG.patrol.sight = 0;   // hearing only: he must not happen to see the player at the van meanwhile
       g.sim(30, 1 / 30);                                   // the guard settles into his plan (level 0: the armchair)
       o.sitting0 = P.sitting;
       g.player.teleport(0, -2.5, 0); g.sim(0.3);           // the hall: the round begins
@@ -146,6 +147,7 @@ test('levels 0–2 stay passable with the new hearing (campaign): talking 3 s be
       g.noise.emit(10.6, 25.4, M.shout.radius, 'shout', { who: g.player, wallK: M.shout.wallK });   // a shout at the van
       g.sim(0.2);
       o.shoutAtVan = { full: g.alert.full, sus: Math.round(g.alert.suspicion) };
+      g.CFG.patrol.sight = sight;
       // the goal into the van
       const its = g.loot.items.filter((i) => !i.throwable && !i.trap && !i.prop && !i.heavy && !i.twoHanded);
       const goal = g.contract.goal;

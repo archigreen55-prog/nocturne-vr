@@ -28,7 +28,7 @@ test('mic limits: the Android report (corrections -12 / -10) is brought back to 
   assert.ok(m.shout >= -22.408 + 4 - 1e-9, `shout threshold ${m.shout} must stay >= voice + 4`);
   assert.ok(m.whisper >= -44.69 + 3 - 1e-9, `whisper boundary ${m.whisper} must stay >= whisper + 3`);
   assert.ok(m.whisper <= -22.408 - 3 + 1e-9, 'whisper boundary below the voice');
-  assert.deepEqual([m.adj, m.adjW], [-3, -7], 'saved corrections clamped');
+  assert.deepEqual([m.adj, m.adjW], [-1, -7], 'saved corrections clamped (15.11: the shout threshold is lower now, so -1 reaches the limit)');
   // without corrections the calibration's own thresholds are untouched
   const raw = await page.evaluate(() => { const m = window.__game.mic; m.resetAdjust(); return [m.shoutDb, m.whisperDb]; });
   // 15.11: the shout threshold a third of the way from the voice to the shout (the shout recovered from the old half-way threshold)
@@ -58,12 +58,12 @@ test('mic ± buttons (no sliders): stop at the limit with a note, reset, page sw
     }
   }
   assert.deepEqual(await page.evaluate(() => [window.__game.mic.shoutDb, window.__game.mic.whisperDb]), before, 'swipes did not move the thresholds');
-  // shout threshold down to its limit: voice -22 + 4 = -18 (base -15, so at most -3)
+  // shout threshold down to its limit: voice -22 + 4 = -18 (base -17 since 15.11, so at most -1)
   for (let i = 0; i < 6; i++) if (await page.isEnabled('#sdn')) await page.tap('#sdn');
   assert.equal(await page.evaluate(() => window.__game.mic.shoutDb), -18);
   assert.equal(await page.isEnabled('#sdn'), false);
   assert.match(await page.textContent('#adjnote'), /на 4 дБ вища за твій звичайний голос/);
-  assert.match(await page.textContent('#shoutdb'), /−18 дБ \(зсув −3\)|-18 дБ \(зсув −3\)/);
+  assert.match(await page.textContent('#shoutdb'), /−18 дБ \(зсув −1\)|-18 дБ \(зсув −1\)/);
   await page.tap('#adjreset');
   assert.deepEqual(await page.evaluate(() => [window.__game.mic.cal.adj, window.__game.mic.cal.adjW]), [0, 0]);
   assert.match(await page.textContent('#adjnote'), /Зсуви скинуто/);

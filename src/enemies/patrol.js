@@ -340,7 +340,8 @@ export class Patrol {
     else if (e.kind === 'run' && CFG.sprint.react === 'fast') this.heardRun(e.x, e.z, f);
     // owner 15.11 (Р2 A): not at every rustle — while the suspicion (already counting this noise) is under
     // CFG.alert.investigateAt and it is calm, it only stops, turns its head and says «?»
-    else if ((this.state === 'task' || this.state === 'glance') && this.env.alert.suspicion < CFG.alert.investigateAt) this.glance(e.x, e.z);
+    // (running steps and lures — e.look, Шепотун's echo — are never only a glance)
+    else if ((this.state === 'task' || this.state === 'glance') && !e.look && e.kind !== 'run' && this.env.alert.suspicion < CFG.alert.investigateAt) this.glance(e.x, e.z);
     else this.react(e.x, e.z, f);
   }
 
