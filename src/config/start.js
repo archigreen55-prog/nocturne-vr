@@ -5,7 +5,7 @@ export const start = {
   hold: 1.3,            // s the banner stays at full size
   fade: 0.6,            // s it fades out
   sound: {
-    gain: 0.18,         // the whole sound's gain before the microphone rule (audio/placeSfx.js placeK): three knocks and a bell; the loudest bit is 6 dB under the patrol step (tests/startline.test.mjs)
+    gain: 0.14,         // the whole sound's gain before the microphone rule (audio/placeSfx.js placeK): three knocks and a bell; the loudest bit is 6 dB under the patrol step (tests/startline.test.mjs)
     knocks: [0, 0.22, 0.44],   // s: the three soft knocks
     bellAt: 0.72,       // s: the bell after the last knock
   },

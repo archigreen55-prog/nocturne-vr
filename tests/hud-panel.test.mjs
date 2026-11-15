@@ -193,10 +193,10 @@ test('the corner is icons: the eye (open / half / amber under a lamp), the held 
   }
   await set(page, (G) => { G.hands.heldItems = () => []; });
   await until(page, () => document.querySelector('#hud .hud-item').classList.contains('gone'));
-  // under a lamp the eye is amber (the dacha's lamp at 1.6 / 7.6)
+  // under a lamp the eye is amber (the dacha's path lamp at 2.6 / 4.4)
   const eyeColour = () => E(page, () => getComputedStyle(document.querySelector('#hud .hud-eye')).color);
   const before = await eyeColour();
-  await E(page, () => { window.__game.player.teleport(1.6, 7.6, 0, 0); window.__game.sim(0.5); });
+  await E(page, () => { window.__game.player.teleport(2.6, 4.4, 0, 0); window.__game.sim(0.5); });
   await until(page, () => getComputedStyle(document.querySelector('#hud .hud-eye')).color === 'rgb(255, 179, 71)');
   assert.notEqual(before, 'rgb(255, 179, 71)');
   // the testers' switch brings the old corner back

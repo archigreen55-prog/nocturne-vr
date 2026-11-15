@@ -322,7 +322,7 @@ test('phone: the pause menu — «Контракт» with the customer\'s lines 
   const summary = await page.evaluate(() => document.querySelector('.sm-story') && document.querySelector('.sm-story').textContent);
   const privacy = await (await import('node:fs/promises')).readFile(join(ROOT, 'privacy.html'), 'utf8');
   const S = (await import(join(ROOT, 'src/i18n/uk.js'))).default;
-  assert.equal(contract.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $2,000. Будь-що. Не кричіть. pp.');
+  assert.equal(contract.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть. pp.');
   assert.equal(contract.crew, ' Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
   assert.equal(lurkers.rows, 9); assert.ok(lurkers.names.every((n) => n === '???'), lurkers.names.join());
   assert.equal(lurkers.info, 'зустрів 0 з 9');
