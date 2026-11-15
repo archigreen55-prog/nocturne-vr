@@ -105,7 +105,7 @@ export function buildYard({ S, G, P, C, solid, both, furniture, world }) {
     solid(x - 0.4, z - 0.45, x + 0.4, z + 0.45, 1.0, null);
   }
   // the neighbours' houses beyond the shrubs: dark blocks with a few warm windows, only to be seen
-  for (const [x0, x1, z0, h, win] of [[-14.5, -5.5, 26, 5.5, [[-12, 3.2], [-8, 3.2]]], [-1.5, 6.5, 29, 6.5, [[1.5, 3.8]]], [11.5, 19.5, 27, 5.2, [[15, 3.0], [18, 3.0]]], [-22, -17, 12, 5, [[-17.1, 3.0]]]]) {
+  for (const [x0, x1, z0, h, win] of [[-14.5, -5.5, 26, 5.5, [[-12, 3.2], [-8, 3.2]]], [-1.5, 6.5, 29, 6.5, [[1.5, 3.8]]], [11.5, 19.5, 27, 5.2, [[15, 3.0], [18, 3.0]]]]) {
     S.box(x0, 0, z0, x1, h, z0 + 8, 0x1d2230); S.box(x0 - 0.3, h, z0 - 0.3, x1 + 0.3, h + 0.5, z0 + 8.3, 0x15181f);
     for (const [wx, wy] of win) G.box(wx - 0.4, wy - 0.4, z0 - 0.01, wx + 0.4, wy + 0.4, z0 + 0.01, 0x8a6a40);   // a hair into the wall: it is part of it
   }

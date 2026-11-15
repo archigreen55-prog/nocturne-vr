@@ -285,3 +285,28 @@ test('yard: the street lamp stands along the fence by the van — its circle mis
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('yard: nothing stands on the asphalt along the whole street (x -70..70) — no house, tree, shrub, bin, post or hedge crosses it, but the van, the board\'s stand and the street lamp', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, Y = await import('./src/world/yard.js');
+    const bad = [];
+    g.scene.traverse((m) => {
+      if (!m.isMesh || !/^(level|glow)$/.test(m.name)) return;
+      const P = m.geometry.attributes.position;
+      for (let i = 0; i < P.count; i++) {
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        if (y < 0.1 || Math.abs(x) > 70 || z < Y.STREET.minZ + 0.02 || z > Y.STREET.maxZ - 0.02) continue;
+        if (x > 9.7 && x < 10.3 && z < 9.7) continue;     // the street lamp's post
+        if (x > 9.2 && x < 10.0 && z > 10.2 && z < 11.0) continue;   // the board's stand
+        if (x > 6.6 && x < 9.4 && z > 10.8 && z < 16.3) continue;   // the van's glowing inside and its folded doors
+        bad.push([m.name, +x.toFixed(2), +y.toFixed(2), +z.toFixed(2)]);
+      }
+    });
+    return bad.slice(0, 10);
+  });
+  assert.deepEqual(r, [], `something stands on the street: ${JSON.stringify(r)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
