@@ -207,13 +207,14 @@ export function buildVan() {
 
   // ---------- the rear doors: folded back along the sides as before; the face to the player carries the badge and the name ----------
   {
-    const [small, sw] = words(STR.van.crew, 0.12, PAL.letters);
+    const [small, sw] = words(STR.van.crew, 0.12, PAL.letters), [word, ww] = words(STR.van.sign, 0.12, PAL.letters);
     for (const s of [-1, 1]) {
       const hx = s < 0 ? -1.0 : 1.0, cx = -s * 0.49;
       const leaf = (yc, h, col) => { const g = new THREE.BoxGeometry(0.98, h, 0.05); g.translate(cx, yc, 0); g.rotateY(s * 1.9); g.translate(hx, 0, 0); push(g, col); };
       leaf(0.675, 0.55, ACC); leaf(1.57, 1.24, BODY);
       const M = new THREE.Matrix4().makeTranslation(hx, 0, 0).multiply(new THREE.Matrix4().makeRotationY(s * 1.9));
-      stick(badge(cx, 1.76, 0.25, PAL.plate, PAL.ink), M, 0, 0, 0.025); stick(small, M, cx - sw / 2, 1.25, 0.029);
+      stick(badge(cx, 1.84, 0.23, PAL.plate, PAL.ink), M, 0, 0, 0.025);
+      stick(word, M, cx - ww / 2, 1.36, 0.029); stick(small, M, cx - sw / 2, 1.12, 0.029);   // the big word too: from the start the leaf is what is in view
     }
   }
   return { parts };

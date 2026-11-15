@@ -41,7 +41,7 @@ export const LAMPS = [
   { x: -3.0, z: -6.0, r: 2.2 },    // the corridor night light (as before)
   { x: 0, z: 0.75, r: 1.6 },       // over the porch: the front door is lit
   { x: 5.0, z: 7.6, r: 2.0 },      // at the gate, inside (beside the way)
-  { x: 4.4, z: 12.6, r: 2.5 },     // the lane's lamp, outside the fence (the guard never sees it)
+  { x: 4.6, z: 9.45, r: 2.5 },     // the street lamp, on the verge by the fence beside the gate (the guard never sees it)
 ];
 // the three point lights: [x, y, z, colour, intensity, distance] (systems/world.js puts them there)
 export const LIGHTS = [
@@ -172,7 +172,7 @@ export function buildYard({ S, G, P, C, solid, both, furniture, world }) {
   G.box(-0.15, 2.3, 0.16, 0.15, 2.45, 0.24, 0xffd9a0);                                   // the porch lamp over the door
   S.box(-0.2, 2.25, 0.15, 0.2, 2.3, 0.3, C.pole);
   lampPost(S, G, solid, 5.0, 7.6, 2.2);                                                  // at the gate (inside)
-  lampPost(S, G, solid, 4.4, 12.6, 3.4);                                                 // the lane's lamp
+  lampPost(S, G, solid, 4.6, 9.45, 3.4);                                                 // the street lamp, by the fence beside the gate
 
   // ---------- the van and the board ----------
   const V = van(S, G, VAN.x, VAN.z, VAN.yaw, P);

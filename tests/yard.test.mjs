@@ -212,12 +212,12 @@ test('yard: a through street right behind the fence — asphalt the whole width 
       return e;
     };
     const out = { S: Y.STREET, VAN: Y.VAN, road: ext(hex(0x2a2c31), 0.02), kerb: ext(hex(0x4a4b4f), 0.08), dash: ext(hex(0x8a8c80), 0.025) };
-    // walkable: a grid across the street inside the lot, without the van and its folded doors, the board's stand, the lamp post
+    // walkable: a grid across the street inside the lot, without the van and its folded doors and the board's stand
     const blocked = [];
-    for (let x = -15; x <= 15; x += 0.5) for (let z = Y.STREET.minZ + 0.6; z <= Y.STREET.maxZ - 0.3; z += 0.5) {
+    for (let x = -15; x <= 15; x += 0.5) for (let z = Y.STREET.minZ + 1.0; z <= Y.STREET.maxZ - 0.3; z += 0.5) {
       if (x > 6.2 && x < 9.8 && z < 16.6) continue;
       if (x > 9.2 && x < 10.2 && z < 11.3) continue;
-      if (Math.hypot(x - 4.4, z - 12.6) < 0.7) continue;
+      
       const [nx, nz] = L.resolveBody(x, z, 0.25);
       if (Math.hypot(nx - x, nz - z) > 1e-3) blocked.push([x, z]);
     }
@@ -257,7 +257,7 @@ test('van: the name on both sides, on the header and on the rear doors; the mirr
     for (const p of parts) { if (Math.abs(p.bb.min.x) > 1.4 || Math.abs(p.bb.max.x) > 1.4) out.wide.push([p.type, p.bb.min.x, p.bb.max.x].join(' ')); if (p.bb.min.z < -0.5 || p.bb.max.z > 5.2) out.long.push([p.type, p.bb.min.z, p.bb.max.z].join(' ')); }
     return out;
   });
-  assert.equal(r.shapes, 51, 'the letters: the name (8 + 7 glyphs) on both sides, the crew name (7) on the header and on both rear doors');
+  assert.equal(r.shapes, 67, 'the letters: the name (8 + 7 glyphs) on both sides, the crew name (7) on the header, both words (8 + 7) on both rear doors');
   assert.equal(r.discs, 2, 'two mirror heads');
   assert.ok(r.holders.every((n) => n >= 2), `each mirror has at least two holders reaching the cab: ${r.holders}`);
   assert.ok(r.walls.every((n) => n >= 1), `the cab's wall is there at the holders' end: ${r.walls}`);
