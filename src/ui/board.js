@@ -152,17 +152,38 @@ export class Board {
     y = wrap(g, st && st.lines.length ? st.lines.join(' ') : C.brief, 50, y, W - 100, 31) + 34;
     if (st && st.crew) { g.font = 'italic 23px system-ui, sans-serif'; g.fillStyle = '#ffb347'; g.fillText(st.crew, 50, y, W - 100); y += 40; }
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
-    g.fillText(S.board.goal(s.goalText), 50, Math.max(y, 290), W - 100); y = Math.max(y, 290) + 34;
-    if (C.bonus !== 'none') { g.fillText(S.board.bonus(s.bonusText), 50, y, W - 100); y += 34; }
-    if (N.isNew.length) { g.font = 'bold 24px system-ui, sans-serif'; g.fillStyle = '#7fc8ff'; g.fillText(S.campaign.isNew(N.isNew.join(', ')), 50, y, W - 100); }
-    g.fillStyle = '#9aa7bf'; g.font = '24px system-ui, sans-serif';
-    g.fillText(S.board.records(s.best || {}), 50, 408, W - 340);
+    if (s.stars3) y = this.drawStars(s.stars3, Math.max(y, 262)) + 4;   // campaign v2: ★ / ★★ / ★★★ with their money
+    else {
+      g.fillText(S.board.goal(s.goalText), 50, Math.max(y, 290), W - 100); y = Math.max(y, 290) + 34;
+      if (C.bonus !== 'none') { g.fillText(S.board.bonus(s.bonusText), 50, y, W - 100); y += 34; }
+    }
+    if (N.isNew.length) { g.textAlign = 'left'; g.font = 'bold 24px system-ui, sans-serif'; g.fillStyle = '#7fc8ff'; g.fillText(S.campaign.isNew(N.isNew.join(', ')), 50, y, W - 100); }
+    g.textAlign = 'left'; g.fillStyle = '#9aa7bf'; g.font = '24px system-ui, sans-serif';
+    g.fillText(s.stars3 ? s.stars3.meta : S.board.records(s.best || {}), 50, 408, W - 340);
     if (s.wallet) { g.textAlign = 'right'; g.fillStyle = '#ffb347'; g.font = 'bold 26px system-ui, sans-serif'; g.fillText(s.wallet, W - 50, 408); g.textAlign = 'left'; }
     if (s.lock) { g.fillStyle = '#ffb347'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 448, W - 100); }
     else if (C.needsMic && s.noMic) { g.fillStyle = '#ffb347'; g.font = '24px system-ui, sans-serif'; g.fillText(S.board.needsMic, 50, 448, W - 100); }
     else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.campaign.goHint, 50, 448, W - 100); }
     this.buttons.push({ id: 'go', label: S.campaign.go, x: 50, y: 470, w: 600, h: 120, font: 44, enabled: !s.lock });
     this.buttons.push({ id: 'levels', label: S.campaign.map, x: 670, y: 470, w: 304, h: 120, font: 32 });
+  }
+
+  // Campaign v2 (plan §3.5 A): the level's star rows — the stars, the condition, its money, ✓ when won.
+  // S3: { rows: [{ n, text, price }], got: [bool x3] }. Returns the baseline after the last row.
+  drawStars(S3, y) {
+    const g = this.g;
+    for (const r of S3.rows) {
+      const got = S3.got[r.n - 1];
+      g.textAlign = 'left'; g.font = '24px system-ui, sans-serif';
+      g.fillStyle = '#ffb347'; g.fillText('★'.repeat(r.n), 50, y);
+      g.fillStyle = got ? '#efe6d4' : '#d6cfbf'; g.fillText(r.text, 130, y, W - 130 - 200);
+      g.textAlign = 'right'; g.font = 'bold 24px system-ui, sans-serif'; g.fillStyle = '#ffb347';
+      g.fillText(S.campaign2.star.money(money(r.price)), W - 90, y);
+      if (got) { g.fillStyle = '#5fd38d'; g.fillText(S.campaign2.star.got, W - 50, y); }
+      y += 32;
+    }
+    g.textAlign = 'left';
+    return y;
   }
 
   // Before the round (at the van): pick the contract and the difficulty; the microphone page.
@@ -179,12 +200,15 @@ export class Board {
     if (s.story && !C.locked) { g.font = 'italic 23px system-ui, sans-serif'; wrap(g, `${s.story.lines.join(' ')} ${C.brief}`, 50, 166, W - 100, 28); }   // W2b, W7: the customer's lines
     else wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
-    g.fillText(S.board.goal(s.goalText), 50, 262);
-    g.fillText(S.board.bonus(s.bonusText), 50, 296);
-    g.fillText(S.board.hard, 50, 330);
+    if (s.stars3) this.drawStars(s.stars3, 262);   // campaign v2 (VR keeps this page)
+    else {
+      g.fillText(S.board.goal(s.goalText), 50, 262);
+      g.fillText(S.board.bonus(s.bonusText), 50, 296);
+      g.fillText(S.board.hard, 50, 330);
+    }
     const B = s.best || {};
-    g.fillStyle = '#9aa7bf'; g.font = '24px system-ui, sans-serif';
-    g.fillText(S.board.records(B), 50, 374);
+    g.textAlign = 'left'; g.fillStyle = '#9aa7bf'; g.font = '24px system-ui, sans-serif';
+    g.fillText(s.stars3 ? s.stars3.meta : S.board.records(B), 50, 374);
     if (C.needsMic && s.noMic) { g.fillStyle = '#ffb347'; g.fillText(S.board.needsMic, 50, 408); }
     // a closed contract says what opens it (W3); the wallet on the right
     if (s.lock) { g.fillStyle = '#ffb347'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440, 490); }
@@ -336,7 +360,47 @@ export class Board {
     this.buttons.push({ id: 'back', label: S.menu.back, x: 744, y: 500, w: 230, h: 100, font: 30 });
   }
 
+  // Campaign v2 (plan §4.3 A «Чекліст зірок»): the items, the money (the loot against the record, the wallet),
+  // each star with ✓ +$ нова / ✗ why, then «Ще раз за ★★★» and «Далі»
+  drawResult2(s) {
+    const g = this.g, R = s.result, V = s.verdict, good = R.kind === 'left' || R.kind === 'escaped';
+    g.textAlign = 'left';
+    g.font = `800 58px ${HEAD}`; g.fillStyle = good ? '#ffb347' : '#ff5468';
+    g.fillText(R.title, 50, 95);
+    g.textAlign = 'right'; g.font = 'bold 56px system-ui, sans-serif'; g.fillStyle = good ? '#efe6d4' : '#ffb347';
+    g.fillText(good ? money(R.sum) : `−${money(R.lostLoot)}`, W - 50, 90);
+    g.font = '26px system-ui, sans-serif'; g.fillStyle = '#9aa7bf';
+    g.fillText(good ? S.board.res.kept(R.inVan, R.total, fmtTime(R.time, true)) : S.board.res.lost(fmtTime(R.time, true)), W - 50, 126);
+    this.drawList(R.list, 136, 3, 32);
+    g.textAlign = 'center';
+    if (s.income) { g.font = 'bold 24px system-ui, sans-serif'; g.fillStyle = '#ffb347'; g.fillText(s.income, W / 2, 268, W - 80); }
+    let y = 304;
+    for (const r of s.checklist) {
+      g.textAlign = 'left'; g.font = '25px system-ui, sans-serif';
+      g.fillStyle = '#ffb347'; g.fillText('★'.repeat(r.n), 50, y);
+      g.fillStyle = r.got ? '#efe6d4' : '#9aa7bf'; g.fillText(r.text, 130, y, 540);
+      g.textAlign = 'right'; g.font = 'bold 25px system-ui, sans-serif';
+      g.fillStyle = r.got ? '#5fd38d' : '#ff9f43';
+      g.fillText(`${r.got ? S.campaign2.star.got : S.campaign2.star.missed}${r.note ? ' ' + r.note : ''}`, W - 50, y, 300);
+      y += 32;
+    }
+    if (s.storyAfter && s.storyAfter.line) {
+      g.textAlign = 'center'; g.font = 'italic 21px system-ui, sans-serif'; g.fillStyle = '#e6d8b0';
+      g.fillText(s.storyAfter.line + (s.storyAfter.crew ? '  ' + s.storyAfter.crew : ''), W / 2, 412, W - 100);
+    }
+    g.textAlign = 'center'; g.font = 'bold 24px system-ui, sans-serif';
+    if (s.playing && s.clip) { g.fillStyle = '#ffb347'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 448); }
+    else if (R.shouts > 0) { g.fillStyle = '#ffb347'; g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 448); }
+    else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 448); }
+    this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 50, y: 480, w: 250, h: 110, font: 24, enabled: !!s.clip && !s.playing });
+    if (s.next) {
+      this.buttons.push({ id: 'again', label: s.againLabel, x: 315, y: 480, w: 320, h: 110, font: 24, enabled: true });
+      this.buttons.push({ id: 'nextlvl', label: s.nextLabel, x: 650, y: 480, w: 324, h: 110, font: 30 });
+    } else this.buttons.push({ id: 'again', label: s.againLabel, x: 315, y: 480, w: 659, h: 110, font: 30, enabled: true });
+  }
+
   drawResult(s) {
+    if (s.checklist) { this.drawResult2(s); return; }
     const g = this.g, R = s.result;
     const good = R.kind === 'left' || R.kind === 'escaped';
     g.textAlign = 'left';

@@ -24,7 +24,7 @@ async function camp(url = base, { stars = null, wallet = null } = {}) {
 const S1 = { medium: 1 };
 const WALLET = { cash: 0, earned: 0, spent: 0, owned: [], paid: {}, log: [], trialSoap: true, stock: { soap: 1, marbles: 1, bucket: 1 } };   // the free soap of contract 7 already given
 
-test('the ladder: a new player starts at level 0 «Репетиція»; the list goes 0–7 with «Шафа» as 3; a star opens the next; an old player is not sent back (★ on 1 passes 0, ★ on 4 passes 3; other levels as before); the mansion\'s 8★ do not count the rehearsal; the classic test game keeps the old list', async () => {
+test('the ladder (campaign v2): a new player starts at level 0 «Репетиція»; the dacha goes 0–5 («Скриня» 2, «Бляшанка» 3, «Шафа» 4); a star opens the next; an old player is not sent back (the levels put in count as passed by a later star); the mansion after a star on 5; the classic test game keeps the old list', async () => {
   const { ctx, page, errors } = await camp();
   const fresh = await page.evaluate(async () => {
     const g = window.__game, Cm = await import('./src/game/campaign.js'), E = await import('./src/game/economy.js');
@@ -38,10 +38,11 @@ test('the ladder: a new player starts at level 0 «Репетиція»; the lis
   });
   assert.equal(fresh.contract, 'rehearsal', 'a new player starts at the rehearsal');
   assert.equal(fresh.current, 0);
-  assert.equal(fresh.ladder, '0:rehearsal 1:first 2:clock 3:wardrobe 4:quiet 5:silent 6:rush 7:evening 8:m8 9:m9 10:m10 11:m11 12:m12 13:m13 14:m14');
+  assert.equal(fresh.ladder, '0:rehearsal 1:first 2:chest 3:quiet 4:wardrobe 5:clock 6:m8 7:m10 8:m12');
   assert.match(fresh.list[0], /^0\. Репетиція$/);
-  assert.match(fresh.list[3], /🔒.*3\. Шафа/);
-  assert.equal(fresh.list.length, 8);
+  assert.match(fresh.list[3], /🔒.*3\. Бляшанка/);
+  assert.match(fresh.list[4], /🔒.*4\. Шафа/);
+  assert.equal(fresh.list.length, 6);
   assert.ok(fresh.firstLock, 'level 1 waits for a star on the rehearsal');
   const after = await page.evaluate(async () => {
     const Cm = await import('./src/game/campaign.js'), E = await import('./src/game/economy.js'), C = await import('./src/game/contracts.js');
@@ -52,18 +53,18 @@ test('the ladder: a new player starts at level 0 «Репетиція»; the lis
     localStorage.setItem('nocturne.stars', JSON.stringify({ first: { medium: 2 }, clock: { medium: 1 }, quiet: { medium: 1 } }));
     out.old = Cm.levels().filter((l) => l.act === 1).map((l) => `${l.n}${Cm.isOpenLevel(l) ? 'o' : 'x'}${Cm.passed(l) ? 'p' : ''}`).join(' ');
     out.oldCurrent = Cm.currentLevel().n;
-    // the mansion: 8★ in the dacha, the rehearsal's star not among them
-    localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, first: { hard: 3 }, clock: { hard: 3 }, wardrobe: { medium: 1 } }));
-    out.mansion7 = E.mapOpen('mansion'); out.stars7 = E.mapStars('dacha');
-    localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, first: { hard: 3 }, clock: { hard: 3 }, wardrobe: { medium: 1 }, quiet: { medium: 1 } }));
-    out.mansion8 = E.mapOpen('mansion');
+    // the mansion: a star on level 5 («Годинник»), not a count of stars
+    localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, first: { hard: 3 }, chest: { hard: 3 }, quiet: { hard: 3 }, wardrobe: { medium: 1 } }));
+    out.mansion4 = E.mapOpen('mansion');
+    localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, clock: { medium: 1 } }));
+    out.mansion5 = E.mapOpen('mansion');
     return out;
   });
   assert.equal(after.firstOpen, true, 'a star on the rehearsal opens level 1');
   assert.equal(after.current, 1);
-  assert.equal(after.old, '0op 1op 2op 3op 4op 5o 6x 7x', 'the old player: 0–3 passed, 5 open, 6 and 7 closed');
-  assert.equal(after.oldCurrent, 5, 'the old player goes on from level 5');
-  assert.deepEqual([after.mansion7, after.stars7, after.mansion8], [false, 7, true], 'the mansion at 8★ without the rehearsal');
+  assert.equal(after.old, '0op 1op 2op 3op 4op 5op', 'the old player: the levels put in (0, «Скриня», «Шафа») are passed by the later stars');
+  assert.equal(after.oldCurrent, 6, 'the old player goes on in the mansion');
+  assert.deepEqual([after.mansion4, after.mansion5], [false, true], 'the mansion after a star on level 5');
   assert.deepEqual(errors, []);
   await ctx.close();
   // the tests' classic game (no `campaign`): the old list, contract 1 first, every mechanic there
@@ -79,11 +80,12 @@ test('the ladder: a new player starts at level 0 «Репетиція»; the lis
   await c2.close();
 });
 
-test('mechanics one level at a time: no cans before 4, no devices before 7, Шафник asleep before 3 (the box shut), the van\'s traps — soap and marbles from 5, the rest from 7; the shop shows only the traps reached; «Відкрити все» on a preview opens all', async () => {
-  const all = { rehearsal: S1, first: S1, clock: S1, wardrobe: S1, quiet: S1, silent: S1, rush: S1 };
+test('mechanics one level at a time (campaign v2): no cans before 3, Шафник asleep before 4 (the box shut), no devices and no traps on this ladder yet (they come with «Кабінет» and «Мило»); the shop shows no traps; «Відкрити все» on a preview opens all', async () => {
+  const all = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1, clock: S1 };
   const { ctx, page, errors } = await camp(base, { stars: all, wallet: WALLET });
   const r = await page.evaluate(async () => {
     const g = window.__game, E = await import('./src/systems/economy.js');
+    localStorage.setItem('nocturne.wallet2', JSON.stringify({ cash: 0, earned: 0, spent: 0, owned: [], paid: {}, log: [], stock: { soap: 1, marbles: 1, bucket: 1 } }));
     g.patrol.update = () => null;
     const W = g.level.wardrobe, out = {};
     const at = (id) => {
@@ -97,32 +99,18 @@ test('mechanics one level at a time: no cans before 4, no devices before 7, Ша
       g.player.teleport(g.level.spawn.x, g.level.spawn.z, g.level.spawn.yaw);
       return o;
     };
-    for (const id of ['rehearsal', 'first', 'clock', 'wardrobe', 'quiet', 'silent', 'evening']) out[id] = at(id);
-    out.rows = E.shopRows().filter((x) => x.consumable).map((x) => x.id).join(',');
+    for (const id of ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock']) out[id] = at(id);
+    out.rows = E.shopRows().filter((x) => x.consumable).length;
     return out;
   });
   const n = r.rehearsal.cans.split('/')[1];
-  for (const id of ['rehearsal', 'first', 'clock', 'wardrobe']) assert.equal(r[id].cans, `0/${n}`, `${id}: no cans`);
-  for (const id of ['quiet', 'silent', 'evening']) assert.equal(r[id].cans, `${n}/${n}`, `${id}: the cans are there`);
-  for (const id of ['rehearsal', 'first', 'clock', 'wardrobe', 'quiet', 'silent']) assert.equal(r[id].dev, false, `${id}: no devices`);
-  assert.equal(r.evening.dev, true, 'level 7: the devices');
-  for (const id of ['rehearsal', 'first', 'clock']) assert.deepEqual([r[id].lurker, r[id].box], ['dormant', true], `${id}: Шафник sleeps, the box shut`);
-  assert.notEqual(r.wardrobe.lurker, 'dormant', 'level 3: Шафник wakes');
-  for (const id of ['rehearsal', 'first', 'clock', 'wardrobe']) assert.equal(r[id].van, '', `${id}: no traps in the van`);
-  assert.equal(r.quiet.van, '', '«Без тривоги»: no traps (as before)');
-  assert.equal(r.silent.van, 'marbles,soap', 'level 5: soap and marbles, not the bucket');
-  assert.equal(r.evening.van, 'bucket,marbles,soap', 'level 7: all');
-  assert.equal(r.rows, 'trap:soap,trap:marbles,trap:bucket,trap:clock,trap:rope', 'level 7 open: every trap in the shop');
-  // only up to level 5 open: the shop has soap and marbles only
-  const few = await page.evaluate(async () => {
-    const E = await import('./src/systems/economy.js');
-    localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, first: { medium: 1 }, clock: { medium: 1 }, wardrobe: { medium: 1 }, quiet: { medium: 1 } }));
-    const five = E.shopRows().filter((x) => x.consumable).map((x) => x.id).join(',');
-    localStorage.setItem('nocturne.stars', '{}');
-    return { five, none: E.shopRows().filter((x) => x.consumable).length };
-  });
-  assert.equal(few.five, 'trap:soap,trap:marbles');
-  assert.equal(few.none, 0, 'a new player: no traps in the shop');
+  for (const id of ['rehearsal', 'first', 'chest']) assert.equal(r[id].cans, `0/${n}`, `${id}: no cans`);
+  for (const id of ['quiet', 'wardrobe', 'clock']) assert.equal(r[id].cans, `${n}/${n}`, `${id}: the cans are there`);
+  for (const id of ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock']) assert.equal(r[id].dev, false, `${id}: no devices`);
+  for (const id of ['rehearsal', 'first', 'chest', 'quiet']) assert.deepEqual([r[id].lurker, r[id].box], ['dormant', true], `${id}: Шафник sleeps, the box shut`);
+  assert.notEqual(r.wardrobe.lurker, 'dormant', 'level 4: Шафник wakes');
+  for (const id of ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock']) assert.equal(r[id].van, '', `${id}: no traps in the van (even with some in stock)`);
+  assert.equal(r.rows, 0, 'no traps in the shop');
   assert.deepEqual(errors, []);
   await ctx.close();
   // a preview with «Відкрити все»: level 0 has everything
@@ -141,7 +129,7 @@ test('mechanics one level at a time: no cans before 4, no devices before 7, Ша
   await pv.ctx.close();
 });
 
-test('the rehearsal: Petrovych sits down in his armchair and stays; the clock stands («Годинник стоїть»); two items in the van = the goal, one star, no bonus; the result says «Прийнято. Далі — рівень 1» and «Далі: рівень 1» starts level 1', async () => {
+test('the rehearsal: Petrovych sits down in his armchair and stays; the clock stands («Годинник стоїть»); two items in the van = the goal, one star, no bonus; the result: «Ще раз» and «Далі: рівень 1», which starts level 1', async () => {
   const { ctx, page, errors } = await camp();
   const r = await page.evaluate(async () => {
     const g = window.__game, out = {}, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js');
@@ -162,7 +150,7 @@ test('the rehearsal: Petrovych sits down in his armchair and stays; the clock st
     const said = [], c2 = g.board.g, orig = c2.fillText;
     c2.fillText = function (t, ...a) { said.push(String(t)); return orig.call(this, t, ...a); };
     G.lastBoardSig = null; G.boardDirty = true; board.present(0.1);
-    c2.fillText = orig; out.accepted = said.includes('Прийнято. Далі — рівень 1');
+    c2.fillText = orig; out.checks = said.filter((t) => /^[✓✗]( \+\$|$)/.test(t));   // the stars' lines, not the items'
     out.verdict = { goal: g.verdict.goal, bonus: g.verdict.bonus, stars: g.verdict.stars };
     out.buttons = g.board.buttons.map((b) => b.id + ':' + b.label);
     const P = await import('./src/systems/phone.js'), sm = P.summaryState();   // the phone's summary: the same button
@@ -180,9 +168,9 @@ test('the rehearsal: Petrovych sits down in his armchair and stays; the clock st
   assert.equal(r.stillSitting, true, 'he stays in the chair');
   assert.equal(r.progress.done, true);
   assert.deepEqual(r.verdict, { goal: true, bonus: false, stars: 1 });
-  assert.ok(r.accepted, 'the result: «Прийнято. Далі — рівень 1»');
+  assert.deepEqual(r.checks, ['✓ +$200 нова'], `one star on the checklist: ${JSON.stringify(r.checks)}`);
   assert.ok(r.buttons.includes('nextlvl:Далі: рівень 1'), r.buttons.join(' | '));
-  assert.ok(!r.buttons.some((b) => b.startsWith('again')), 'no «Новий раунд» next to it');
+  assert.ok(r.buttons.includes('again:Ще раз'), 'and «Ще раз» next to it (campaign v2)');
   assert.deepEqual(r.summary, { next: 1, practice: true }, 'the phone\'s summary: «Далі: рівень 1»');
   assert.deepEqual(r.next, { contract: 'first', phase: 'ready' });
   assert.deepEqual(errors, []);
@@ -212,7 +200,7 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
   });
   assert.deepEqual(r.buttons.filter((b) => b !== 'lurkers' && b !== 'papers'), ['go', 'levels'], r.buttons.join(' '));
   assert.ok(r.said.includes('РІВЕНЬ 1 · ТИХИЙ КУТ'), r.said.join(' | '));
-  assert.ok(r.said.some((t) => t.startsWith('★ мета:')), 'the goal');
+  assert.ok(r.said.includes('винеси щонайменше $500'), 'the goal: the first star\'s row');
   assert.ok(r.said.includes('Нове: сторож ходить'), 'what is new');
   assert.ok(r.said.some((t) => /pp\.$/.test(t)), 'the customer\'s «pp.»');
   assert.equal(r.flash, 'Вийди з фургона — годинник піде');
@@ -226,17 +214,17 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
 // menu design stage 1 + T1: the «Грати» page is level cards 0–14 by house whatever the remembered map;
 // a new player starts at level 0 on the dacha; a closed level never starts (cards, the old select, a
 // remembered value, the board's ◀ ▶, «Грати»); a level of the other house reloads the page there
-const STARS8 = { rehearsal: { medium: 1 }, first: { medium: 3 }, clock: { medium: 3 }, wardrobe: { medium: 1 }, quiet: { medium: 1 } };
+const STARS8 = { rehearsal: { medium: 1 }, first: { medium: 3 }, chest: { medium: 3 }, quiet: { medium: 1 }, wardrobe: { medium: 1 }, clock: { medium: 1 } };   // campaign v2: the mansion after a star on 5
 const cards = (page) => page.evaluate(() => [...document.querySelectorAll('#levelpick .lv-card')].map((b) => ({ id: b.dataset.level, n: b.querySelector('.lv-n').textContent, off: b.disabled, on: b.classList.contains('on') })));
-test('«Грати» (T1): a new player — level 0 on the dacha, «Грати» on; every level 0–14 in the ladder order, the closed ones 🔒 and not pressable', async () => {
+test('«Грати» (T1): a new player — level 0 on the dacha, «Грати» on; every level 0–8 in the ladder order, the closed ones 🔒 and not pressable', async () => {
   const { ctx, page, errors } = await camp();
   const c = await cards(page);
-  assert.deepEqual(c.map((x) => x.id), ['rehearsal', 'first', 'clock', 'wardrobe', 'quiet', 'silent', 'rush', 'evening', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14']);
+  assert.deepEqual(c.map((x) => x.id), ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock', 'm8', 'm10', 'm12']);
   assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal'], 'only level 0 is open');
   assert.ok(c.filter((x) => x.off).every((x) => x.n.includes('🔒')));
   const st = await page.evaluate(() => ({ map: window.__game.level.id, c: window.__game.contract.id, start: document.getElementById('start').disabled, note: document.querySelector('.lv-house[data-house="mansion"] .lv-note').textContent }));
   assert.deepEqual([st.map, st.c, st.start], ['dacha', 'rehearsal', false]);
-  assert.match(st.note, /^Маєток: потрібно 8★ \(є 0\)$/);
+  assert.match(st.note, /^Маєток: спершу ★ на рівні 5$/);
   // a closed card, the old select, the board's ▶: nothing changes; «Грати» stays on the open level
   await page.click('#levelpick [data-level="clock"]', { force: true });
   await page.selectOption('#contract', 'clock');
@@ -249,22 +237,22 @@ test('«Грати» (T1): a new player — level 0 on the dacha, «Грати»
   assert.deepEqual(errors, []);
   await ctx.close();
 });
-test('«Грати» (T1): a remembered closed level and a remembered mansion — the page opens on an open level; all 15 cards whatever the map; a mansion card reloads the page on the mansion with that level', async () => {
+test('«Грати» (T1): a remembered closed level and a remembered mansion — the page opens on an open level; all 9 cards whatever the map; a dacha card reloads the page on the dacha with that level', async () => {
   // a remembered closed level: back to where the ladder stands
   {
     const { ctx, page, errors } = await camp(base, { stars: { rehearsal: { medium: 1 } } });
-    await page.evaluate(() => { localStorage.setItem('nocturne.contract', '"evening"'); });
+    await page.evaluate(() => { localStorage.setItem('nocturne.contract', '"wardrobe"'); });
     await page.reload(); await page.waitForFunction(() => window.__game);
-    assert.equal(await page.evaluate(() => window.__game.contract.id), 'first', 'the remembered closed level 7 is not where it opens');
+    assert.equal(await page.evaluate(() => window.__game.contract.id), 'first', 'the remembered closed level 4 is not where it opens');
     assert.deepEqual(errors, []);
     await ctx.close();
   }
-  // 8★: the mansion is open; it is remembered (the bug: the list showed only 8–14)
+  // a star on 5: the mansion is open; it is remembered (the bug: the list showed only the mansion's levels)
   const { ctx, page, errors } = await camp(base + '?map=mansion', { stars: STARS8 });
   assert.equal(await page.evaluate(() => window.__game.level.id), 'mansion');
   const c = await cards(page);
-  assert.equal(c.length, 15, 'every level, not only the mansion’s');
-  assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal', 'first', 'clock', 'wardrobe', 'quiet', 'silent', 'm8'], JSON.stringify(c));
+  assert.equal(c.length, 9, 'every level, not only the mansion’s');
+  assert.deepEqual(c.filter((x) => !x.off).map((x) => x.id), ['rehearsal', 'first', 'chest', 'quiet', 'wardrobe', 'clock', 'm8'], JSON.stringify(c));
   assert.equal(c.find((x) => x.on).id, 'm8');
   // a dacha card from the mansion page: the page reloads on the dacha with that level
   await page.click('#levelpick [data-level="clock"]');

@@ -9,7 +9,7 @@ import { Board, money } from '../ui/board.js';
 import { Mic, Breath } from '../audio/mic.js';
 import { ScreamRecorder } from '../audio/scream.js';
 import { playCash, Siren, playGrunt, playKettle, playFlush, playRing, playMurmur, playYawn, playRadio } from '../audio/audio.js';
-import { evaluate, recordStars } from '../game/contracts.js';
+import { evaluate, recordStars, recordBits } from '../game/contracts.js';
 import { NoiseSystem } from '../noise/noise.js';
 import { Loot } from '../loot/items.js';
 import { Nav } from '../enemies/nav.js';
@@ -127,6 +127,7 @@ export const world = {
     const round = G.round = new Round({
       loot, alert, patrol, lurker, lurkers, scream,
       get hands() { return G.hands; },
+      get guards() { return G.guards; },
       friendsHeld: () => (G.netHeld ? G.netHeld() : []),
       onMessage: (t, c, s) => { flash(t, s || 3, c); if (G.netEvent) G.netEvent('flash', { t, c, s: s || 3 }); },
       onPhase: (phase) => {
@@ -144,6 +145,7 @@ export const world = {
           G.resultT = 0; G.autoPlayed = false;
           const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
           verdict.newBest = G.role === 'guard' ? false : recordStars(G.contract.id, G.difficulty, verdict.stars, G.net ? 'coop' : G.MODE.mode);   // with friends: the coop table (plan-multiplayer §5); the guard (W15) wins no stars
+          if (verdict.bits && G.role !== 'guard') { verdict.fresh = recordBits(G.contract.id, verdict.bits); verdict.newBest = verdict.fresh.some(Boolean); }   // campaign v2: star by star
           if (G.netEvent) G.netEvent('result', { R, alarmed: round.alarmed });
           flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
         }

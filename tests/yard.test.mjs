@@ -1,7 +1,7 @@
 // The dacha's yard (claude/dacha-yard, claude/dacha-yard-near, world/yard.js): a solid fence round the yard
 // with one gate; the van stands in the lane right behind it, 10–15 m from the front door; the guard (AI or a
 // friend) comes out to the porch and the front of the garden but never to the gate, and from nowhere he can
-// stand does he see the van; the walk fits in the dacha's contracts (levels 0–7); several thieves at the van
+// stand does he see the van; the walk fits in the dacha's contracts (levels 0–5); several thieves at the van
 // still work (the ring, the escape).
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
@@ -102,7 +102,7 @@ test('yard: cover in the garden hides a crouching thief, not a standing one (bus
   await ctx.close();
 });
 
-test('yard: the walk van ↔ house fits in the time of every dacha level (0–7) on every difficulty — the items the goal needs, one per trip, at the silent walk', async () => {
+test('yard: the walk van ↔ house fits in the time of every dacha level (0–5) on every difficulty — the items the goal needs, one per trip, at the silent walk', async () => {
   const ctx = await campaignCtx();
   const { page, errors } = await open(ctx, base + '?map=dacha');
   const r = await page.evaluate(async () => {

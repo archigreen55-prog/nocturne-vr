@@ -11,7 +11,7 @@ import { Summary } from '../ui/summary.js';
 import { bindPress } from '../ui/press.js';
 import { unlockAudio, setAudioStateHook, setPanning, suspendAudio } from '../audio/audio.js';
 import { DIFFS } from '../game/difficulty.js';
-import { goalText, bonusText } from '../game/contracts.js';
+import { goalText, bonusText, isLevel, starChecklist, againLabel } from '../game/contracts.js';
 import { PRESETS } from '../perf/quality.js';
 import { copyReport } from '../debug/report.js';
 import { G, $ } from './state.js';
@@ -25,7 +25,7 @@ import { restartTutorial } from './tutorial.js';
 import { openProgress } from './progressCode.js';
 import { brightnessStep, toggleOutdoor, brightnessLabel, outdoorLabel } from './brightness.js';
 import { shopRows, buyUpgrade, lockText, incomeText } from './economy.js';
-import { nextOpen } from './campaign.js';
+import { nextOpen, nextLabel } from './campaign.js';
 import { mischiefText } from './traps.js';
 import { beforeNow, afterNow } from './story.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
@@ -90,7 +90,13 @@ export const summaryState = () => ({
   result: G.round.result, verdict: G.verdict, contractName: G.contract.name, difficulty: G.difficulty, bonusText: bonusText(G.contract),
   clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: G.mic.noMic, income: G.role === 'guard' ? guardResultText() : incomeText(), mischief: mischiefText(), story: afterNow(),
   next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
+  ...levelSummary(),   // campaign v2: the stars' checklist, «Ще раз за ★★★», «Далі»
 });
+function levelSummary() {
+  const c = G.contract, V = G.verdict, n = nextOpen();
+  if (!isLevel(c) || !V || !V.bits) return {};
+  return { checklist: starChecklist(c, G.loot.items, V, (G.income && G.income.fresh) || []), againLabel: againLabel(c, V), nextLabel: n ? nextLabel(n) : '' };
+}
 // phone: the board button under the crosshair (decision A + B: tap the board or aim and press «Натиснути»)
 export const boardAim = () => (G.touch && G.playingDesktop && G.caughtT < 0 && !G.paused && !(G.summary && G.summary.isOpen) ? G.pointer.hover.desk : null);
 

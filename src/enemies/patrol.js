@@ -157,6 +157,7 @@ export class Patrol {
     this.occT = 0;
     this.repathT = 0;
     this.seenCount = 0;
+    this.doubts = 0;          // campaign v2 (★★★ 👂): how many times it went from calm to «?» because of a thief (not a can, not a device)
     this.reactAt = null;
     this.stay = false;        // posted at an exit during a full alarm (W6: the second guard)
     // running (CFG.sprint): it goes to look fast and follows the steps; on hard it dashes in a chase
@@ -316,6 +317,7 @@ export class Patrol {
     if (e.kind === 'run') this.heardRunT = 2;
     if (this.state === 'chase') return;
     if (e.device && this.brain.deviceTask(e.device)) return;   // W2a: a device: it goes to switch it off
+    if (this.state === 'task' && !this.env.alert.full && e.kind !== 'can' && e.kind !== 'device') this.doubts++;
     const f = this.env.level.floorIndex ? this.env.level.floorIndex(ey) : undefined;
     if (this.env.alert.full) this.hunt(e.x, e.z, f);
     else if (e.kind === 'run' && CFG.sprint.react === 'fast') this.heardRun(e.x, e.z, f);
@@ -599,6 +601,7 @@ export class Patrol {
     } else this.meter = Math.max(0, this.meter - dt * P.meterDecay);
     if (this.meter >= 1) { this.meter = 1; if (this.visible || feel) { this.visible = true; this.startChase(player); } }
     else if (this.meter > P.noticeAt && this.state === 'task') {
+      this.doubts++;
       this.react(hx, hz);   // stops, looks, then "hm? what was that?" and comes to look
     }
     if (this.state === 'task') this.brain.watch(dt);   // missing loot, doors left open

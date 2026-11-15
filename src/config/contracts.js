@@ -1,7 +1,7 @@
 // Contracts in this house (game/contracts.js).
 // Units: metres, seconds, m/s (see src/config/index.js).
 import { S } from '../i18n/index.js';
-import { CLASSIC } from './campaign.js';
+import { ladderOf } from './campaign.js';
 
 // ---------- contracts in this house (game/contracts.js) ----------
 // goal: sum (deliver at least $sum) | item (deliver this item) | mischief (points, W2b); noAlarm / noShout: extra conditions.
@@ -16,6 +16,8 @@ const ALL = [
   { id: 'rehearsal', name: S.contracts.rehearsal.name, brief: S.contracts.rehearsal.brief, goal: { count: 2 }, bonus: 'none', campaign: true, practice: true, mods: { armchairAtStart: true, noClock: true } },
   { id: 'first', name: S.contracts.first.name, brief: S.contracts.first.brief, goal: { sum: 2000 }, bonus: 'clean' },
   { id: 'clock', name: S.contracts.clock.name, brief: S.contracts.clock.brief, goal: { item: 'clock' }, bonus: 'clean' },
+  // campaign v2 (plan 2026-11-15): level 2 «Скриня» — the two-handed item, the nearest big one to the way out
+  { id: 'chest', name: S.campaign2.contracts.chest.name, brief: S.campaign2.contracts.chest.brief, goal: { item: 'chest' }, bonus: 'clean', campaign: true },
   { id: 'wardrobe', name: S.contracts.wardrobe.name, brief: S.contracts.wardrobe.brief, goal: { item: 'jewelbox' }, bonus: 'clean', campaign: true },
   { id: 'quiet', name: S.contracts.quiet.name, brief: S.contracts.quiet.brief, goal: { sum: 1500, noAlarm: true }, bonus: 'intact' },
   { id: 'silent', name: S.contracts.silent.name, brief: S.contracts.silent.brief, goal: { sum: 1500, noShout: true }, bonus: 'intact', mods: { lurkerCooldown: 20 }, needsMic: true },
@@ -24,4 +26,6 @@ const ALL = [
   // traps; opens after a star on «На час» (decision R8 A: also once «Напарник» (W5) comes in between)
   { id: 'evening', name: S.contracts.evening.name, brief: S.contracts.evening.brief, goal: { mischief: 500 }, bonus: 'mischief', after: 'rush', mods: { trapsK: 2 } },
 ];
-export const contracts = CLASSIC ? ALL.filter((c) => !c.campaign) : ALL;
+// the campaign: only its ladder's levels, in its order, with their goals and times (config/campaign.js ladderOf);
+// the tests' classic game: the old contracts as they were
+export const contracts = ladderOf(ALL, S.campaign2.contracts);

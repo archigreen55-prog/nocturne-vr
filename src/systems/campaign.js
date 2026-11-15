@@ -9,6 +9,8 @@ import { pause2D } from './desktop.js';
 import { goPage } from './menu.js';
 import { CLASSIC, unlocked, levelOf, nextLevel, isOpenLevel, introOf } from '../game/campaign.js';
 import { S } from '../i18n/index.js';
+import { saveSetting } from '../settings.js';
+import { switchMap } from '../world/maps.js';
 
 // After a new round, another contract or difficulty (systems/contract.js) and at the start: the cans
 // and bottles are not in the house before their level, the devices are not there (decision §7.7).
@@ -40,8 +42,14 @@ export function campaignNote(c = G.contract) {
 export function nextOpen() {
   if (CLASSIC || !G.verdict || !G.verdict.goal) return null;
   const n = nextLevel(G.contract.id);
-  return n && isOpenLevel(n) && CFG.contracts.some((c) => c.id === n.id) ? n : null;   // the same house only (another map: the menu)
+  if (!n || !isOpenLevel(n)) return null;
+  if (CFG.contracts.some((c) => c.id === n.id)) return n;
+  // campaign v2 (plan §4.2): the next level in the other house — «Далі: Маєток» reloads the page there
+  const act = CFG.campaign.acts.find((a) => a.n === n.act);
+  return act && act.map ? { ...n, other: act.map, house: S.campaign.house[act.map] || act.map } : null;
 }
+// the button's words: «Далі: рівень N» or «Далі: Маєток»
+export const nextLabel = (n) => (n.other ? S.campaign2.nextHouse(n.house) : S.campaign.next(n.n));
 
 // The board's buttons of the campaign; true when it was one of them (systems/contract.js pressBoard)
 export function campaignPress(id, { newRound, setContract }) {
@@ -60,6 +68,7 @@ export function campaignPress(id, { newRound, setContract }) {
   if (id === 'nextlvl') {
     const n = nextOpen();
     if (!n) return true;
+    if (n.other) { saveSetting('contract', n.id); switchMap(n.other); return true; }   // the other house: the page reloads there
     newRound();
     setContract(n.id);
     return true;

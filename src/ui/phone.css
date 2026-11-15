@@ -174,6 +174,16 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 .sm-income { color: #ffd166; font-weight: 700; font-size: 14px; margin: 2px 0 4px; }
 .sm-story { color: #c9d3e3; font-style: italic; font-size: 13px; margin: 4px 0 0; }
 .sm-crew { color: #ffd166; font-style: italic; font-size: 13px; margin: 0 0 4px; }   /* W2b, W7: the customer and the crew (yellow) */
+/* campaign v2 (plan 2026-11-15 §4.3 A): the stars' checklist and the two buttons «Ще раз за ★★★» / «Далі» */
+.sm-checks { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; }
+.sm-check { display: grid; grid-template-columns: 3.3em 1fr auto; gap: 6px; align-items: baseline; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.sm-check i { font-style: normal; color: #ffd166; letter-spacing: 1px; }
+.sm-check b { color: #ff9f43; font-size: 12.5px; text-align: right; }
+.sm-check.got span { color: #c9d3e3; } .sm-check.got b { color: #5fd38d; }
+.sm-buttons2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: auto; }
+.sm-buttons2 > :only-child { grid-column: 1 / -1; }
+.sm-quietrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sm-quietrow .sm-btn { min-height: 38px; font-size: 13.5px; flex: 1 1 auto; }
 
 /* throwing (W2a): the context button while aiming, the ✕ beside it (lift there = do not throw) */
 #touch .act.aim { border-color: #ffd166; background: rgba(255, 209, 102, .3); }

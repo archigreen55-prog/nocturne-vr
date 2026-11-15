@@ -47,7 +47,7 @@ export class Summary {
     if (extra.length) left.append(el('div', 'sm-extra', extra.join(' · ')));
     // right: contract, scream, buttons
     const right = el('div', 'sm-right');
-    if (V) {
+    if (V && !s.checklist) {
       right.append(el('div', 'sm-contract', s.contractName));
       right.append(el('div', 'sm-stars' + (V.stars ? '' : ' none'), `${'★'.repeat(V.stars)}${'☆'.repeat(3 - V.stars)}`));
       if (V.newBest) right.append(el('div', 'sm-record', S.summary.newBest));
@@ -55,10 +55,11 @@ export class Summary {
         ? (s.next && s.practice ? S.campaign.accepted(s.next.n) : S.board.res.goalOk(s.bonusText, V.bonus, V.bonus && s.difficulty !== 'hard'))
         : S.board.res.goalFail(V.why.join(', '))));
     }
+    const mk = (label, fn, cls = '') => { const b = el('button', 'sm-btn ' + cls, label); b.type = 'button'; bindPress(b, fn); return b; };
+    if (s.checklist) { this.show2(s, card, left, right, mk); return; }   // campaign v2
     const scream = el('div', 'sm-scream');
     right.append(scream);
     const row = el('div', 'sm-buttons');
-    const mk = (label, fn, cls = '') => { const b = el('button', 'sm-btn ' + cls, label); b.type = 'button'; bindPress(b, fn); return b; };
     const play = mk(S.board.listen, () => this.h.play());
     const again = s.guest ? el('span', 'muted', S.net.waitHost(s.guest)) : s.next ? mk(S.campaign.next(s.next.n), () => this.h.next(), 'primary') : mk(S.board.res.newRound, () => this.h.again(), 'primary');   // W19: the next level
     row.append(again, play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), s.room ? 'primary' : 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
@@ -67,6 +68,38 @@ export class Summary {
     this.root.replaceChildren(card);
     this.root.hidden = false;
     this.refs = { scream, play, R, last: '' };
+    this.update(s);
+  }
+
+  // Campaign v2 (plan §4.3 A «Чекліст зірок»): the level, its stars, each star ✓ +$ нова / ✗ why; the buttons
+  // «Ще раз за ★★★ (+$500)» and «Далі» (the one that fits is the primary), then the scream, the menu, the report
+  show2(s, card, left, right, mk) {
+    const V = s.verdict;
+    right.append(el('div', 'sm-contract', s.contractName));
+    right.append(el('div', 'sm-stars' + (V.stars ? '' : ' none'), `${'★'.repeat(V.stars)}${'☆'.repeat(Math.max(0, s.checklist.length - V.stars))}`));
+    const list = el('div', 'sm-checks');
+    for (const r of s.checklist) {
+      const row = el('div', 'sm-check' + (r.got ? ' got' : ''));
+      row.append(el('i', '', '★'.repeat(r.n)), el('span', '', r.text), el('b', '', `${r.got ? S.campaign2.star.got : S.campaign2.star.missed}${r.note ? ' ' + r.note : ''}`));
+      list.append(row);
+    }
+    right.append(list);
+    const scream = el('div', 'sm-scream');
+    right.append(scream);
+    const row = el('div', 'sm-buttons2');
+    if (s.guest) row.append(el('span', 'muted', S.net.waitHost(s.guest)));
+    else {
+      row.append(mk(s.againLabel, () => this.h.again(), s.next ? '' : 'primary'));
+      if (s.next) row.append(mk(s.nextLabel, () => this.h.next(), 'primary'));
+    }
+    const play = mk(S.board.listen, () => this.h.play(), 'quiet');
+    const small = el('div', 'sm-quietrow');
+    small.append(play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
+    right.append(row, small);
+    card.append(left, right);
+    this.root.replaceChildren(card);
+    this.root.hidden = false;
+    this.refs = { scream, play, R: s.result, last: '' };
     this.update(s);
   }
 

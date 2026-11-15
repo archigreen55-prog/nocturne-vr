@@ -2,7 +2,7 @@
 // changing the map reloads the page with ?map=<id> (the lights and shaders are fixed per page).
 import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting } from '../settings.js';
-import { mapOpen as starsOpen, starsBefore } from '../game/economy.js';
+import { mapOpen as starsOpen, starsBefore, lockOf } from '../game/economy.js';
 import { buildLevel as buildDacha } from './level.js';
 import { buildMansion } from './mansion/level.js';
 import { S } from '../i18n/index.js';
@@ -21,7 +21,8 @@ export function applyMapConfig() {
 }
 // the board's «Карта» page: every map, which is open and which this page runs
 export const mapsForBoard = (current) => Object.keys(MAPS).map((id) => ({ id, name: MAPS[id].name(), blurb: MAPS[id].blurb(), open: mapOpen(id), current: id === current,
-  lock: mapOpen(id) ? '' : S.shop.mapLock(CFG.shop.unlock.maps[id], starsBefore(id)) }));
+  lock: mapOpen(id) ? '' : lockOfMap(id) }));
+const lockOfMap = (id) => { const L = lockOf((MAPS[id].contracts || [])[0] || { id: '', map: id }); return L && L.level !== undefined ? `🔒 ${S.campaign2.houseAfter(MAPS[id].name(), L.level)}` : S.shop.mapLock(CFG.shop.unlock.maps[id], starsBefore(id)); };
 // go to another map: remembered, then the page reloads with ?map=<id> (one page = one map)
 export function switchMap(id) {
   if (!MAPS[id] || !mapOpen(id)) return false;
