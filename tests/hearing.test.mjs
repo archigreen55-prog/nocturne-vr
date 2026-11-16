@@ -173,3 +173,25 @@ test('levels 0–2 stay passable with the new hearing (campaign): talking 3 s be
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('rings on the floor (owner 16.11): a player\'s noise rings lie on that player\'s floor — the mansion\'s ground floor, its upper floor (3 m), the yard — and walls hide them (depth-tested, not drawn over everything)', async () => {
+  const ctx = await newContext(browser);
+  await ctx.addInitScript(() => { localStorage.setItem('nocturne.preview.openAll', 'true'); });
+  const { page, errors } = await open(ctx, base + 'preview/test/?map=mansion');
+  const r = await page.evaluate(() => {
+    const g = window.__game, M = g.CFG.mic, out = { map: g.level.id };
+    g.playing = true;
+    const ringY = (x, z, fy) => { g.player.teleport(x, z, 0, fy); g.sim(0.1); g.noise.clear(); g.noise.emit(x, z, M.voice.radius, 'voice', { who: g.player, source: 'patrol' }); return g.noise.ripples.map((p) => +p.y.toFixed(2)); };
+    out.ground = ringY(0, -8.5, 0);
+    out.upper = ringY(-9.5, -15, 3);
+    out.depthTest = g.noise.mesh.material.depthTest;
+    g.noise.clear();
+    return out;
+  });
+  assert.equal(r.map, 'mansion');
+  assert.deepEqual(r.ground, [0.04, 0.04], 'the ground floor');
+  assert.deepEqual(r.upper, [3.04, 3.04], 'the upper floor: on its floor, not at y 0');
+  assert.equal(r.depthTest, true, 'walls hide the rings');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
