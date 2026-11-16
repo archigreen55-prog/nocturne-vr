@@ -191,9 +191,10 @@ test('phone gyroscope (option): off by default; on from the menu (a tap); turnin
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
   await fingerPressEl(page, cdp, pm('Налаштування'));
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn:has-text("Гіроскоп")');
+  await page.waitForFunction(() => document.body.classList.contains('set-over-pause'));
+  await fingerPressEl(page, cdp, '#gyrobtn');   // the gyroscope row of the settings page
   await page.waitForFunction(() => window.__game.gyro.on);
-  await fingerPressEl(page, cdp, pm('Назад'));
+  await fingerPressEl(page, cdp, '#overlay section[data-page="settings"] [data-back]');
   await fingerPressEl(page, cdp, pm('Продовжити'));
   await page.waitForFunction(() => !window.__game.paused);
   const turn = (angle, beta, gamma) => page.evaluate(async ([angle, beta, gamma]) => {

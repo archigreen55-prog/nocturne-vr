@@ -162,6 +162,8 @@ export const phone = {
       // the system took the audio away (iPhone 'interrupted', Android 'suspended' during a call)
       setAudioStateHook((state) => { if (state !== 'running') pauseAuto('audio'); });
     }
+    // «Навчання ще раз» on the «Ще» page opened from the pause: the tutorial restarts (progressCode.js) and the game goes on, as the old pause button did
+    if (touch && $('tutorialbtn')) bindPress($('tutorialbtn'), () => { if (settingsOver.isOpen) { settingsOver.close(); pauseResume(); } });
     if (touch && $('setresume')) bindPress($('setresume'), () => { settingsOver.close(); pauseResume(); });   // «Продовжити» in the settings page opened from the pause
     G.holdDoor = null;
   },
