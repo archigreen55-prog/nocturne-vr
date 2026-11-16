@@ -24,6 +24,15 @@ const AI_DT = 0.1;         // vision checks 10 times a second
 
 function angleDiff(a, b) { const d = a - b; return Math.atan2(Math.sin(d), Math.cos(d)); }
 
+// The furthest z the guard may go at x (null: no leash): the map's leash (world/yard.js LEASH), or the campaign's
+// gate watch on the dacha (CFG.run.gateWatch): a corridor along the garden path down to the gate, the rest of
+// the garden shorter. The human guard (systems/humanGuard.js) keeps to the same line.
+export function leashZ(level, x) {
+  const W = CFG.run && CFG.run.gateWatch;
+  if (W) return Math.abs(x - W.x) <= W.half ? W.maxZ : W.yardMaxZ;
+  return level && level.leash ? level.leash.maxZ : null;
+}
+
 export class Patrol {
   // env: { level, nav, alert, listener() -> { x, z } }
   constructor(env) {
@@ -204,8 +213,8 @@ export class Patrol {
   // the map's leash (the dacha: world/yard.js LEASH): the guard goes out to the porch and the gate, never
   // down the street to the van — a goal past it is taken to the gate's line
   goTo(x, z, toFloor) {
-    const L = this.env.level && this.env.level.leash;
-    if (L && z > L.maxZ) z = L.maxZ;
+    const mz = leashZ(this.env.level, x);
+    if (mz !== null && z > mz) z = mz;
     this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z];
   }
   get floor() { return this.env.level.floorIndex ? this.env.level.floorIndex(this.y) : 0; }

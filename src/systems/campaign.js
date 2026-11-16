@@ -26,6 +26,8 @@ export function applyLevel() {
   }
   if (G.devices) G.devices.setEnabled(unlocked('devices', c));
   placeItems(c);
+  // the dacha's gate watch (config/campaign.js gateWatch): the guard's leash becomes the corridor to the gate
+  if (CFG.run) CFG.run.gateWatch = !CLASSIC && G.level && G.level.id === 'dacha' && unlocked('gateWatch', c) ? CFG.campaign.gateWatch : null;
 }
 // campaign v2: a level's own places for some items (CFG.campaign.levels[].place; the rehearsal: a book by the back
 // window); every other level: where they always lie. Moved only while the round waits at the van.
@@ -52,9 +54,10 @@ export function campaignNote(c = G.contract) {
     noClock: !!(c.mods && c.mods.noClock),
   };
 }
-// the result page: the next level, once it is open and this round's goal was met
+// the result page: the next level whenever it is open — after a success, caught or late alike (the owner's test
+// of 16.11: «Ще раз» and «Далі: рівень N», the latter only when that level is open)
 export function nextOpen() {
-  if (CLASSIC || !G.verdict || !G.verdict.goal) return null;
+  if (CLASSIC || !G.verdict) return null;
   const n = nextLevel(G.contract.id);
   if (!n || !isOpenLevel(n)) return null;
   if (CFG.contracts.some((c) => c.id === n.id)) return n;
@@ -82,7 +85,7 @@ export function campaignPress(id, { newRound, setContract }) {
   if (id === 'nextlvl') {
     const n = nextOpen();
     if (!n) return true;
-    if (n.other) { saveSetting('contract', n.id); switchMap(n.other); return true; }   // the other house: the page reloads there
+    if (n.other) { saveSetting('contract', n.id); switchMap(n.other, 'next'); return true; }   // the other house: «Їдемо в …», «Поїхали ▶» starts it
     newRound();
     setContract(n.id);
     return true;

@@ -43,6 +43,16 @@ export const campaign = {
       guardSits: { who: 'valera', go: [9.6, -8.6], stand: [9.6, -9.6], face: [9.6, -11.2] } },
     { n: 9, id: 'm12', act: 2, intro: ['swap'], time: 480, star3: { doubts: 0 } },
   ],
+  // The dacha's gate watch (the owner's test of 16.11): from level 1 the guard may come down the garden path to
+  // the gate, inside it (where the chalk «ЗАХОДЬ» points) — the way in becomes a wait. His leash is a corridor
+  // along the path: |x - x| <= half: up to maxZ; elsewhere in the garden: up to yardMaxZ (so even with the gate
+  // wide open no point he reaches sees the van: tests/campaign2.test.mjs). Never in the round's first `after` s
+  // (the yard not at all then); at the gate he stands `look` s, looking out; `chance`: how often a visit to the
+  // yard ends at the gate. Level 0: the old leash (world/yard.js LEASH).
+  gateWatch: { x: 3.0, half: 2.5, maxZ: 8.0, yardMaxZ: 6.0, post: [3.0, 7.7], face: [3.0, 9.0], after: 20, look: 5, chance: 0.6 },
+  // a change of house (systems/travel.js): «Їдемо в …» at least `minShow` s, then «Поїхали ▶»; a note older than
+  // `fresh` s is ignored (index.html)
+  travel: { minShow: 1.0 },
   // a level's `time` on each difficulty (the dacha's own rounds are 600 / 480 / 380 s: the same steps)
   levelTimeK: { easy: 1.25, medium: 1, hard: 0.8 },
   warnBefore: 60,        // s before the end the lights flicker («the neighbours noticed»)
@@ -65,6 +75,7 @@ export const campaign = {
     'trap:soap': 99, 'trap:marbles': 99,
     'trap:bucket': 99, 'trap:clock': 99, 'trap:rope': 99,
     devices: 8,      // the radio, the house phone, the breaker: from «Кабінет»
+    gateWatch: 1,    // the dacha's guard comes to the gate (inside) — not on the rehearsal
   },
 };
 

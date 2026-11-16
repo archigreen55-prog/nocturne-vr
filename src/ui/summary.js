@@ -89,8 +89,9 @@ export class Summary {
     const row = el('div', 'sm-buttons2');
     if (s.guest) row.append(el('span', 'muted', S.net.waitHost(s.guest)));
     else {
-      row.append(mk(s.againLabel, () => this.h.again(), s.next ? '' : 'primary'));
-      if (s.next) row.append(mk(s.nextLabel, () => this.h.next(), 'primary'));
+      // the primary: «Далі» after a success, «Ще раз» after a failure (caught, late, the goal not met)
+      row.append(mk(s.againLabel, () => this.h.again(), s.next && V.goal ? '' : 'primary'));
+      if (s.next) row.append(mk(s.nextLabel, () => this.h.next(), V.goal ? 'primary' : ''));
     }
     const play = mk(S.board.listen, () => this.h.play(), 'quiet');
     const small = el('div', 'sm-quietrow');

@@ -29,7 +29,7 @@ import { voiceNoise } from './heist.js';
 import { storyNetEcho } from './story.js';
 import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js';
 import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.js';
-import { mapOpen } from '../world/maps.js';
+import { mapOpen, travelNote } from '../world/maps.js';
 import { S } from '../i18n/index.js';
 import { hostClimb, climbDenied, hostLower } from './backWindow.js';
 
@@ -114,6 +114,7 @@ const otherMap = () => (G.level.id === 'mansion' ? 'dacha' : 'mansion');
 function otherHouse() {
   if (!isHost() || G.round.phase === 'heist' || G.round.phase === 'escape' || !mapOpen(otherMap())) return;
   saveSetting('map', otherMap());
+  travelNote(otherMap(), 'room');   // campaign v2: «Їдемо в …» instead of a bare reload
   if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); N.t = null; }
   location.replace(roomLink(N.code, otherMap(), location.href, { host: '1' }));
 }
@@ -277,7 +278,7 @@ function hostIntent(r, m) {
 function guestMessage(m, peer) {
   if (m.type === 'deny') { setStatus(m.why === 'full' ? S.net.status.full : m.why === 'started' ? S.net.status.started : S.net.status.version, true); leave(true); refreshLobby(); return; }
   if (m.type === 'welcome') {
-    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
+    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); travelNote(m.map, 'room', true); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
     N.welcomed = true; N.hostPeer = peer; N.hostPid = m.hostPid; N.hostName = m.host; N.lastHost = performance.now(); N.hostLost = false;
     becomeGuest();
     guestState(m.snap);

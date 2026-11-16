@@ -23,12 +23,20 @@ export function applyMapConfig() {
 export const mapsForBoard = (current) => Object.keys(MAPS).map((id) => ({ id, name: MAPS[id].name(), blurb: MAPS[id].blurb(), open: mapOpen(id), current: id === current,
   lock: mapOpen(id) ? '' : lockOfMap(id) }));
 const lockOfMap = (id) => { const L = lockOf((MAPS[id].contracts || [])[0] || { id: '', map: id }); return L && L.level !== undefined ? `🔒 ${S.campaign2.houseAfter(MAPS[id].name(), L.level)}` : S.shop.mapLock(CFG.shop.unlock.maps[id], starsBefore(id)); };
-// go to another map: remembered, then the page reloads with ?map=<id> (one page = one map)
-export function switchMap(id) {
+// go to another map: remembered, then the page reloads with ?map=<id> (one page = one map). Campaign v2 (variant
+// В of 16.11): no splash on the way — «Їдемо в …» (travelNote); `from`: 'menu' (a level card: the «Грати» page
+// again), 'next' (the summary's «Далі: Маєток»: «Поїхали ▶» starts the round), 'room' (with friends)
+export function switchMap(id, from = 'menu') {
   if (!MAPS[id] || !mapOpen(id)) return false;
   saveSetting('map', id);
-  const u = new URL(location.href); u.searchParams.set('map', id); location.href = u.toString();
+  travelNote(id, from);
+  const u = new URL(location.href); u.searchParams.set('map', id); u.searchParams.delete('page');
+  location.href = u.toString();
   return true;
+}
+// the note index.html reads before anything loads: no splash, this line instead (sessionStorage: this tab only)
+export function travelNote(id, from, host = false) {
+  try { sessionStorage.setItem('nocturne.travel', JSON.stringify({ to: id, from, t: Date.now(), text: (host ? S.campaign2.travel.host : S.campaign2.travel.to)[id] || '' })); } catch { /* storage blocked: the splash then */ }
 }
 
 // W3: a map opens by stars on the maps before it (the mansion: 8★ on the dacha); «Відкрити все» (previews, ?debug) opens it

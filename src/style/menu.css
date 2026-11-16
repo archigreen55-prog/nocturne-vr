@@ -103,6 +103,12 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 /* the first run: «Налаштуємо мікрофон?» */
 #micask { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .78); }
 #micask[hidden] { display: none; }
+/* campaign v2: a change of house (systems/travel.js) — the night, one line, then «Поїхали ▶» */
+#travel { position: fixed; inset: 0; z-index: 58; display: flex; align-items: center; justify-content: center; background: var(--night, #0d1322); }
+#travel[hidden] { display: none; }
+#travel .tv-box { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 16px; text-align: center; }
+#travel p { margin: 0; font: 800 26px var(--head, system-ui); color: var(--paper, #efe6d4); letter-spacing: .02em; }
+#travel button { min-height: 56px; min-width: 220px; padding: 6px 28px; font: 800 22px var(--head, system-ui); border: 2px solid #05070d; border-radius: 12px; background: var(--lamp, #ffb347); color: #05070d; box-shadow: 4px 4px 0 #05070d; }
 /* campaign v2: the card «Як це?» (systems/howCard.js) — the same paper box as the microphone's question, three numbered steps */
 #howcard { --accent: var(--whisper); position: fixed; inset: 0; z-index: 56; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .7); }
 #howcard[hidden] { display: none; }

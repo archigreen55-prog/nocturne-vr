@@ -39,7 +39,7 @@ export function newRound(fromHost = false) {
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
   G.boardDirty = true;
-  flash(S.messages.newRound, 4);
+  flash(CLASSIC || !G.contract || G.contract.level === undefined ? S.messages.newRound : S.campaign2.againFlash, 4);   // campaign v2: no «Новий раунд» (the owner's test)
   if (G.netEvent) G.netEvent('newround', {});
 }
 // Contract / difficulty can change only before the clock starts (at the van, or on the start screen).

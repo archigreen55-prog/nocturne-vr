@@ -78,13 +78,21 @@ export class Brain {
       lootIn[r] = (lootIn[r] || 0) + 1;
     }
     let best = null, bestW = -1;
+    const W = (CFG.run || {}).gateWatch, t = this.env.roundTime(), early = W && (t === null || t < W.after);
     for (const r of Object.keys(G.rooms)) {
       if (r === here) continue;
+      if (early && r === S.rooms.yard) continue;   // the gate watch: the yard not in the round's first seconds (nor before the clock)
       const w = ((this.clock - this.lastVisit[r]) / 60 + G.lootWeight * (lootIn[r] || 0) + 0.2) * (0.7 + Math.random() * 0.6);
       if (w > bestW) { bestW = w; best = r; }
     }
-    const to = pick(G.rooms[best]);
     const q = g.queue;
+    // the gate watch (campaign v2): a visit to the yard often ends inside the gate, looking out to the lane
+    if (W && !early && best === S.rooms.yard && Math.random() < W.chance) {
+      q.push({ type: 'walk', to: W.post, label: S.guard.act.walksTo(best), room: best });
+      q.push({ type: 'wait', t: W.look, face: W.face, sweep: true, label: S.campaign2.gate });
+      return;
+    }
+    const to = pick(G.rooms[best]);
     q.push({ type: 'walk', to, label: S.guard.act.walksTo(best), room: best });
     q.push({ type: 'wait', t: G.lookTime, sweep: true, label: S.guard.act.looksAround(best) });
     const spots = G.spots.filter((s) => this.roomAt(s.at[0], s.at[1], g.y) === best);

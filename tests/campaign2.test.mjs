@@ -3,7 +3,7 @@
 // ★★ «Тихо», ★★★ the level's own) on any difficulty, the money (each star once, the loot only above the
 // level's record, never the rehearsal's; the new prices; the traps out of the van lost when caught), the
 // mansion after a star on level 5, the level card and the board's note with the stars and their money,
-// the summary's checklist with «Ще раз за ★★★» and «Далі», a big item and a door on a phone / PC, the price
+// the summary's checklist with «Ще раз» and «Далі», a big item and a door on a phone / PC, the price
 // in hand. These pages run the campaign (`campaign: true`); the classic test game keeps the old rules.
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
@@ -111,7 +111,7 @@ test('campaign v2: three stars on any difficulty (★ goal, ★★ «Тихо»,
   await ctx.close();
 });
 
-test('campaign v2: the level card (menu «Грати») and the board\'s note show the three stars with their money (✓ the won ones), what is new, the round\'s time on this difficulty; the difficulty is in the settings; the summary (phone and board): the checklist, «Ще раз за ★★★ (+$500)» and «Далі: рівень 2»; the last dacha level says «Далі: Маєток»', async () => {
+test('campaign v2: the level card (menu «Грати») and the board\'s note show the three stars with their money (✓ the won ones), what is new, the round\'s time on this difficulty; the difficulty is in the settings; the summary (phone and board): the checklist, «Ще раз» and «Далі: рівень 2»; the last dacha level says «Далі: Маєток»', async () => {
   const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1 } });
   const r = await page.evaluate(async (PLAY) => {
     const g = window.__game, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js');
@@ -146,11 +146,11 @@ test('campaign v2: the level card (menu «Грати») and the board\'s note sh
   assert.deepEqual(r.hard, { d: 'hard', meta: 'Нове: сторож ходить · 4:00 на раунд' });
   for (const t of ['винеси щонайменше $500', 'тихо: без тривоги й крику', '+$200', '+$300', '+$500', 'Нове: сторож ходить']) assert.ok(r.note.includes(t), `the note: ${t} — ${r.note.join(' | ')}`);
   assert.ok(r.board.some((t) => t === '✓ +$200 нова') && r.board.some((t) => t === '✗ «?» ×2'), r.board.join(' | '));
-  assert.deepEqual(r.buttons.filter((b) => !b.startsWith('play')), ['again:Ще раз за ★★★ (+$500)', 'nextlvl:Далі: рівень 2']);
+  assert.deepEqual(r.buttons.filter((b) => !b.startsWith('play')), ['again:Ще раз', 'nextlvl:Далі: рівень 2']);
   assert.deepEqual(r.sum.checklist.map((c) => [c.n, c.got, c.note]), [[1, true, '+$200 нова'], [2, true, '+$300 нова'], [3, false, '«?» ×2']]);
-  assert.deepEqual([r.sum.again, r.sum.next], ['Ще раз за ★★★ (+$500)', 'Далі: рівень 2']);
+  assert.deepEqual([r.sum.again, r.sum.next], ['Ще раз', 'Далі: рівень 2']);
   assert.equal(r.dom.checks.length, 3);
-  assert.deepEqual(r.dom.buttons, ['Ще раз за ★★★ (+$500)', 'Далі: рівень 2*'], 'two buttons, «Далі» the primary');
+  assert.deepEqual(r.dom.buttons, ['Ще раз', 'Далі: рівень 2*'], 'two buttons, «Далі» the primary');
   assert.ok(r.card2[0].endsWith('✓') && r.card2[1].endsWith('✓') && !r.card2[2].endsWith('✓'), `the card ticks the won stars: ${JSON.stringify(r.card2)}`);
   assert.equal(r.clock.next, 'Далі: Маєток');
   assert.deepEqual(errors, []);
@@ -448,6 +448,79 @@ test('campaign v2 (г): «Кабінет» (level 8) — the laptop is the goal,
   assert.ok(r.away.claimed && !r.away.sitting && r.away.d > 4, `the breaker took him away from the desk: ${JSON.stringify(r.away)}`);
   assert.equal(r.laptop, true);
   assert.ok(r.back.sitting && r.back.d < 0.5, `then back at the desk: ${JSON.stringify(r.back)} ${r.trail.join(' ')}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+// the owner's test of 16.11
+test('campaign v2 (16.11): the round\'s end has «Ще раз» and «Далі: рівень N» (only when that level is open) — after a success, caught and late alike, on the phone\'s summary and the board (PC, VR); no «Новий раунд»', async () => {
+  const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1, first: S1 } });
+  const r = await page.evaluate(async (PLAY) => {
+    const g = window.__game, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js');
+    const P = await import('./src/systems/phone.js'), { Summary } = await import('./src/ui/summary.js');
+    const play = eval(PLAY), by = (id) => g.loot.items.find((i) => i.id === id), out = {};
+    const look = () => {
+      G.lastBoardSig = null; G.boardDirty = true; board.present(0.1);
+      const div = document.createElement('div'); document.body.append(div);
+      new Summary(div, { play() {}, again() {}, next() {}, menu() {}, report() {} }).show(P.summaryState());
+      const phone = [...div.querySelectorAll('.sm-buttons2 button')].map((b) => b.textContent + (b.classList.contains('primary') ? '*' : ''));
+      div.remove();
+      return { board: g.board.buttons.filter((b) => b.id === 'again' || b.id === 'nextlvl').map((b) => b.label), phone, text: document.body.innerText.includes('Новий раунд') };
+    };
+    play('first', 'medium', (g) => { g.loot.deliver(by('painting')); }); out.ok = look();
+    play('first', 'medium', () => {}, 'caught'); out.caught = look();
+    play('first', 'medium', () => {}, 'late'); out.late = look();
+    play('chest', 'medium', () => {}, 'caught'); out.fresh = look();   // level 2 failed: level 3 is not open
+    g.pressBoard('again'); g.sim(0.1); out.flash = g.flashText; out.contract = g.contract.id;
+    return out;
+  }, PLAY);
+  assert.deepEqual(r.ok, { board: ['Ще раз', 'Далі: рівень 2'], phone: ['Ще раз', 'Далі: рівень 2*'], text: false }, 'success: «Далі» the primary');
+  assert.deepEqual(r.caught, { board: ['Ще раз', 'Далі: рівень 2'], phone: ['Ще раз*', 'Далі: рівень 2'], text: false }, 'caught: «Ще раз» the primary, «Далі» since level 2 is open');
+  assert.deepEqual(r.late, r.caught, 'late: the same');
+  assert.deepEqual(r.fresh, { board: ['Ще раз'], phone: ['Ще раз*'], text: false }, 'the next level closed: «Ще раз» only');
+  assert.equal(r.flash, 'Ще раз. Годинник піде, щойно зайдеш у хвіртку');
+  assert.equal(r.contract, 'chest', 'the same level again');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('campaign v2 (16.11, variant В): a change of house is «Їдемо в Маєток…» instead of the splash, then «Поїхали ▶» — after «Далі: Маєток» it starts the round on level 6; from a level card it opens the «Грати» page; a plain reload has no such line', async () => {
+  const stars = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1, clock: S1 };
+  const ctx = await newContext(browser, {}, { menu: true });
+  await ctx.addInitScript((stars) => {
+    window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true };
+    if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('nocturne.stars', JSON.stringify(stars)); }
+  }, stars);
+  const { page, errors } = await open(ctx, base + '?map=dacha&splash=1');
+  // the last dacha level won: the summary's «Далі: Маєток»
+  await page.evaluate(async (PLAY) => {
+    const g = window.__game, play = eval(PLAY);
+    play('clock', 'medium', (g) => { g.loot.deliver(g.loot.items.find((i) => i.id === 'clock')); });
+  }, PLAY);
+  await page.evaluate(() => window.__game.pressBoard('nextlvl')).catch(() => {});   // the page goes away under it
+  await page.waitForURL((u) => u.search.includes('map=mansion'), { timeout: 45000, waitUntil: 'commit' });
+  await page.waitForFunction(() => !!document.getElementById('travel'), null, { timeout: 30000 });
+  const first = await page.evaluate(() => ({ on: !document.getElementById('travel').hidden, text: document.getElementById('traveltext').textContent, splash: !!document.getElementById('splash') }));
+  assert.deepEqual(first, { on: true, text: 'Їдемо в Маєток…', splash: false }, 'the line at once, no splash');
+  await page.waitForFunction(() => window.__game && !document.getElementById('travelgo').hidden, null, { timeout: 60000 });
+  await page.click('#travelgo');
+  await page.waitForFunction(() => window.__game.playing, null, { timeout: 10000 });
+  const after = await page.evaluate(() => ({ map: window.__game.level.id, c: window.__game.contract.id, on: !document.getElementById('travel').hidden }));
+  assert.deepEqual(after, { map: 'mansion', c: 'm8', on: false }, '«Поїхали ▶»: the round of level 6 at the van');
+  // from a level card (the menu): back to the dacha, the «Грати» page
+  await page.evaluate(async () => {   // a level card of the other house (systems/levels.js pickLevel, as the menu's card does)
+    const g = window.__game, L = await import('./src/systems/levels.js'), M = await import('./src/world/maps.js');
+    setTimeout(() => L.pickLevel('quiet', { setContract: g.setContract, newRound: g.newRound, switchMap: M.switchMap }), 0);
+  });
+  await page.waitForURL((u) => u.search.includes('map=dacha'), { timeout: 45000, waitUntil: 'commit' });
+  await page.waitForFunction(() => window.__game && document.getElementById('travelgo') && !document.getElementById('travelgo').hidden, null, { timeout: 60000 });
+  assert.equal(await page.textContent('#traveltext'), 'Їдемо на Дачу…');
+  await page.click('#travelgo');
+  const menu = await page.evaluate(() => ({ c: window.__game.contract.id, page: new URL(location.href).searchParams.get('page'), on: !document.getElementById('travel').hidden }));
+  assert.deepEqual(menu, { c: 'quiet', page: 'play', on: false }, 'the «Грати» page with that level');
+  // a plain reload: the usual start (no line)
+  await page.reload(); await page.waitForFunction(() => window.__game, null, { timeout: 60000 });
+  assert.equal(await page.evaluate(() => document.getElementById('travel').hidden), true);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

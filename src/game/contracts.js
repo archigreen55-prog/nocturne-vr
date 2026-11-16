@@ -95,13 +95,9 @@ export function starChecklist(c, items, v, fresh = []) {
     return { n: r.n, text: r.text, got, note };
   });
 }
-// «Ще раз» for the next star not won yet on this level (plan §4.2), or for the loot record when all are won
-export function againLabel(c, v) {
-  const A = S.campaign2;
-  if (!v || !v.goal || !isLevel(c) || practiceOf(c)) return A.again;
-  const rows = starRows(c, []), had = bestBits(c.id), miss = rows.find((r) => !had[r.n - 1]);
-  return miss ? A.againFor('★'.repeat(miss.n), money(miss.price)) : A.againRecord;
-}
+// «Ще раз» — this same level (the owner's test of 16.11: one plain word on every ending; the checklist above it
+// says which star is still missing)
+export const againLabel = () => S.campaign2.again;
 // The stars won so far, star by star ([goal, quiet, star3]; any difficulty, any round): 'stars2' in localStorage
 export function bestBits(id) {
   const b = loadSetting('stars2', {})[id];
