@@ -19,7 +19,7 @@ export const style = {
   grade: { world: 0.35, loot: 0.12, paper: 0.35 },
   // fog: the background is Ніч, the fog Сутінки; m from the eye (the brightness moves them out)
   fog: { near: 6, far: 24, alarm: 0.25 },   // alarm: how far the fog's colour goes to Тривога in a full alarm
-  pools: { k: 0.45 },                          // the lamps' circles on the floor: brightness of the amber rim
+  glow: 0.6,                                   // a lamp's circle with no real light in it (the porch, the gate, a street or far lamp) glows in the lamp's colour: its irradiance (the three steps' units)
   blobs: { guard: 0.42, friend: 0.36, item: 0.2 },   // radius of the soft shadow under what moves (m)
   // water: the mansion's fountain (rings run out from the middle) and puddles in the dacha's yard (still; stepping in one splashes: CFG.puddle, systems/puddles.js)
   water: {

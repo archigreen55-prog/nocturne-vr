@@ -1,6 +1,6 @@
-// W17 «Стиль» (plan-W17-style.md): the night palette's sky and fog, the lamps' circles, soft shadows,
-// water; every frame the style's shared uniforms (the display brightness, the circles where a guard
-// sees you further, the line width of the quality preset) and the shadows of what moves.
+// W17 «Стиль» (plan-W17-style.md): the night palette's sky and fog, soft shadows, water; every frame the
+// style's shared uniforms (the display brightness, the circles where a guard sees you further and where
+// the real lights stand, the line width of the quality preset) and the shadows of what moves.
 // The switch «Стиль: увімк / вимк» (start screen; «Для тестерів» from S3): off = the picture as before
 // W17. Runs after `flashlight` (the lit materials are patched) and before `brightness` (it takes the
 // fog's distances from here).
@@ -13,6 +13,7 @@ import { quietRandom } from '../style/quiet.js';
 import { animateGuard, animateThief } from '../style/anim.js';
 import { FAR, dressLurker, lurkerRest } from '../style/figures.js';
 import { power } from '../world/devices.js';
+import { mapView } from './mapView.js';
 import { lampLights } from '../game/stealth.js';
 import { G, $, params } from './state.js';
 import { startSheet } from '../style/sheet.js';
@@ -54,7 +55,7 @@ export const style = {
     for (const L of G.lurkers || [G.lurker]) if (L) dressLurker(L, level.id);   // Шафник at rest: arms out of the gap; the dacha's blue doors
     this.circles = lampCircles(level);
     this.lampDoors = (level.doors || []).filter((d) => this.circles.some((c) => Math.hypot(d.hx - c.x, d.hz - c.z) < c.r + 1.5));   // the doors that can cut a circle
-    decor = G.decor = quietRandom(() => buildDecor(scene, level, this.circles, CFG.style, level.floorY ? (x, z, y) => level.floorY(x, z, y) : () => 0));   // the game's random numbers untouched
+    decor = G.decor = quietRandom(() => buildDecor(scene, level, CFG.style, level.floorY ? (x, z, y) => level.floorY(x, z, y) : () => 0));   // the game's random numbers untouched
   },
   frame(dt) {
     if (!STYLE_ON) return;
@@ -65,10 +66,18 @@ export const style = {
     U.uStyleWarn.value = alert && G.lightK ? alert.glowGain / G.lightK : 1;   // brightness.js: warnings get k x WARN, the rest k
     U.uStyleInk.value = low ? CFG.style.ink.pxLow : CFG.style.ink.px;
     // the circles: the lamps (none with the breaker off); a guard's hand lamp is lit by its own light (CFG.style.bands.hand)
-    // ...cut by the walls and the closed doors as the stealth sees it (game/stealth.js lampLights)
+    // ...cut by the walls and the closed doors as the stealth sees it (game/stealth.js lampLights); drawn by the
+    // materials (style/materials.js): no ring on the floor, only the light, and a glow where no real light stands
     const lv = G.level, doorKey = this.lampDoors.map((d) => (Math.abs(d.angle) > 0.35 ? 1 : 0)).join('');
     setZones(power.dark ? [] : this.circles, (c, x, z) => lampLights(lv, c, x, z, c.y), doorKey);   // rebuilt only when they change
-    if (decor.pools) decor.pools.visible = !power.dark;
+    // where the real lights stand: a circle whose lamp has none yet (the porch, the gate, a street lamp; a far room's or a
+    // friend's lamp in the mansion, where the three lights follow this player; one still fading in) glows by itself
+    const mv = mapView.slots;
+    U.uStyleLamps.value.forEach((v, i) => {
+      const l = G.points[i];
+      if (!l) { v.set(0, 0, 0, 0); return; }
+      v.set(l.position.x, l.position.y, l.position.z, l.intensity > 0.001 ? (mv && mv[i] ? Math.min(1, mv[i].fade) : 1) : 0);
+    });
     // the fog goes a little red in a full alarm
     scene.fog.color.copy(fogBase).lerp(fogAlarm, CFG.style.fog.alarm * Math.max(0, Math.min(1, (alert ? alert.k : 0) - 1)));
     // water: rings run (still on the low preset; no puddles there)

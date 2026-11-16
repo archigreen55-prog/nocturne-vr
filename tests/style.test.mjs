@@ -117,6 +117,66 @@ test('style (S1): three steps — the lamp\'s circle on the floor is the stealth
   await c2.close();
 });
 
+test('style: no ring is drawn on the floor round a lamp — on both maps, phone and PC', async () => {
+  for (const map of ['dacha', 'mansion']) for (const device of [LAND, { viewport: { width: 1280, height: 720 } }]) {
+    const ctx = await newContext(browser, device);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + '?map=' + map);
+    const r = await page.evaluate(() => {
+      const g = window.__game, names = [];
+      g.scene.traverse((o) => { if (/^style:/.test(o.name)) names.push(o.name); });
+      return { names, pools: !!g.style.decor.pools };
+    });
+    assert.ok(!r.names.some((n) => /lamp circles/.test(n)), `${map}: a lamp-circle mesh is back: ${r.names}`);
+    assert.equal(r.pools, false, `${map}: decor.pools`);
+    assert.ok(r.names.some((n) => /furniture shadows|moving shadows/.test(n)), `${map}: the other decor is still there`);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+});
+
+// A circle is lit by itself where no real light stands (the dacha's porch, gate and street lamp have none; in the
+// mansion the three lights follow this player, so a far room's lamp, a friend's lamp, one still fading in has none
+// either): all the scene's point lights are put far away, then, standing outside each circle, the floor just inside
+// it is lit and the floor just outside is not (lit ≥ 3 x). [map, lamp index, direction (x 45° steps) with a clear floor]
+test('style: every lamp\'s circle is lit by itself where its lamp has no real light — nobody stands in the dark inside a circle the guard sees into (the dacha\'s porch, gate and street lamp; each of the mansion\'s five, the gallery\'s upstairs)', async () => {
+  const CASES = { dacha: [[0, 0], [2, 0], [3, 4], [4, 0], [5, 0]], mansion: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]] };
+  for (const map of Object.keys(CASES)) {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+    const { page, errors } = await open(ctx, preview + '?map=' + map);
+    await page.evaluate(() => { for (const p of window.__game.scene.children.filter((o) => o.isPointLight)) p.position.set(500, 5, 500); });   // the real lights: away
+    for (const [i, k] of CASES[map]) {
+      const L = await page.evaluate(([i, k]) => {
+        const g = window.__game, l = g.CFG.stealth.lamps[i], a = k * Math.PI / 4, ux = Math.cos(a), uz = Math.sin(a), d = l.r + 3.2;
+        g.player.teleport(l.x + ux * d, l.z + uz * d, Math.atan2(ux, uz), l.y || 0); g.player.lookPitch = -0.55;
+        return { x: l.x, z: l.z, y: l.y || 0, r: l.r, ux, uz };
+      }, [i, k]);
+      await page.waitForTimeout(700);
+      const at = (t) => [L.x + L.ux * (L.r + t), L.y, L.z + L.uz * (L.r + t)];
+      const [inside, near, far] = await lumAt(page, [at(-0.45), at(0.45), at(1.2)]);
+      assert.ok(inside >= 3 * near && inside >= 3 * far, `${map} lamp ${i} (no real light): inside ${inside.toFixed(4)}, just outside ${near.toFixed(4)}, further ${far.toFixed(4)} (lit ≥ 3 x)`);
+    }
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+});
+
+test('style: the scene\'s real lights are told to the circles — the dacha\'s three stand at their lamps at full (1), a light with no intensity counts 0, a mansion light still fading in counts its fade', async () => {
+  const ctx = await newContext(browser, LAND);
+  await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
+  const { page, errors } = await open(ctx, preview);
+  await page.waitForTimeout(800);
+  const r = await page.evaluate(() => {
+    const g = window.__game, V = g.style.uniforms.uStyleLamps.value, pts = g.scene.children.filter((o) => o.isPointLight);
+    return V.map((v, i) => ({ at: [v.x, v.z].map((n) => +n.toFixed(2)), k: +v.w.toFixed(2), light: [pts[i].position.x, pts[i].position.z].map((n) => +n.toFixed(2)) }));
+  });
+  for (const v of r) { assert.deepEqual(v.at, v.light, 'the uniform follows the light'); assert.equal(v.k, 1, `a lit light counts 1: ${JSON.stringify(v)}`); }
+  assert.deepEqual(r.map((v) => v.at), [[2.6, 4.4], [1.5, -12.9], [-3, -6]], 'the dacha: the path lamp, the embers, the night light');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('style (S1): the mansion — the fountain has water, each lamp\'s circle lies on its own floor (the gallery lamp upstairs), the furniture shadows hide with their floor; the switch on the start screen saves and reloads', async () => {
   const ctx = await newContext(browser, LAND);
   await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
