@@ -266,3 +266,47 @@ test('van: the name on both sides, on the header and on the rear doors; the mirr
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('yard: the street lamp stands along the fence by the van — its circle misses the gate and the chalk arrow; the street goes on both ways as dark decor (fences, hedges, houses, trees) to the end of the asphalt', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, Y = await import('./src/world/yard.js');
+    const lamp = Y.LAMPS[5], gx = (Y.GATE.x0 + Y.GATE.x1) / 2;
+    let mesh = null; g.scene.traverse((o) => { if (!mesh && o.isMesh && o.name === 'level') mesh = o; });
+    const P = mesh.geometry.attributes.position, ext = { minX: 1e9, maxX: -1e9 };
+    for (let i = 0; i < P.count; i++) { const y = P.getY(i), z = P.getZ(i); if (y > 1.4 && y < 1.6 && z > 21.5 && z < 22.6) { ext.minX = Math.min(ext.minX, P.getX(i)); ext.maxX = Math.max(ext.maxX, P.getX(i)); } }   // the far verge's hedge top
+    return { lamp, gate: Math.hypot(lamp.x - gx, lamp.z - Y.GATE.z), arrow: Math.hypot(lamp.x - 7.2, lamp.z - 9.85), big: Math.hypot(lamp.x - gx, lamp.z - (Y.GATE.z + 1.95)), ext, lights: g.level.lights.length, van: Y.VAN };
+  });
+  assert.ok(r.lamp.z < 10 && r.lamp.x > r.van.x, `the lamp is along the fence east of the van: ${JSON.stringify(r.lamp)}`);
+  assert.ok(r.gate > r.lamp.r + 3 && r.big > r.lamp.r + 3 && r.arrow > r.lamp.r + 0.2, `its circle misses the gate (${r.gate.toFixed(1)}), the big arrow (${r.big.toFixed(1)}) and the chalk arrows (${r.arrow.toFixed(1)})`);
+  assert.ok(r.ext.minX <= -40 && r.ext.maxX >= 40, `the far verge's hedge goes on both ways: x ${r.ext.minX}..${r.ext.maxX}`);
+  assert.equal(r.lights, 3, 'still three point lights');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('yard: nothing stands on the asphalt along the whole street (x -70..70) — no house, tree, shrub, bin, post or hedge crosses it, but the van, the board\'s stand and the street lamp', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, Y = await import('./src/world/yard.js');
+    const bad = [];
+    g.scene.traverse((m) => {
+      if (!m.isMesh || !/^(level|glow)$/.test(m.name)) return;
+      const P = m.geometry.attributes.position;
+      for (let i = 0; i < P.count; i++) {
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        if (y < 0.1 || Math.abs(x) > 70 || z < Y.STREET.minZ + 0.02 || z > Y.STREET.maxZ - 0.02) continue;
+        if (x > 9.7 && x < 10.3 && z < 9.7) continue;     // the street lamp's post
+        if (x > 9.2 && x < 10.0 && z > 10.2 && z < 11.0) continue;   // the board's stand
+        if (x > 6.6 && x < 9.4 && z > 10.8 && z < 16.3) continue;   // the van's glowing inside and its folded doors
+        bad.push([m.name, +x.toFixed(2), +y.toFixed(2), +z.toFixed(2)]);
+      }
+    });
+    return bad.slice(0, 10);
+  });
+  assert.deepEqual(r, [], `something stands on the street: ${JSON.stringify(r)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
