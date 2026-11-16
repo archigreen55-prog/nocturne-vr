@@ -81,7 +81,7 @@ test('phone HUD: HTML instead of the wrist canvas; time, eye, microphone, messag
   await page.waitForFunction(() => document.querySelector('#hud .hud-eye').getAttribute('data-eye') === 'half', null, { timeout: 8000 });
   await G(() => window.__game.flash('Тест повідомлення', 5, '#5fd38d'));
   await page.waitForFunction(() => document.querySelector('#hud .hud-msg').textContent === 'Тест повідомлення');
-  assert.match(await page.textContent('#hud .goal'), /Мета: \$0 \/ \$2,000/);
+  assert.match(await page.textContent('#hud .goal'), /Мета: \$0 \/ \$700/);
   // microphone (the fake one): the label and a filled bar
   await G(() => window.__game.pauseOpen('user'));
   await G(() => window.__game.pauseResume());

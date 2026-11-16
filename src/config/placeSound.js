@@ -42,21 +42,26 @@ export const placeSound = {
     traffic: { lane: 0.03, yard: 0.012 },    // a far car passes now and then
     trafficEvery: [18, 45],                  // s between two far cars
   },
-  // The crickets' song (audio/placeSfx.js): a few crickets sit in different places of the yard and each sings in
-  // bouts — a series of chirps (3..5 clicks each, ~30 per second, a damped ring at ~4.5 kHz) that swells in and fades
-  // out — then is silent for a random pause. Pitch and tempo differ a little per cricket and per bout.
-  // `on: false` = no crickets at all (if the synthesis does not sound natural, this is the switch).
+  // The crickets' song (audio/placeSfx.js): two crickets sit in the yard, a near one and a far one, and sing rarely and quietly, in the
+  // background. Each has a few different SONGS (a series of chirps of 3..5 damped clicks ~30 ms apart that swells in and fades out: its
+  // length, pitch, tempo, number of clicks and loudness differ); a cricket never sings the same song twice in a row and is silent
+  // for 5..25 s between two. Two at once is rare. `on: false` = no crickets at all.
   crickets: {
     on: true,
-    spots: [[-7.5, 3.5], [9.6, 4.8], [-1.0, 8.2]],   // x, z: by the barrel, by the woodpile, by the yard's fence
+    spots: [[-7.5, 3.5, 1], [9.6, 4.8, 0.5]],   // x, z, loudness: by the barrel (near the path), by the woodpile (far, half as loud)
     carrier: [4300, 4900],        // Hz: the pitch of each cricket (picked once, within this range)
-    bout: [1, 3],                 // s: a series of chirps
-    pause: [2, 8],                // s: silence between two bouts of the same cricket
-    chirpRate: [2.4, 4.2],        // chirps per second inside a bout (the tempo, new for every bout)
-    pulses: [3, 5],               // clicks in a chirp
+    pause: [5, 25],               // s: silence between two songs of the same cricket
+    first: [2, 12],               // s: the first song after the start
+    songs: [                      // dur: s; pitch: x the cricket's own; rate: chirps per second; pulses: clicks in a chirp; gain: its loudness
+      { dur: 1.1, pitch: 1.00, rate: 3.4, pulses: 3, gain: 0.8 },
+      { dur: 2.4, pitch: 0.96, rate: 2.6, pulses: 4, gain: 1.0 },
+      { dur: 3.6, pitch: 1.04, rate: 3.8, pulses: 5, gain: 0.7 },
+      { dur: 0.7, pitch: 1.07, rate: 4.4, pulses: 3, gain: 0.9 },
+      { dur: 2.0, pitch: 0.93, rate: 2.2, pulses: 5, gain: 0.6 },
+    ],
     pulseGap: 0.03,               // s between the clicks of a chirp
-    fadeIn: 0.8, fadeOut: 1.0,   // s: the bout swells in over a few chirps and fades out (at most 40% / 50% of a short bout)
-    peak: 7,                      // the loudest click before the zone's level above (the old continuous song's loudness: measured on the bus, see tests/placesound.test.mjs)
+    fadeIn: 0.8, fadeOut: 1.0,    // s: the song swells in over a few chirps and fades out (at most 40% / 50% of a short one)
+    peak: 3.5,                    // the loudest click before the zone's level above: quiet, a background (the old one was 7)
     refDistance: 3, rolloff: 0.4, // how the song fades with distance (gentle: a cricket in the next corner of the yard is a bit quieter, not far away)
   },
   splashGain: 3.4,       // the splash's own gain: ~7 dB under a patrol step on the bus (measured by tests/placesound.test.mjs)

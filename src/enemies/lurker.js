@@ -60,7 +60,9 @@ export class Lurker {
     this.creature = new THREE.Group();
     this.creature.add(this.body, this.eyes, this.arms);
     this.group.add(this.creature);
-    restyleLurker(this);   // W17 «Стиль»: Шафник's look (style/figures.js); the style off keeps the one above
+    // W17 «Стиль»: Шафник's look (style/figures.js; the blue-eyed one) only for the mansion's garage CRATE; every wardrobe (the dacha's too) keeps the
+    // old, scarier one above (yellow eyes, teeth, claws); the style off keeps the old everywhere
+    if (this.kind === 'crate') restyleLurker(this);
     // wardrobe doors, hinged at the outer edges, opening into the room (-X)
     const D1 = new Builder(), D2 = new Builder();
     D1.box(-0.015, 0.08, 0, 0.015, 2.04, 0.79, 0x3b2d25);
