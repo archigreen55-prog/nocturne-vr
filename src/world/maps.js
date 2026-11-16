@@ -26,6 +26,7 @@ export const mapsForBoard = (current) => Object.keys(MAPS).map((id) => ({ id, na
 export function switchMap(id) {
   if (!MAPS[id] || !mapOpen(id)) return false;
   saveSetting('map', id);
+  try { sessionStorage.setItem('nocturne.mapSwitch', '1'); } catch { /* opaque */ }   // index.html: the next page load shows the loading screen, not the bare menu
   const u = new URL(location.href); u.searchParams.set('map', id); location.href = u.toString();
   return true;
 }

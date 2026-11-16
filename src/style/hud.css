@@ -5,6 +5,12 @@
 body:not(.outdoor) #hud .hud-tl, body:not(.outdoor) #hud .hud-tc, body:not(.outdoor) #hud .hud-tr {
   background: rgba(24, 34, 58, .78); border: 2px solid #05070d; box-shadow: 3px 3px 0 #05070d; border-radius: 10px; padding: 4px 9px; text-shadow: none; }
 body:not(.outdoor) #hud .hud-tl:has(.hud-sub span:not(:empty)) { padding-bottom: 6px; }
+/* the left corner (the eye, the item, the guards panel) has no plate: only the portraits, names, scales and marks, each with its own ink
+   outline so it reads on a light wall too */
+body:not(.outdoor) #hud .hud-tl, body:not(.outdoor) #hud .hud-tl:has(.hud-sub span:not(:empty)) { background: none; border: 0; box-shadow: none; border-radius: 0; padding: 0; }
+body:not(.outdoor) #hud .hud-tl, body.outdoor #hud .hud-tl { text-shadow: 1px 0 #05070d, -1px 0 #05070d, 0 1px #05070d, 0 -1px #05070d, 1px 1px #05070d, -1px -1px #05070d, 1px -1px #05070d, -1px 1px #05070d, 0 2px 4px rgba(0, 0, 0, .7); }
+#hud .hud-tl .hud-eye svg, #hud .hud-tl .hud-item .ico { filter: drop-shadow(1px 0 0 #05070d) drop-shadow(-1px 0 0 #05070d) drop-shadow(0 1px 0 #05070d) drop-shadow(0 -1px 0 #05070d); }
+#hud .gsus .gsus-name { color: #efe6d4; font-weight: 700; }
 #hud .time { font-family: "Unbounded", system-ui, sans-serif; font-weight: 800; font-size: 26px; letter-spacing: .02em; }
 #hud .hud-sub { color: #d6cfbf; }
 /* the alarm's banner: «ТРИВОГА» / «ДО ФУРГОНА» in the alarm's colour with an ink outline, a short shake */
