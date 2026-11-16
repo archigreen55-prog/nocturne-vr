@@ -333,7 +333,7 @@ function guestEvent(m) {
   const { noise, round } = G;
   switch (m.k) {
     case 'noise': {
-      noise.emit(m.x, m.z, m.r, m.kind, { y: m.y, source: 'net' });
+      noise.emit(m.x, m.z, m.r, m.kind, { y: m.y, source: 'net', wallK: Number.isFinite(m.w) ? m.w : null });
       const pos = { x: m.x, y: (m.y || 0) + 0.3, z: m.z }, occ = G.level.soundOccluded(G.player.head.x, G.player.head.z, m.x, m.z);
       if (m.kind === 'drop') playThud(pos, occ, 1, false);
       else if (m.kind === 'glass') playGlass(pos, occ);
@@ -455,7 +455,7 @@ export const net = {
     // the host's voice lines, guard sounds, noises and messages for the guests (offline nothing listens)
     G.noise.on((e) => {
       if (!isHost() || e.source === 'net' || !N.t || !N.remotes.size) return;
-      const msg = { type: 'ev', k: 'noise', x: +e.x.toFixed(2), z: +e.z.toFixed(2), y: +(e.y || 0).toFixed(2), r: +e.radius.toFixed(2), kind: e.kind };
+      const msg = { type: 'ev', k: 'noise', x: +e.x.toFixed(2), z: +e.z.toFixed(2), y: +(e.y || 0).toFixed(2), r: +e.radius.toFixed(2), kind: e.kind, w: e.wallK ?? undefined };   // w: how far through a wall (its faint ring)
       const ey = e.source === 'world' ? e.y : (e.who || G.player).floorY;
       for (const [pid, r] of N.remotes) {
         if (pid === G.guardPid && e.source !== 'patrol' && !(G.patrol.audible(e, ey) > 0)) continue;   // W15: the guard hears what a guard would

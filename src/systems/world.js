@@ -165,6 +165,9 @@ export const world = {
     });
     console.log(`Level built in ${(performance.now() - t0).toFixed(0)} ms, ${level.triangles} triangles, ${level.world.edgeCount} collision edges, ${level.doors.length} doors`);
 
+    // the ground under a noise that has no height of its own (a player's step, voice, door): the floor of the
+    // player who made it, the way the player stands on it (the mansion's upper floor, the stairs) — its rings lie there
+    noise.groundAt = (x, z, who) => { const p = who || player, f = p.floorY || 0; return level.floorY ? level.floorY(x, z, f) : f; };
     // noise -> who hears it: with two guards, the one it is louder to (plan-W6 §3.2)
     noise.on((e) => {
       if (round.phase === 'result' || G.isGuest) return;   // a guest: the host's guards hear (systems/net.js)

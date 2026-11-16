@@ -29,9 +29,9 @@ export class NoiseSystem {
     const geo = new THREE.PlaneGeometry(2, 2);
     geo.rotateX(-Math.PI / 2);
     this.gain = 1;   // display brightness (systems/brightness.js): the rings stay as visible on a brighter picture
-    // depthTest off: a ring that reaches into the next room is seen there through the wall — that is the point
-    // (how far the guard hears it), not a mark on the floor of this room only
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+    // on the floor (owner 16.11): depth-tested like the floor itself — walls and furniture hide it, the faint
+    // ring through a wall shows in the next room where its floor is seen (a door); never drawn over everything
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     // a ring of a constant width: the square's own radius (its instance scale) turns the line width into a
     // share of it, so a 15 m ring is as thin as a 1 m one
     mat.onBeforeCompile = (sh) => {
@@ -60,7 +60,10 @@ export class NoiseSystem {
   // who: the player who made it (G.players; plan-multiplayer §4.1), null = this device's own player
   // wallK: the share of the radius that gets through a wall instead of CFG.hearing.occludedK (a splash in a quiet yard)
   // look: the guard comes to look even when the suspicion is still low (a lure: Шепотун's echo), not just a glance
-  emit(x, z, radius, kind, { y = 0.03, source = 'player', ripple = true, device = null, who = null, wallK = null, look = false } = {}) {
+  // y: the noise's height; none = the ground under it (this.groundAt: the floor of the player who made it — the
+  // mansion's upper floor, the yard), so its rings lie on that floor (owner 16.11: they floated at y 0)
+  emit(x, z, radius, kind, { y = null, source = 'player', ripple = true, device = null, who = null, wallK = null, look = false } = {}) {
+    if (y === null) y = (this.groundAt ? this.groundAt(x, z, who) : 0) + 0.03;
     const e = { x, z, y, radius, kind, source, device, who, wallK, look, time: performance.now() };
     this.log.push(e);
     if (this.log.length > 50) this.log.shift();
