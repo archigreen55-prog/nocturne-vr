@@ -86,10 +86,10 @@ export class PlaceAmbience {
     this.c = c;
     const mk = () => new Voice3D(0, false);
     // crickets: a few of them, each its own positional voice in its own spot; the songs are scheduled in update()
-    const CS = CFG.placeSound.crickets, cr = CS.on ? CS.spots.map(([x, z]) => {
+    const CS = CFG.placeSound.crickets, R0 = (r) => r[0] + Math.random() * (r[1] - r[0]), cr = CS.on ? CS.spots.map(([x, z, k]) => {
       const v = new Voice3D(0, true); v.setPos(x, 0.25, z);
       v.panner.refDistance = CS.refDistance; v.panner.rolloffFactor = CS.rolloff;
-      return { v, f: CS.carrier[0] + Math.random() * (CS.carrier[1] - CS.carrier[0]), next: c.currentTime + 0.5 + Math.random() * 4.5 };
+      return { v, k: k ?? 1, last: -1, f: R0(CS.carrier), next: c.currentTime + R0(CS.first) };
     }) : [];
     const crickets = { cr };
     // wind: low noise through a band-pass, breathing
@@ -117,7 +117,7 @@ export class PlaceAmbience {
     for (const n of ['wind', 'traffic']) L[n].out.gain.setTargetAtTime(this.level[n], t, tau);
     for (const q of L.crickets.cr) q.v.out.gain.setTargetAtTime(this.level.crickets, t, tau);
     if (allowed) for (const q of L.crickets.cr) {
-      if (q.next < c.currentTime - 1) q.next = c.currentTime + 0.3 + Math.random() * 4;   // back after the rule had switched the ambience off: not all at once
+      if (q.next < c.currentTime - 1) q.next = c.currentTime + 2 + Math.random() * 8;   // back after the rule had switched the ambience off: not all at once
       if (c.currentTime + 0.25 >= q.next) this.sing(q);   // the next bout, scheduled a little ahead
     }
     // a far car now and then: its rumble swells and fades over a few seconds
@@ -131,12 +131,14 @@ export class PlaceAmbience {
       L.tlp.frequency.linearRampToValueAtTime(260, t + d * 0.45); L.tlp.frequency.linearRampToValueAtTime(170, t + d);
     }
   }
-  // One bout of one cricket: chirps of a few damped clicks, the bout's loudness swelling in and fading out; then a random pause.
-  // The clicks are scheduled ahead on one gain (two close sines = a little roughness, like a real wing's ring).
+  // One song of one cricket: one of the few songs (never the same twice in a row), chirps of a few damped clicks, the loudness swelling in
+  // and fading out; then a random pause (5..25 s). The clicks are scheduled ahead on one gain (two close sines = a little roughness).
   sing(q) {
     const c = this.c, S = CFG.placeSound.crickets, R = (r) => r[0] + Math.random() * (r[1] - r[0]), jit = (k) => 1 + (Math.random() - 0.5) * k;
-    const t0 = Math.max(c.currentTime + 0.05, q.next), dur = R(S.bout), period = 1 / R(S.chirpRate), n = Math.round(R(S.pulses)), f = q.f * jit(0.03);
-    const fIn = Math.min(S.fadeIn, dur * 0.4), fOut = Math.min(S.fadeOut, dur * 0.5);   // a short bout swells and fades in proportion: a 1 s one must stay audible
+    let i; do { i = Math.floor(Math.random() * S.songs.length); } while (S.songs.length > 1 && i === q.last);
+    q.last = i;
+    const so = S.songs[i], t0 = Math.max(c.currentTime + 0.05, q.next), dur = so.dur * jit(0.12), period = 1 / (so.rate * jit(0.1)), n = so.pulses, f = q.f * so.pitch * jit(0.01);
+    const fIn = Math.min(S.fadeIn, dur * 0.4), fOut = Math.min(S.fadeOut, dur * 0.5);   // a short song swells and fades in proportion: it must stay audible
     const pg = c.createGain(); pg.gain.value = 0; pg.connect(q.v.input);
     const o1 = c.createOscillator(), o2 = c.createOscillator(), g2 = c.createGain();
     o1.type = o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 1.011; g2.gain.value = 0.35;
@@ -144,14 +146,15 @@ export class PlaceAmbience {
     const smooth = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
     for (let t = 0; t < dur; t += period * jit(0.2)) {
       const bout = smooth(t / fIn) * smooth((dur - t) / fOut);
-      for (let i = 0; i < n; i++) {
-        const tp = t0 + t + i * S.pulseGap * jit(0.2), a = S.peak * bout * (0.55 + 0.45 * (n > 1 ? i / (n - 1) : 1)) * jit(0.24);
+      for (let j = 0; j < n; j++) {
+        const tp = t0 + t + j * S.pulseGap * jit(0.2), a = S.peak * q.k * so.gain * bout * (0.55 + 0.45 * (n > 1 ? j / (n - 1) : 1)) * jit(0.24);
         pg.gain.setValueAtTime(0, tp); pg.gain.linearRampToValueAtTime(a, tp + 0.002); pg.gain.setTargetAtTime(0, tp + 0.002, 0.0045);
       }
     }
     o1.start(t0); o2.start(t0); o1.stop(t0 + dur + 0.3); o2.stop(t0 + dur + 0.3);
     o1.onended = () => { try { pg.disconnect(); } catch { /* gone */ } };
     q.next = t0 + dur + R(S.pause);
+    return i;
   }
   // tests: the carriage of one layer's gain right now
   gains() { const L = this.layers; return L ? { crickets: Math.max(0, ...L.crickets.cr.map((q) => q.v.out.gain.value)), wind: L.wind.out.gain.value, traffic: L.traffic.out.gain.value } : null; }

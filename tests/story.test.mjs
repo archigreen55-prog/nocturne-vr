@@ -78,7 +78,7 @@ test('the line after a round (story-texts §9.2): caught, late, fail, «clock» 
   assert.equal(r.silentClean, 'Жодного крику. Браво. Без оплесків. pp.');
   assert.deepEqual(r.evening, { kind: 'clean', line: 'Чув із Пагорбів. Шафа теж. Акт перший. pp.', crew: 'Рита: pp — це піанісимо. Він музикант.' });
   assert.equal(r.eveningFail.crew, '', 'the crew only when the goal was met');
-  assert.deepEqual(r.before, { lines: ['Дача на Тихому Куті. Сторож один, п\'є чай.', '$2,000. Будь-що. Не кричіть. pp.'], crew: 'Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.' });
+  assert.deepEqual(r.before, { lines: ['Дача на Тихому Куті. Сторож один, п\'є чай.', '$700. Будь-що. Не кричіть. pp.'], crew: 'Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.' });
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -116,7 +116,7 @@ test('the board and the start screen: the customer\'s lines and Zoya\'s on contr
   const R = await drawn(() => { const g = window.__game; g.round.finish('left'); g.round.result.shouts = 1; });
   const r = { start, board: { story: b0.story, buttons: b0.ids }, lurkers: { page: L.page, cards: L.lurkers.cards.map((c) => c.name), met: L.lurkers.met, buttons: L.ids }, page2: L2.lurkers.page,
     papers: { page: P.page, rows: P.papers.rows.length, count: P.papers.count }, result: { after: R.storyAfter, by: R.screamBy } };
-  assert.equal(r.start.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $2,000. Будь-що. Не кричіть. pp. Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
+  assert.equal(r.start.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть. pp. Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
   assert.equal(r.start.crewColor, ' Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
   assert.equal(r.start.hp, 'Грай у навушниках. Твої сусіди — не Петрович.');
   assert.equal(r.start.order, 'contractinfo', 'right above the contract info');
@@ -322,7 +322,7 @@ test('phone: the pause menu — «Контракт» with the customer\'s lines 
   const summary = await page.evaluate(() => document.querySelector('.sm-story') && document.querySelector('.sm-story').textContent);
   const privacy = await (await import('node:fs/promises')).readFile(join(ROOT, 'privacy.html'), 'utf8');
   const S = (await import(join(ROOT, 'src/i18n/uk.js'))).default;
-  assert.equal(contract.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $2,000. Будь-що. Не кричіть. pp.');
+  assert.equal(contract.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть. pp.');
   assert.equal(contract.crew, ' Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
   assert.equal(lurkers.rows, 9); assert.ok(lurkers.names.every((n) => n === '???'), lurkers.names.join());
   assert.equal(lurkers.info, 'зустрів 0 з 9');
