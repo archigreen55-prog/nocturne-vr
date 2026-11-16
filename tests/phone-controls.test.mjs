@@ -78,7 +78,7 @@ test('phone: Взяти / Покласти, door tap = quick, hold = slow and qu
   // breath: hold
   const bh = await hold(page, cdp, '#touch .breath', 800, () => window.__game.breath.state);
   assert.ok(bh.includes('holding'), 'holding while pressed');
-  assert.equal(await page.evaluate(() => window.__game.breath.state), 'cooldown');
+  assert.deepEqual(await page.evaluate(() => [window.__game.breath.state, window.__game.breath.tank < 6]), ['ready', true], 'a short hold spends part of the tank: you may hold again at once');
   // breath: tap / tap
   await page.evaluate(() => { window.__game.breath.reset(); window.__game.touch.breathToggle = true; });
   await page.tap('#touch .breath');
@@ -86,7 +86,7 @@ test('phone: Взяти / Покласти, door tap = quick, hold = slow and qu
   await keepFor(page, 500);
   assert.equal(await page.evaluate(() => window.__game.breath.state), 'holding', 'still holding after the finger is up');
   await page.tap('#touch .breath');
-  await page.waitForFunction(() => window.__game.breath.state === 'cooldown');
+  await page.waitForFunction(() => window.__game.breath.state === 'ready' && window.__game.breath.tank < 6);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

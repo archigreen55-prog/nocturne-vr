@@ -20,7 +20,10 @@ export const placeSound = {
     const sel = typeof document !== 'undefined' && document.getElementById('streetsounds');
     if (sel) {
       sel.value = G.streetSounds ? 'on' : 'off';
-      sel.addEventListener('change', () => { G.streetSounds = sel.value !== 'off'; saveSetting('streetSounds', G.streetSounds ? 'on' : 'off'); });
+      sel.addEventListener('change', () => {
+        G.streetSounds = sel.value !== 'off'; saveSetting('streetSounds', G.streetSounds ? 'on' : 'off');
+        if (!G.streetSounds) amb.update(0, 'yard', false);   // at once, also in a pause / the menu (the world's tick does not run there): the crickets fade out within a second
+      });
     }
   },
   world(dt) {

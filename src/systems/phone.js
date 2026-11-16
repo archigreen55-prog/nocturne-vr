@@ -18,7 +18,7 @@ import { G, $ } from './state.js';
 import { flash } from './messages.js';
 import { phoneLayout } from './flatScreen.js';
 import { pause2D } from './desktop.js';
-import { goPage } from './menu.js';
+import { goPage, settingsOver } from './menu.js';
 import { newRound, setContract, setDifficulty, pressBoard, goHome } from './contract.js';
 import { reportText } from './startScreen.js';
 import { restartTutorial } from './tutorial.js';
@@ -48,8 +48,8 @@ export const optLabel = (key) => {
   const o = OPTS[key], v = optVal[key];
   if (key === 'fx' && v === 'auto') return `${o.title}: ${G.feedback.canVibrate ? S.settings.fx.vibrationNow : S.settings.fx.flashNow}`;
   if (key === 'quality' && v === 'auto') return `${o.title}: ${S.settings.quality.autoNow(PRESETS[G.quality.preset].name)}`;
-  if (key === 'gyro' && v === 'on' && G.gyro.state !== 'on' && G.gyro.state !== 'off') return `${o.title}: ${G.gyro.state === 'denied' ? S.settings.gyro.denied : S.settings.gyro.none}`;
-  return `${o.title}: ${o.names[v]}`;
+  if (key === 'gyro' && v === 'on' && G.gyro.state !== 'on' && G.gyro.state !== 'off') return G.gyro.state === 'denied' ? S.settings.gyro.denied : S.settings.gyro.none;   // the button sits in its row: the row says «Гіроскоп»
+  return key === 'gyro' ? o.names[v] : `${o.title}: ${o.names[v]}`;
 };
 export function pauseOpen(reason = 'user') {
   const { touch, menu } = G;
@@ -110,7 +110,7 @@ export const phone = {
       quality: { id: 'quality', save: 'quality', def: 'auto', values: ['auto', 'low', 'medium', 'high'], title: S.settings.quality.title, names: { auto: S.settings.quality.auto, low: S.quality.low, medium: S.quality.medium, high: S.quality.high },
         apply: (v) => { quality.setSetting(v); setPanning(quality.p.panning); $('qualitynote').textContent = quality.needsReload ? S.settings.quality.aaReload : ''; } },
       fps: { id: 'fpscap', save: 'fpsCap', def: '60', values: ['60', '30'], title: S.settings.fps.title, names: { 60: S.settings.fps.fps60, 30: S.settings.fps.fps30 }, apply: (v) => quality.setCap(+v) },
-      gyro: { id: 'gyrobtn', save: 'gyro', def: 'off', values: ['off', 'on'], title: S.settings.gyro.title, names: { off: S.settings.gyro.off, on: S.settings.gyro.on },
+      gyro: { id: 'gyrobtn', save: 'gyro', def: 'off', values: ['off', 'on'], title: S.settings.gyro.title, names: { off: S.settings.s.off, on: S.settings.s.on },
         apply: (v) => { if (v === 'off') gyro.disable(); else if (G.gyroReady) gyro.enable().then(() => { if (G.menu) G.menu.refresh(); G.start.refresh(); $('gyrobtn').textContent = optLabel('gyro'); }); } },
     } : null;
     G.gyroReady = false;   // the saved "on" is applied with the first tap (iPhone asks for the motion permission only from a tap)
@@ -125,16 +125,17 @@ export const phone = {
       label: optLabel,
       cycle: (key) => { G.gyroReady = true; const o = OPTS[key]; setOpt(key, o.values[(o.values.indexOf(optVal[key]) + 1) % o.values.length]); },
       resume: pauseResume,
+      settings: () => settingsOver.open(),   // the pause's «Налаштування»: the SAME settings page as the menu's, over the game (systems/menu.js)
       home: () => { goHome(); pauseResume(); },
       newRound: () => { newRound(); pauseResume(); },
       toStart: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); },
       // B02: the microphone and the progress code live on the «Налаштування» page (the overlay opens the main menu first)
-      toMic: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => { goPage('settings'); $('micbox').scrollIntoView({ block: 'start' }); }, 0); },
+      toMic: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => { goPage('mic'); $('micbox').scrollIntoView({ block: 'start' }); }, 0); },
       report: () => copyReport(reportText()),
       contractStep: (d) => { const all = CFG.contracts, i = all.indexOf(G.contract); setContract(all[(i + d + all.length) % all.length].id); },
       difficultyNext: () => setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]),
       tutorial: () => { restartTutorial(); pauseResume(); },
-      toProgress: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => { goPage('settings'); openProgress(); }, 0); },
+      toProgress: () => { G.paused = false; menu.close(); unlockAudio(); pause2D(); setTimeout(() => { goPage('more'); openProgress(); }, 0); },
       privacy: () => window.open('privacy.html', '_blank', 'noopener'),
       bright: (d) => brightnessStep(d), brightLabel: brightnessLabel, outdoor: () => toggleOutdoor(), outdoorLabel,
     }) : null;
@@ -161,6 +162,7 @@ export const phone = {
       // the system took the audio away (iPhone 'interrupted', Android 'suspended' during a call)
       setAudioStateHook((state) => { if (state !== 'running') pauseAuto('audio'); });
     }
+    if (touch && $('setresume')) bindPress($('setresume'), () => { settingsOver.close(); pauseResume(); });   // «Продовжити» in the settings page opened from the pause
     G.holdDoor = null;
   },
   // phone: the summary screen replaces the floating result board
