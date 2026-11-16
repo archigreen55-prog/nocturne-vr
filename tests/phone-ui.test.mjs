@@ -138,6 +138,7 @@ test('phone pause menu: opens by finger, the game waits, every button works held
     assert.equal((await pauseState(page)).paused, true, 'a slid-off finger does not press');
   }
   // settings: the SAME page as the menu's, over the game; every row acts at once and is saved
+  await page.evaluate(() => document.body.classList.remove('pages-all'));   // the tests show every menu page at once; a player sees one
   await fingerPressEl(page, cdp, pm('Налаштування'));
   await page.waitForFunction(() => document.body.classList.contains('set-over-pause') && !document.querySelector('#overlay section[data-page="settings"]').hidden);
   const setv = (id, v) => page.evaluate(([id, v]) => { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change')); }, [id, v]);
@@ -194,6 +195,7 @@ test('small phone (667 x 280, iPhone SE-like landscape): HUD blocks do not overl
   assert.ok(msg.x >= 0 && msg.x + msg.width <= 667, 'message inside the screen');
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
+  await page.evaluate(() => document.body.classList.remove('pages-all'));
   await fingerPressEl(page, cdp, pm('Налаштування'));   // the same settings page as the menu's; on 280 px it does not fit: it scrolls
   await page.waitForFunction(() => document.body.classList.contains('set-over-pause') && !document.querySelector('#overlay section[data-page="settings"]').hidden);
   const sc = await page.evaluate(() => { const g = document.querySelector('#overlay .card'); return { sh: g.scrollHeight, ch: g.clientHeight }; });
