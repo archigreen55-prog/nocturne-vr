@@ -157,6 +157,10 @@ test('phone: the game\'s own sounds from the speaker are not your voice (bus ana
   // (the feed reads m.gameDb, which the control loop keeps updating)
   assert.ok(unprotected.normal > 0, `control: unprotected, the game sound alone reads as a voice (${JSON.stringify(unprotected)})`);
   await page.waitForTimeout(800);
+  // the control's own «КРИК!» (15.11: a loud steady sound is a shout now) is held for a moment: let it end in
+  // microphone time before the protected part counts
+  await page.evaluate(() => { window.__mt = window.__game.mic.t; });
+  await page.waitForFunction(() => window.__game.mic.level !== 'shout' && window.__game.mic.t - window.__mt > 1, null, { timeout: 20000, polling: 50 });
   const shouts0 = await page.evaluate(() => window.__game.round.shouts);
   const prot = await loud(4000);
   assert.ok(prot.bus > -40, `the game was loud on the bus (${prot.bus.toFixed(1)} dB)`);

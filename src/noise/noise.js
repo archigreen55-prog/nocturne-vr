@@ -4,7 +4,7 @@
 // the ring is the hearing radius itself (x the difficulty's hearing CFG.hearing.radiusK, at most
 // CFG.ripple.maxRadius; a running step CFG.sprint.rippleMax), and a faint second ring shows how far it
 // carries through a wall (x the noise's wallK, else CFG.hearing.occludedK; none when a wall stops it all).
-// The line keeps CFG.ripple.line m wide at any radius (a shader on a flat square, not a scaled ring).
+// The line keeps CFG.ripple.line m wide at any radius (a shader on a thin band, not a scaled ring).
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 
@@ -26,7 +26,9 @@ export class NoiseSystem {
   constructor() {
     this.listeners = [];
     this.ripples = [];
-    const geo = new THREE.PlaneGeometry(2, 2);
+    // a band 12 % of the radius wide (not a full square: a 15 m ring would cost the whole screen's pixels on
+    // a weak phone); the shader draws the thin line inside it
+    const geo = new THREE.RingGeometry(0.88, 1, 96, 1);
     geo.rotateX(-Math.PI / 2);
     this.gain = 1;   // display brightness (systems/brightness.js): the rings stay as visible on a brighter picture
     // on the floor (owner 16.11): depth-tested like the floor itself — walls and furniture hide it, the faint
