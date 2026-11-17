@@ -35,9 +35,9 @@ export function switchMap(id, from = 'menu') {
   location.href = u.toString();
   return true;
 }
-// the note index.html reads before anything loads: no splash, this line instead (sessionStorage: this tab only)
+// the note index.html reads before anything loads: no splash, our van and this line instead (sessionStorage: this tab only)
 export function travelNote(id, from, host = false) {
-  try { sessionStorage.setItem('nocturne.travel', JSON.stringify({ to: id, from, t: Date.now(), text: (host ? S.campaign2.travel.host : S.campaign2.travel.to)[id] || '' })); } catch { /* storage blocked: the splash then */ }
+  try { sessionStorage.setItem('nocturne.travel', JSON.stringify({ to: id, from, t: Date.now(), text: (host ? S.campaign2.travel.host : S.campaign2.travel.to)[id] || '', sign: S.van.sign, crew: S.van.crew })); } catch { /* storage blocked: the splash then */ }
 }
 
 // W3: a map opens by stars on the maps before it (the mansion: 8★ on the dacha); «Відкрити все» (previews, ?debug) opens it

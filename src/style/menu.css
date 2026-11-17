@@ -103,27 +103,22 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 /* the first run: «Налаштуємо мікрофон?» */
 #micask { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .78); }
 #micask[hidden] { display: none; }
-/* campaign v2: a change of house (systems/travel.js; the owner's decision of 16.11) — the crew's notebook, its pages
-   turning while the other house loads (instead of the splash); one line under it; it goes as soon as the house is up */
+/* campaign v2: a change of house (systems/travel.js; the owner's decisions of 16.11) — the loading screen: our van
+   «ПЕРЕЇЗДИ / Фрол і Ко», flat, bobbing a little as if it drove, the road's dashes running; one line under it */
 #travel { position: fixed; inset: 0; z-index: 58; display: flex; align-items: center; justify-content: center; background: var(--night, #0d1322); transition: opacity .25s; }
 #travel[hidden] { display: none; }
 #travel.out { opacity: 0; }
-#travel .tv-box { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 16px; text-align: center; }
-#travel p { margin: 0; font: 800 20px var(--head, system-ui); color: var(--paper, #efe6d4); letter-spacing: .02em; opacity: .9; }
-#travel .album { position: relative; width: 240px; height: 156px; perspective: 900px; filter: drop-shadow(5px 6px 0 #05070d); }
-@media (max-height: 360px) { #travel .album { width: 200px; height: 130px; } #travel p { font-size: 17px; } }
-#travel .al-page, #travel .al-flip { position: absolute; top: 0; width: 50%; height: 100%; box-sizing: border-box; border: 2px solid #05070d;
-  background: #efe6d4 repeating-linear-gradient(180deg, transparent 0 15px, rgba(70, 90, 130, .28) 15px 16px); }
-#travel .al-left { left: 0; border-radius: 8px 2px 2px 8px; }
-#travel .al-left i { position: absolute; left: 22%; top: 28%; width: 46%; height: 34%; border: 3px solid #b0472f; border-top: none; }   /* a little house in the margin */
-#travel .al-left i::before { content: ''; position: absolute; left: -14%; top: -55%; width: 128%; height: 60%; background: linear-gradient(to top right, transparent 49%, #b0472f 50% 56%, transparent 57%) left / 50% 100% no-repeat, linear-gradient(to top left, transparent 49%, #b0472f 50% 56%, transparent 57%) right / 50% 100% no-repeat; }
-#travel .al-right { right: 0; border-radius: 2px 8px 8px 2px; }
-#travel .al-flip { right: 0; border-radius: 2px 8px 8px 2px; transform-origin: left center; backface-visibility: visible; animation: alflip 1.35s cubic-bezier(.45, .05, .35, 1) infinite; }
-#travel .al-flip:nth-of-type(4) { animation-delay: .45s; }
-#travel .al-flip:nth-of-type(5) { animation-delay: .9s; }
-#travel .al-spine { position: absolute; left: calc(50% - 4px); top: 6px; bottom: 6px; width: 8px; background: repeating-linear-gradient(180deg, #05070d 0 5px, transparent 5px 11px); }
-@keyframes alflip { 0% { transform: rotateY(0); background-color: #efe6d4; } 50% { background-color: #d9cfbb; } 70%, 100% { transform: rotateY(-180deg); background-color: #efe6d4; } }
-@media (prefers-reduced-motion: reduce) { #travel .al-flip { animation: none; display: none; } }
+#travel .tv-box { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 16px; text-align: center; }
+#travel p { margin: 0; font: 800 20px var(--head, system-ui); color: var(--paper, #efe6d4); letter-spacing: .02em; }
+#travel .tv-van { width: 240px; height: auto; overflow: visible; filter: drop-shadow(4px 5px 0 #05070d); }
+#travel .tv-van text { font-family: var(--head, system-ui); }
+#travel .tv-body, #travel .tv-wheels { animation: tvbob .42s ease-in-out infinite alternate; }
+#travel .tv-wheels { animation-duration: .38s; }
+#travel .tv-road { animation: tvroad .5s linear infinite; }
+@keyframes tvbob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes tvroad { to { stroke-dashoffset: 32; } }
+@media (max-height: 360px) { #travel .tv-van { width: 200px; } #travel p { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { #travel .tv-body, #travel .tv-wheels, #travel .tv-road { animation: none; } }
 /* campaign v2: the card «Як це?» (systems/howCard.js) — the same paper box as the microphone's question, three numbered steps */
 #howcard { --accent: var(--whisper); position: fixed; inset: 0; z-index: 56; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .7); }
 #howcard[hidden] { display: none; }

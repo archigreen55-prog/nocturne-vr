@@ -484,14 +484,14 @@ test('campaign v2 (16.11): the round\'s end has «Ще раз» and «Далі: 
   await ctx.close();
 });
 
-test('campaign v2 (16.11): a change of house is the crew\'s notebook turning its pages (no splash, no button) while the house loads, then straight to the «Грати» page with the next level\'s card; after «Далі: Маєток» that is level 6 (its start button is the tap); from a level card the same; a plain reload has no notebook', async () => {
+test('campaign v2 (16.11): a change of house is the loading screen with our van «ПЕРЕЇЗДИ / Фрол і Ко» and «Їдемо в Маєток…» (no splash, no button) while the house loads, then straight to the «Грати» page with the next level\'s card; after «Далі: Маєток» that is level 6 (its start button is the tap); from a level card the same; a plain reload has no van screen', async () => {
   const stars = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1, clock: S1 };
   const ctx = await newContext(browser, {}, { menu: true });
   await ctx.addInitScript((stars) => {
     window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true };
     if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('nocturne.stars', JSON.stringify(stars)); }
-    // what the page showed at DOMContentLoaded (the notebook, the splash), before the game was up
-    document.addEventListener('DOMContentLoaded', () => { try { sessionStorage.setItem('t.cover', JSON.stringify({ album: !!document.getElementById('travel') && !document.getElementById('travel').hidden, flips: document.querySelectorAll('#travel .al-flip').length, splash: !!document.getElementById('splash'), text: (document.getElementById('traveltext') || {}).textContent || '' })); } catch { /* opaque */ } });
+    // what the page showed at DOMContentLoaded (the van's loading screen, the splash), before the game was up
+    document.addEventListener('DOMContentLoaded', () => { try { sessionStorage.setItem('t.cover', JSON.stringify({ van: !!document.getElementById('travel') && !document.getElementById('travel').hidden, sign: [...document.querySelectorAll('#travel .tv-van text')].map((t) => t.textContent).join(' / '), splash: !!document.getElementById('splash'), text: (document.getElementById('traveltext') || {}).textContent || '' })); } catch { /* opaque */ } });
   }, stars);
   const { page, errors } = await open(ctx, base + '?map=dacha&splash=1');
   // the last dacha level won: the summary's «Далі: Маєток»
@@ -501,10 +501,10 @@ test('campaign v2 (16.11): a change of house is the crew\'s notebook turning its
   }, PLAY);
   await page.evaluate(() => window.__game.pressBoard('nextlvl')).catch(() => {});   // the page goes away under it
   await page.waitForURL((u) => u.search.includes('map=mansion'), { timeout: 45000, waitUntil: 'commit' });
-  await page.waitForFunction(() => window.__game && document.getElementById('travel').hidden, null, { timeout: 60000 });   // the notebook goes once the house is up
+  await page.waitForFunction(() => window.__game && document.getElementById('travel').hidden, null, { timeout: 60000 });   // the loading screen goes once the house is up
   const at = await page.evaluate(() => ({ cover: JSON.parse(sessionStorage.getItem('t.cover')), map: window.__game.level.id, c: window.__game.contract.id, playing: window.__game.playing,
     page: [...document.querySelectorAll('#overlay section[data-page]')].filter((x) => !x.hidden).map((x) => x.dataset.page).filter((x) => x === 'play').length, button: !!document.getElementById('travelgo') }));
-  assert.deepEqual(at.cover, { album: true, flips: 3, splash: false, text: 'Їдемо в Маєток…' }, 'the notebook from the first moment, no splash');
+  assert.deepEqual(at.cover, { van: true, sign: 'ПЕРЕЇЗДИ / Фрол і Ко', splash: false, text: 'Їдемо в Маєток…' }, 'our van from the first moment, no splash');
   assert.deepEqual([at.map, at.c, at.playing, at.page, at.button], ['mansion', 'm8', false, 1, false], 'then the «Грати» page with level 6 picked; no button; the round waits for its start');
   assert.equal(await page.evaluate(() => document.querySelector('#levelpick .lv-card.on').dataset.level), 'm8');
   // from a level card (the menu): back to the dacha — the same
@@ -516,9 +516,9 @@ test('campaign v2 (16.11): a change of house is the crew\'s notebook turning its
   await page.waitForFunction(() => window.__game && document.getElementById('travel').hidden, null, { timeout: 60000 });
   const back = await page.evaluate(() => ({ cover: JSON.parse(sessionStorage.getItem('t.cover')).text, c: window.__game.contract.id, card: document.querySelector('#levelpick .lv-card.on').dataset.level }));
   assert.deepEqual(back, { cover: 'Їдемо на Дачу…', c: 'quiet', card: 'quiet' });
-  // a plain reload: the usual start (no notebook)
+  // a plain reload: the usual start (no van screen)
   await page.reload(); await page.waitForFunction(() => window.__game, null, { timeout: 60000 });
-  assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('t.cover'))).album, false);
+  assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('t.cover'))).van, false);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

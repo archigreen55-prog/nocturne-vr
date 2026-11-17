@@ -128,21 +128,21 @@ test('mansion: the wardrobe has the old Шафник (no style outline, no resti
   await ctx.close();
 });
 
-test('house switch in the menu: the page that reloads is covered until the game is up — not the bare menu: the crew\'s notebook turning its pages (the owner\'s decision of 16.11, newer than the splash of #29), not the splash; a plain ?page= link keeps its old behaviour', async () => {
+test('house switch in the menu: the page that reloads is covered until the game is up — not the bare menu: the loading screen with our van «ПЕРЕЇЗДИ / Фрол і Ко» (the owner\'s decisions of 16.11, newer than the splash of #29), not the splash; a plain ?page= link keeps its old behaviour', async () => {
   const ctx = await newContext(browser, LAND);
   await ctx.addInitScript(() => {
     try { localStorage.setItem('nocturne.preview.openAll', 'true'); } catch { /* opaque */ }
-    document.addEventListener('DOMContentLoaded', () => { try { const sp = document.getElementById('splash'), tv = document.getElementById('travel'); sessionStorage.setItem('t.sawSplash', sp ? '1' : '0'); sessionStorage.setItem('t.sawAlbum', tv && !tv.hidden ? '1' : '0'); } catch { /* opaque */ } });
+    document.addEventListener('DOMContentLoaded', () => { try { const sp = document.getElementById('splash'), tv = document.getElementById('travel'); sessionStorage.setItem('t.sawSplash', sp ? '1' : '0'); sessionStorage.setItem('t.sawVan', tv && !tv.hidden && tv.querySelector('.tv-van') ? '1' : '0'); } catch { /* opaque */ } });
   });
   const { page, errors } = await open(ctx, preview + '?map=dacha&page=play');
   assert.equal(await page.evaluate(() => sessionStorage.getItem('t.sawSplash')), '0', 'a plain ?page= link: no splash (as before)');
-  assert.equal(await page.evaluate(() => sessionStorage.getItem('t.sawAlbum')), '0', '...and no notebook');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('t.sawVan')), '0', '...and no van screen');
   await page.evaluate(() => sessionStorage.removeItem('t.sawSplash'));
   const nav = page.waitForURL(/map=mansion/, { timeout: 60000 });
   await page.evaluate(async () => { const m = await import('./src/world/maps.js'); m.switchMap('mansion'); });
   await nav;
   await page.waitForFunction(() => window.__game, null, { timeout: 90000 });
-  assert.equal(await page.evaluate(() => sessionStorage.getItem('t.sawAlbum')), '1', 'after the switch the crew\'s notebook covers the page while it loads');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('t.sawVan')), '1', 'after the switch our van\'s loading screen covers the page while it loads');
   assert.equal(await page.evaluate(() => sessionStorage.getItem('t.sawSplash')), '0', 'not the splash');
   assert.equal(await page.evaluate(() => sessionStorage.getItem('nocturne.mapSwitch')), null, 'the marker is used once');
   assert.equal(await page.evaluate(() => sessionStorage.getItem('nocturne.travel')), null, 'the note too');
