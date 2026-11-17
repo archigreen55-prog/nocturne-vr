@@ -8,8 +8,7 @@ export const sprint = {
   stepLength: 0.9,       // one running step noise per this many metres
   minStart: 1.5,         // s of stamina needed to start running again
   lightK: 1.3,           // stamina used x this with a one-handed item in the hands
-  rippleMax: 5,          // m, the floor rings of a running step (walking: ripple.maxRadius)
-  rippleDelay: 0.12,     // s, the second ring of a running step
+  rippleMax: 24,         // m, the floor rings of a running step: the real radius now (was 5; walking: ripple.maxRadius)
   breathPoints: 12,      // suspicion for one heard breath while out of breath
   whisperRaise: 3,       // dB the whisper boundary goes up while out of breath (real heavy breathing)
   vignette: 0.55,        // VR: vignette strength while running (walking: 0.35 at 2.0 m/s)

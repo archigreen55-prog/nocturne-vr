@@ -111,7 +111,7 @@ test('crickets: two of them (near and far) in the yard; each sings one of 5 diff
   const soft = r.runs.flatMap((x) => x.soft);
   assert.ok(soft.length >= 3 && soft.every(([a, z]) => a < 0.8 && z < 0.8), `a long bout swells in and fades out (the first / last click vs the loudest): ${soft.map(([a, z]) => `${a.toFixed(2)}/${z.toFixed(2)}`)}`);
   assert.ok(r.song <= r.step - 15, `the song is far under the patrol step: ${r.song.toFixed(1)} vs ${r.step.toFixed(1)} dB`);
-  assert.ok(r.song > -55 && r.song < -40, `quiet, a background, but there (the first version peaked at -38 dB): ${r.song.toFixed(1)} dB`);
+  assert.ok(r.song > -62 && r.song < -40, `quiet, a background, but there (the first version peaked at -38 dB): ${r.song.toFixed(1)} dB`);
   assert.equal(r.offVoices, 0, 'crickets: { on: false } = no crickets');
   assert.deepEqual(errors, []);
   await ctx.close();

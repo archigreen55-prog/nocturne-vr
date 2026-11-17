@@ -137,23 +137,24 @@ test('phone pause menu: opens by finger, the game waits, every button works held
     await page.waitForTimeout(300);
     assert.equal((await pauseState(page)).paused, true, 'a slid-off finger does not press');
   }
-  // settings: look speed cycles and is saved
+  // settings: the SAME page as the menu's, over the game; every row acts at once and is saved
+  await page.evaluate(() => document.body.classList.remove('pages-all'));   // the tests show every menu page at once; a player sees one
   await fingerPressEl(page, cdp, pm('Налаштування'));
-  await page.waitForSelector(pm('Назад'));
-  assert.match(await page.textContent('#pausemenu .pm-btn'), /Огляд пальцем: звичайно/);
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn >> nth=0');
-  assert.match(await page.textContent('#pausemenu .pm-btn'), /Огляд пальцем: швидко/);
+  await page.waitForFunction(() => document.body.classList.contains('set-over-pause') && !document.querySelector('#overlay section[data-page="settings"]').hidden);
+  const setv = (id, v) => page.evaluate(([id, v]) => { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change')); }, [id, v]);
+  assert.equal(await page.inputValue('#lookspeed'), 'normal');
+  await setv('lookspeed', 'fast');
   assert.equal(await page.evaluate(() => window.__game.touch.lookSpeed), 0.008);
-  assert.equal(await page.inputValue('#lookspeed'), 'fast', 'the start-screen select follows');
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn >> nth=1');   // breath mode
+  await setv('breathmode', 'toggle');   // breath mode
   assert.equal(await page.evaluate(() => window.__game.touch.breathToggle), true);
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn >> nth=2');   // HUD
+  await setv('hudmode', 'min');   // HUD
   assert.equal(await page.evaluate(() => window.__game.hud.minimal), true);
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn >> nth=2');
+  await setv('hudmode', 'full');
   assert.equal(await page.evaluate(() => window.__game.hud.minimal), false);
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn >> nth=3');   // vibration
+  await setv('feedback', 'flash');   // vibration
   assert.equal(await page.evaluate(() => window.__game.feedback.mode), 'flash');
-  await fingerPressEl(page, cdp, pm('Назад'));
+  await fingerPressEl(page, cdp, '#overlay section[data-page="settings"] [data-back]');
+  await page.waitForFunction(() => !document.body.classList.contains('set-over-pause'));
   // continue: the game runs again, audio wakes
   await fingerPressEl(page, cdp, pm('Продовжити'));
   await page.waitForFunction(() => !window.__game.paused);
@@ -194,22 +195,25 @@ test('small phone (667 x 280, iPhone SE-like landscape): HUD blocks do not overl
   assert.ok(msg.x >= 0 && msg.x + msg.width <= 667, 'message inside the screen');
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
-  await fingerPressEl(page, cdp, pm('Налаштування'));   // T6: the pause is short; its settings page is the long list
-  await page.waitForSelector(pm('Назад'));
-  const sc = await page.evaluate(() => { const g = document.querySelector('#pausemenu .pm-grid'); return { sh: g.scrollHeight, ch: g.clientHeight }; });
-  assert.ok(sc.sh > sc.ch, `the list is longer than the screen (${sc.sh} > ${sc.ch})`);
-  // a vertical drag that starts on a button scrolls the list and presses nothing
+  await page.evaluate(() => document.body.classList.remove('pages-all'));
+  await fingerPressEl(page, cdp, pm('Налаштування'));   // the same settings page as the menu's; on 280 px it does not fit: it scrolls
+  await page.waitForFunction(() => document.body.classList.contains('set-over-pause') && !document.querySelector('#overlay section[data-page="settings"]').hidden);
+  const sc = await page.evaluate(() => { const g = document.querySelector('#overlay .card'); return { sh: g.scrollHeight, ch: g.clientHeight }; });
+  assert.ok(sc.sh > sc.ch, `the page is longer than the screen (${sc.sh} > ${sc.ch})`);
+  const look0 = await page.inputValue('#lookspeed');
+  // a vertical drag that starts on a control scrolls the page and presses nothing
   {
-    const b = await page.locator('#pausemenu .pm-btn >> nth=1').boundingBox();
+    const b = await page.locator('#lookspeed + .seg button >> nth=2').boundingBox();
     const x = b.x + b.width / 2, y = b.y + b.height / 2, t = touchT();
     await tp(cdp, 'touchStart', [{ x, y }], t);
     for (let i = 1; i <= 8; i++) await tp(cdp, 'touchMove', [{ x, y: y - i * 15 }], t + i * 0.02);
     await tp(cdp, 'touchEnd', [], touchEndAt(t + 0.3));
   }
   await page.waitForTimeout(200);
-  assert.ok(await page.evaluate(() => document.querySelector('#pausemenu .pm-grid').scrollTop) > 20, 'the drag scrolled the list');
-  assert.equal(await page.evaluate(() => window.__game.paused), true, 'the drag did not press anything');
-  await fingerPressEl(page, cdp, pm('Назад'));   // the last button, reachable after scrolling
+  assert.ok(await page.evaluate(() => document.querySelector('#overlay .card').scrollTop) > 20, 'the drag scrolled the page');
+  assert.equal(await page.inputValue('#lookspeed'), look0, 'the drag did not press anything');
+  await fingerPressEl(page, cdp, '#overlay section[data-page="settings"] [data-back]');
+  await page.waitForFunction(() => !document.body.classList.contains('set-over-pause'));
   await fingerPressEl(page, cdp, pm('Вийти в меню'));
   await page.waitForFunction(() => !window.__game.playing);
   assert.deepEqual(errors, []);

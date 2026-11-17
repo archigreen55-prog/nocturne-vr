@@ -30,8 +30,8 @@ export const player = {
     // breath (A / Shift)
     const b = breath.update(dt, active && G.breathDown && G.role !== 'guard');   // W15: the guard's A is its button, not its breath
     if (b === 'start') { flash(S.messages.breathHold, 1.5, '#4fb3ff'); xrIn.pulse('right', 0.2, 30); G.wristTimer = 0; }
-    else if (b === 'end') { flash(S.messages.breathOut(breath.cool.toFixed(0)), 2, '#93a1b8'); G.wristTimer = 0; }
-    else if (b === 'busy') flash(S.messages.breathBusy(breath.left.toFixed(0)), 1.5, '#93a1b8');
+    else if (b === 'end') { flash(S.messages.breathOut(breath.tank.toFixed(1)), 2, '#93a1b8'); G.wristTimer = 0; }
+    else if (b === 'busy') flash(S.messages.breathBusy(Math.ceil(breath.left)), 1.5, '#93a1b8');
 
     // player + hands
     player.update(dt, move, G.level, hands.carrying === 'medium' ? CFG.player.carryMediumK : 1);

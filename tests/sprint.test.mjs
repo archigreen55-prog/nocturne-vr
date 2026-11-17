@@ -89,7 +89,7 @@ test('running logic: 2.8 m/s; stamina 5 s / 10 s, out of breath 4 s (no holding 
   await ctx.close();
 });
 
-test('running noise: a run step every 0.9 m, radius 12 m, 15 points, two orange rings (≤ 5 m); walking steps as before', async () => {
+test('running noise: a run step every 0.9 m, radius 12 m, 15 points, two orange rings (15.11: the real 12 m and a faint 6 m through a wall); walking steps as before', async () => {
   const { ctx, page, errors } = await pcRound('medium');
   const r = await page.evaluate(() => {
     const g = window.__game;
@@ -100,7 +100,7 @@ test('running noise: a run step every 0.9 m, radius 12 m, 15 points, two orange 
     const runs = run.filter((e) => e.kind === 'run');
     const gaps = runs.slice(1).map((e, i) => Math.hypot(e.x - runs[i].x, e.z - runs[i].z));
     // the rings of the last running step
-    g.noise.clear(); g.noise.emit(0, 0, 12, 'run'); const rings = g.noise.ripples.map((x) => ({ r: x.r, t: x.t, c: x.color }));
+    g.noise.clear(); g.noise.emit(0, 0, 12, 'run'); const rings = g.noise.ripples.map((x) => ({ r: x.r, t: x.t, c: x.color, k: x.k }));
     g.noise.clear();
     // walking: Space held once
     g.sim(12);   // stamina back
@@ -115,7 +115,7 @@ test('running noise: a run step every 0.9 m, radius 12 m, 15 points, two orange 
   assert.ok(r.gaps.every((x) => x > 0.85 && x < 1.0), `run stride: ${r.gaps.map((x) => x.toFixed(2))}`);
   assert.equal(r.points, 15);
   assert.equal(r.rings.length, 2, 'two rings');
-  assert.ok(r.rings[0].r <= 5 && r.rings[1].r < r.rings[0].r && r.rings[1].t < 0 && r.rings.every((x) => x.c === 0xff7a1a), JSON.stringify(r.rings));
+  assert.ok(r.rings[0].r === 12 && r.rings[1].r === 6 && r.rings[1].k < 1 && r.rings.every((x) => x.c === 0xff7a1a), JSON.stringify(r.rings));
   assert.deepEqual(r.walkKinds, ['step']);
   assert.ok(r.walkRadius.slice(1).every((x) => Math.abs(x - 6) < 0.01) && r.walkRadius[0] > 5.5, `walking steps 6 m at 2.0 m/s: ${r.walkRadius}`);
   assert.ok(r.wgaps.every((x) => x > 0.65 && x < 0.8), `walking stride: ${r.wgaps.map((x) => x.toFixed(2))}`);

@@ -25,7 +25,21 @@ import { throwablesFor } from '../loot/throw.js';
 import { unlocked } from '../game/campaign.js';
 import { score } from './traps.js';
 import { storyLurkerWake, storyLurkerLost } from './story.js';
+import { roundNoMic } from './micAuto.js';
 import { nearest } from '../game/players.js';
+
+// A shout (plan «голос і кільця», 15.11; owner's decision Р1 A): heard close by (within CFG.mic.shout.alarmK
+// of the way to its ring's edge) it is the full alarm (medium, hard); farther it adds CFG.mic.shout.points of
+// suspicion and that guard comes to look at once; out of every guard's hearing it is only a shout (the
+// «без жодного крику» contracts still count it). k: how loud it was to the guard who heard it best.
+function shoutHeard(guard, k, e, ey) {
+  const { alert } = G;
+  if (!guard) { if (e.source === 'player' && !alert.manualOnly && !alert.full) flash(S.messages.shoutUnheard, 3, '#ff9f43'); return; }
+  if (alert.manualOnly || alert.full) { guard.reactTo(e, ey); return; }   // W15: the friend playing the guard decides; an alarm already: it hunts there
+  if (k >= CFG.mic.shout.alarmK && CFG.run.shoutFull) { alert.setFull(S.cause.shout, e.x, e.z); flash(S.messages.shoutFull, 3, '#ff4d4d'); return; }
+  alert.add(CFG.mic.shout.points, e.x, e.z);
+  if (!alert.full) { guard.heardShout(e.x, e.z, G.level.floorIndex ? G.level.floorIndex(ey) : undefined); flash(S.messages.shoutEasy, 3, '#ff4d4d'); }
+}
 
 export const world = {
   id: 'world',
@@ -142,7 +156,7 @@ export const world = {
             G.comfort.fadeIn(0.8);
           }
           G.resultT = 0; G.autoPlayed = false;
-          const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: mic.noMic || mic.state !== 'on', difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
+          const verdict = G.verdict = evaluate(G.contract, R, { alarmed: round.alarmed, noMic: roundNoMic(), difficulty: G.difficulty, loot, guards: G.guards || [patrol] });
           verdict.newBest = G.role === 'guard' ? false : recordStars(G.contract.id, G.difficulty, verdict.stars, G.net ? 'coop' : G.MODE.mode);   // with friends: the coop table (plan-multiplayer §5); the guard (W15) wins no stars
           if (G.netEvent) G.netEvent('result', { R, alarmed: round.alarmed });
           flash(`${R.title} ${'★'.repeat(verdict.stars)}${'☆'.repeat(3 - verdict.stars)}`, 4, R.kind === 'left' || R.kind === 'escaped' ? '#5fd38d' : '#ff5c5c');
@@ -151,13 +165,18 @@ export const world = {
     });
     console.log(`Level built in ${(performance.now() - t0).toFixed(0)} ms, ${level.triangles} triangles, ${level.world.edgeCount} collision edges, ${level.doors.length} doors`);
 
+    // the ground under a noise that has no height of its own (a player's step, voice, door): the floor of the
+    // player who made it, the way the player stands on it (the mansion's upper floor, the stairs) — its rings lie there
+    noise.groundAt = (x, z, who) => { const p = who || player, f = p.floorY || 0; return level.floorY ? level.floorY(x, z, f) : f; };
     // noise -> who hears it: with two guards, the one it is louder to (plan-W6 §3.2)
     noise.on((e) => {
       if (round.phase === 'result' || G.isGuest) return;   // a guest: the host's guards hear (systems/net.js)
       const ey = e.source === 'world' ? e.y : (e.who || player).floorY;   // a dropped item's noise is at its height; a player's noises on that player's floor
       let best = null, bestK = 0;
       for (const g of guards) { const k = g.audible(e, ey); if (k > bestK) { bestK = k; best = g; } }
-      if (best) { best.reactTo(e, ey); alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); }
+      if (e.kind === 'shout') shoutHeard(best, bestK, e, ey);
+      // the suspicion first: a small noise (still under CFG.alert.investigateAt) only gets a glance and a «?»
+      else if (best) { alert.add(CFG.alert.points[e.kind] ?? 20, e.x, e.z); best.reactTo(e, ey); }
       for (const l of lurkers) l.hear(e);
     });
     alert.onFull = (cause, x, z) => {

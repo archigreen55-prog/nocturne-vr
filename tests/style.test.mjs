@@ -162,6 +162,32 @@ test('style: every lamp\'s circle is lit by itself where its lamp has no real li
   }
 });
 
+// the patch at every quality level (Налаштування → Якість): the low preset switches the lights further than 12 m off and
+// has no MSAA; the circles' map and the glow must not depend on it. Real lights in place: a lamp that has one (the dacha's
+// path lamp, the mansion's hall chandelier) and one that has none (the street lamp) are both lit inside and not outside.
+test('style: the lamp\'s lit patch is there on every quality preset (low / medium / high) — a lamp with a real light, one without, and the mansion\'s chandelier', async () => {
+  const CASES = [['dacha', 0, 0], ['dacha', 5, 0], ['mansion', 0, 0]];   // [map, lamp, direction (x 45°) with a clear floor]
+  for (const preset of ['low', 'medium', 'high']) for (const map of ['dacha', 'mansion']) {
+    const ctx = await newContext(browser, LAND);
+    await ctx.addInitScript((q) => { try { for (const k of ['nocturne.preview.', 'nocturne.']) { localStorage.setItem(k + 'quality', JSON.stringify(q)); localStorage.setItem(k + 'openAll', 'true'); localStorage.setItem(k + 'tutorial', JSON.stringify({ done: true })); } } catch { /* opaque */ } }, preset);
+    const { page, errors } = await open(ctx, preview + '?map=' + map);
+    for (const [m, i, k] of CASES.filter((c) => c[0] === map)) {
+      const L = await page.evaluate(([i, k]) => {
+        const g = window.__game, l = g.CFG.stealth.lamps[i], a = k * Math.PI / 4, ux = Math.cos(a), uz = Math.sin(a), d = l.r + 3.2;
+        g.player.teleport(l.x + ux * d, l.z + uz * d, Math.atan2(ux, uz), l.y || 0); g.player.lookPitch = -0.55;
+        return { x: l.x, z: l.z, y: l.y || 0, r: l.r, ux, uz, preset: g.quality.preset };
+      }, [i, k]);
+      assert.equal(L.preset, preset, `${map}: the page runs the ${preset} preset`);
+      await page.waitForTimeout(1500);   // the lamps' lights follow the frame (and fade in)
+      const at = (t) => [L.x + L.ux * (L.r + t), L.y, L.z + L.uz * (L.r + t)];
+      const [inside, near, far] = await lumAt(page, [at(-0.45), at(0.45), at(1.2)]);
+      assert.ok(inside >= 3 * near && inside >= 3 * far, `${preset} ${m} lamp ${i}: inside ${inside.toFixed(4)}, just outside ${near.toFixed(4)}, further ${far.toFixed(4)} (lit ≥ 3 x)`);
+    }
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+});
+
 test('style: the scene\'s real lights are told to the circles — the dacha\'s three stand at their lamps at full (1), a light with no intensity counts 0, a mansion light still fading in counts its fade', async () => {
   const ctx = await newContext(browser, LAND);
   await ctx.addInitScript(() => { try { localStorage.setItem('nocturne.preview.openAll', 'true'); localStorage.setItem('nocturne.preview.tutorial', JSON.stringify({ done: true })); } catch { /* opaque */ } });
