@@ -2,7 +2,7 @@
 // on main.js, the stylesheets under src/ and the stale-page guard, version.json, and sw.js (its
 // version and offline file list). Also writes the game's name (src/i18n/name.js) and its texts
 // (src/i18n/uk.js) into the files that cannot import them: index.html <title> and
-// apple-mobile-web-app-title, manifest.webmanifest, privacy.html. Run before every deploy:
+// apple-mobile-web-app-title, the link card's og tags, manifest.webmanifest, privacy.html. Run before every deploy:
 //   node tools/bump-version.mjs          # 0.1.0 -> 0.1.1
 //   node tools/bump-version.mjs 0.2.0    # explicit
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
@@ -50,6 +50,12 @@ if (checks.length !== 3) throw new Error('index.html: expected import map, guard
 const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 html = html.replace(/<title>[^<]*<\/title>/, `<title>${esc(uk.app.pageTitle(GAME_NAME))}</title>`);
 html = html.replace(/<meta name="apple-mobile-web-app-title" content="[^"]*">/, `<meta name="apple-mobile-web-app-title" content="${esc(GAME_NAME)}">`);
+// the link card (og tags): the name and one sentence, from the same texts
+for (const [attr, v] of [['name="description"', uk.app.description], ['property="og:site_name"', GAME_NAME], ['property="og:title"', GAME_NAME], ['property="og:description"', uk.app.description], ['property="og:image:alt"', uk.app.ogAlt]]) {
+  const re = new RegExp(`<meta ${attr} content="[^"]*">`);
+  if (!re.test(html)) throw new Error(`index.html: no <meta ${attr}>`);
+  html = html.replace(re, `<meta ${attr} content="${esc(v)}">`);
+}
 const manifestFile = join(root, 'manifest.webmanifest');
 let manifest = readFileSync(manifestFile, 'utf8');
 for (const [k, v] of [['name', GAME_NAME], ['short_name', GAME_NAME], ['description', uk.app.description]]) {

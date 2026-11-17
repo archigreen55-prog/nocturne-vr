@@ -379,3 +379,6 @@ body.pages-all #overlay .set-cols { grid-auto-flow: row; grid-template-rows: non
 #overlay .set-row button, #overlay .set-row .seg button { font-family: system-ui, sans-serif; font-weight: 800; }
 #overlay .set-row #outdoorbtn, #overlay .set-row #gyrobtn { min-height: 32px; padding: 2px 12px; font-size: 11px; font-family: system-ui, sans-serif; }
 #overlay .set-row button { box-shadow: 2px 2px 0 var(--ink2); }
+/* mic v2 stage 1 (Б1): the main menu's microphone line — a dot that lights up with your voice while the game really hears it */
+.mm-mic .micdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: var(--whisper, #7fd0ff); transition: opacity .08s linear; }
+.mm-mic[data-st="denied"], .mm-mic[data-st="none"], .mm-mic[data-st="problem"] { color: var(--lamp); }

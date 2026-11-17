@@ -153,7 +153,7 @@ const grateOcc = () => { const P = local.whisperer.spec, h = G.player.head; retu
 function echo(p) {
   const W = CFG.story.whisperer, P = local.whisperer.spec;
   playWhisperEcho(grateAt(), grateOcc(), p.dur, p.env);
-  if (!G.isGuest) G.noise.emit(P.x, P.z + 0.4, W.radius, 'voice', { y: 0, source: 'world' });
+  if (!G.isGuest) G.noise.emit(P.x, P.z + 0.4, W.radius, 'voice', { y: 0, source: 'world', look: true });   // a lure: the guard comes to look, not only a glance
   if (G.netEvent) G.netEvent('wecho', { dur: p.dur, who: p.who });   // the friends hear it too (systems/net.js)
   local.stats.echoes++;
   local.echoAt = { x: P.x, z: P.z + 0.6, t: G.simT };

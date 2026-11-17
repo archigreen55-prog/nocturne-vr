@@ -14,11 +14,11 @@ test('VR regression (IWER Quest 3): enter VR, walk with the stick, snap turn, pi
   assert.equal((await modeOf(page)).mode, 'vr', 'the emulated Quest is detected as a headset');
   await page.waitForFunction(() => /ENTER VR/i.test(document.getElementById('vrbutton').textContent));
   assert.deepEqual(await page.evaluate(() => [window.__game.hud, window.__game.menu, window.__game.feedback, window.__game.wrist.mesh.visible]), [null, null, null, true], 'VR: wrist panel, no phone UI');
-  const vrMic = await page.evaluate(async () => { const { stepsFor } = await import('./src/audio/calibrate.js'); const m = window.__game.mic; return { steps: stepsFor(false).length, game: m.gameDbFn, cover: m.coverHint, agc: m.agcAdjust, raised: m.masking }; });
-  assert.deepEqual(vrMic, { steps: 4, game: null, cover: false, agc: false, raised: 0 }, 'VR: the microphone and the 4-step calibration as before');
+  const vrMic = await page.evaluate(async () => { const { stepsFor } = await import('./src/audio/calibrate.js'); const m = window.__game.mic; return { steps: stepsFor(true).length, game: typeof m.gameDbFn, bleed: m.bleedDb, cover: m.coverHint, agc: m.agcAdjust, raised: m.masking }; });
+  assert.deepEqual(vrMic, { steps: 5, game: 'function', bleed: -30, cover: false, agc: false, raised: 0 }, 'VR (mic v2): the protection from the game\'s own sound (the headset\'s speakers sit by its microphone), «Звуки гри» in the calibration');
   assert.deepEqual(await page.evaluate(() => [window.__game.quality, window.__game.gyro, window.__game.renderer.getPixelRatio() === Math.min(devicePixelRatio, 1.5)]), [null, null, true], 'VR: no phone quality / gyroscope, the pixel ratio as before');
   await page.evaluate(() => { const g = window.__game; g.mic.noMic = true; g.pressBoard('micpage'); g.sim(0.1); });
-  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (4 кроки)')), 'VR board: 4 steps');
+  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (5 кроків)')), 'VR board: 5 steps');
   await page.evaluate(() => { const g = window.__game; g.mic.noMic = false; g.pressBoard('back'); g.sim(0.1); });
   await page.click('#vrbutton');
   await page.waitForFunction(() => window.__game.inVR, null, { timeout: 10000 });
