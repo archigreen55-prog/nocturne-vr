@@ -55,6 +55,9 @@ export const styleUniforms = {
   uStyleZoneTex: { value: null },                           // the lamps' «you are seen» circles as a map seen from above (setZones)
   uStyleZoneRect: { value: new THREE.Vector4(0, 0, 1, 1) },  // the map's min x, min z, width, depth (m)
   uStyleZoneOn: { value: 0 },
+  uStyleLamps: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },   // the scene's point lights: x, y, z, how much of the real light stands there (0..1; systems/style.js)
+  uStyleGlow: { value: new THREE.Color(PAL.lamp) },         // a circle with no real light in it glows in the lamp's colour (luminance 1)
+  uStyleGlowK: { value: CFG.style.glow },                   // ...as much irradiance as this
   uStyleInk: { value: CFG.style.ink.px },                   // line width, px
   uStyleInkFar: { value: new THREE.Vector2(...CFG.style.ink.fade) },   // lines fade between these distances
   uStyleInkColor: { value: new THREE.Color(PAL.ink) },
@@ -64,13 +67,13 @@ export const styleUniforms = {
   const a = new THREE.Color(PAL.dusk), b = new THREE.Color(PAL.paper), L = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
   a.multiplyScalar(1 / L(a)); b.multiplyScalar(1 / L(b));
   styleUniforms.uStyleTint.value.copy(a.lerp(b, CFG.style.grade.paper));
+  styleUniforms.uStyleGlow.value.multiplyScalar(1 / L(styleUniforms.uStyleGlow.value));   // the lamp's colour at luminance 1
 }
 
 // The circles' map: a 256 x 256 texture over the circles' bounding box, a soft distance in each texel
-// (0.5 = the edge), red = circles on the ground floor (y 0), green = upstairs (y 3); blue / alpha: where
-// a lamp's light reaches on that floor (not behind a wall or a closed door: `sees(circle, x, z)`, the
-// stealth's own rule), for the circles' rims (style/decor.js). Rebuilt only when the circles change (the
-// breaker) or `extra` does (the doors near a lamp).
+// (0.5 = the edge), red = circles on the ground floor (y 0), green = upstairs (y 3); a circle does not reach
+// through a wall or a closed door (`sees(circle, x, z)`, the stealth's own rule). Rebuilt only when the
+// circles change (the breaker) or `extra` does (the doors near a lamp).
 const ZW = 256, RAMP = 0.4;
 export const styleZones = [];   // the circles now: { x, z, r, y }
 let zoneKey = null, zoneTex = null;
@@ -88,16 +91,16 @@ export function setZones(list, sees = null, extra = '') {
     const z = z0 + (j + 0.5) * sz;
     for (let i = 0; i < ZW; i++) {
       const x = x0 + (i + 0.5) * sx;
-      let r = 0, g = 0, b = 0, a = 0;
+      let r = 0, g = 0;
       for (const c of list) {
         const d = Math.hypot(x - c.x, z - c.z);
         if (d > c.r + RAMP) continue;
         if (sees && !sees(c, x, z)) continue;
         const v = Math.max(0, Math.min(1, 0.5 - (d - c.r) / RAMP));
-        if (c.y > 1.5) { g = Math.max(g, v); a = 1; } else { r = Math.max(r, v); b = 1; }
+        if (c.y > 1.5) g = Math.max(g, v); else r = Math.max(r, v);
       }
       const k = (j * ZW + i) * 4;
-      data[k] = Math.round(r * 255); data[k + 1] = Math.round(g * 255); data[k + 2] = b * 255; data[k + 3] = a * 255;
+      data[k] = Math.round(r * 255); data[k + 1] = Math.round(g * 255); data[k + 3] = 255;
     }
   }
   if (!zoneTex) {
@@ -137,6 +140,9 @@ uniform float uStyleWarn;
 uniform sampler2D uStyleZoneTex;
 uniform vec4 uStyleZoneRect;
 uniform float uStyleZoneOn;
+uniform vec4 uStyleLamps[ 3 ];
+uniform vec3 uStyleGlow;
+uniform float uStyleGlowK;
 uniform float uStyleInk;
 uniform vec2 uStyleInkFar;
 uniform vec3 uStyleInkColor;
@@ -155,7 +161,18 @@ float styleZone( vec3 p ) {
 	float v = p.y < 2.5 ? t.r : t.g;
 	float band = p.y < 2.5 ? step( - 0.3, p.y ) * step( p.y, 2.3 ) : step( 2.7, p.y ) * step( p.y, 5.3 );
 	float inside = step( 0.0, uv.x ) * step( uv.x, 1.0 ) * step( 0.0, uv.y ) * step( uv.y, 1.0 );
-	return uStyleZoneOn * band * inside * smoothstep( 0.44, 0.56, v );
+	return uStyleZoneOn * band * inside * smoothstep( 0.25, 0.75, v );
+}
+// how much of a real point light stands within 3.3 m of p, on p's floor (0..1): the circles' lamps that have
+// one (the scene has three lights; a lamp without one, or one the light has not reached yet, has none)
+float styleRealLamp( vec3 p ) {
+	float k = 0.0;
+	for ( int i = 0; i < 3; i ++ ) {
+		vec4 L = uStyleLamps[ i ];
+		float sameFloor = ( p.y < 2.5 ) == ( L.y < 4.0 ) ? 1.0 : 0.0;
+		k = max( k, L.w * sameFloor * step( length( p.xz - L.xz ), 3.3 ) );
+	}
+	return k;
 }
 // a soft step at t (±8 %, linear): the steps' edges without screen derivatives (cheap on a phone)
 float styleStep( float t, float x ) { return clamp( ( x - t ) / ( t * 0.16 ) + 0.5, 0.0, 1.0 ); }
@@ -179,6 +196,11 @@ const STYLE_BANDS = `
 	if ( uStyleBands > 0.5 ) {
 		float aLum = max( dot( diffuseColor.rgb, STYLE_LUM ), 0.02 );
 		vec3 lightAll = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;
+		// a circle with no real light in it (a lamp the three lights are not at: the porch, the gate, a street
+		// lamp, a far room's lamp, a friend's) is lit and glows in the lamp's colour by the circle alone
+		float zoneHere = styleZone( vStylePos );
+		float zoneFree = zoneHere * ( 1.0 - styleRealLamp( vStylePos ) );
+		lightAll += uStyleGlow * ( aLum * uStyleExp / PI ) * uStyleGlowK * zoneFree;
 		float inv = PI / ( aLum * uStyleExp );
 		float eAll = dot( lightAll, STYLE_LUM ) * inv;
 		float eLamp = dot( styleAfterPoint, STYLE_LUM ) * inv;
@@ -187,9 +209,9 @@ const STYLE_BANDS = `
 		float midK = max( styleStep( uStyleMid, eAll ), styleStep( uStyleLampMid, eLamp + eSpot ) );   // enough light, or a lamp's reach
 		float spotK = styleStep( uStyleSpot, eSpot );
 		float litK = max( spotK, styleStep( uStyleHand, eHand ) );
-		litK = max( litK, styleZone( vStylePos ) * step( 0.004, eLamp ) );   // a lamp's circle, where a lamp shines
+		litK = max( litK, max( zoneHere * step( 0.004, eLamp ), zoneFree ) );   // a lamp's circle: where its light shines, or by itself where no light is
 		float lvl = mix( mix( uStyleLevels.x, uStyleLevels.y, midK ), uStyleLevels.z * mix( 1.0, uStyleWarn, spotK ), litK ) * uStyleExp;
-		lvl = max( lvl, uStyleLift * mix( uStyleLevels.y, uStyleLevels.z, styleZone( vStylePos ) ) * uStyleExp );
+		lvl = max( lvl, uStyleLift * mix( uStyleLevels.y, uStyleLevels.z, zoneHere ) * uStyleExp );
 		reflectedLight.directDiffuse = lightAll * ( lvl / max( eAll * uStyleExp, 1e-4 ) );
 		reflectedLight.indirectDiffuse = vec3( 0.0 );
 	}
