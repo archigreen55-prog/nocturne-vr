@@ -51,6 +51,7 @@ test('net: room code, invitation link, libraries, no secrets in the code', async
       code, codeOk: /^\d{6}$/.test(code), pretty: room.prettyCode('483921'), clean: room.cleanCode(' 483-921 '),
       link, back: room.roomFromUrl(new URL(link).search), bad: room.roomFromUrl('?room=12'),
       libs: typeof nostr.joinRoom === 'function' && typeof torrent.joinRoom === 'function' && typeof nostr.selfId === 'string',
+      relays: typeof nostr.getRelaySockets === 'function' && typeof torrent.getRelaySockets === 'function',   // Б10
       qr: qr.getModuleCount() >= 21,
       lobby: !!document.querySelector('#netbox #netcreate') && !!document.querySelector('#netbox #netjoin'),
     };
@@ -62,6 +63,7 @@ test('net: room code, invitation link, libraries, no secrets in the code', async
   assert.equal(r.back, '483921');
   assert.equal(r.bad, null);
   assert.equal(r.libs, true, 'Trystero (nostr, torrent) loads from vendor/');
+  assert.equal(r.relays, true, 'the libraries say which relays answered (Б10)');
   assert.equal(r.qr, true);
   assert.equal(r.lobby, true);
   assert.deepEqual(errors, []);

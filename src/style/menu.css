@@ -327,6 +327,12 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
   .nt-who { margin-bottom: 0; }
 }
 
+/* ---------- кооп (Б10, Б2): what to do when the relays are out of reach; «Повернутись у раунд» ---------- */
+.nt-tips { margin: -4px 0 8px; padding: 0 0 0 22px; color: var(--paper); font-size: 14px; line-height: 1.45; }
+.nt-tips li { margin: 2px 0; }
+#overlay #netretrybtn, #overlay #netbackbtn { min-height: 52px; padding: 8px 18px; font: 800 18px/1.1 var(--head); border-radius: 12px; border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); }
+#netback { margin: 0 0 10px; }
+
 /* ---------- menu design stage 2: «Магазин» and «Тихарник» as card grids ---------- */
 #shopwallet, #lurkercount, #papercount { display: inline-block; margin: 0 0 8px !important; padding: 5px 12px; border-radius: 999px; background: var(--night); border: 2px solid var(--ink2); font: 800 13px var(--head) !important; color: var(--lamp) !important; }
 section[data-page="shop"] > .muted { margin: 0 0 10px; font-size: 12px; }

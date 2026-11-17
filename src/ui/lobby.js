@@ -46,10 +46,12 @@ export class Lobby {
         </div>
       </div>
       <p id="netstatus" style="color:var(--warn)"></p>
+      <ol id="nettips" class="nt-tips" hidden></ol>
+      <div class="row" id="netretry" hidden><button id="netretrybtn" class="primary">${esc(S.net.retry)}</button></div>
       <p class="muted" id="netver" style="font-size:12px;margin:2px 0"></p>
       <div class="row" id="netsolo" hidden><button id="netsolobtn">${esc(S.net.soloAfterLost)}</button></div>`;
     const q = (id) => root.querySelector('#' + id);
-    this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver') };
+    this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver'), tips: q('nettips'), retry: q('netretry') };
     this.el.name.value = name; this.el.thief.value = THIEVES.includes(thief) ? thief : 'zoya';
     if (code) this.el.code.value = prettyCode(code);
     if (!this.el.name.value) this.el.name.value = S.crew.names[this.el.thief.value];
@@ -60,6 +62,7 @@ export class Lobby {
     bindPress(q('netshare'), () => on.share());
     bindPress(q('netleave'), () => on.leave());
     bindPress(q('netsolobtn'), () => on.solo());
+    bindPress(q('netretrybtn'), () => on.retry && on.retry());   // Б10: the host reopens the same room
     bindPress(q('netstart'), () => { if (!q('netstart').disabled && on.start) on.start(); });   // T4b
     bindPress(q('nethouse'), () => { if (!q('nethouse').disabled && on.house) on.house(); });
     bindPress(q('netguard'), () => on.role && on.role(this.el.guard.dataset.want === '1'));   // W15: play the guard
@@ -67,7 +70,7 @@ export class Lobby {
     this.el.code.addEventListener('keydown', (e) => { if (e.key === 'Enter') on.join(cleanCode(this.el.code.value), ...who()); });
   }
 
-  // st: { inRoom, code, link, players: [{ pid, name, thief, host, you, lost, mic, guard }], guardPid, myPid, status, statusBad, card, lost }
+  // st: { inRoom, code, link, players: [{ pid, name, thief, host, you, lost, away, mic, guard }], guardPid, myPid, status, statusBad, tips, retry, card, lost }
   show(st) {
     const e = this.el;
     e.out.hidden = !!st.inRoom; e.inn.hidden = !st.inRoom;
@@ -76,6 +79,10 @@ export class Lobby {
     e.card.hidden = !st.card; e.card.textContent = st.card || '';
     e.status.textContent = st.status || '';
     e.status.style.color = st.statusBad ? 'var(--bad)' : 'var(--warn)';
+    const tips = st.tips || [], sig = tips.join('\n');   // Б10: what to do, as a list under the line
+    if (e.tips.dataset.sig !== sig) { e.tips.dataset.sig = sig; e.tips.replaceChildren(...tips.map((t) => Object.assign(document.createElement('li'), { textContent: t }))); }
+    e.tips.hidden = !tips.length;
+    e.retry.hidden = !st.retry;
     e.solo.hidden = !st.lost;
     e.ver.textContent = st.version ? S.net.versionLine(st.version) : '';   // T3: friends compare their builds
     if (st.inRoom) {

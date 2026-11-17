@@ -53,7 +53,8 @@ const nameOf = (pid) => (pid === N.pid ? N.name : (N.info.get(pid) || {}).name |
 
 // T3: why a guest is not in the room — nobody answered, or the host was found but the connection failed
 const lostText = () => (N.connectFail ? S.net.status.cantConnect : S.net.status.noHost(prettyCode(N.code)));
-function setStatus(text, bad = false) { N.status = text; N.statusBad = bad; refreshLobby(); }
+// tips: a list under the line (Б10: what to do); retry: the host's «Спробувати ще раз» with it
+function setStatus(text, bad = false, tips = null, retry = false) { N.status = text; N.statusBad = bad; N.tips = tips; N.retry = retry; refreshLobby(); }
 function lobbyPlayers() {
   const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic, guard: G.guardPid === N.pid };
   if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, mic: (N.info.get(r.id) || {}).mic, guard: G.guardPid === r.id }))];
@@ -61,7 +62,7 @@ function lobbyPlayers() {
 }
 function refreshLobby() {
   if (!lobby) return;
-  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
+  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, tips: N.tips, retry: N.retry, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
     canStart: isHost() && [...N.remotes.values()].every((r) => !r.lost), house: isHost() ? { name: houseName(otherMap()), open: mapOpen(otherMap()) && G.round.phase !== 'heist' && G.round.phase !== 'escape' } : null,
     role: N.role, choice: N.t ? choiceText() : '', levels: N.t ? levelsForRoom() : null, diffs: N.t ? diffsForRoom() : null, goal: N.t ? goalLine() : '' });
 }
@@ -136,7 +137,9 @@ async function open(code, role) {
       kind: params.get('net') === 'local' ? 'local' : 'trystero', code, all: role === 'host',   // T3: the host listens on every relay
       onMessage, onPeerJoin, onPeerLeave,
       onStatus: (s) => {
-        if (role !== 'guest' || N.welcomed) return;
+        // Б10: the host hears that a friend was found but the connection failed (no TURN, different networks)
+        if (role === 'host') { if (s.step === 'connectFail' && seq === N.openSeq) setStatus(S.net.status.someoneFailed, true); return; }
+        if (N.welcomed) return;
         if (s.step === 'connectFail') { N.connectFail = true; setStatus(S.net.status.cantConnect, true); }   // T3: found, not connected
         else if (s.step === 'find' && N.t && !N.connectFail) setStatus(S.net.status.findNext);
       },
@@ -153,12 +156,13 @@ async function open(code, role) {
   N.t = t;
   G.net = N;
   G.isHost = role === 'host';
-  if (role === 'host') { N.hostPid = N.pid; setStatus(S.net.status.waiting); }
+  if (role === 'host') { N.hostPid = N.pid; watchRelays(); }
   else for (const id of N.t.peers()) hello(id);
   refreshLobby();
 }
 function leave(quiet) {
   N.openSeq = (N.openSeq || 0) + 1; N.opening = false;   // B03: a connection still opening closes itself
+  clearInterval(N.relayTimer); N.relayTimer = null;
   if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); }
   for (const r of N.remotes.values()) dropRemote(r);
   N.t = null; N.role = null; N.welcomed = false; N.hostPeer = null; N.lobbyList = null;
@@ -171,9 +175,47 @@ function leave(quiet) {
 // with the message; before, the lobby kept showing a room (its code, QR) that did not exist
 function giveUp() {
   N.stage = 'lost';
-  const text = lostText();
+  // Б10: this phone reaches no relay (or no network at all): that is why it sees nobody, not the code
+  const r = relayCount(), off = navigator.onLine === false, none = off || (r && r.open === 0);
+  const text = off ? S.net.status.offline : none ? S.net.status.guestNoRelays : lostText();
   leave(true);
-  setStatus(text, true);
+  setStatus(text, true, none ? S.net.status.guestTips : null);
+}
+
+// ---------- Б10: the host's relays ----------
+// The room opens at once, the relays (Nostr, the trackers) connect behind it: the host now says when none
+// answered in connectTimeout s (friends would never find the room) and what to do; a relay that comes
+// back puts «Чекаю друзів» back by itself. A library file without getRelaySockets (an old cache) says nothing.
+function relayCount() {
+  const r = N.t && N.t.relays ? N.t.relays() : null;
+  if (!r) return null;
+  const v = Object.values(r);
+  return v.length ? { open: v.reduce((n, x) => n + x.open, 0), total: v.reduce((n, x) => n + x.total, 0) } : null;
+}
+function watchRelays() {
+  clearInterval(N.relayTimer);
+  N.relayOpenT = performance.now(); N.relayState = '';
+  checkRelays();
+  N.relayTimer = setInterval(checkRelays, CFG.net.relayCheck * 1000);
+}
+function checkRelays() {
+  if (!N.t || !isHost()) return;
+  if (N.remotes.size) { N.relayState = 'ok'; return; }   // friends are in: they talk directly, the relays matter no more
+  const r = relayCount();
+  const state = navigator.onLine === false ? 'offline' : !r || r.open > 0 ? 'ok' : performance.now() - N.relayOpenT > CFG.net.connectTimeout * 1000 ? 'down' : 'wait';
+  if (state === N.relayState) return;
+  N.relayState = state;
+  if (state === 'ok') setStatus(S.net.status.waiting);
+  else if (state === 'wait') setStatus(S.net.status.relays);
+  else setStatus(state === 'offline' ? S.net.status.offline : S.net.status.noRelays, true, S.net.status.hostTips, true);
+}
+// «Спробувати ще раз»: the same room, the same code, a fresh page (the library gives up on a relay for good
+// after ~100 s of failures, only a new page asks again); the reload path of «Інший будинок» (host=1)
+function retryRoom() {
+  if (!isHost() || !N.code) return;
+  const code = N.code;
+  leave(true);
+  location.replace(roomLink(code, G.level.id, location.href, { host: '1' }));
 }
 function hello(peer) {
   send({ type: 'hello', pid: N.pid, v: N.fakeVersion || VERSION, proto: CFG.net.protocol, map: G.level.id, name: N.name, thief: N.thief, q: CFG.player.quietSpeed, sh: N.shouts || 0, mic: G.mic.state === 'on' && !G.mic.noMic, dev: G.MODE.mode }, peer);
@@ -383,6 +425,7 @@ export function netReport() {
   const d = N.t.diag();
   return {
     room: true, role: N.role, welcomed: N.welcomed, players: lobbyPlayers().length, transport: d.kind, strategies: d.strategies, errors: d.errors,
+    relays: Object.fromEntries(Object.entries((N.t.relays && N.t.relays()) || {}).map(([k, v]) => [k, `${v.open}/${v.total}`])),   // Б10: open / all
     link, connection: S.net.link[link],
     links: Object.fromEntries(Object.entries(byPeer).map(([peer, type]) => [nameOf(N.pidOf.get(peer)) || peer.slice(0, 6), type])),
     turn,
@@ -432,7 +475,7 @@ export const net = {
         if (midRound) { const u = new URL(location.href); u.searchParams.delete('room'); u.searchParams.delete('join'); u.searchParams.set('page', 'friends'); location.replace(u.toString()); }
       },
       role: (want) => netRole(want),
-      pickLevel, pickDiff, start: () => hostStart(), house: () => otherHouse(),
+      pickLevel, pickDiff, start: () => hostStart(), house: () => otherHouse(), retry: () => retryRoom(),
       solo: () => { const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
       share: async () => {
         const link = roomLink(N.code, G.level.id);

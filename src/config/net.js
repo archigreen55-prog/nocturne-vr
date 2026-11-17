@@ -25,7 +25,8 @@ export const net = {
   interpDelay: 0.12,           // s: others are drawn this far in the past, between two received poses
   // time-outs, s
   findTimeout: 10,             // looking for the room (per strategy)
-  connectTimeout: 15,
+  connectTimeout: 15,          // Б10: the host's room: no relay open in this time = «Не можу дістатися серверів зв'язку»
+  relayCheck: 2,               // Б10: s between the host's looks at its relays (they come back = the line goes by itself)
   peerLostAfter: 3,            // no packets: «Оля: зв'язок…» (invisible to the guards meanwhile)
   peerGoneAfter: 30,           // then «Оля вийшла»; coming back later = joining anew at the van
   hostLostAfter: 10,           // a guest: the host is gone, the round stops for it
