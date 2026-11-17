@@ -61,6 +61,7 @@ export function setDifficulty(id) {
   G.difficulty = id; saveSetting('difficulty', id);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   reloadVan();   // W2b: another contract / difficulty: another number of traps
+  applyLevel();  // the level's own rules live in the new CFG.run too (the dacha's gate watch was lost here)
   syncStartScreen(); G.boardDirty = true;
   if (G.netSetup) G.netSetup();
 }

@@ -213,9 +213,16 @@ export class Patrol {
   // the map's leash (the dacha: world/yard.js LEASH): the guard goes out to the porch and the gate, never
   // down the street to the van — a goal past it is taken to the gate's line
   goTo(x, z, toFloor) {
-    const mz = leashZ(this.env.level, x);
+    const mz = leashZ(this.env.level, x), lv = this.env.level;
     if (mz !== null && z > mz) z = mz;
-    this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z];
+    this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor, this.leashOk()); this.goal = [x, z];
+    this.progBest = Infinity; this.progT = 0;
+  }
+  // the nav points within the leash (null: no leash) — it does not go round through the gate's corridor either
+  leashOk() {
+    const lv = this.env.level;
+    if (leashZ(lv, 0) === null && leashZ(lv, 3) === null) return null;
+    return (n) => { const m = leashZ(lv, n.x); return m === null || n.z <= m + 0.01; };
   }
   get floor() { return this.env.level.floorIndex ? this.env.level.floorIndex(this.y) : 0; }
 
@@ -567,12 +574,18 @@ export class Patrol {
     this.y = this.env.level.floorY(nx, nz, this.y);
     this.speed = dt > 0 ? Math.hypot(nx - px, nz - pz) / dt : 0;
     this.phase += this.speed * dt * 6;
+    // no nearer to where it goes for CFG.patrol.giveUp s (a goal it cannot reach: behind a wall, the low fence, a
+    // hedge): it stops there as if arrived — looks around and goes back to its rounds instead of standing (17.11)
+    let left = Math.hypot(this.path[0][0] - nx, this.path[0][1] - nz);   // the way still to go
+    for (let i = 1; i < this.path.length; i++) left += Math.hypot(this.path[i][0] - this.path[i - 1][0], this.path[i][1] - this.path[i - 1][1]);
+    if (left < (this.progBest ?? Infinity) - 0.3) { this.progBest = left; this.progT = 0; }
+    else if ((this.progT = (this.progT || 0) + dt) > CFG.patrol.giveUp) { this.path = []; this.speed = 0; this.progBest = Infinity; this.progT = 0; return true; }
     // stuck (furniture corner, a door): try a fresh path
     this.stuckT += dt;
     if (this.stuckT > 1.5) {
       if (Math.hypot(this.x - this.stuckX, this.z - this.stuckZ) < 0.15) {
         const goal = this.path[this.path.length - 1];
-        this.path = this.env.nav.path(this.x, this.z, goal[0], goal[1]);
+        this.path = this.env.nav.path(this.x, this.z, goal[0], goal[1], this.floor, this.floor, this.leashOk());
         if (this.path.length === 1 && Math.hypot(goal[0] - this.x, goal[1] - this.z) < 1.2) this.path = [];
       }
       this.stuckT = 0; this.stuckX = this.x; this.stuckZ = this.z;

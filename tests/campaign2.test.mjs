@@ -522,3 +522,41 @@ test('campaign v2 (16.11): a change of house is the loading screen with our van 
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('campaign v2 (17.11): the dacha\'s guard after a yellow alarm at an exit (the gate, the front door, the back window, the yard) comes back to his rounds on levels 1, 3 and 5 — never stuck at the low fence, a hedge or a wall; every yard nav point sees a neighbour; a change of difficulty keeps the gate watch', async () => {
+  const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1 } });
+  const r = await page.evaluate(() => {
+    const g = window.__game, P = g.patrol, A = g.alert, out = { stuck: [], longest: 0 };
+    out.lonely = g.nav.nodes.filter((n) => n.z > 0 || n.z < -14).filter((n) => !n.edges.length).map((n) => `${n.x},${n.z}`);
+    g.newRound(); g.setContract('first'); g.setDifficulty('hard'); out.gwHard = !!g.CFG.run.gateWatch; g.setDifficulty('medium'); out.gwMedium = !!g.CFG.run.gateWatch;
+    // [where he stands, where the noise is]: the cases that left him standing before 17.11, and every exit
+    const cases = [
+      [[3, 7.7], [-6.5, 3.5]], [[3, 7.7], [-11, 2]], [[1.4, 3.8], [7, 3.5]], [[1.4, 3.8], [10, 2]], [[0, -2.5], [8.5, 2]],
+      [[3, 7.7], [3, 8.7]], [[0, -2.5], [3, 8.7]], [[0, -2.5], [0, 0.4]], [[3, 7.7], [0, 0.4]], [[0, -2.5], [4, -14.4]], [[3, 7.7], [4, -14.4]], [[0, -2.5], [-12.5, -5]],
+    ];
+    for (const lv of ['first', 'quiet', 'clock']) for (const [from, at] of cases) {
+      g.newRound(); g.setContract(lv); g.playing = true;
+      g.player.teleport(3, 7.5, 0); g.sim(0.2, 1 / 30);   // through the gate: the clock runs
+      g.player.teleport(14, -19, 0); g.sim(21, 1 / 15);    // out of his way
+      P.interrupt(); P.state = 'task'; P.queue.length = 0; P.path = []; P.x = from[0]; P.z = from[1]; P.y = 0;
+      A.add(45, at[0], at[1]); P.react(at[0], at[1], 0);   // «?» and the light amber
+      g.sim(0.1, 1 / 30); const yellow = A.level === 1;
+      let back = null, still = 0, lx = P.x, lz = P.z;
+      for (let t = 0; t < 40; t += 0.5) {
+        g.sim(0.5, 1 / 30);
+        const moved = Math.hypot(P.x - lx, P.z - lz) > 0.05; lx = P.x; lz = P.z;
+        still = moved ? 0 : still + 0.5;
+        if (P.state === 'task') { back = t; break; }
+      }
+      if (back === null || !yellow) out.stuck.push(`${lv} ${from}→${at}: ${P.state} at ${P.x.toFixed(1)},${P.z.toFixed(1)}, still ${still}s`);
+      else out.longest = Math.max(out.longest, back);
+    }
+    return out;
+  });
+  assert.deepEqual(r.lonely, [], 'a yard nav point with no neighbour');
+  assert.deepEqual([r.gwHard, r.gwMedium], [true, true], 'the gate watch stays after a change of difficulty');
+  assert.deepEqual(r.stuck, [], 'back to his rounds after the yellow alarm');
+  assert.ok(r.longest <= 32, `the longest way back ${r.longest} s`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

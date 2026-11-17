@@ -50,8 +50,16 @@ export const LIGHTS = [
   [-3.0, 2.3, -6.0, 0x7f9cff, 3, 10],    // corridor night light
 ];
 
-// The guard's nav points outside (enemies/nav.js): the porch and the front of the garden.
-export const YARD_NODES = [[0, 1.6], [1.4, 3.8], [-5, 3.2], [6.5, 3.2], [-3, -16]];
+// The guard's nav points outside (enemies/nav.js): the porch, the front of the garden on both sides of the
+// path, the low fence's gap and the corridor to the gate behind it (the campaign's gate watch). Each one is
+// clear of the bushes, the crates and the barrel and sees its neighbours (a point inside a bush or with no
+// neighbour leaves the guard pressing into a hedge or the low fence: the stuck guard of 17.11).
+export const YARD_NODES = [
+  [0, 1.6], [1.4, 3.8], [2.6, 2.2], [3.0, 4.4], [4.4, 4.4], [6.2, 4.2], [9, 3.6],   // the porch, the path, the east side
+  [-3.4, 1.6], [-3.4, 4.2], [-8, 3.6],                                               // the west side
+  [1.8, 6.4], [1.8, 7.6], [3.0, 7.7], [4.4, 8.4],                                    // the gap, inside the gate
+  [-3, -16],                                                                         // behind the house
+];
 
 // Cover in the garden — furniture for line of sight (a crouching thief behind a bush or the low fence
 // is hidden; standing, he is not), bodies bump into it.
