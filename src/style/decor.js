@@ -1,6 +1,4 @@
 // W17 «Стиль» (plan-W17-style.md §1.4, §1.7, §1.8): what the style adds to a map besides its materials.
-//   pools     a lamp's «you are seen» circle drawn on the floor (CFG.stealth.lamps: the same radius the
-//             guard uses), a thin amber rim with a soft inner glow; one mesh, gone with the breaker
 //   blobs     soft shadows under the furniture (one mesh per floor) and under what moves: the guards,
 //             friends, loot on the floor or in flight (one instanced mesh)
 //   water     the mansion's fountain: rings running out from the middle, an amber glint; puddles in
@@ -9,7 +7,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PAL } from './palette.js';
-import { styleUniforms } from './materials.js';
 
 const MAX_BLOBS = 64;
 
@@ -26,15 +23,6 @@ const blobTexture = () => canvasTex(64, (g, s) => {
   r.addColorStop(0, 'rgba(255,255,255,0.62)'); r.addColorStop(0.55, 'rgba(255,255,255,0.4)'); r.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = r; g.fillRect(0, 0, s, s);
 });
-// the lamp's circle: a crisp rim at the edge and a faint glow just inside it
-const poolTexture = () => canvasTex(256, (g, s) => {
-  const c = s / 2, r = g.createRadialGradient(c, c, 0, c, c, c);
-  r.addColorStop(0, 'rgba(255,255,255,0)'); r.addColorStop(0.8, 'rgba(255,255,255,0.05)');
-  r.addColorStop(0.955, 'rgba(255,255,255,0.22)'); r.addColorStop(0.965, 'rgba(255,255,255,0.85)');
-  r.addColorStop(0.985, 'rgba(255,255,255,0.85)'); r.addColorStop(0.995, 'rgba(255,255,255,0)'); r.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = r; g.fillRect(0, 0, s, s);
-});
-
 // a flat quad on the floor: centre (x, y, z), size (w, d)
 function floorQuad(x, y, z, w, d) {
   const g = new THREE.PlaneGeometry(w, d);
@@ -87,35 +75,10 @@ function waterMaterial(x, z, r, rings) {
   });
 }
 
-// level: the map; lamps: CFG.stealth.lamps; cfg: CFG.style; floorAt(x, z, yHint): the floor's height
-export function buildDecor(scene, level, lamps, cfg, floorAt) {
+// level: the map; cfg: CFG.style; floorAt(x, z, yHint): the floor's height
+export function buildDecor(scene, level, cfg, floorAt) {
   const out = { meshes: [] };
   const add = (mesh, parent = scene) => { parent.add(mesh); out.meshes.push(mesh); return mesh; };
-
-  // ---------- the lamps' circles ----------
-  const poolMat = new THREE.MeshBasicMaterial({ map: poolTexture(), color: new THREE.Color(PAL.lamp).multiplyScalar(cfg.pools.k), transparent: true,
-    depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, fog: true });
-  // the rim stops at a wall or a closed door, as the lamp's light does (the circles' map: blue / alpha)
-  poolMat.onBeforeCompile = (sh) => {
-    sh.uniforms.uStyleZoneTex = styleUniforms.uStyleZoneTex; sh.uniforms.uStyleZoneRect = styleUniforms.uStyleZoneRect;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vPoolPos;')
-      .replace('#include <fog_vertex>', '#include <fog_vertex>\nvPoolPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPoolPos;\nuniform sampler2D uStyleZoneTex;\nuniform vec4 uStyleZoneRect;')
-      .replace('#include <map_fragment>', '#include <map_fragment>\n{ vec4 t = texture2D( uStyleZoneTex, clamp( ( vPoolPos.xz - uStyleZoneRect.xy ) / uStyleZoneRect.zw, 0.0, 1.0 ) ); diffuseColor.a *= smoothstep( 0.3, 0.7, vPoolPos.y < 2.5 ? t.b : t.a ); }');
-  };
-  // a ring, not a disc: only the rim and its glow are drawn (a disc of 6 m was 28 m² of blending per lamp)
-  const pools = lamps.map((l) => {
-    const g = new THREE.RingGeometry(l.r * 0.8, l.r, 48, 1);
-    const uv = g.attributes.uv, pos = g.attributes.position;   // the texture's radius: the ring's own
-    for (let i = 0; i < uv.count; i++) { const x = pos.getX(i), y = pos.getY(i); uv.setXY(i, 0.5 + x / (2 * l.r), 0.5 + y / (2 * l.r)); }
-    g.rotateX(-Math.PI / 2); g.translate(l.x, l.y + 0.012, l.z);
-    return g;
-  });
-  if (pools.length) {
-    out.pools = add(new THREE.Mesh(mergeGeometries(pools), poolMat));
-    out.pools.name = 'style: lamp circles';
-    out.pools.renderOrder = 2;
-  }
 
   // ---------- the furniture's shadows (one mesh per floor, inside that floor's mesh when the map hides floors) ----------
   const blobTex = blobTexture();
