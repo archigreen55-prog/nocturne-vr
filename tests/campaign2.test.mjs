@@ -484,12 +484,14 @@ test('campaign v2 (16.11): the round\'s end has «Ще раз» and «Далі: 
   await ctx.close();
 });
 
-test('campaign v2 (16.11, variant В): a change of house is «Їдемо в Маєток…» instead of the splash, then «Поїхали ▶» — after «Далі: Маєток» it starts the round on level 6; from a level card it opens the «Грати» page; a plain reload has no such line', async () => {
+test('campaign v2 (16.11): a change of house is the crew\'s notebook turning its pages (no splash, no button) while the house loads, then straight to the «Грати» page with the next level\'s card; after «Далі: Маєток» that is level 6 (its start button is the tap); from a level card the same; a plain reload has no notebook', async () => {
   const stars = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1, clock: S1 };
   const ctx = await newContext(browser, {}, { menu: true });
   await ctx.addInitScript((stars) => {
     window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true };
     if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('nocturne.stars', JSON.stringify(stars)); }
+    // what the page showed at DOMContentLoaded (the notebook, the splash), before the game was up
+    document.addEventListener('DOMContentLoaded', () => { try { sessionStorage.setItem('t.cover', JSON.stringify({ album: !!document.getElementById('travel') && !document.getElementById('travel').hidden, flips: document.querySelectorAll('#travel .al-flip').length, splash: !!document.getElementById('splash'), text: (document.getElementById('traveltext') || {}).textContent || '' })); } catch { /* opaque */ } });
   }, stars);
   const { page, errors } = await open(ctx, base + '?map=dacha&splash=1');
   // the last dacha level won: the summary's «Далі: Маєток»
@@ -499,28 +501,24 @@ test('campaign v2 (16.11, variant В): a change of house is «Їдемо в Ма
   }, PLAY);
   await page.evaluate(() => window.__game.pressBoard('nextlvl')).catch(() => {});   // the page goes away under it
   await page.waitForURL((u) => u.search.includes('map=mansion'), { timeout: 45000, waitUntil: 'commit' });
-  await page.waitForFunction(() => !!document.getElementById('travel'), null, { timeout: 30000 });
-  const first = await page.evaluate(() => ({ on: !document.getElementById('travel').hidden, text: document.getElementById('traveltext').textContent, splash: !!document.getElementById('splash') }));
-  assert.deepEqual(first, { on: true, text: 'Їдемо в Маєток…', splash: false }, 'the line at once, no splash');
-  await page.waitForFunction(() => window.__game && !document.getElementById('travelgo').hidden, null, { timeout: 60000 });
-  await page.click('#travelgo');
-  await page.waitForFunction(() => window.__game.playing, null, { timeout: 10000 });
-  const after = await page.evaluate(() => ({ map: window.__game.level.id, c: window.__game.contract.id, on: !document.getElementById('travel').hidden }));
-  assert.deepEqual(after, { map: 'mansion', c: 'm8', on: false }, '«Поїхали ▶»: the round of level 6 at the van');
-  // from a level card (the menu): back to the dacha, the «Грати» page
+  await page.waitForFunction(() => window.__game && document.getElementById('travel').hidden, null, { timeout: 60000 });   // the notebook goes once the house is up
+  const at = await page.evaluate(() => ({ cover: JSON.parse(sessionStorage.getItem('t.cover')), map: window.__game.level.id, c: window.__game.contract.id, playing: window.__game.playing,
+    page: [...document.querySelectorAll('#overlay section[data-page]')].filter((x) => !x.hidden).map((x) => x.dataset.page).filter((x) => x === 'play').length, button: !!document.getElementById('travelgo') }));
+  assert.deepEqual(at.cover, { album: true, flips: 3, splash: false, text: 'Їдемо в Маєток…' }, 'the notebook from the first moment, no splash');
+  assert.deepEqual([at.map, at.c, at.playing, at.page, at.button], ['mansion', 'm8', false, 1, false], 'then the «Грати» page with level 6 picked; no button; the round waits for its start');
+  assert.equal(await page.evaluate(() => document.querySelector('#levelpick .lv-card.on').dataset.level), 'm8');
+  // from a level card (the menu): back to the dacha — the same
   await page.evaluate(async () => {   // a level card of the other house (systems/levels.js pickLevel, as the menu's card does)
     const g = window.__game, L = await import('./src/systems/levels.js'), M = await import('./src/world/maps.js');
     setTimeout(() => L.pickLevel('quiet', { setContract: g.setContract, newRound: g.newRound, switchMap: M.switchMap }), 0);
   });
   await page.waitForURL((u) => u.search.includes('map=dacha'), { timeout: 45000, waitUntil: 'commit' });
-  await page.waitForFunction(() => window.__game && document.getElementById('travelgo') && !document.getElementById('travelgo').hidden, null, { timeout: 60000 });
-  assert.equal(await page.textContent('#traveltext'), 'Їдемо на Дачу…');
-  await page.click('#travelgo');
-  const menu = await page.evaluate(() => ({ c: window.__game.contract.id, page: new URL(location.href).searchParams.get('page'), on: !document.getElementById('travel').hidden }));
-  assert.deepEqual(menu, { c: 'quiet', page: 'play', on: false }, 'the «Грати» page with that level');
-  // a plain reload: the usual start (no line)
+  await page.waitForFunction(() => window.__game && document.getElementById('travel').hidden, null, { timeout: 60000 });
+  const back = await page.evaluate(() => ({ cover: JSON.parse(sessionStorage.getItem('t.cover')).text, c: window.__game.contract.id, card: document.querySelector('#levelpick .lv-card.on').dataset.level }));
+  assert.deepEqual(back, { cover: 'Їдемо на Дачу…', c: 'quiet', card: 'quiet' });
+  // a plain reload: the usual start (no notebook)
   await page.reload(); await page.waitForFunction(() => window.__game, null, { timeout: 60000 });
-  assert.equal(await page.evaluate(() => document.getElementById('travel').hidden), true);
+  assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('t.cover'))).album, false);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

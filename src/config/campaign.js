@@ -50,9 +50,9 @@ export const campaign = {
   // (the yard not at all then); at the gate he stands `look` s, looking out; `chance`: how often a visit to the
   // yard ends at the gate. Level 0: the old leash (world/yard.js LEASH).
   gateWatch: { x: 3.0, half: 2.5, maxZ: 8.0, yardMaxZ: 6.0, post: [3.0, 7.7], face: [3.0, 9.0], after: 20, look: 5, chance: 0.6 },
-  // a change of house (systems/travel.js): «Їдемо в …» at least `minShow` s, then «Поїхали ▶»; a note older than
-  // `fresh` s is ignored (index.html)
-  travel: { minShow: 1.0 },
+  // a change of house (systems/travel.js; the decision of 16.11): the crew's notebook turns its pages while the house
+  // loads, at least `minShow` s (one page turn, no flash), then straight to the «Грати» page; no button
+  travel: { minShow: 0.6 },
   // a level's `time` on each difficulty (the dacha's own rounds are 600 / 480 / 380 s: the same steps)
   levelTimeK: { easy: 1.25, medium: 1, hard: 0.8 },
   warnBefore: 60,        // s before the end the lights flicker («the neighbours noticed»)

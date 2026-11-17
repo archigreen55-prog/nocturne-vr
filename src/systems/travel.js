@@ -1,36 +1,26 @@
-// Campaign v2, a change of house without the splash (the owner's decision of 16.11, variant В): the page that left
-// wrote a note (world/maps.js travelNote); index.html showed «Їдемо в Маєток…» at once, over everything, instead of
-// the splash. Here, once the game is up and at least CFG.campaign.travel.minShow s have passed, the line gets the
-// button «Поїхали ▶»: its tap is the user gesture the phone needs for the sound (and the microphone). After the
-// summary's «Далі: Маєток» it starts the round at the van (as «Грати»); from a level card in the menu it opens the
-// menu's «Грати» page with that level; with friends it only closes (the room is where it was).
+// Campaign v2, a change of house (the owner's decisions of 16.11): no splash and no button. The page that left wrote
+// a note (world/maps.js travelNote); index.html showed the crew's notebook at once, its pages turning, over
+// everything, while the other house loads. As soon as the game is up (and at least CFG.campaign.travel.minShow s
+// have passed: one page turn, no flash) the notebook goes and the menu's «Грати» page is there with the next level's
+// card picked (the level was remembered before the switch) — its start button is the tap that turns the sound and
+// the full screen on. With friends it only goes (the room is where it was).
 import { G, $ } from './state.js';
 import { CFG } from '../config/index.js';
 import { goPage } from './menu.js';
 
-const local = { trip: null, shown: false, wired: false };
-
-function go() {
-  const trip = local.trip;
-  $('travel').hidden = true; local.trip = null;
-  if (!trip) return;
-  if (trip.from === 'next' && !(G.net && G.net.t) && G.start) G.start.play();
-  else if (trip.from === 'menu') goPage('play');
-}
+const local = { trip: null, done: false };
 
 export const travel = {
   id: 'travel',
-  init() {
-    local.trip = (typeof window !== 'undefined' && window.__travel) || null;
-    if (!local.trip || !$('travelgo')) return;
-    $('travelgo').addEventListener('click', go);
-  },
+  init() { local.trip = (typeof window !== 'undefined' && window.__travel) || null; },
   frame() {
-    if (!local.trip || local.shown) return;
+    if (!local.trip || local.done) return;
     if (performance.now() / 1000 < CFG.campaign.travel.minShow) return;
-    local.shown = true;
-    $('travelgo').hidden = false;
+    local.done = true;
+    const el = $('travel'), trip = local.trip;
+    if (trip.from !== 'room') goPage('play');
+    if (el) { el.classList.add('out'); setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 260); }
   },
 };
-// tests / the debug API: is the line up, and is its button there
-export const travelState = () => ({ on: !!$('travel') && !$('travel').hidden, button: !!$('travelgo') && !$('travelgo').hidden });
+// tests / the debug API: is the notebook up
+export const travelState = () => ({ on: !!$('travel') && !$('travel').hidden });

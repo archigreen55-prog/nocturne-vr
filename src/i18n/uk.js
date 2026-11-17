@@ -1411,7 +1411,6 @@ export default {
     travel: {
       to: { dacha: 'Їдемо на Дачу…', mansion: 'Їдемо в Маєток…' },
       host: { dacha: 'Хост їде на Дачу…', mansion: 'Хост їде в Маєток…' },
-      go: 'Поїхали ▶',
     },
     nextHouse: (house) => `Далі: ${house}`,
     // гроші раунду (підсумок)
