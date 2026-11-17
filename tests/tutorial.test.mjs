@@ -2,7 +2,7 @@
 // once, «Пропустити» (finger / H), «Навчання ще раз» from the menu and the start screen.
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
-import { browser, base, UA, open, test, frames, playPhone, standFacing, fingerPressEl, keepFor } from './runner.mjs';
+import { browser, base, UA, open, test, frames, playPhone, standFacing, fingerPressEl, keepFor, pm } from './runner.mjs';
 
 const tut = (page) => page.evaluate(() => ({ ...window.__game.tutorial.state(), text: document.getElementById('tutorial') && document.getElementById('tutorial').innerText }));
 // (game time is slow here: software rendering; a hint stays 6 s of game time before the next one)
@@ -84,8 +84,11 @@ test('tutorial: «Пропустити» by finger ends it for good; «Навч�
   await frames(page, 20);
   assert.equal((await tut(page)).visible, false);
   // the menu: Налаштування -> «Навчання ще раз» -> the game goes on with step 1
-  await page.evaluate(() => { window.__game.pauseOpen('user'); window.__game.menu.go('settings'); });
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn:text-is("Навчання ще раз")');
+  await page.evaluate(() => { window.__game.pauseOpen('user'); document.body.classList.remove('pages-all'); });
+  await fingerPressEl(page, cdp, pm('Налаштування'));   // the settings page of the menu, over the game; «Навчання ще раз» is on its «Ще» page
+  await page.waitForFunction(() => document.body.classList.contains('set-over-pause'));
+  await page.evaluate(() => document.querySelector('#overlay [data-go="more"]').click());
+  await fingerPressEl(page, cdp, '#tutorialbtn');
   await page.waitForFunction(() => !window.__game.paused);
   await waitTut(page, (s) => s.on && s.visible && s.step === 'look');
   assert.deepEqual(errors, []);

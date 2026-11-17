@@ -78,7 +78,7 @@ test('phone: Взяти / Покласти, door tap = quick, hold = slow and qu
   // breath: hold
   const bh = await hold(page, cdp, '#touch .breath', 800, () => window.__game.breath.state);
   assert.ok(bh.includes('holding'), 'holding while pressed');
-  assert.equal(await page.evaluate(() => window.__game.breath.state), 'cooldown');
+  assert.deepEqual(await page.evaluate(() => [window.__game.breath.state, window.__game.breath.tank < 6]), ['ready', true], 'a short hold spends part of the tank: you may hold again at once');
   // breath: tap / tap
   await page.evaluate(() => { window.__game.breath.reset(); window.__game.touch.breathToggle = true; });
   await page.tap('#touch .breath');
@@ -86,7 +86,7 @@ test('phone: Взяти / Покласти, door tap = quick, hold = slow and qu
   await keepFor(page, 500);
   assert.equal(await page.evaluate(() => window.__game.breath.state), 'holding', 'still holding after the finger is up');
   await page.tap('#touch .breath');
-  await page.waitForFunction(() => window.__game.breath.state === 'cooldown');
+  await page.waitForFunction(() => window.__game.breath.state === 'ready' && window.__game.breath.tank < 6);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -191,9 +191,10 @@ test('phone gyroscope (option): off by default; on from the menu (a tap); turnin
   await fingerPressEl(page, cdp, '#touch .pause');
   await page.waitForFunction(() => window.__game.paused);
   await fingerPressEl(page, cdp, pm('Налаштування'));
-  await fingerPressEl(page, cdp, '#pausemenu .pm-btn:has-text("Гіроскоп")');
+  await page.waitForFunction(() => document.body.classList.contains('set-over-pause'));
+  await fingerPressEl(page, cdp, '#gyrobtn');   // the gyroscope row of the settings page
   await page.waitForFunction(() => window.__game.gyro.on);
-  await fingerPressEl(page, cdp, pm('Назад'));
+  await fingerPressEl(page, cdp, '#overlay section[data-page="settings"] [data-back]');
   await fingerPressEl(page, cdp, pm('Продовжити'));
   await page.waitForFunction(() => !window.__game.paused);
   const turn = (angle, beta, gamma) => page.evaluate(async ([angle, beta, gamma]) => {

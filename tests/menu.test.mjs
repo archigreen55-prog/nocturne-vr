@@ -32,12 +32,13 @@ test('menu (S3): the splash (the loading screen; a tap skips it), then the main 
     if (p === 'play') { await page.goBack(); assert.deepEqual(await shown(page), ['menu'], 'the browser\'s «Назад» comes back'); }
     else { await page.click(`section[data-page="${p}"] [data-back]`); await page.waitForFunction(() => !location.search.includes('page=')); assert.deepEqual(await shown(page), ['menu'], `«←» from «${p}»`); }
   }
-  // «Для тестерів» from «Налаштування»: the quality, the frame rate, the style, the report, «Відкрити все»
+  // «Для тестерів» from «Налаштування» → «Ще»: the style, the report, «Відкрити все»
   await page.click('#mmnav [data-go="settings"]');
-  await page.click('section[data-page="settings"] [data-go="testers"]');
+  await page.click('section[data-page="settings"] [data-go="more"]');
+  await page.click('section[data-page="more"] [data-go="testers"]');
   assert.deepEqual(await shown(page), ['testers']);
-  assert.deepEqual(await page.evaluate(() => ['quality', 'fpscap', 'stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline'].filter((id) => document.getElementById(id).closest('section').dataset.page === 'testers')),
-    ['quality', 'fpscap', 'stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline']);
+  assert.deepEqual(await page.evaluate(() => ['stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline'].filter((id) => document.getElementById(id).closest('section').dataset.page === 'testers')),
+    ['stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline']);   // the quality and the frame rate are on the settings page now
   assert.deepEqual(errors, []);
   // the links: ?page=testers opens it without the splash; ?room= opens «Грати з друзями»
   for (const [q, want] of [['?page=testers', 'testers'], ['?page=lurkers', 'lurkers'], ['?room=ABCD', 'friends']]) {

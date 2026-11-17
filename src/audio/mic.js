@@ -381,41 +381,34 @@ export class Mic {
 // at least cooldownMin); a tap shorter than CFG.breath.tap is cancelled and costs nothing.
 // Shown as a ring on the wrist.
 export class Breath {
-  constructor() { this.state = 'ready'; this.t = 0; this.cool = CFG.breath.cooldown; this.prevDown = false; }
+  // state: 'ready' (the tank has at least minStart s) | 'holding' | 'cooldown' (too little in the tank: not yet). tank: s of breath in it, 0..hold
+  constructor() { this.state = 'ready'; this.tank = CFG.breath.hold; this.t = 0; this.prevDown = false; }
   get holding() { return this.state === 'holding'; }
-  // seconds left: of the hold while holding, of the cooldown while resting
-  get left() {
-    if (this.state === 'holding') return Math.max(0, CFG.breath.hold - this.t);
-    if (this.state === 'cooldown') return Math.max(0, this.cool - this.t);
-    return 0;
-  }
-  // 0..1 for the ring: remaining hold, or cooldown progress
-  get ring() {
-    if (this.state === 'holding') return 1 - this.t / CFG.breath.hold;
-    if (this.state === 'cooldown') return this.t / this.cool;
-    return 1;
-  }
-  reset() { this.state = 'ready'; this.t = 0; }
-  // Returns 'start' | 'end' | 'cancel' | 'busy' (pressed during the cooldown) | null.
+  get rate() { return CFG.breath.hold / CFG.breath.refill; }   // s of tank per second while not holding
+  // seconds: what is left to hold while holding or ready; while it is too low, how long until you may hold again
+  get left() { return this.state === 'cooldown' ? Math.max(0, (CFG.breath.minStart - this.tank) / this.rate) : this.tank; }
+  // 0..1 for the ring: the tank's fill (the ring shrinks while you hold and grows while it refills)
+  get ring() { return Math.max(0, Math.min(1, this.tank / CFG.breath.hold)); }
+  reset() { this.state = 'ready'; this.tank = CFG.breath.hold; this.t = 0; }
+  // Returns 'start' | 'end' | 'cancel' | 'busy' (pressed while the tank is too low) | null.
   update(dt, down) {
     const B = CFG.breath;
     const pressed = down && !this.prevDown;   // a new press is needed to start again
     this.prevDown = down;
-    if (this.state === 'ready') {
-      if (pressed) { this.state = 'holding'; this.t = 0; return 'start'; }
-    } else if (this.state === 'holding') {
-      this.t += dt;
-      if (!down || this.t >= B.hold) {
-        if (!down && this.t < B.tap) { this.state = 'ready'; this.t = 0; return 'cancel'; }
-        this.cool = Math.max(B.cooldownMin, B.cooldown * Math.min(1, this.t / B.hold));
-        this.state = 'cooldown'; this.t = 0;
+    if (this.state === 'holding') {
+      this.t += dt; this.tank -= dt;
+      if (!down || this.tank <= 0) {
+        if (!down && this.t < B.tap) { this.tank = Math.min(B.hold, this.tank + this.t); this.state = 'ready'; this.t = 0; return 'cancel'; }   // a tap costs nothing
+        this.tank = Math.max(0, this.tank);
+        this.state = this.tank < B.minStart ? 'cooldown' : 'ready'; this.t = 0;
         return 'end';
       }
-    } else {
-      this.t += dt;
-      if (this.t >= this.cool) { this.state = 'ready'; this.t = 0; }
-      else if (pressed) return 'busy';
+      return null;
     }
+    this.tank = Math.min(B.hold, this.tank + dt * this.rate);
+    if (this.state === 'cooldown' && this.tank >= B.minStart) this.state = 'ready';
+    if (this.state === 'ready') { if (pressed && this.tank >= B.minStart) { this.state = 'holding'; this.t = 0; return 'start'; } }
+    else if (pressed) return 'busy';
     return null;
   }
 }

@@ -16,7 +16,7 @@ import { dressLobby } from '../style/portraits.js';
 import { renderPlayPage } from './playPage.js';
 import { pressLook } from '../ui/press.js';   // S4: the thieves' portraits in the lobby
 
-const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'testers', 'howto'];   // howto: menu design stage 2
+const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'mic', 'more', 'testers', 'howto'];   // howto: menu design stage 2
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
 let current = 'menu';
 
@@ -29,13 +29,13 @@ function show(page) {
   if (page === 'menu') renderMenu();
   if (page === 'play') renderPlay();
   if (page === 'friends') dressLobby();
-  if (page === 'settings' || page === 'testers') renderSettings();
+  if (page === 'settings' || page === 'mic' || page === 'testers') renderSettings();
   const card = document.querySelector('#overlay .card');
   if (card) card.scrollTop = 0;
 }
 // forward: one history entry per page, so Android's «Назад» comes back to the menu
 export function goPage(page) {
-  if (page === current) return show(page);
+  if (page === current || settingsOver.isOpen) return show(page);
   try { history.pushState({ page }, '', pageUrl(page)); } catch { /* opaque origin */ }
   show(page);
 }
@@ -44,7 +44,15 @@ function pageUrl(page) {
   if (page === 'menu') u.searchParams.delete('page'); else u.searchParams.set('page', page);
   return u.pathname + u.search + u.hash;
 }
+// The settings page is also opened from the PAUSE (over the game, body.set-over-pause): «←» there closes it (back to the pause) and the
+// «Продовжити» in its header resumes the game; the mic page inside it goes back to the settings page.
+export const settingsOver = {
+  get isOpen() { return document.body.classList.contains('set-over-pause'); },
+  open() { document.body.classList.add('set-over-pause'); $('overlay').style.display = 'flex'; show('settings'); },
+  close() { document.body.classList.remove('set-over-pause'); $('overlay').style.display = 'none'; },
+};
 function back() {
+  if (settingsOver.isOpen) { if (current === 'settings') settingsOver.close(); else show('settings'); return; }
   if (history.state && history.state.page && history.state.page !== 'menu') history.back();
   else show('menu');
 }
@@ -149,6 +157,7 @@ const syncSegs = () => { for (const sel of document.querySelectorAll('#overlay s
 function renderSettings() {
   syncSegs();
   const mic = G.mic, wiz = $('micwiz');
+  if ($('microwtext')) $('microwtext').textContent = !mic ? S.settings.micRow.none : mic.noMic ? S.settings.micRow.off : mic.calibrated ? S.settings.micRow.ok : S.settings.micRow.none;
   if (!mic || !wiz) return;
   const done = { allow: mic.state === 'on', cal: !!mic.calibrated, check: !!$('verifyres').textContent.trim() };
   let now = null;
@@ -172,7 +181,7 @@ function offerMic() {
 function wireMicAsk() {
   $('askyes').addEventListener('click', () => {
     $('micask').hidden = true;
-    goPage('settings');
+    goPage('mic');
     askPending = true;
     if (G.mic.state !== 'on') $('micbtn').click();   // the same tap: iPhone asks for the permission only from a gesture
     else $('calbtn').click();
@@ -194,7 +203,7 @@ function wireMicAsk() {
     if (askPending && G.mic.state === 'on' && !$('calbtn').disabled) { askPending = false; $('calbtn').click(); }
     if (current === 'menu') renderMenu();
     if (current === 'play') renderPlay();
-    if (current === 'settings') renderSettings();
+    if (current === 'settings' || current === 'mic') renderSettings();
   };
 }
 
@@ -223,7 +232,7 @@ export const menu = {
     let wasHidden = false;
     new MutationObserver(() => {
       const hidden = $('overlay').style.display === 'none';
-      if (wasHidden && !hidden && !document.body.classList.contains('pages-all')) show(G.net && G.net.t ? 'friends' : 'menu');   // T4c: with friends, back to the room
+      if (wasHidden && !hidden && !document.body.classList.contains('pages-all') && !settingsOver.isOpen) show(G.net && G.net.t ? 'friends' : 'menu');   // T4c: with friends, back to the room
       wasHidden = hidden;
     }).observe($('overlay'), { attributes: true, attributeFilter: ['style'] });
     syncSegs();   // menu design: the selects as rows of buttons
@@ -237,6 +246,6 @@ export const menu = {
     if ((this.t = (this.t || 0) + 1) % 30) return;
     if (current === 'menu') renderMenu();
     if (current === 'play') renderPlay();           // Б1: the microphone's line follows its state
-    if (current === 'settings') renderSettings();   // the microphone's steps follow a calibration / check
+    if (current === 'settings' || current === 'mic') renderSettings();   // the microphone's steps follow a calibration / check
   },
 };
