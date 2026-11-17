@@ -30,6 +30,7 @@ export function switchMap(id, from = 'menu') {
   if (!MAPS[id] || !mapOpen(id)) return false;
   saveSetting('map', id);
   travelNote(id, from);
+  try { sessionStorage.setItem('nocturne.mapSwitch', '1'); } catch { /* opaque */ }   // index.html: the page that reloads is covered while it loads («Їдемо в …», else the loading screen)
   const u = new URL(location.href); u.searchParams.set('map', id); u.searchParams.delete('page');
   location.href = u.toString();
   return true;

@@ -38,12 +38,10 @@ export class Mic {
     this.db = -100;            // last raw RMS, dBFS
     this.env = -100;           // smoothed envelope, dBFS
     this.level = 'quiet';
-    this.hist = new Float32Array(8);  // envelope history at RATE, for the rise test
-    this.histI = 0;
+    this.win = [];             // the last CFG.mic.shoutWindow s of analyses: [time, above the shout threshold 0 / 1, …]
     this.shoutUntil = 0;
     this.aboveT = 0;
     this.dipT = 0;
-    this.riseOk = false;
     this.acc = 0;
     this.t = 0;
     this.collect = null;       // array while calibrating
@@ -61,8 +59,7 @@ export class Mic {
       if (v !== this.cal[k]) { this.cal[k] = v; this.clampedOnLoad = true; }
     }
     if (this.clampedOnLoad) saveSetting('mic', this.cal);
-    this.hist.fill(-100);
-    // phone only (set by main): the game bus level, for the protection against the game's own sounds
+    // set by systems/flatScreen.js: the game bus level, for the protection against the game's own sounds
     this.gameDbFn = null;
     this.gameDb = -100;
     this.gameEnv = -100;
@@ -77,12 +74,27 @@ export class Mic {
     this.onChange = null;       // permission / device / stream changes: refresh the UI
     this.feed = null;           // tests: () => dB instead of the analyser
     this.agcAdjust = false;     // phone: a smaller default voice -> shout gap when auto gain stays on
+    this.bleedGuess = null;     // dB: how loud the game is in the microphone until «Звуки гри» measures it (by device type, systems/flatScreen.js)
   }
 
-  // ---- protection against the game's own sounds (phone) ----
+  // this device's microphone is heard by the game now
+  get live() { return this.state === 'on' && !this.noMic; }
+  // Б1 (plan 2026-11-12-mic-v2 §2.2): one honest state for every place that shows the microphone
+  // ok | uncal (on, not calibrated) | problem (on, but not heard: mic.problem) | pending | willStart
+  // (calibrated, opens on «Грати») | off (never set up) | denied | none | nomic (the player's choice)
+  get status() {
+    if (this.noMic) return 'nomic';
+    if (this.state === 'on') return this.problem ? 'problem' : this.calibrated ? 'ok' : 'uncal';
+    if (this.state === 'pending') return 'pending';
+    if (this.state === 'denied' || this.permission === 'denied') return 'denied';
+    if (this.state === 'none') return 'none';
+    return this.calibrated ? 'willStart' : 'off';
+  }
+
+  // ---- protection against the game's own sounds (every device since mic v2 stage 1; was phone only) ----
   // bleed: the calibration's measurement, else (phone, not measured yet) an estimate; null = no protection
   get bleedMeasured() { return Number.isFinite(this.cal.bleed); }
-  get bleedDb() { return this.bleedMeasured ? this.cal.bleed : this.gameDbFn ? CFG.mic.bleedDefault : null; }
+  get bleedDb() { return this.bleedMeasured ? this.cal.bleed : this.gameDbFn ? this.bleedGuess ?? CFG.mic.bleedDefault : null; }
   get gameHold() { return this.gameEnv; }
   // the game as the microphone hears it now (dBFS), -Infinity when silent or unprotected
   get gameInMic() {
@@ -127,9 +139,22 @@ export class Mic {
     const [lo, hi] = this.whisperLimits;
     return Math.min(hi, Math.max(lo, this.whisperBase + (this.cal.adjW || 0)));
   }
-  // Shout threshold: from the calibration's shout step if it was done, else voice + shoutOver; plus
-  // your correction, never below your calibrated voice + a margin (else normal talk would be a shout).
-  get shoutBase() { return Number.isFinite(this.cal.shout) ? this.cal.shout : this.cal.normal + (this.agcAdjust && this.agc ? CFG.mic.shoutOverAgc : CFG.mic.shoutOver); }
+  // Shout threshold: your voice + the larger of shoutGapMin dB and shoutGapK of the way from your voice to
+  // your shout (the calibration's shout step), else voice + shoutOver; plus your correction, never below your
+  // calibrated voice + a margin (else normal talk would be a shout). Plan «голос і кільця» (15.11): it was
+  // half the way, and a loud steady voice never reached it (the owner's calibration: voice -22.4, threshold
+  // -15.2, a loud voice about -17). Older calibrations kept only that half-way threshold: the shout's own
+  // level is recovered from it.
+  get shoutPeak() {
+    const c = this.cal;
+    if (Number.isFinite(c.shoutPeak)) return c.shoutPeak;
+    return Number.isFinite(c.shout) ? c.normal + 2 * (c.shout - c.normal) : null;
+  }
+  get shoutBase() {
+    const c = this.cal, M = CFG.mic, peak = this.shoutPeak;
+    if (peak !== null) return c.normal + Math.max(M.shoutGapMin, M.shoutGapK * (peak - c.normal));
+    return c.normal + (this.agcAdjust && this.agc ? Math.min(CFG.mic.shoutOverAgc, M.shoutOver) : M.shoutOver);
+  }
   get shoutMin() { return this.cal.normal + CFG.mic.limitMargin.shoutOverVoice; }
   get shoutDb() { return Math.max(this.shoutMin, this.shoutBase + (this.cal.adj || 0)); }
 
@@ -278,23 +303,20 @@ export class Mic {
       this.covered = this.lowT >= CFG.mic.coverSecs;
     }
 
-    // rise over ~100 ms: compare with the envelope 3 analyses ago
-    const past = this.hist[(this.histI + this.hist.length - 3) % this.hist.length];
-    this.hist[this.histI] = this.env;
-    this.histI = (this.histI + 1) % this.hist.length;
-    // A shout: the raw level jumps (shoutRise dB above the envelope of 0.1 s ago) over the threshold
-    // and stays there for shoutMin s (dips under 70 ms allowed). Loud talk that builds up slowly, a
-    // plosive "p" or one stressed syllable is not a shout.
-    // (the effective boundaries: raised while the game's own sound is loud in the microphone)
-    if (this.db > this.shoutEff) {
-      if (this.aboveT === 0) this.riseOk = this.db - past > CFG.mic.shoutRise;
-      this.aboveT += step; this.dipT = 0;
-      if (this.t < this.shoutUntil) this.shoutUntil = Math.max(this.shoutUntil, this.t + 0.3);   // still shouting
-      else if (this.riseOk && this.aboveT >= CFG.mic.shoutMin) { this.shoutOnset = true; this.shoutUntil = this.t + SHOUT_HOLD; }
-    } else {
-      this.dipT += step;
-      if (this.dipT > 0.07) { this.aboveT = 0; this.riseOk = false; }
-    }
+    // A shout (plan «голос і кільця», 15.11): CFG.mic.shoutShare of the analyses of the last shoutWindow s
+    // above the threshold — a steady loud voice too, not only a sudden jump (that rule kept a yell rising
+    // out of talk a «НОРМАЛЬНО» forever). A knock on the phone, a cough, a plosive «п» or one stressed
+    // syllable are shorter than the window. (The effective boundaries: raised while the game's own sound is
+    // loud in the microphone.)
+    const W = CFG.mic.shoutWindow, above = this.db > this.shoutEff;
+    this.win.push(this.t, above ? 1 : 0);
+    while (this.win.length > 2 && this.win[0] <= this.t - W) this.win.splice(0, 2);
+    let n = 0, up = 0;
+    for (let i = 1; i < this.win.length; i += 2) { n++; up += this.win[i]; }
+    const full = this.t - this.win[0] + step >= 0.8 * W;   // the window has filled (not the first moments)
+    if (above) { this.aboveT += step; this.dipT = 0; } else { this.dipT += step; if (this.dipT > 0.07) this.aboveT = 0; }
+    if (above && this.t < this.shoutUntil) this.shoutUntil = Math.max(this.shoutUntil, this.t + 0.3);   // still shouting
+    else if (above && full && up >= CFG.mic.shoutShare * n) { this.shoutOnset = true; this.shoutUntil = this.t + SHOUT_HOLD; }
     if (this.t < this.shoutUntil) this.level = 'shout';
     else this.level = this.env >= this.whisperEff ? 'normal' : 'quiet';
     if (this.level !== 'quiet') this.loudT = this.t;   // W7: the tail of a voice is not a whisper
@@ -319,6 +341,7 @@ export class Mic {
   // cal: { floor, normal, whisper (or null), shout (threshold, or null = voice + shoutOver), bleed (phone) }
   setCalibration(cal) {
     this.cal = { floor: cal.floor, normal: cal.normal, whisper: cal.whisper ?? null, shout: cal.shout ?? null, adj: 0, adjW: 0 };
+    if (Number.isFinite(cal.shoutPeak)) this.cal.shoutPeak = cal.shoutPeak;   // the shout step's own level (the threshold comes from it)
     if (Number.isFinite(cal.bleed)) this.cal.bleed = cal.bleed;   // phone: the game's sound in the microphone
     this.calibrated = true;
     this.deviceChanged = false;
@@ -358,41 +381,34 @@ export class Mic {
 // at least cooldownMin); a tap shorter than CFG.breath.tap is cancelled and costs nothing.
 // Shown as a ring on the wrist.
 export class Breath {
-  constructor() { this.state = 'ready'; this.t = 0; this.cool = CFG.breath.cooldown; this.prevDown = false; }
+  // state: 'ready' (the tank has at least minStart s) | 'holding' | 'cooldown' (too little in the tank: not yet). tank: s of breath in it, 0..hold
+  constructor() { this.state = 'ready'; this.tank = CFG.breath.hold; this.t = 0; this.prevDown = false; }
   get holding() { return this.state === 'holding'; }
-  // seconds left: of the hold while holding, of the cooldown while resting
-  get left() {
-    if (this.state === 'holding') return Math.max(0, CFG.breath.hold - this.t);
-    if (this.state === 'cooldown') return Math.max(0, this.cool - this.t);
-    return 0;
-  }
-  // 0..1 for the ring: remaining hold, or cooldown progress
-  get ring() {
-    if (this.state === 'holding') return 1 - this.t / CFG.breath.hold;
-    if (this.state === 'cooldown') return this.t / this.cool;
-    return 1;
-  }
-  reset() { this.state = 'ready'; this.t = 0; }
-  // Returns 'start' | 'end' | 'cancel' | 'busy' (pressed during the cooldown) | null.
+  get rate() { return CFG.breath.hold / CFG.breath.refill; }   // s of tank per second while not holding
+  // seconds: what is left to hold while holding or ready; while it is too low, how long until you may hold again
+  get left() { return this.state === 'cooldown' ? Math.max(0, (CFG.breath.minStart - this.tank) / this.rate) : this.tank; }
+  // 0..1 for the ring: the tank's fill (the ring shrinks while you hold and grows while it refills)
+  get ring() { return Math.max(0, Math.min(1, this.tank / CFG.breath.hold)); }
+  reset() { this.state = 'ready'; this.tank = CFG.breath.hold; this.t = 0; }
+  // Returns 'start' | 'end' | 'cancel' | 'busy' (pressed while the tank is too low) | null.
   update(dt, down) {
     const B = CFG.breath;
     const pressed = down && !this.prevDown;   // a new press is needed to start again
     this.prevDown = down;
-    if (this.state === 'ready') {
-      if (pressed) { this.state = 'holding'; this.t = 0; return 'start'; }
-    } else if (this.state === 'holding') {
-      this.t += dt;
-      if (!down || this.t >= B.hold) {
-        if (!down && this.t < B.tap) { this.state = 'ready'; this.t = 0; return 'cancel'; }
-        this.cool = Math.max(B.cooldownMin, B.cooldown * Math.min(1, this.t / B.hold));
-        this.state = 'cooldown'; this.t = 0;
+    if (this.state === 'holding') {
+      this.t += dt; this.tank -= dt;
+      if (!down || this.tank <= 0) {
+        if (!down && this.t < B.tap) { this.tank = Math.min(B.hold, this.tank + this.t); this.state = 'ready'; this.t = 0; return 'cancel'; }   // a tap costs nothing
+        this.tank = Math.max(0, this.tank);
+        this.state = this.tank < B.minStart ? 'cooldown' : 'ready'; this.t = 0;
         return 'end';
       }
-    } else {
-      this.t += dt;
-      if (this.t >= this.cool) { this.state = 'ready'; this.t = 0; }
-      else if (pressed) return 'busy';
+      return null;
     }
+    this.tank = Math.min(B.hold, this.tank + dt * this.rate);
+    if (this.state === 'cooldown' && this.tank >= B.minStart) this.state = 'ready';
+    if (this.state === 'ready') { if (pressed && this.tank >= B.minStart) { this.state = 'holding'; this.t = 0; return 'start'; } }
+    else if (pressed) return 'busy';
     return null;
   }
 }

@@ -60,7 +60,9 @@ export class Lurker {
     this.creature = new THREE.Group();
     this.creature.add(this.body, this.eyes, this.arms);
     this.group.add(this.creature);
-    restyleLurker(this);   // W17 «Стиль»: Шафник's look (style/figures.js); the style off keeps the one above
+    // W17 «Стиль»: Шафник's look (style/figures.js; the blue-eyed one) only for the mansion's garage CRATE; every wardrobe (the dacha's too) keeps the
+    // old, scarier one above (yellow eyes, teeth, claws); the style off keeps the old everywhere
+    if (this.kind === 'crate') restyleLurker(this);
     // wardrobe doors, hinged at the outer edges, opening into the room (-X)
     const D1 = new Builder(), D2 = new Builder();
     D1.box(-0.015, 0.08, 0, 0.015, 2.04, 0.79, 0x3b2d25);
@@ -113,7 +115,7 @@ export class Lurker {
   }
 
   hear(e) {
-    if (this.state !== 'dormant' || e.source !== 'player' || (this.env.asleep && this.env.asleep())) return;   // W19: asleep below its level
+    if (this.state !== 'dormant' || e.source !== 'player' || e.kind === 'whisper' || (this.env.asleep && this.env.asleep())) return;   // W19: asleep below its level; a whisper does not wake it
     if (Math.hypot(e.x - this.FRONT.x, e.z - this.FRONT.z) < CFG.lurker.noiseTrigger && this.near(e.x, e.z)) this.wake();
   }
 

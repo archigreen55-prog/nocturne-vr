@@ -34,7 +34,7 @@ export const heist = {
       }
       // noise from the players: stick steps of everybody; voice and shout from this device's microphone
       for (const p of G.players) if (p.stepNoise) noise.emit(p.head.x, p.head.z, p.stepNoise, p.stepKind, { who: p });   // 'step' or 'run'
-      if (G.role !== 'guard' && !(G.benchT > 0)) voiceNoise(player, G, dt, micLive, mic.level, shout, true);   // W15: the guard's voice, or a thief's in the van, is no noise in the house
+      if (G.role !== 'guard' && !(G.benchT > 0)) voiceNoise(player, G, dt, micLive, mic.level, shout, true, micLive && mic.whispering);   // W15: the guard's voice, or a thief's in the van, is no noise in the house
 
       // world
       loot.update(dt, G.players);
@@ -65,21 +65,28 @@ function speaking(st, dt, live, level) {
   if (live && level !== 'quiet') { st.speakT += dt; st.quietT = 0; }
   else { st.quietT += dt; if (st.quietT > 0.35) st.speakT = 0; }
 }
-// One player's voice in the house: a shout (full alarm, or +70 on easy) and talking (a 'voice' noise every
-// CFG.mic.normalEvery s). local: this device's player (the scream replay and the effects are its own).
-export function voiceNoise(p, st, dt, live, level, shout, local) {
-  const { round, noise, alert } = G, x = p.head.x, z = p.head.z;
+// One player's voice in the house (plan «голос і кільця», 15.11): a shout, talking (a 'voice' noise every
+// CFG.mic.normalEvery s) and whispering (a 'whisper' noise every CFG.mic.whisper.every s) — each a noise of its
+// real radius (CFG.mic.voice / whisper / shout); what the guard does about it is the hearing's (systems/world.js:
+// a shout close by is the full alarm, farther it comes to look). local: this device's player (the scream replay
+// and the effects are its own). whispering: the microphone says it is a whisper now (a friend's: its `wh`).
+export function voiceNoise(p, st, dt, live, level, shout, local, whispering = false) {
+  const { round, noise, alert } = G, x = p.head.x, z = p.head.z, M = CFG.mic;
   if (live && shout) {
     round.shouts++;
     if (local) { fx('shout'); G.scream.onShout(round.t); }
-    noise.emit(x, z, 40, 'shout', { who: p });
+    noise.emit(x, z, M.shout.radius, 'shout', { who: p, wallK: M.shout.wallK });
     if (alert.manualOnly) flash(S.hguard.shoutHeard, 3, '#ff4d4d');   // W15: a friend plays the guard — it decides what a shout means
-    else if (CFG.run.shoutFull) { alert.setFull(S.cause.shout, x, z); flash(S.messages.shoutFull, 3, '#ff4d4d'); }
-    else { alert.add(70, x, z); flash(S.messages.shoutEasy, 3, '#ff4d4d'); }   // easy
   }
   speaking(st, dt, live, level);
-  if (live && st.speakT >= CFG.mic.normalAfter) {
+  if (live && st.speakT >= M.normalAfter) {
     st.voiceT -= dt;
-    if (st.voiceT <= 0) { st.voiceT = CFG.mic.normalEvery; noise.emit(x, z, CFG.mic.normalRadius, 'voice', { who: p }); }
+    if (st.voiceT <= 0) { st.voiceT = M.normalEvery; noise.emit(x, z, M.voice.radius, 'voice', { who: p }); }
   } else st.voiceT = 0;
+  // whispering for as long as talking needs to be heard: a ring right around you, not through a wall
+  st.whisperT = live && whispering ? (st.whisperT || 0) + dt : 0;
+  if (st.whisperT >= M.normalAfter) {
+    st.whisperEmitT = (st.whisperEmitT || 0) - dt;
+    if (st.whisperEmitT <= 0) { st.whisperEmitT = M.whisper.every; noise.emit(x, z, M.whisper.radius, 'whisper', { who: p, wallK: M.whisper.wallK }); }
+  } else st.whisperEmitT = 0;
 }

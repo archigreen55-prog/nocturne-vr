@@ -30,6 +30,7 @@ export function exposeDebugApi(simulate) {
     get verdict() { return g.verdict; }, get contract() { return g.contract; }, get difficulty() { return g.difficulty; }, get calib() { return g.calib; }, get calibNotes() { return g.calibNotes; },
     get inVR() { return g.inVR; }, get playing() { return g.playingDesktop; }, set playing(v) { g.playingDesktop = v; },
     get devices() { return g.devices; },   // W2a
+    get micOffRound() { return !!g.micOffRound; },   // mic v2: this round went (partly) without the microphone
     get MODE() { return g.MODE; }, frameStats: g.frameStats, reportText, touch: g.touch, pause2D, rotateBlocked, hud: g.hud, menu: g.menu, summary: g.summary, feedback: g.feedback, pauseOpen, pauseResume, get paused() { return g.paused; }, get audio() { return existingAudioContext(); }, playGame, siren: g.siren, start: g.start, quality: g.quality, gyro: g.gyro, points: g.points, get simT() { return g.simT; }, caught, get caughtT() { return g.caughtT; },
     tutorial: { state: tutorialState, restart: restartTutorial, skip: skipTutorial },
     get run() { return g.run; }, get runStats() { return g.runStats; }, keys: g.keys, get vrRun() { return g.vrRun; },   // running (systems/sprint.js)

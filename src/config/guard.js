@@ -19,6 +19,7 @@ export const patrol = {
   reactDelay: 0.6,           // s between noticing something (sight or sound) and the "?"
   coverDrop: 0.25,           // crouched, it must see this far below your eyes (your face, not your hair)
   lookAround: 4,             // s spent looking around at a noise
+  glance: 1.4,               // s it stops and turns its head to a small noise (CFG.alert.investigateAt)
   loseSight: 3,              // s without seeing you in a chase before it gives up
   pauseAt: [2, 9, 17],       // route points where it stops and looks around (2 s): kitchen, library, hall
 };
@@ -32,7 +33,10 @@ export const stealth = {
 };
 
 export const alert = {
-  points: { step: 12, splash: 14, voice: 18, door: 25, drop: 30, glass: 60, can: 10, device: 0 },  // suspicion per heard noise (a device: the guard's own count, CFG.devices.points)
+  points: { step: 12, splash: 14, whisper: 5, voice: 18, door: 25, drop: 30, glass: 60, can: 10, device: 0 },  // suspicion per heard noise (a device: the guard's own count, CFG.devices.points; a shout: CFG.mic.shout)
+  // a small noise (the suspicion still under this): it only stops, turns to it and says «?» (patrol.glance s);
+  // from this much suspicion it comes to look (owner 15.11: not at every rustle)
+  investigateAt: 25,
   full: 100,             // suspicion that triggers full alarm (a shout or being seen does it at once)
   decay: 4,              // suspicion lost per second
 };

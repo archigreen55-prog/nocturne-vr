@@ -32,12 +32,13 @@ test('menu (S3): the splash (the loading screen; a tap skips it), then the main 
     if (p === 'play') { await page.goBack(); assert.deepEqual(await shown(page), ['menu'], 'the browser\'s «Назад» comes back'); }
     else { await page.click(`section[data-page="${p}"] [data-back]`); await page.waitForFunction(() => !location.search.includes('page=')); assert.deepEqual(await shown(page), ['menu'], `«←» from «${p}»`); }
   }
-  // «Для тестерів» from «Налаштування»: the quality, the frame rate, the style, the report, «Відкрити все»
+  // «Для тестерів» from «Налаштування» → «Ще»: the style, the report, «Відкрити все»
   await page.click('#mmnav [data-go="settings"]');
-  await page.click('section[data-page="settings"] [data-go="testers"]');
+  await page.click('section[data-page="settings"] [data-go="more"]');
+  await page.click('section[data-page="more"] [data-go="testers"]');
   assert.deepEqual(await shown(page), ['testers']);
-  assert.deepEqual(await page.evaluate(() => ['quality', 'fpscap', 'stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline'].filter((id) => document.getElementById(id).closest('section').dataset.page === 'testers')),
-    ['quality', 'fpscap', 'stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline']);
+  assert.deepEqual(await page.evaluate(() => ['stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline'].filter((id) => document.getElementById(id).closest('section').dataset.page === 'testers')),
+    ['stylesel', 'report', 'openall', 'shoutrow', 'recstate', 'modeline']);   // the quality and the frame rate are on the settings page now
   assert.deepEqual(errors, []);
   // the links: ?page=testers opens it without the splash; ?room= opens «Грати з друзями»
   for (const [q, want] of [['?page=testers', 'testers'], ['?page=lurkers', 'lurkers'], ['?room=ABCD', 'friends']]) {
@@ -52,18 +53,22 @@ test('menu (S3): the splash (the loading screen; a tap skips it), then the main 
   await ctx.close();
 });
 
+// the microphone not refused (a context with only clipboard permissions reads it as refused: «Мікрофон заборонено»)
+const MICLAND = { ...LAND, permissions: [...LAND.permissions, 'microphone'] };
 test('menu (S3): the first run offers the microphone — «Пізніше» closes it for this visit, «Грати без мікрофона» ticks the box; a calibrated microphone is not asked about; Тихарник shows W7\'s cards and opens one met', async () => {
-  const ctx = await newContext(browser, LAND, { menu: true });
+  const ctx = await newContext(browser, MICLAND, { menu: true });
   let { page, errors } = await open(ctx, preview + '?nosplash=1');
   await page.waitForSelector('#micask:not([hidden])');
   await page.click('#asklater');
   assert.equal(!!(await page.$('#micask:not([hidden])')), false);
   assert.equal(await page.isVisible('#mmmic'), true, 'the menu still says «Мікрофон: не налаштовано»');
+  assert.equal(await page.textContent('#mmmicline'), 'Мікрофон не налаштовано');
+  assert.equal(await page.isVisible('#mmmic button'), true, '«Налаштувати (30 с)»');
   await page.reload(); await page.waitForFunction(() => window.__game);
   assert.equal(!!(await page.$('#micask:not([hidden])')), false, '«Пізніше»: not again on this visit');
   await page.close();
   // a new visit: «Грати без мікрофона»
-  ({ page, errors } = await open(await newContext(browser, LAND, { menu: true }), preview + '?nosplash=1'));
+  ({ page, errors } = await open(await newContext(browser, MICLAND, { menu: true }), preview + '?nosplash=1'));
   await page.waitForSelector('#micask:not([hidden])');
   await page.click('#asknone');
   assert.equal(await page.evaluate(() => window.__game.mic.noMic), true, 'no microphone');
@@ -71,11 +76,14 @@ test('menu (S3): the first run offers the microphone — «Пізніше» clos
   assert.deepEqual(errors, []);
   await page.context().close();
   // calibrated before: no card
-  const c3 = await newContext(browser, LAND, { menu: true });
+  const c3 = await newContext(browser, MICLAND, { menu: true });
   await c3.addInitScript(() => { try { localStorage.setItem('nocturne.preview.mic', JSON.stringify({ floor: -60, normal: -30, whisper: -45, shout: -15 })); } catch { /* opaque */ } });
   const p3 = (await open(c3, preview + '?nosplash=1')).page;
   await p3.waitForTimeout(500);
   assert.equal(!!(await p3.$('#micask:not([hidden])')), false, 'calibrated: nothing to ask');
+  // Б1 (mic v2): not «Мікрофон ✓» from an old calibration while the microphone is off — it opens on «Грати»
+  assert.equal(await p3.textContent('#mmmicline'), 'Мікрофон увімкнеться, коли натиснеш «Грати»');
+  assert.equal(await p3.evaluate(() => window.__game.mic.state), 'off', 'not opened while the page loads');
   // Тихарник: nine cards, «???» until met; meeting Шафник opens his
   await p3.click('#mmnav [data-go="lurkers"]');
   const cards = () => p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}:${x.classList.contains('locked') ? 'locked' : 'open'}`));

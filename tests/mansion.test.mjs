@@ -298,12 +298,13 @@ test('mansion (M3): a noise upstairs reaches Zhora, not Valera through the slab;
   await place([0, -8.5, 0], [4, -8.5, 3]);
   await page.evaluate(() => { const g = window.__game; g.player.teleport(4, -10.5, 0, 3); g.sim(0.1); g.noise.emit(4, -10.5, 5, 'step'); g.sim(0.2); });
   let st = await page.evaluate(() => { const g = window.__game, s = [g.patrol.state, g.patrol2.state]; g.player.teleport(18, 25, 0); g.sim(0.5); return s; });
-  assert.deepEqual(st, ['task', 'react'], `upstairs noise: Zhora reacts, Valera does not hear it through the slab: ${st}`);
+  // (owner 15.11, Р2 A: one step is a glance and «?» first — it comes to look from CFG.alert.investigateAt)
+  assert.deepEqual(st, ['task', 'glance'], `upstairs noise: Zhora reacts, Valera does not hear it through the slab: ${st}`);
   // the same noise downstairs, next to Valera
   await place([0, -8.5, 0], [4, -8.5, 3]);
   await page.evaluate(() => { const g = window.__game; g.player.teleport(0, -10.5, 0, 0); g.sim(0.1); g.noise.emit(0, -10.5, 5, 'step'); g.sim(0.2); });
   st = await page.evaluate(() => { const g = window.__game, s = [g.patrol.state, g.patrol2.state]; g.player.teleport(18, 25, 0); g.sim(0.5); return s; });
-  assert.deepEqual(st, ['react', 'task'], `downstairs noise: Valera reacts, Zhora not: ${st}`);
+  assert.deepEqual(st, ['glance', 'task'], `downstairs noise: Valera reacts, Zhora not: ${st}`);
   // the lamp mask: Zhora on the gallery -> upstairs rooms (+ the well); the flashlight mask: Valera's floor
   const masks = await page.evaluate(() => { const g = window.__game, U = g.flashUniforms; g.sim(0.2); return { lamp: Array.from({ length: U.uLampCount.value }, (_, i) => [U.uLampBands.value[i].x, U.uLampBands.value[i].y]), flash: Array.from({ length: U.uFlashCount.value }, (_, i) => [U.uFlashBands.value[i].x, U.uFlashBands.value[i].y]) }; });
   assert.ok(masks.lamp.length >= 1 && masks.lamp.every(([y0, y1]) => (y0 > 2.5 && y1 > 5) || (y0 < 0 && y1 > 5)), `the lamp lights upstairs rooms: ${JSON.stringify(masks.lamp)}`);

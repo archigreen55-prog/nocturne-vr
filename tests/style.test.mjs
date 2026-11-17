@@ -181,8 +181,8 @@ test('style (S2): the figures — Petrovych on the dacha, Valera and Zhora in th
   });
   for (const [id, [near, far]] of Object.entries(all)) { assert.ok(near <= 4000, `${id}: ${near} triangles with the outline`); assert.ok(far <= near * 0.8, `${id} far: ${far}`); }
   assert.equal(d.oldGuard, 0, 'the old figure is not drawn');
-  assert.deepEqual(d.lurkerEyes, d.whisper, 'Шафник\'s eyes: Шепіт (0x7fd0ff), as in the sample');
-  assert.ok(d.lurkerOutline, 'Шафник has an outline');
+  assert.notDeepEqual(d.lurkerEyes, d.whisper, 'the wardrobe\'s Шафник is the OLD one (yellow eyes), not the blue-eyed (0x7fd0ff) — that one lives in the mansion\'s garage crate');
+  assert.ok(!d.lurkerOutline, 'the wardrobe\'s old Шафник has no style outline (the blue-eyed one in the crate has)');
   // poses: soap = feet up, the bucket on the head; angry = Pozikhailo leaves
   const poses = await page.evaluate(async () => {
     const g = window.__game, P = g.patrol, B = P.fig.bones, wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -339,24 +339,18 @@ test('style off is the game as it was, for good — both maps: no style object i
   }
 });
 
-test('Шафник at rest (the owner\'s sample): the dacha\'s wardrobe blue with a crown, a sock on the door, the arms hanging out of the gap while it sleeps — gone when it wakes, its lunge as before; style off: none of it', async () => {
+test('Шафник at rest: the dacha\'s wardrobe is blue, and the old Шафник sits in it (no sock, no resting arms of the blue-eyed one); it wakes, its lunge as before; style off: none of it', async () => {
   const ctx = await newContext(browser, LAND);
   const { page, errors } = await open(ctx, preview + '?map=dacha');
   const r = await page.evaluate(async () => {
     const g = window.__game, L = g.lurker, c = new g.THREE.Color();
     const door = L.door1.children[0].geometry.attributes.color; c.setRGB(door.getX(0), door.getY(0), door.getZ(0));
     const rest = L.door1.parent.getObjectByName('style: resting arms'), sock = L.door1.getObjectByName('style: sock');
-    const { lurkerRest } = await import('./src/style/figures.js');
-    // drawn only near the wardrobe on its floor (small things in a room: not from the yard, S4's draw calls)
-    const near = new g.THREE.Vector3(L.spec.x - 3, L.y0 + 1.6, (L.spec.minZ + L.spec.maxZ) / 2), far = new g.THREE.Vector3(2.2, 1.6, 6.8);
-    lurkerRest(L, far); const fromYard = [rest.visible, sock.visible];
-    lurkerRest(L, near);
-    const before = { rest: !!rest && rest.visible, sock: !!sock && sock.visible, door: c.getHex(), fromYard };
+    const before = { rest: !!rest, sock: !!sock, door: c.getHex(), outlined: L.eyes.children.some((m) => m.name === 'style: eyes outline') };
     L.wake(); g.sim(0.05);
-    lurkerRest(L, near);
-    return { ...before, awake: rest.visible, state: L.state };
+    return { ...before, state: L.state };
   });
-  assert.deepEqual(r, { rest: true, sock: true, door: 0x34436a, fromYard: [false, false], awake: false, state: 'telegraph' });
+  assert.deepEqual(r, { rest: false, sock: false, door: 0x34436a, outlined: false, state: 'telegraph' });
   assert.deepEqual(errors, []);
   await ctx.close();
   const c2 = await newContext(browser, LAND);

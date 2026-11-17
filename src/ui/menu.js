@@ -89,29 +89,10 @@ export class PauseMenu {
       grid.append(
         this.btn(S.menu.resume, () => h.resume(), 'primary wide'),
         this.btn(S.menu.home, () => h.home()),
-        this.btn(S.menu.title.settings, () => this.go('settings')),
+        this.btn(S.menu.title.settings, () => h.settings()),   // the same settings page as the menu's (systems/menu.js settingsOver)
       );
       if (I.how) grid.append(this.btn(S.campaign2.how.button, () => h.how(), 'small'));   // campaign v2: the level's card «Як це?»
       grid.append(this.btn(S.menu.toStart, () => h.toStart(), 'quiet wide'));
-    } else {
-      for (const key of ['look', 'breath', 'hud', 'fx', 'quality', 'fps', 'gyro']) {
-        grid.append(this.btn(h.label(key), () => { h.cycle(key); this.render(); }, 'small'));
-      }
-      // brightness: − «Яскравість: n/5» +, «Надворі», and the phone-brightness hint
-      const row = document.createElement('div');
-      row.className = 'pm-row wide';
-      const val = document.createElement('div');
-      val.className = 'pm-contract';
-      val.textContent = h.brightLabel();
-      row.append(this.btn('−', () => { h.bright(-1); this.render(); }, 'step'), val, this.btn('+', () => { h.bright(1); this.render(); }, 'step'));
-      const hint = document.createElement('p');
-      hint.className = 'pm-info wide';
-      hint.textContent = S.bright.hintPhone;
-      grid.append(row, this.btn(h.outdoorLabel(), () => { h.outdoor(); this.render(); }, 'wide'), hint);
-      // these open the new pages (the tutorial, «Налаштування»'s progress code — B02, privacy.html), not old screens
-      grid.append(this.btn(S.tutorial.again, () => h.tutorial(), 'small'), this.btn(S.progress.button, () => h.toProgress(), 'small'),
-        this.btn(S.privacy.menu, () => h.privacy(), 'quiet wide'));
-      grid.append(this.btn(S.menu.back, () => this.go('main'), 'quiet wide'));
     }
     card.append(head, grid);
     this.root.replaceChildren(card);

@@ -1,7 +1,7 @@
 // The dacha's yard and the lane (owner's decisions, claude/dacha-yard and claude/dacha-yard-near): a solid
 // wooden fence — taller than a person — runs round the yard; its one gap is the wicket gate (хвіртка) in
-// the south side. Right behind the gate is a dead-end lane and the van stands in it, rear to the fence,
-// 13 m from the front door. From the yard the van cannot be seen (the fence stops the sight line, the
+// the south side. Right behind the gate runs a through street (asphalt, a far kerb, a dashed centre line, going on into
+// the dark both ways) and the van stands end-on on its near edge, rear to the fence, 13 m from the front door. From the yard the van cannot be seen (the fence stops the sight line, the
 // guard never comes closer to the gate than LEASH), and from the van you cannot see the yard.
 // From the van: the gate -> the garden (bushes, a low fence, the shed, the woodpile: cover; the lamps:
 // circles where you are seen) -> the house. The guard comes out to the porch and the front of the garden
@@ -21,7 +21,7 @@ export const FENCE_H = 2.2;                                         // solid, ta
 export const GATE = { x0: 2.4, x1: 3.6, z: YARD_FENCE_Z };          // the wicket gate's opening (its posts take 0.1 m each side: a 1.0 m leaf)
 // where the chalk start line lies (systems/startLine.js): across the gate, just inside it
 export const START_MARK = { kind: 'line', x0: GATE.x0 - 1.2, x1: GATE.x1 + 1.2, z: START_LINE_Z };
-export const LANE = { x0: 5.0, x1: 11.0, z0: 10.6, z1: 21.5 };      // the dead-end lane (asphalt); the apron along the fence is x 2..11, z 9.1..10.6
+export const STREET = { minZ: 9.1, maxZ: 16.7 };                    // the street right behind the south fence, the whole width of the lot (and on into the dark): asphalt, the far kerb at maxZ, a dashed centre line
 // the van: its rear (open doors) to the north at z 11, the cab south; the ring right behind it
 export const VAN = { x: 8.0, z: 11.0, yaw: 0 };
 export const DROP = { x: 8.0, z: 10.2, r: 0.6, flyTime: 0.3 };     // CFG.dropZone on this map
@@ -41,7 +41,7 @@ export const LAMPS = [
   { x: -3.0, z: -6.0, r: 2.2 },    // the corridor night light (as before)
   { x: 0, z: 0.75, r: 1.6 },       // over the porch: the front door is lit
   { x: 5.0, z: 7.6, r: 2.0 },      // at the gate, inside (beside the way)
-  { x: 4.4, z: 12.6, r: 2.5 },     // the lane's lamp, outside the fence (the guard never sees it)
+  { x: 10.0, z: 9.45, r: 2.5 },    // the street lamp, along the fence east of the van and the board: its circle misses the gate and the «ЗАХОДЬ» arrow (the guard never sees it)
 ];
 // the three point lights: [x, y, z, colour, intensity, distance] (systems/world.js puts them there)
 export const LIGHTS = [
@@ -65,14 +65,14 @@ export const COVER = {
 };
 
 const COL = {
-  road: 0x2a2c31, apron: 0x33353a, shed: 0x4a3a2e, shedRoof: 0x2c2628,
+  road: 0x2a2c31, kerb: 0x4a4b4f, dash: 0x8a8c80, shed: 0x4a3a2e, shedRoof: 0x2c2628,
   logs: 0x5a4434, logEnd: 0x8a6e52, low: 0x4a3e33, board: 0x4a3c30, cap: 0x2f2620,
 };
 
-// S, G: the static and the glow Builders; C: level.js's palette; solid(x0, z0, x1, z1, h, top):
+// S, G: the static and the glow Builders; P: the van's paint (its own mesh); C: level.js's palette; solid(x0, z0, x1, z1, h, top):
 // a body box + furniture for line of sight; both(x0, z0, x1, z1): the walls-only world too (sound,
 // sight, thrown loot); furniture: the level's list (the van goes in). Returns the van's cargo floor.
-export function buildYard({ S, G, C, solid, both, furniture, world }) {
+export function buildYard({ S, G, P, C, solid, both, furniture, world }) {
   // ---------- the fence: solid boards, taller than a person, round the whole yard; one gap, the gate ----------
   // Every piece is a thin slab (it stops bodies, sight, sound and thrown loot: `both`), a cap board on top
   // and a post every 3 m. The side slabs stop at the south slab's face (no two tops in one place).
@@ -92,21 +92,52 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
   for (const x of [GATE.x0, GATE.x1]) post(x, YS);                                                   // the gate's own posts
   S.box(GATE.x0, 2.1, YS - T, GATE.x1, FENCE_H, YS + T, COL.board);                                  // over the leaf (sight is the leaf's: not a wall)
   S.box(GATE.x0, FENCE_H, YS - 0.12, GATE.x1, FENCE_H + 0.07, YS + 0.12, COL.cap);
-  // the lane's edge: no wall behind the road (the owner took it away). A row of shrubs closes the lane's end and
-  // both sides (you walk into a bush, not into thin air), the bins stand at the lane's end, the neighbours' houses
-  // stand dark beyond (decor, no collision). Under the shrubs the same bodies as before: nobody can cross.
+  // the lot's edge beyond the street: no wall behind the road (the owner took it away). A row of shrubs closes the lot's
+  // far side and, beyond the kerb, its sides (you walk into a bush, not into thin air; none where the street runs), the
+  // bins stand on the far verge, the neighbours' houses stand dark beyond the road (decor, no collision). Under the
+  // shrubs the same bodies as before: nobody can cross.
   world.addBox(-16, 22.3, 16, 22.5); world.addBox(-16.4, YS + 0.06, -16.1, 22.5); world.addBox(16.1, YS + 0.06, 16.4, 22.5);
   const shrub = (x, z, r) => { S.cyl(r * 0.8, r, 1.5, x, 0, z, C.leaves2, 7); S.cyl(0, r * 0.75, 0.6, x, 1.4, z, C.leaves, 7); solid(x - r * 0.75, z - r * 0.75, x + r * 0.75, z + r * 0.75, 1.6, null); };
   for (let x = -15.2; x <= 15.3; x += 1.5) shrub(x, 22.0 + 0.15 * Math.sin(x * 2.3), 0.72 + 0.08 * Math.sin(x * 5.1));
-  for (let z = YS + 1.2; z <= 21.2; z += 1.5) { shrub(-15.6, z, 0.72 + 0.08 * Math.sin(z * 4.1)); shrub(15.6, z, 0.72 + 0.08 * Math.sin(z * 3.3)); }
+  for (let z = STREET.maxZ + 1.0; z <= 21.2; z += 1.5) { shrub(-15.6, z, 0.72 + 0.08 * Math.sin(z * 4.1)); shrub(15.6, z, 0.72 + 0.08 * Math.sin(z * 3.3)); }
   for (const [x, z, ry] of [[6.2, 20.4, 0.2], [10.0, 20.9, -0.15]]) {   // the neighbours' wheelie bins at the lane's end
     S.boxAt(0.6, 0.95, 0.7, x, 0, z, 0x2e5a46, ry); S.boxAt(0.66, 0.08, 0.76, x, 0.95, z, 0x23473a, ry);
     solid(x - 0.4, z - 0.45, x + 0.4, z + 0.45, 1.0, null);
   }
   // the neighbours' houses beyond the shrubs: dark blocks with a few warm windows, only to be seen
-  for (const [x0, x1, z0, h, win] of [[-14.5, -5.5, 26, 5.5, [[-12, 3.2], [-8, 3.2]]], [-1.5, 6.5, 29, 6.5, [[1.5, 3.8]]], [11.5, 19.5, 27, 5.2, [[15, 3.0], [18, 3.0]]], [-22, -17, 12, 5, [[-17.1, 3.0]]]]) {
+  for (const [x0, x1, z0, h, win] of [[-14.5, -5.5, 26, 5.5, [[-12, 3.2], [-8, 3.2]]], [-1.5, 6.5, 29, 6.5, [[1.5, 3.8]]], [11.5, 19.5, 27, 5.2, [[15, 3.0], [18, 3.0]]]]) {
     S.box(x0, 0, z0, x1, h, z0 + 8, 0x1d2230); S.box(x0 - 0.3, h, z0 - 0.3, x1 + 0.3, h + 0.5, z0 + 8.3, 0x15181f);
     for (const [wx, wy] of win) G.box(wx - 0.4, wy - 0.4, z0 - 0.01, wx + 0.4, wy + 0.4, z0 + 0.01, 0x8a6a40);   // a hair into the wall: it is part of it
+  }
+
+  // ---------- the street's ends (decor, no bodies): as far as the fog lets you see, both ways ----------
+  // Our side: the neighbours' fences and hedges in line with our fence, a few dark houses over them; the far side: a hedge
+  // along the verge, houses and trees behind. All dark, a few warm windows, lost in the fog. About 980 triangles.
+  {
+    const FAR = 47, fence2 = 0x3a3028, hedge = 0x16281c;
+    for (const sg of [-1, 1]) {
+      const span = (a0, a1) => (sg > 0 ? [a0, a1] : [-a1, -a0]);
+      for (const [a0, a1, k] of [[16, 23, 'f'], [23, 29, 'h'], [29, 38, 'f'], [38, 43, 'h'], [43, FAR, 'f']]) {
+        const [x0, x1] = span(a0, a1);
+        if (k === 'f') { S.box(x0, 0, YS - T, x1, 1.9, YS + T, fence2); S.box(x0, 1.9, YS - 0.1, x1, 1.96, YS + 0.1, COL.cap); }
+        else S.box(x0, 0, YS - 0.5, x1, 2.1, YS - 0.05, hedge);
+      }
+      for (const [a0, a1, z1, h, wins] of [[20, 27, 4, 5, [[23.5, 3.0]]], [33, 41, 5, 5.8, [[36, 3.2], [39, 3.2]]]]) {   // over our side's fences
+        const [x0, x1] = span(a0, a1);
+        S.box(x0, 0, z1 - 7, x1, h, z1, 0x1d2230); S.box(x0 - 0.3, h, z1 - 7.3, x1 + 0.3, h + 0.5, z1 + 0.3, 0x15181f);
+        for (const [w, wy] of wins) G.box(sg * w - 0.4, wy - 0.4, z1 - 0.01, sg * w + 0.4, wy + 0.4, z1 + 0.01, 0x8a6a40);
+      }
+      { const [x0, x1] = span(16.5, FAR); S.box(x0, 0, 21.6, x1, 1.5, 22.5, hedge); }   // the far verge's hedge
+      for (const [a0, a1, z0, h, wins] of [[21, 27.5, 26, 5.5, [[24, 3.0]]], [31, 39, 28, 6.2, [[34, 3.4], [37, 3.0]]], [43, 49, 26, 5.0, []]]) {
+        const [x0, x1] = span(a0, a1);
+        S.box(x0, 0, z0, x1, h, z0 + 8, 0x1b2030); S.box(x0 - 0.3, h, z0 - 0.3, x1 + 0.3, h + 0.5, z0 + 8.3, 0x14171e);
+        for (const [w, wy] of wins) G.box(sg * w - 0.4, wy - 0.4, z0 - 0.01, sg * w + 0.4, wy + 0.4, z0 + 0.01, 0x8a6a40);
+      }
+      for (const [a, z, sc] of [[17.5, 24.5, 1.0], [28.5, 24.0, 1.2], [29.5, 20.4, 0.8], [40.5, 23.5, 1.1], [45, 21, 0.9]]) {   // trees
+        S.cyl(0.12 * sc, 0.18 * sc, 1.6 * sc, sg * a, 0, z, C.bark, 6);
+        S.cyl(0, 1.3 * sc, 2.4 * sc, sg * a, 1.2 * sc, z, sc > 1 ? C.leaves : C.leaves2, 7);
+      }
+    }
   }
 
   // ---------- the garden path: stepping stones from the back step to the gate ----------
@@ -148,8 +179,8 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
       solid(a, F.z - 0.06, b, F.z + 0.04, F.h, null);
     }
   }
-  // trees: in the yard and a few outside the fence
-  for (const [x, z, s] of [[-12, 6, 1], [-13, 2, 0.8], [12.5, 5.5, 1.1], [13, -4, 0.9], [-13, -12, 1.2], [11, -17, 1], [-6, 19.5, 1], [1.5, 20.5, 1.2], [13.5, 17, 1.1], [-12, 14, 0.9]]) {
+  // trees: in the yard and a few outside the fence (beyond the street's far kerb: none on the road)
+  for (const [x, z, s] of [[-12, 6, 1], [-13, 2, 0.8], [12.5, 5.5, 1.1], [13, -4, 0.9], [-13, -12, 1.2], [11, -17, 1], [-6, 19.5, 1], [1.5, 20.5, 1.2], [13.5, 18.6, 1.1], [-12, 19, 0.9]]) {
     S.cyl(0.12 * s, 0.18 * s, 1.6 * s, x, 0, z, C.bark, 6);
     S.cyl(0, 1.3 * s, 2.2 * s, x, 1.2 * s, z, C.leaves, 7);
     S.cyl(0, 1.0 * s, 1.8 * s, x, 2.4 * s, z, C.leaves2, 7);
@@ -159,18 +190,22 @@ export function buildYard({ S, G, C, solid, both, furniture, world }) {
   for (const x of [-8, -4.5, 4, 8]) { S.cyl(0.5, 0.6, 0.8, x, 0, 0.8, C.leaves2, 7); solid(x - 0.5, 0.3, x + 0.5, 1.3, 0.8, null); }
   S.box(-0.9, 0, 0.15, 0.9, 0.18, 0.7, C.stone); // back step
 
-  // ---------- the lane behind the gate: an apron along the fence and a dead-end lane south of it ----------
-  S.box(2.0, 0, YS + 0.1, LANE.x1, 0.02, LANE.z0, COL.apron);
-  S.box(LANE.x0, 0, LANE.z0, LANE.x1, 0.02, LANE.z1, COL.road);
+  // ---------- the street behind the fence: through, the whole width of the lot and on out of it, into the dark ----------
+  // (decor only: the bodies' limits are the same as before). The van stands end-on on its near edge, the rear to the gate;
+  // the street is wide enough for its length. The far side has a kerb, the middle a dashed line (not under the van).
+  const X0 = -70, X1 = 70, MID = (STREET.minZ + STREET.maxZ) / 2;
+  S.box(X0, 0, STREET.minZ, X1, 0.02, STREET.maxZ, COL.road);
+  S.box(X0, 0, STREET.maxZ, X1, 0.08, STREET.maxZ + 0.25, COL.kerb);
+  for (let x = X0 + 2; x < X1; x += 4) if (Math.abs(x - VAN.x) > 2.4) S.box(x - 0.9, 0.02, MID - 0.05, x + 0.9, 0.025, MID + 0.05, COL.dash);
   // ---------- the lamps (the porch and the gate: on the wall / a short post) ----------
   lampPost(S, G, solid, 2.6, 4.4, 2.9);                                                  // the garden path lamp
   G.box(-0.15, 2.3, 0.16, 0.15, 2.45, 0.24, 0xffd9a0);                                   // the porch lamp over the door
   S.box(-0.2, 2.25, 0.15, 0.2, 2.3, 0.3, C.pole);
   lampPost(S, G, solid, 5.0, 7.6, 2.2);                                                  // at the gate (inside)
-  lampPost(S, G, solid, 4.4, 12.6, 3.4);                                                 // the lane's lamp
+  lampPost(S, G, solid, 10.0, 9.45, 3.4);                                                // the street lamp: it lights the van and the road, not the gate
 
   // ---------- the van and the board ----------
-  const V = van(S, G, VAN.x, VAN.z, VAN.yaw);
+  const V = van(S, G, VAN.x, VAN.z, VAN.yaw, P);
   world.addBox(V.body.minX, V.body.minZ, V.body.maxX, V.body.maxZ);
   for (const d of V.doors) world.addBox(d.minX, d.minZ, d.maxX, d.maxZ);
   furniture.push({ ...V.body, h: 2.2, top: null });

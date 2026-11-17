@@ -91,7 +91,6 @@ body.phone-playing { overscroll-behavior: none; }
 #hud .gsus .gsus-seen { position: relative; display: block; height: 5px; border-radius: 2px; overflow: hidden; background: #18223a; box-shadow: 0 0 0 1px #05070d; }
 #hud .gsus .gsus-seen i { position: absolute; top: 1px; bottom: 1px; left: 0; width: 0; border-radius: 2px; }
 #hud .gsus .gone { display: none; }
-body.outdoor #hud .gsus { background: rgba(0, 0, 0, .78); border-radius: 10px; padding: 4px 8px; }
 #hud .hud-msg { position: absolute; left: 50%; bottom: calc(var(--sb) + 2px); transform: translateX(-50%); max-width: 38vw; text-align: center; font-size: 16px; font-weight: 700; line-height: 1.25; padding: 4px 12px; border-radius: 10px; background: rgba(5, 8, 16, .45); }
 #edgeflash { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; }
 #pausemenu, #summary { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; touch-action: none;
@@ -155,6 +154,7 @@ body.portrait-block #rotate { display: flex; }
 body.outdoor #hud { text-shadow: none; }
 body.outdoor #hud .hud-tl, body.outdoor #hud .hud-tc, body.outdoor #hud .hud-tr, body.outdoor #hud .hud-msg:not(:empty) {
   background: rgba(0, 0, 0, .78); border-radius: 10px; padding: 4px 8px; }
+body.outdoor #hud .hud-tl { background: none; padding: 0; border-radius: 0; }   /* the left corner has no plate here either: its parts carry their own outlines (style/hud.css) */
 body.outdoor #hud .hud-eye, body.outdoor #hud .hud-sub, body.outdoor #hud .goal, body.outdoor #hud .micdb, body.outdoor #hud .hud-msg { font-weight: 800; }
 body.outdoor #hud .hud-sub, body.outdoor #hud .micdb { color: #e6ecf5; }
 body.outdoor #touch .tbtn { background: rgba(5, 8, 16, .88); border-width: 3px; }

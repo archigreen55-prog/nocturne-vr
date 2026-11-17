@@ -14,7 +14,7 @@ import { ladderOf } from './campaign.js';
 // sits in his armchair all round (it sees only close by); noClock — the round's clock does not run.
 const ALL = [
   { id: 'rehearsal', name: S.contracts.rehearsal.name, brief: S.contracts.rehearsal.brief, goal: { count: 2 }, bonus: 'none', campaign: true, practice: true, mods: { armchairAtStart: true, noClock: true } },
-  { id: 'first', name: S.contracts.first.name, brief: S.contracts.first.brief, goal: { sum: 2000 }, bonus: 'clean' },
+  { id: 'first', name: S.contracts.first.name, brief: S.contracts.first.brief, goal: { sum: 700 }, bonus: 'clean' },
   { id: 'clock', name: S.contracts.clock.name, brief: S.contracts.clock.brief, goal: { item: 'clock' }, bonus: 'clean' },
   // campaign v2 (plan 2026-11-15): level 2 «Скриня» — the two-handed item, the nearest big one to the way out
   { id: 'chest', name: S.campaign2.contracts.chest.name, brief: S.campaign2.contracts.chest.brief, goal: { item: 'chest' }, bonus: 'clean', campaign: true },

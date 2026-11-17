@@ -10,7 +10,7 @@ import { flash } from './messages.js';
 import { S } from '../i18n/index.js';
 import { GATE, YARD_FENCE_Z } from '../world/yard.js';
 
-let group = null, bigMat = null, glowMat = null, t = 0, hinted = false, wasOn = false, phase = '';
+let group = null, smalls = null, waited = 0, bigMat = null, glowMat = null, t = 0, hinted = false, wasOn = false, phase = '';
 
 export function chalkArrow() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 128;
@@ -64,10 +64,13 @@ export const yardGuide = {
     const gx = (GATE.x0 + GATE.x1) / 2;
     // chalk arrows from the van towards the gate
     const tex = chalkArrow(), mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.8, depthWrite: false });
+    // the small arrows from the van are a hint only: they show if nobody has gone through the gate 20 s after the round came up (world())
+    smalls = new THREE.Group(); smalls.name = 'level 0 hint arrows'; smalls.visible = false;
     for (const x of [6.7, 5.5, 4.3]) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.475), mat);
-      m.rotation.set(-Math.PI / 2, 0, Math.PI); m.position.set(x, 0.04, 9.85); m.renderOrder = 6; group.add(m);
+      m.rotation.set(-Math.PI / 2, 0, Math.PI); m.position.set(x, 0.04, 9.85); m.renderOrder = 6; smalls.add(m);
     }
+    group.add(smalls);
     // the big arrow in front of the gate: bright chalk, a warm glow under it, pointing into the gate; the word at the gate end
     const big = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 3.45), bigMat = new THREE.MeshBasicMaterial({ map: bigArrow(S.yard.enter), transparent: true, depthWrite: false, opacity: 1 }));
     big.rotation.set(-Math.PI / 2, 0, 0); big.position.set(gx, 0.055, YARD_FENCE_Z + 1.95); big.renderOrder = 8; group.add(big);
@@ -86,10 +89,13 @@ export const yardGuide = {
   world(dt) {
     if (!group) return;
     const on = !!(G.contract && G.contract.practice);
-    if (on !== wasOn) { group.visible = on; wasOn = on; hinted = false; }
+    if (on !== wasOn) { group.visible = on; wasOn = on; hinted = false; waited = 0; }
     if (!on) return;
     if (G.round && G.round.phase !== phase) { phase = G.round.phase; if (phase === 'ready') hinted = false; }   // a new round: the hint again
     t += dt;
+    // the hint arrows: only while the round waits at the van and nobody has gone through the gate for CFG.start.hintAfter s
+    waited = G.round && G.round.phase === 'ready' && G.active !== false ? waited + dt : 0;
+    smalls.visible = waited > CFG.start.hintAfter;
     bigMat.opacity = 0.86 + 0.14 * Math.sin(t * 2.6); glowMat.opacity = 0.4 + 0.22 * Math.sin(t * 2.6);   // it breathes: easy to catch in the corner of the eye
     // one hint at the closed gate, once per round
     if (!hinted && G.active && G.player) {
