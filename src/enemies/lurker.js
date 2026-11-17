@@ -115,7 +115,7 @@ export class Lurker {
   }
 
   hear(e) {
-    if (this.state !== 'dormant' || e.source !== 'player' || (this.env.asleep && this.env.asleep())) return;   // W19: asleep below its level
+    if (this.state !== 'dormant' || e.source !== 'player' || e.kind === 'whisper' || (this.env.asleep && this.env.asleep())) return;   // W19: asleep below its level; a whisper does not wake it
     if (Math.hypot(e.x - this.FRONT.x, e.z - this.FRONT.z) < CFG.lurker.noiseTrigger && this.near(e.x, e.z)) this.wake();
   }
 

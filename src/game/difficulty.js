@@ -30,7 +30,6 @@ export function applyDifficulty(id, contract) {
   CFG.hearing.occludedK = D.occludedK;
   Object.assign(CFG.round, { time: D.time, warnAt: D.warnAt, escapeTime: D.escapeTime });
   CFG.lurker.cooldown = D.lurkerCooldown;
-  CFG.mic.normalRadius = D.voiceRadius;
   CFG.mic.normalAfter = D.voiceAfter;
   CFG.loot.damagedK = D.damagedK;
   CFG.loot.crystal.breakSpeed = D.crystalBreak;

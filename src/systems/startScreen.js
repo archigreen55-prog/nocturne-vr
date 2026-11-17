@@ -28,6 +28,7 @@ import { S } from '../i18n/index.js';
 import { renderPlayPage } from './playPage.js';
 import { whyClosed } from './levels.js';
 import { netReport } from './net.js';
+import { ensureMic } from './micAuto.js';
 
 export function syncStartScreen() {
   const { contract, difficulty } = G;
@@ -105,6 +106,7 @@ export const startScreen = {
       onChange: () => { G.boardDirty = true; },
       onPlay() {
         unlockAudio();
+        ensureMic({ ask: true, tell: true });   // Б1: a set-up microphone comes back with this tap (it may ask: iPhone)
         G.playingDesktop = true;
         $('overlay').style.display = 'none';
         $('crosshair').style.display = 'block';
@@ -142,7 +144,7 @@ export const startScreen = {
     }
     const vrButton = VRButton.createButton(renderer);
     vrButton.id = 'vrbutton';
-    vrButton.addEventListener('click', () => unlockAudio(), true);
+    vrButton.addEventListener('click', () => { unlockAudio(); ensureMic({ ask: true }); }, true);   // Б1: before the headset (the dialog may be out of reach inside)
     // phones: no "Enter VR" (Android may offer Cardboard) and no laptop play (it needs a mouse)
     if (G.MODE.mode !== 'phone') {
       $('buttons').appendChild(vrButton);

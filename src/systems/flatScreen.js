@@ -1,6 +1,7 @@
 // Playing on a flat screen: the phone's touch controls and HUD (instead of the wrist panel), the
 // microphone's phone options, the sample of game sounds, portrait = "rotate the phone".
 import { loadSetting } from '../settings.js';
+import { CFG } from '../config/index.js';
 import { TouchControls, LOOK_SPEEDS } from '../input/touch.js';
 import { ensureFullscreen } from '../platform/screen.js';
 import { Hud } from '../ui/hud.js';
@@ -44,13 +45,16 @@ export const flatScreen = {
       // a finger lift on any HTML button (menu, summary) restores full screen too
       pressHooks.onGesture = touch.onGesture;
       touch.onLoud = () => fx('stepsLoud');
-      // microphone on a phone (T3): the game's own sound from the speaker is not your voice (decision §9
-      // p. 10: the analyser on the game bus), "covered?" hint, auto gain default, headphones in / out
-      mic.gameDbFn = gameBusDb;
+      // microphone on a phone (T3): "covered?" hint, auto gain default
       mic.coverHint = true;
       mic.agcAdjust = true;
-      mic.watchDevices();
     }
+    // the game's own sound from the speaker is not your voice (decision §9 p. 10: the analyser on the game
+    // bus) — on every device since mic v2 stage 1 (owner's condition 09.11; audit Б8: it was phone only):
+    // laptop speakers and a headset's speakers next to its microphone too. Headphones in / out everywhere.
+    mic.gameDbFn = gameBusDb;
+    mic.bleedGuess = touch ? CFG.mic.bleedDefault : G.MODE.mode === 'vr' ? CFG.mic.bleedDefaultVr : CFG.mic.bleedDefaultPc;
+    mic.watchDevices();
     mic.watchPermission();
     mic.onSource = (src) => scream.retap(src);   // a re-opened microphone stream: the scream replay keeps recording
     // phone: the wrist panel is replaced by the HTML HUD (nothing is drawn on the wrist canvas)

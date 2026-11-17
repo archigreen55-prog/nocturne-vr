@@ -26,6 +26,7 @@ import { levelGroups, pickLevel as pickLevelOf } from './levels.js';
 import { syncStartScreen } from './startScreen.js';
 import { useDevice } from './distract.js';
 import { voiceNoise } from './heist.js';
+import { ensureMic } from './micAuto.js';
 import { storyNetEcho } from './story.js';
 import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js';
 import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.js';
@@ -332,7 +333,7 @@ function guestEvent(m) {
   const { noise, round } = G;
   switch (m.k) {
     case 'noise': {
-      noise.emit(m.x, m.z, m.r, m.kind, { y: m.y, source: 'net' });
+      noise.emit(m.x, m.z, m.r, m.kind, { y: m.y, source: 'net', wallK: Number.isFinite(m.w) ? m.w : null });
       const pos = { x: m.x, y: (m.y || 0) + 0.3, z: m.z }, occ = G.level.soundOccluded(G.player.head.x, G.player.head.z, m.x, m.z);
       if (m.kind === 'drop') playThud(pos, occ, 1, false);
       else if (m.kind === 'glass') playGlass(pos, occ);
@@ -419,9 +420,10 @@ export const net = {
     if (!box) return;
     const code = roomFromUrl();
     lobby = new Lobby(box, {
-      create: (name, thief) => { N.name = name; N.thief = thief; open(newCode(), 'host'); },
+      create: (name, thief) => { ensureMic({ ask: true }); N.name = name; N.thief = thief; open(newCode(), 'host'); },
       // T4b: the tap on «Увійти» is the guest's gesture for the sound (the host's «Почати» starts its round later)
-      join: (c, name, thief) => { unlockAudio(); N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
+      join: (c, name, thief) => { unlockAudio(); ensureMic({ ask: true });   // Б1: the guest's own tap (the host's «Почати» is not one)
+        N.name = name; N.thief = thief; if (!validCode(c)) { setStatus(S.net.status.notFound(prettyCode(c)), true); return; } open(c, 'guest'); },
       // B05: a guest that leaves in the middle of a round would keep the host's half-world (its clock, guards,
       // doors): the page reloads clean on «Грати з друзями» instead
       leave: () => {
@@ -453,7 +455,7 @@ export const net = {
     // the host's voice lines, guard sounds, noises and messages for the guests (offline nothing listens)
     G.noise.on((e) => {
       if (!isHost() || e.source === 'net' || !N.t || !N.remotes.size) return;
-      const msg = { type: 'ev', k: 'noise', x: +e.x.toFixed(2), z: +e.z.toFixed(2), y: +(e.y || 0).toFixed(2), r: +e.radius.toFixed(2), kind: e.kind };
+      const msg = { type: 'ev', k: 'noise', x: +e.x.toFixed(2), z: +e.z.toFixed(2), y: +(e.y || 0).toFixed(2), r: +e.radius.toFixed(2), kind: e.kind, w: e.wallK ?? undefined };   // w: how far through a wall (its faint ring)
       const ey = e.source === 'world' ? e.y : (e.who || G.player).floorY;
       for (const [pid, r] of N.remotes) {
         if (pid === G.guardPid && e.source !== 'patrol' && !(G.patrol.audible(e, ey) > 0)) continue;   // W15: the guard hears what a guard would
@@ -521,7 +523,8 @@ export const net = {
       if (r.id === G.guardPid || r.benchT > 0) { r.mic.shoutSeen = r.mic.shouts; continue; }
       const shout = r.mic.shouts > r.mic.shoutSeen;
       r.mic.shoutSeen = r.mic.shouts;
-      voiceNoise(r, r.speak, dt, r.mic.live && !r.mic.breath && G.caughtT < 0, r.mic.level, shout, false);
+      const live = r.mic.live && !r.mic.breath && G.caughtT < 0;
+      voiceNoise(r, r.speak, dt, live, r.mic.level, shout, false, live && r.mic.whisper);   // W7's `wh`: the friend whispers
     }
   },
 
