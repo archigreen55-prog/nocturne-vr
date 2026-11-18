@@ -33,18 +33,59 @@
     const errs = window.__nocturneErrors = [];
     const t0 = Date.now();
     const q = new URLSearchParams(location.search);
-    let panel = null, failed = false, retrying = false;
+    let panel = null, failed = false, retrying = false, bootEnvNow = null;
     const add = (kind, msg) => {
       errs.push({ t: +((Date.now() - t0) / 1000).toFixed(1), kind, msg: String(msg).slice(0, 500) });
       if (errs.length > 30) errs.shift();
       if (panel) panel.textContent = errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`).join('\n');
-      if (!window.__game && kind !== 'console' && kind !== 'note') { if (kind === 'load') retryOnce(); else bootFailed(); }
+      if (!window.__game && !QUIET.includes(kind)) { if (kind === 'load') retryOnce(); else bootFailed(); }
     };
+    // only recorded: a console line, a note, a file the service worker gave up on (the page's own 'load'
+    // error follows when that file was needed for the start)
+    const QUIET = ['console', 'note', 'fetch'];
     addEventListener('error', (e) => {
       const t = e.target;
       if (t && t !== window && (t.src || t.href)) add('load', /main\.js/.test(t.src) ? 'не завантажились модулі гри (src/main.js або vendor/three)' : `не завантажилось: ${t.src || t.href}`);
       else add('error', `${e.message}${e.filename ? ` @ ${e.filename.split('/').pop().split('?')[0]}:${e.lineno}:${e.colno}` : ''}`);
     }, true);
+
+    // which file failed, from the service worker (sw.js, after its retries); plan 2026-11-17, step 1
+    try {
+      const SWC = navigator.serviceWorker;
+      if (SWC) {
+        SWC.addEventListener('message', (e) => { const f = e.data && e.data.nocturneFail; if (f) add('fetch', `${f.url}: ${f.what} (service worker ${f.version}, спроб: ${f.tries})`); });
+        SWC.startMessages();
+      }
+    } catch { /* no service workers here */ }
+    // what the boot report adds: the page's version, the service worker, the network, the files that failed
+    async function bootEnv() {
+      const main = document.querySelector('script[type=module][src*="main.js"]');
+      const env = { page: main ? new URL(main.src).searchParams.get('v') : null, retried: q.has('retry'), online: navigator.onLine };
+      const c = navigator.connection;
+      if (c) env.net = { type: c.effectiveType, downlinkMbps: c.downlink, rttMs: c.rtt, saveData: c.saveData };
+      try {
+        const SWC = navigator.serviceWorker;
+        if (!SWC) env.sw = 'none';
+        else {
+          const reg = await SWC.getRegistration();
+          env.sw = { controlled: !!SWC.controller, active: reg && reg.active ? reg.active.state : null, waiting: !!(reg && reg.waiting), installing: !!(reg && reg.installing) };
+          if (SWC.controller) env.sw.version = await new Promise((res) => {
+            const on = (e) => { if (e.data && e.data.version) { clearTimeout(t); SWC.removeEventListener('message', on); res(e.data.version); } };
+            const t = setTimeout(() => { SWC.removeEventListener('message', on); res(null); }, 800);
+            SWC.addEventListener('message', on);
+            SWC.controller.postMessage('version');
+          });
+        }
+      } catch (e) { env.sw = `error: ${e && e.message}`; }
+      try {
+        const rs = performance.getEntriesByType('resource');
+        env.files = rs.length;
+        // an error status, or no answer at all (a failed request still gets an entry, with nothing in it)
+        env.failed = rs.filter((r) => r.responseStatus >= 400 || (r.responseStatus === 0 && r.decodedBodySize === 0 && r.transferSize === 0 && r.responseStart === 0))
+          .slice(0, 10).map((r) => { const u = new URL(r.name); return `${u.pathname.split('/').slice(-3).join('/')}${u.search}: ${r.responseStatus ? `HTTP ${r.responseStatus}` : 'немає відповіді'}`; });
+      } catch { /* no resource timing */ }
+      return env;
+    }
 
     // A file of the game did not load (one of ~175 modules, a stylesheet): most often the network dropped
     // for a moment. The page reloads itself once (?retry=1; a retry in the same page would not do: the
@@ -136,11 +177,14 @@
         copy.id = 'bootcopy'; copy.style.cssText = btnCss;
         copy.textContent = 'Скопіювати звіт';
         copy.addEventListener('click', () => {
-          const text = JSON.stringify({ report: 'nocturne-boot', time: new Date().toISOString(), url: location.pathname + location.search, ua: navigator.userAgent, errors: errs }, null, 1);
+          const text = JSON.stringify({ report: 'nocturne-boot', time: new Date().toISOString(), url: location.pathname + location.search, ua: navigator.userAgent, env: bootEnvNow, errors: errs }, null, 1);
           const done = (ok) => { copy.textContent = ok ? 'Скопійовано' : 'Не вдалося — виділи текст вище'; };
           try { navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); } catch { done(false); }
         });
-        box.querySelector('pre').textContent = errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`).join('\n');
+        const pre = box.querySelector('pre'), lines = () => errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`);
+        pre.textContent = lines().join('\n');
+        // the failed files on screen too (a photo of the screen is a report as well)
+        bootEnv().then((env) => { bootEnvNow = env; if (env.failed && env.failed.length) pre.textContent = lines().concat(env.failed.map((f) => `файл: ${f}`)).join('\n'); });
         box.append(oldIos ? '' : again, copy, oldIos ? '' : reset);
         document.getElementById('buttons').after(box);
         // W17 S3: the start button lives on the «Грати» page; without the game's modules nothing opens it

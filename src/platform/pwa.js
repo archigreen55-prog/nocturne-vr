@@ -2,7 +2,8 @@
 // updates), the install button (Android Chrome) or the "Поділитися → На початковий екран" hint (iPhone
 // Safari has no install prompt), and what the report says about it.
 // The service worker never keeps an old version: pages come from the network first (the cache only
-// when offline), and every module URL carries ?v=<version> (see sw.js). ?nosw removes it.
+// when offline), and every module URL carries ?v=<version> (see sw.js); a new worker takes over once the
+// game here is up. ?nosw removes it.
 import { bindPress } from '../ui/press.js';
 import { S } from '../i18n/index.js';
 
@@ -27,7 +28,14 @@ export function setupPwa({ phone, ios, preview, onChange }) {
         if (!reg) { state.sw = 'blocked'; return; }   // a browser setting (or the tests) blocks service workers
         state.sw = reg.active ? 'active' : 'installing';
         reg.update().catch(() => {});   // look for a new sw.js on every start, not once a day
-        const track = (w) => w && w.addEventListener('statechange', () => { if (w.state === 'activated') { state.sw = 'active'; ask(); } });
+        // a new version waits (sw.js) until the game here is up, then takes over: never in the middle of a
+        // start (plan 2026-11-17, step 4); the next start is the new version
+        const takeOver = (w) => { const go = () => (window.__game ? w.postMessage('skipWaiting') : setTimeout(go, 500)); go(); };
+        const track = (w) => w && w.addEventListener('statechange', () => {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) takeOver(w);
+          if (w.state === 'activated') { state.sw = 'active'; ask(); }
+        });
+        if (reg.waiting) takeOver(reg.waiting);
         track(reg.installing || reg.waiting);
         reg.addEventListener('updatefound', () => track(reg.installing));
         ask();

@@ -4,7 +4,7 @@
 // The server breaks one module of the start (src/systems/state.js) on purpose.
 import assert from 'node:assert/strict';
 import { newContext, watchErrors, startServer } from './harness.mjs';
-import { browser, test, LAND, siteCopy, swReady } from './runner.mjs';
+import { VERSION, browser, test, LAND, siteCopy, swReady, swUpdatedTo } from './runner.mjs';
 
 const MOD = 'src/systems/state.js';
 const up = (page, timeout = 60000) => page.waitForFunction(() => window.__game, null, { timeout, polling: 200 });
@@ -47,6 +47,14 @@ test('boot: a module fails every time -> one automatic reload, then «Гра н�
     assert.equal(new URL(page.url()).searchParams.get('retry'), '1');
     assert.equal(await page.textContent('#start'), 'Гра не завантажилась');
     for (const id of ['#bootretry', '#bootcopy', '#bootreset']) assert.equal(await page.isVisible(id), true, id);
+    // the report (step 1): the file that failed and how, the page's version, the reload
+    await page.click('#bootcopy');
+    await page.waitForFunction(() => document.querySelector('#bootcopy').textContent === 'Скопійовано');
+    const r = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+    assert.equal(r.report, 'nocturne-boot');
+    assert.equal(r.env.retried, true); assert.equal(r.env.online, true); assert.equal(r.env.page, VERSION);
+    assert.ok(r.env.failed.some((f) => /systems\/state\.js\?v=.*HTTP 503/.test(f)), JSON.stringify(r.env));
+    assert.match(await page.textContent('#bootfail pre'), /файл: .*state\.js.*HTTP 503/);
     await page.waitForTimeout(3000);
     assert.equal(srv.n, 2, 'still no loop');
     // the file is back: «Спробувати ще» starts the game
@@ -117,6 +125,14 @@ test('boot: «Скинути кеш» removes this site copy\'s service worker a
     broken = true;
     await page.goto(site.base);
     await page.waitForSelector('#bootreset', { timeout: 90000 });
+    // the report names the file the worker gave up on, and the worker's state
+    const errs = await page.evaluate(() => window.__nocturneErrors);
+    assert.ok(errs.some((e) => e.kind === 'fetch' && /src\/systems\/state\.js\?v=0\.6\.0-reset\.2: HTTP 503 \(service worker .*спроб: 4\)/.test(e.msg)), JSON.stringify(errs));
+    await page.click('#bootcopy');
+    await page.waitForFunction(() => document.querySelector('#bootcopy').textContent === 'Скопійовано');
+    const r = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+    assert.equal(r.env.sw.controlled, true, JSON.stringify(r.env));
+    assert.equal(r.env.page, '0.6.0-reset.2');
     broken = false;
     await page.click('#bootreset');
     await page.waitForURL((u) => new URL(u).searchParams.has('fresh'), { timeout: 30000 });
@@ -125,6 +141,48 @@ test('boot: «Скинути кеш» removes this site copy\'s service worker a
       caches: (await caches.keys()).filter((k) => k.startsWith(`nocturne:${location.pathname}:`) && !k.endsWith('0.6.0-reset.2')),
     }));
     assert.deepEqual(left.caches, [], 'the old caches are gone');
+    await ctx.close();
+  } finally { await site.close(); }
+});
+
+// Guards the rule of step 4 (the new worker waits for the page's 'skipWaiting', sent once the game is up).
+// Chromium here did not take over in the middle of a start with the old rule either (it waits for the
+// old worker's requests under way): this test does not tell the two rules apart, it keeps the new one.
+test('service worker: a new version installs while the page loads but takes over only after the game is up (never in the middle of a start)', async () => {
+  let slow = false, installed = 0, held = null;
+  // Chrome looks for a new sw.js by itself only after the page's load event; anything else may look
+  // sooner (another tab, registration.update()): here the page asks at its very first moment (?poke).
+  // Its own request for one module of the start is held until the new worker has fetched its last file
+  // (the install copies go with Cache-Control: no-cache) and 2 s more: the new worker is ready to take
+  // over long before the start
+  const site = await siteCopy({ fault: () => null });
+  const srv = site.server, orig = srv.listeners('request')[0], lastFile = 'src/xr/player.js';
+  srv.removeAllListeners('request');
+  srv.on('request', (req, res) => {
+    const install = !!req.headers['cache-control'];
+    if (slow && install && req.url.includes(lastFile)) { installed++; if (held) setTimeout(held, 2000); }
+    if (slow && !install && /\/src\/systems\/state\.js/.test(req.url)) {
+      let sent = false;
+      const go = () => { if (!sent) { sent = true; orig(req, res); } };
+      if (installed) setTimeout(go, 2000); else { held = go; setTimeout(go, 30000); }
+    } else orig(req, res);
+  });
+  try {
+    const ctx = await newContext(browser, LAND, { sw: true });
+    await ctx.addInitScript(() => {
+      window.__swLog = [];
+      if (location.search.includes('poke')) navigator.serviceWorker.getRegistration().then((r) => r && r.update());
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.__swLog.push(window.__game ? 'after the start' : 'during the start'));
+    });
+    const page = await ctx.newPage();
+    await page.goto(site.base); await up(page); await swReady(page);
+    site.bump('0.6.0-wait.2');
+    slow = true;
+    await page.goto(site.base + '?poke', { waitUntil: 'commit' });
+    await page.waitForFunction(() => window.__game && /0\.6\.0-wait\.2/.test(document.getElementById('version').textContent), null, { timeout: 60000, polling: 200 });
+    assert.equal(await swUpdatedTo(page, '0.6.0-wait.2'), '0.6.0-wait.2', 'the new worker took over');
+    assert.equal(installed, 1, 'the new worker installed while the page was loading');
+    assert.deepEqual(await page.evaluate(() => window.__swLog), ['after the start']);
     await ctx.close();
   } finally { await site.close(); }
 });

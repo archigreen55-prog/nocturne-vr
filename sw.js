@@ -1,4 +1,5 @@
 // Service worker: offline play and the home-screen app (plan-phone-mode §1.9, §7.3, wave T4).
+// A failed request is tried again; a new version takes over only when no start is under way (below).
 // It must never keep an old version:
 //   pages (navigations)      the network first (revalidated, not the HTTP cache); the cache only offline
 //   version.json, sw.js      always the network (the stale-page guard in index.html reads version.json)
@@ -201,10 +202,24 @@ const PREFIX = `nocturne:${BASE}:`;
 const CACHE = PREFIX + VERSION;
 const PREVIEW = /\/preview\/[^/]+\/$/.test(BASE);
 
+// A new version installs while the page that found it is still loading its ~175 modules: the files come
+// 6 at a time (not all at once next to the page's own requests), each tried again like any request, and
+// the new worker waits. It takes over when the old pages are closed, or when a page whose game is up asks
+// for it ('skipWaiting', src/platform/pwa.js) — never in the middle of a start, when taking over and
+// dropping the old caches broke loads (plan 2026-11-17, step 4).
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE)
-    .then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
-    .then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(async (c) => {
+    const queue = FILES.slice();
+    const worker = async () => {
+      for (let f; (f = queue.shift()) !== undefined;) {
+        const req = new Request(f, { cache: 'reload' });
+        const res = await fetchRetry(req, undefined, { versioned: true });
+        if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
+        await c.put(req, res);
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+  }));
 });
 
 self.addEventListener('activate', (e) => {
@@ -213,7 +228,10 @@ self.addEventListener('activate', (e) => {
     .then(() => self.clients.claim()));
 });
 
-self.addEventListener('message', (e) => { if (e.data === 'version' && e.source) e.source.postMessage({ version: VERSION }); });
+self.addEventListener('message', (e) => {
+  if (e.data === 'version' && e.source) e.source.postMessage({ version: VERSION });
+  if (e.data === 'skipWaiting') self.skipWaiting();
+});
 
 // One failed request out of ~175 modules stops the whole game (the browser gives up on the module graph),
 // so a request is tried again before the page sees it fail (plan 2026-11-17, step 2): a network error, a 5xx
@@ -256,6 +274,15 @@ async function cacheFirst(req) {
   return res;
 }
 
+// The page's boot report names the file that failed for good (plan 2026-11-17, step 1).
+function told(e, p) {
+  const tell = (what) => {
+    const u = new URL(e.request.url);
+    self.clients.get(e.clientId).then((c) => c && c.postMessage({ nocturneFail: { url: u.pathname.slice(BASE.length) + u.search, what, tries: WAITS.length + 1, version: VERSION } })).catch(() => {});
+  };
+  return p.then((res) => { if (!res.ok) tell(`HTTP ${res.status}`); return res; }, (err) => { tell(String(err && err.message || err)); throw err; });
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return;
@@ -263,6 +290,6 @@ self.addEventListener('fetch', (e) => {
   if (!PREVIEW && rel.startsWith('preview/')) return;   // the previews have their own worker (or none)
   if (rel === 'version.json' || rel === 'sw.js') return;
   if (req.mode === 'navigate') { e.respondWith(networkFirst(req, BASE + 'index.html')); return; }
-  if (url.searchParams.has('v') || rel.startsWith('vendor/') || rel.startsWith('icons/')) { e.respondWith(cacheFirst(req)); return; }
-  e.respondWith(networkFirst(req));
+  if (url.searchParams.has('v') || rel.startsWith('vendor/') || rel.startsWith('icons/')) { e.respondWith(told(e, cacheFirst(req))); return; }
+  e.respondWith(told(e, networkFirst(req)));
 });

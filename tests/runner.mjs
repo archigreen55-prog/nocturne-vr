@@ -182,8 +182,8 @@ export async function swReady(page) {
 }
 
 // After a new deploy: the page's service worker becomes that version. The browser finds the new worker
-// on its own after a navigation (this also asks it to: registration.update()), installs it and, as sw.js
-// calls skipWaiting(), activates it. Polled from here in short calls: a long-running script in the page
+// on its own after a navigation (this also asks it to: registration.update()), installs it and, once the game
+// in the page is up (src/platform/pwa.js asks the waiting worker to skipWaiting), activates it. Polled from here in short calls: a long-running script in the page
 // (one evaluate that waits inside the page) holds the new worker in "waiting" for as long as it runs
 // (seen: 2 minutes), which is what made the old in-page wait time out under load. The version is asked
 // only once nothing is waiting. Returns the version, or 'timeout <last states>'.
