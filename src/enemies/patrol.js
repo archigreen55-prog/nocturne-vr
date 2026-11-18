@@ -24,6 +24,15 @@ const AI_DT = 0.1;         // vision checks 10 times a second
 
 function angleDiff(a, b) { const d = a - b; return Math.atan2(Math.sin(d), Math.cos(d)); }
 
+// The furthest z the guard may go at x (null: no leash): the map's leash (world/yard.js LEASH), or the campaign's
+// gate watch on the dacha (CFG.run.gateWatch): a corridor along the garden path down to the gate, the rest of
+// the garden shorter. The human guard (systems/humanGuard.js) keeps to the same line.
+export function leashZ(level, x) {
+  const W = CFG.run && CFG.run.gateWatch;
+  if (W) return Math.abs(x - W.x) <= W.half ? W.maxZ : W.yardMaxZ;
+  return level && level.leash ? level.leash.maxZ : null;
+}
+
 export class Patrol {
   // env: { level, nav, alert, listener() -> { x, z } }
   constructor(env) {
@@ -157,6 +166,7 @@ export class Patrol {
     this.occT = 0;
     this.repathT = 0;
     this.seenCount = 0;
+    this.doubts = 0;          // campaign v2 (★★★ 👂): how many times it went from calm to «?» because of a thief (not a can, not a device)
     this.reactAt = null;
     this.stay = false;        // posted at an exit during a full alarm (W6: the second guard)
     // running (CFG.sprint): it goes to look fast and follows the steps; on hard it dashes in a chase
@@ -203,9 +213,16 @@ export class Patrol {
   // the map's leash (the dacha: world/yard.js LEASH): the guard goes out to the porch and the gate, never
   // down the street to the van — a goal past it is taken to the gate's line
   goTo(x, z, toFloor) {
-    const L = this.env.level && this.env.level.leash;
-    if (L && z > L.maxZ) z = L.maxZ;
-    this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor); this.goal = [x, z];
+    const mz = leashZ(this.env.level, x), lv = this.env.level;
+    if (mz !== null && z > mz) z = mz;
+    this.path = this.env.nav.path(this.x, this.z, x, z, this.floor, toFloor, this.leashOk()); this.goal = [x, z];
+    this.progBest = Infinity; this.progT = 0;
+  }
+  // the nav points within the leash (null: no leash) — it does not go round through the gate's corridor either
+  leashOk() {
+    const lv = this.env.level;
+    if (leashZ(lv, 0) === null && leashZ(lv, 3) === null) return null;
+    return (n) => { const m = leashZ(lv, n.x); return m === null || n.z <= m + 0.01; };
   }
   get floor() { return this.env.level.floorIndex ? this.env.level.floorIndex(this.y) : 0; }
 
@@ -335,6 +352,7 @@ export class Patrol {
     if (e.kind === 'run') this.heardRunT = 2;
     if (this.state === 'chase') return;
     if (e.device && this.brain.deviceTask(e.device)) return;   // W2a: a device: it goes to switch it off
+    if (this.state === 'task' && !this.env.alert.full && e.kind !== 'can' && e.kind !== 'device') this.doubts++;
     const f = this.env.level.floorIndex ? this.env.level.floorIndex(ey) : undefined;
     if (this.env.alert.full) this.hunt(e.x, e.z, f);
     else if (e.kind === 'run' && CFG.sprint.react === 'fast') this.heardRun(e.x, e.z, f);
@@ -556,12 +574,18 @@ export class Patrol {
     this.y = this.env.level.floorY(nx, nz, this.y);
     this.speed = dt > 0 ? Math.hypot(nx - px, nz - pz) / dt : 0;
     this.phase += this.speed * dt * 6;
+    // no nearer to where it goes for CFG.patrol.giveUp s (a goal it cannot reach: behind a wall, the low fence, a
+    // hedge): it stops there as if arrived — looks around and goes back to its rounds instead of standing (17.11)
+    let left = Math.hypot(this.path[0][0] - nx, this.path[0][1] - nz);   // the way still to go
+    for (let i = 1; i < this.path.length; i++) left += Math.hypot(this.path[i][0] - this.path[i - 1][0], this.path[i][1] - this.path[i - 1][1]);
+    if (left < (this.progBest ?? Infinity) - 0.3) { this.progBest = left; this.progT = 0; }
+    else if ((this.progT = (this.progT || 0) + dt) > CFG.patrol.giveUp) { this.path = []; this.speed = 0; this.progBest = Infinity; this.progT = 0; return true; }
     // stuck (furniture corner, a door): try a fresh path
     this.stuckT += dt;
     if (this.stuckT > 1.5) {
       if (Math.hypot(this.x - this.stuckX, this.z - this.stuckZ) < 0.15) {
         const goal = this.path[this.path.length - 1];
-        this.path = this.env.nav.path(this.x, this.z, goal[0], goal[1]);
+        this.path = this.env.nav.path(this.x, this.z, goal[0], goal[1], this.floor, this.floor, this.leashOk());
         if (this.path.length === 1 && Math.hypot(goal[0] - this.x, goal[1] - this.z) < 1.2) this.path = [];
       }
       this.stuckT = 0; this.stuckX = this.x; this.stuckZ = this.z;
@@ -627,6 +651,7 @@ export class Patrol {
     } else this.meter = Math.max(0, this.meter - dt * P.meterDecay);
     if (this.meter >= 1) { this.meter = 1; if (this.visible || feel) { this.visible = true; this.startChase(player); } }
     else if (this.meter > P.noticeAt && this.state === 'task') {
+      this.doubts++;
       this.react(hx, hz);   // stops, looks, then "hm? what was that?" and comes to look
     }
     if (this.state === 'task') this.brain.watch(dt);   // missing loot, doors left open

@@ -6,6 +6,7 @@ import { playKnock, CreakVoice } from '../audio/audio.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
 import { S } from '../i18n/index.js';
+import { CLASSIC } from '../config/campaign.js';
 
 const _hand = new THREE.Vector3(), _handle = new THREE.Vector3();
 // Door nearest to (x, z) within maxDist of its doorway centre; if dirYaw is given, only in front.
@@ -26,6 +27,8 @@ export function nearestDoor(x, z, maxDist, dirYaw) {
 export function useDoor(door, hand, time = CFG.doors.fastTime) {
   if (!door) return;
   if (G.hands.busy) { flash(S.messages.handsBusy); return; }
+  // campaign v2 (decision R8 А): a big (two-handed) item carried on a phone / PC takes both hands too, as in VR
+  if (!CLASSIC && G.hands.desk && G.hands.desk.twoHanded) { flash(S.campaign2.bigDoor, 2.5, '#ffb347'); return; }
   if (G.isGuest && !door.locked) { G.netIntent('door', { i: G.level.doors.indexOf(door), time }); if (hand) G.xrIn.pulse(hand, 0.3, 30); return; }   // with friends the host swings it
   door.lastUser = G.role === 'guard' ? 'patrol' : 'player';   // W15: the guard's own doors are no news to the guards
   const r = door.toggle(G.player.head.x, G.player.head.z, time);

@@ -1,7 +1,8 @@
 // The dacha's yard (claude/dacha-yard, claude/dacha-yard-near, world/yard.js): a solid fence round the yard
 // with one gate; the van stands on the street right behind it (a through street, end-on on its near edge), 10–15 m from the front door; the guard (AI or a
-// friend) comes out to the porch and the front of the garden but never to the gate, and from nowhere he can
-// stand does he see the van; the walk fits in the dacha's contracts (levels 0–7); several thieves at the van
+// friend) comes out to the porch and the front of the garden — from level 1 of the campaign down the path to the gate,
+// inside it (never in a round's first 20 s) — and from nowhere he can
+// stand does he see the van; the walk fits in the dacha's contracts (levels 0–5); several thieves at the van
 // still work (the ring, the escape).
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
@@ -102,7 +103,7 @@ test('yard: cover in the garden hides a crouching thief, not a standing one (bus
   await ctx.close();
 });
 
-test('yard: the walk van ↔ house fits in the time of every dacha level (0–7) on every difficulty — the items the goal needs, one per trip, at the silent walk', async () => {
+test('yard: the walk van ↔ house fits in the time of every dacha level (0–5) on every difficulty — the items the goal needs, one per trip, at the silent walk', async () => {
   const ctx = await campaignCtx();
   const { page, errors } = await open(ctx, base + '?map=dacha');
   const r = await page.evaluate(async () => {
@@ -307,6 +308,65 @@ test('yard: nothing stands on the asphalt along the whole street (x -70..70) —
     return bad.slice(0, 10);
   });
   assert.deepEqual(r, [], `something stands on the street: ${JSON.stringify(r)}`);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+// the owner's test of 16.11 (campaign v2): from level 1 the guard comes down the path to the gate, inside
+test('yard (campaign v2, 16.11): the dacha\'s guard comes to the gate from level 1 (not on the rehearsal) — never in the round\'s first 20 s; his leash is a corridor down the path (8.0 there, 6.0 elsewhere), so even with the gate open no point he reaches sees the van or the ring; sent to the van he stops at it', async () => {
+  const ctx = await newContext(browser);
+  await ctx.addInitScript(() => { window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true }; localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 } })); });
+  const { page, errors } = await open(ctx, base + '?map=dacha');
+  const r = await page.evaluate(async () => {
+    const g = window.__game, L = g.level, P = g.patrol, W = g.CFG.campaign.gateWatch, V = g.CFG.round.vanZone, D = g.CFG.dropZone, C = L.cargo, out = {};
+    const { leashZ } = await import('./src/enemies/patrol.js');
+    g.newRound(); g.setContract('rehearsal'); g.sim(0.1); out.rehearsal = [g.CFG.run.gateWatch, leashZ(L, 3)];
+    g.newRound(); g.setContract('first'); g.sim(0.1); out.first = [!!g.CFG.run.gateWatch, leashZ(L, 3), leashZ(L, -6)];
+    // the sight: every point of the yard he may stand on, the gate wide open
+    for (const d of L.doors) if (d.gate) { d.angle = d.target = 1.4; d.update(0); }
+    const targets = [];
+    for (const y of [0.5, 1.2, 2.1]) for (const x of [C.minX - 0.1, (C.minX + C.maxX) / 2, C.maxX + 0.1]) for (const z of [C.minZ - 0.05, (C.minZ + C.maxZ) / 2, C.maxZ + 1.4]) targets.push([x, y, z]);
+    for (const y of [0.9, 1.65]) for (const [dx, dz] of [[0, 0], [0.6, 0], [-0.6, 0], [0, -0.6]]) targets.push([D.x + dx, y, D.z + dz]);
+    let eyes = 0; out.seen = [];
+    for (let x = -15.5; x <= 15.5; x += 0.25) for (let z = 0; z <= leashZ(L, x) + 1e-6; z += 0.25) {
+      const [nx, nz] = L.resolveBody(x, z, 0.25); if (Math.hypot(nx - x, nz - z) > 1e-3) continue;
+      eyes++;
+      if (targets.some(([tx, ty, tz]) => !L.losBlocked(x, 1.7, z, tx, ty, tz))) out.seen.push([x, z]);
+    }
+    out.eyes = eyes;
+    for (const d of L.doors) if (d.gate) { d.angle = d.target = 0; d.update(0); }
+    // the first 20 s of a round: he does not come out to the yard (5 rounds)
+    let early = -99;
+    for (let k = 0; k < 5; k++) {
+      g.newRound(); g.setContract('first'); g.playing = true;
+      g.player.teleport(3, 8.0, Math.PI); g.sim(0.2); g.player.teleport(-15, -19, 0);   // through the gate: the clock runs; then out of his way
+      for (let t = 0; t < 20; t += 1 / 20) { g.sim(1 / 20); early = Math.max(early, P.z); }
+    }
+    out.early = +early.toFixed(2);
+    // later a visit to the yard can end at the gate
+    g.sim(2);
+    const B = P.brain; for (const r of Object.keys(B.lastVisit)) B.lastVisit[r] = B.clock; B.lastVisit['Двір'] = -999;
+    const rnd = Math.random; Math.random = () => 0;
+    P.interrupt(); P.state = 'task'; P.queue.length = 0; P.x = 0; P.z = -2.5; B.queueRoom(); Math.random = rnd;   // planned from the hall (the yard is not «here»)
+    P.x = 1.4; P.z = 3.8; P.path = [];   // ...and walked from the porch
+    out.planned = P.queue[0] && P.queue[0].to;
+    out.at = [0, -99]; out.looked = false;
+    for (let t = 0; t < 25; t += 1 / 30) { g.sim(1 / 30); if (P.z > out.at[1]) out.at = [+P.x.toFixed(2), +P.z.toFixed(2)]; if (P.queue[0] && P.queue[0].label === 'дивиться за хвіртку' && P.queue[0].started) out.looked = true; }
+    // sent to the van: the leash
+    P.interrupt(); P.state = 'task'; P.queue.length = 0; P.x = 3; P.z = 4; P.path = [];
+    P.queue.push({ type: 'walk', to: [V.x, V.z], label: 't' }, { type: 'wait', t: 999, label: 't' });
+    let maxZ = -99; for (let t = 0; t < 30; t += 1 / 30) { g.sim(1 / 30); maxZ = Math.max(maxZ, P.z); }
+    out.walkMaxZ = +maxZ.toFixed(2);
+    return out;
+  });
+  assert.deepEqual(r.rehearsal, [null, 4.5], 'the rehearsal: the old leash');
+  assert.deepEqual(r.first, [true, 8.0, 6.0]);
+  assert.ok(r.eyes > 1500, `points checked: ${r.eyes}`);
+  assert.deepEqual(r.seen, [], `the van seen from: ${JSON.stringify(r.seen.slice(0, 5))}`);
+  assert.ok(r.early <= 4.5, `the first 20 s: never past the porch (${r.early})`);
+  assert.deepEqual(r.planned, [3.0, 7.7], 'a yard visit to the gate');
+  assert.ok(r.at[1] > 7.2 && Math.abs(r.at[0] - 3) < 0.6 && r.looked, `he got to the gate, inside, and looked out: ${r.at} ${r.looked}`);
+  assert.ok(r.walkMaxZ <= 8.05, `sent to the van: stops at ${r.walkMaxZ}`);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

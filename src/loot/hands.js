@@ -150,6 +150,7 @@ export class Hands {
   // Let go with the hand's speed. W2a: a one-hand item is thrown (x CFG.throw.vrK, up to maxSpeed);
   // a two-handed one only drops (at most 6 m/s, as before).
   dropItem(it, vel) {
+    if (it.twoHanded && this.env.lowerAt && this.env.lowerAt(it)) return;   // campaign v2: over the open back window's sill
     _v.copy(vel);
     if (!it.twoHanded) _v.multiplyScalar(CFG.throw.vrK);
     const max = it.twoHanded ? 6 : CFG.throw.maxSpeed;

@@ -51,6 +51,12 @@ export class Brain {
       this.queueHabit({ id: 'armchair', ...this.cfg.habits.armchair, dur: A.dur, sightK: A.sightK, hearK: A.hearK, fovK: A.fovK });
       return;
     }
+    // campaign v2: a level's post — it sits there, awake, and goes back there after anything else
+    const sit = (CFG.run || {}).sitAt;
+    if (sit && (!sit.who || this.cfg.id === sit.who)) {
+      this.queueHabit({ id: 'armchair', go: sit.go, stand: sit.stand, face: sit.face, dur: 1e6, label: S.campaign2.guardSits, say: '' });
+      return;
+    }
     const t = this.env.roundTime();
     if (t !== null) {
       const h = this.habits.find((x) => !x.done && t >= x.at);
@@ -72,13 +78,21 @@ export class Brain {
       lootIn[r] = (lootIn[r] || 0) + 1;
     }
     let best = null, bestW = -1;
+    const W = (CFG.run || {}).gateWatch, t = this.env.roundTime(), early = W && (t === null || t < W.after);
     for (const r of Object.keys(G.rooms)) {
       if (r === here) continue;
+      if (early && r === S.rooms.yard) continue;   // the gate watch: the yard not in the round's first seconds (nor before the clock)
       const w = ((this.clock - this.lastVisit[r]) / 60 + G.lootWeight * (lootIn[r] || 0) + 0.2) * (0.7 + Math.random() * 0.6);
       if (w > bestW) { bestW = w; best = r; }
     }
-    const to = pick(G.rooms[best]);
     const q = g.queue;
+    // the gate watch (campaign v2): a visit to the yard often ends inside the gate, looking out to the lane
+    if (W && !early && best === S.rooms.yard && Math.random() < W.chance) {
+      q.push({ type: 'walk', to: W.post, label: S.guard.act.walksTo(best), room: best });
+      q.push({ type: 'wait', t: W.look, face: W.face, sweep: true, label: S.campaign2.gate });
+      return;
+    }
+    const to = pick(G.rooms[best]);
     q.push({ type: 'walk', to, label: S.guard.act.walksTo(best), room: best });
     q.push({ type: 'wait', t: G.lookTime, sweep: true, label: S.guard.act.looksAround(best) });
     const spots = G.spots.filter((s) => this.roomAt(s.at[0], s.at[1], g.y) === best);
@@ -122,7 +136,7 @@ export class Brain {
         break;
       }
       case 'armchair':
-        q.push({ type: 'walk', to: h.go || [-0.9, -12.6], label: S.guard.act.armchair, onStart: say(S.guard.say.armchair) });
+        q.push({ type: 'walk', to: h.go || [-0.9, -12.6], label: S.guard.act.armchair, onStart: h.say === '' ? null : say(S.guard.say.armchair) });
         q.push({ type: 'wait', t: h.dur, face: h.face, sit: h.stand, label: h.label, mods });
         break;
     }

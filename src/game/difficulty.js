@@ -44,11 +44,19 @@ export function applyDifficulty(id, contract) {
   // contract modifiers
   const M = (contract && contract.mods) || {};
   if (M.time) Object.assign(CFG.round, { time: M.time, warnAt: M.warnAt, escapeTime: M.escapeTime });
+  // campaign v2: a level's own round (s on the normal difficulty, x levelTimeK); the escape stays the difficulty's
+  if (M.levelTime) {
+    const C = CFG.campaign, t = Math.round(M.levelTime * (C.levelTimeK[id] || 1));
+    Object.assign(CFG.round, { time: t, warnAt: t - C.warnBefore });
+  }
   if (M.lurkerCooldown) CFG.lurker.cooldown = Math.min(CFG.lurker.cooldown, M.lurkerCooldown);
   if (M.teaAtStart) CFG.run.teaAtStart = M.teaAtStart;
   // W19, the rehearsal: the guard sits in his armchair all round (no other habits); the clock stands
   CFG.run.armchairAtStart = !!M.armchairAtStart;
   if (M.armchairAtStart) CFG.run.habits = [];
+  // campaign v2: a level's guard sits at one place all round, awake (no habits: they would open its post by the clock)
+  CFG.run.sitAt = M.sitAt || null;
+  if (M.sitAt) CFG.run.habits = [];
   CFG.round.noClock = !!M.noClock;
   applyUpgrades();
   return D;

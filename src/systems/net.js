@@ -30,9 +30,9 @@ import { ensureMic } from './micAuto.js';
 import { storyNetEcho } from './story.js';
 import { applyGuard, guardCentral, localBench, guardView } from './humanGuard.js';
 import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.js';
-import { mapOpen } from '../world/maps.js';
+import { mapOpen, travelNote } from '../world/maps.js';
 import { S } from '../i18n/index.js';
-import { hostClimb, climbDenied } from './backWindow.js';
+import { hostClimb, climbDenied, hostLower } from './backWindow.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const N = {
@@ -115,6 +115,7 @@ const otherMap = () => (G.level.id === 'mansion' ? 'dacha' : 'mansion');
 function otherHouse() {
   if (!isHost() || G.round.phase === 'heist' || G.round.phase === 'escape' || !mapOpen(otherMap())) return;
   saveSetting('map', otherMap());
+  travelNote(otherMap(), 'room');   // campaign v2: «Їдемо в …» instead of a bare reload
   if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); N.t = null; }
   location.replace(roomLink(N.code, otherMap(), location.href, { host: '1' }));
 }
@@ -249,6 +250,8 @@ function hostIntent(r, m) {
     d.toggle(r.head.x, r.head.z, +m.time || CFG.doors.fastTime);
   } else if (m.a === 'climb') {   // the back window: the guest climbs at once; the host opens the sash or says no (systems/backWindow.js)
     hostClimb(r, m, (why) => send({ type: 'ev', k: 'climbNo', why }, N.peerOf.get(r.id)));
+  } else if (m.a === 'lower') {   // campaign v2: a guest's big item over the back window's sill — the host decides, all see it fly
+    hostLower(r, m, () => send({ type: 'ev', k: 'lowerNo' }, N.peerOf.get(r.id)));
   } else if (m.a === 'take') {
     const it = loot.items[m.i];
     if (!it || r.desk || !it.takeable || it.held || it.state === 'fall') return;
@@ -276,7 +279,7 @@ function hostIntent(r, m) {
 function guestMessage(m, peer) {
   if (m.type === 'deny') { setStatus(m.why === 'full' ? S.net.status.full : m.why === 'started' ? S.net.status.started : S.net.status.version, true); leave(true); refreshLobby(); return; }
   if (m.type === 'welcome') {
-    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
+    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); travelNote(m.map, 'room', true); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
     N.welcomed = true; N.hostPeer = peer; N.hostPid = m.hostPid; N.hostName = m.host; N.lastHost = performance.now(); N.hostLost = false;
     becomeGuest();
     guestState(m.snap);
@@ -341,6 +344,7 @@ function guestEvent(m) {
     }
     case 'flash': flash(m.t, m.s || 2.5, m.c); break;
     case 'climbNo': climbDenied(m.why); break;
+    case 'lowerNo': flash(S.campaign2.window.hostNo, 2.5, '#ffb347'); break;
     case 'say': { const g = G.guards[m.g]; if (g) g.env.say(m.text, true); break; }
     case 'wecho': storyNetEcho(m, m.who === N.pid); break;   // W7: Шепотун's echo (yours: its card)
     case 'gsnd': { const g = G.guards[m.g]; if (g) g.env.sound(m.kind, m.x, m.z, m.o || {}); break; }

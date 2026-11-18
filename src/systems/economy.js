@@ -6,8 +6,8 @@
 // crosshair) and the phone's pause menu; buying only before the clock starts. «Відкрити все» on
 // previews and with ?debug (start screen). The logic is game/economy.js; the numbers CFG.shop.
 import { CFG } from '../config/index.js';
-import { wallet, ensureWallet, creditRound, buy, upgrade, lockOf, isOpen, openAll, openAllAllowed, setOpenAll, buyTrap } from '../game/economy.js';
-import { reloadVan, roundLimit } from './traps.js';
+import { wallet, ensureWallet, creditRound, buy, upgrade, upgradeIds, trapPrice, lockOf, isOpen, openAll, openAllAllowed, setOpenAll, buyTrap } from '../game/economy.js';
+import { reloadVan, roundLimit, confiscateTraps } from './traps.js';
 import { reached, levelOf, CLASSIC } from '../game/campaign.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { money } from '../ui/board.js';
@@ -24,16 +24,16 @@ const local = { lastResult: null, lastOpen: null };
 // One upgrade as the shop shows it: name, effect, price, the button state.
 export function shopRows() {
   const w = wallet();
-  return CFG.shop.upgrades.map((u) => {
+  return upgradeIds().map(upgrade).filter(Boolean).map((u) => {   // v2: its prices, no «незабаром» rows
     const owned = w.owned.includes(u.id);
     const state = u.soon ? 'soon' : owned ? 'owned' : w.cash >= u.price ? 'buy' : 'need';
     const effect = S.shop.effects[u.id](u.teaExtra ?? u.stamina ?? u.quietSpeed);
     const button = state === 'soon' ? S.shop.soon : state === 'owned' ? S.shop.owned : state === 'need' ? S.shop.need(money(u.price - w.cash)) : S.shop.buy(money(u.price));
     return { id: u.id, name: S.shop.names[u.id], effect, price: money(u.price), state, button, enabled: state === 'buy' && G.round.phase === 'ready' };
   }).concat(CFG.traps.order.filter((kind) => reached('trap:' + kind)).map((kind) => {   // W2b: traps, consumables (bought again and again); W19: from their level on
-    const T = CFG.traps.kinds[kind], n = w.stock[kind] || 0, state = w.cash >= T.price ? 'buy' : 'need';
-    const button = state === 'need' ? S.shop.need(money(T.price - w.cash)) : S.shop.buy(money(T.price));
-    return { id: 'trap:' + kind, name: `${S.traps.names[kind]} · ${S.traps.stock(n)}`, effect: S.traps.effects[kind], price: money(T.price), state, button, enabled: state === 'buy' && G.round.phase === 'ready', consumable: true };
+    const price = trapPrice(kind), n = w.stock[kind] || 0, state = w.cash >= price ? 'buy' : 'need';
+    const button = state === 'need' ? S.shop.need(money(price - w.cash)) : S.shop.buy(money(price));
+    return { id: 'trap:' + kind, name: `${S.traps.names[kind]} · ${S.traps.stock(n)}`, effect: S.traps.effects[kind], price: money(price), state, button, enabled: state === 'buy' && G.round.phase === 'ready', consumable: true };
   }));
 }
 export const shopPages = () => Math.ceil(shopRows().length / ROWS);   // + the traps (W2b; W19: those already reached)
@@ -77,6 +77,7 @@ export function shopPress(id) {
 export function lockText(c) {
   const L = lockOf(c);
   if (!L) return '';
+  if (L.level !== undefined) return `🔒 ${S.campaign2.houseAfter(S.campaign.house[L.map] || L.map, L.level)}`;   // v2: the house after its level
   return L.after ? S.shop.lockAfter(L.after.name) : S.shop.lockMap(L.have, L.need);
 }
 
@@ -127,8 +128,9 @@ export const economy = {
     const R = G.round.result;
     if (G.round.phase !== 'result' || !R || !G.verdict || R === local.lastResult || G.role === 'guard') return;   // W15: the guard earns no money
     local.lastResult = R;
-    const got = R.kind === 'left' || R.kind === 'escaped';
-    G.income = { ...creditRound({ contractId: G.contract.id, difficulty: G.difficulty, loot: got ? R.sum : 0, stars: G.verdict.stars }), got };
+    const got = R.kind === 'left' || R.kind === 'escaped', V = G.verdict;
+    G.income = { ...creditRound({ contractId: G.contract.id, difficulty: G.difficulty, loot: got ? R.sum : 0, stars: V.stars, bits: V.bits, practice: V.practice }), got };
+    if (!got && V.bits) G.income.confiscated = confiscateTraps();   // v2 (decision R7 Б): caught — the traps out of the van are lost
     syncWallet();
     G.boardDirty = true;
   },
@@ -137,7 +139,21 @@ export const economy = {
 // the income line of the result board and the phone summary
 export function incomeText(inc = G.income) {
   if (!inc) return '';
+  if (inc.fresh) return incomeLines(inc).join(' · ');   // campaign v2
   if (!inc.got && !inc.bonus) return S.shop.incomeLost;
   return S.shop.income(money(inc.loot), money(inc.bonus), inc.stars);
+}
+// Campaign v2: the round's money in lines (the summary's checklist adds the stars' own): the loot against the
+// level's record, the confiscated traps, the wallet now
+export function incomeLines(inc = G.income) {
+  if (!inc || !inc.fresh) return [];
+  const L = S.campaign2.loot, out = [];
+  if (!inc.got) out.push(L.lost);
+  else if (inc.practice) out.push(L.practice);
+  else if (inc.loot > 0) out.push(L.record(money(inc.sum), money(inc.loot)));
+  else out.push(L.noRecord(money(inc.sum), money(inc.best)));
+  if (inc.confiscated && inc.confiscated.length) out.push(L.confiscated(inc.confiscated.join(', ')));
+  out.push(L.wallet(money(wallet().cash)));
+  return out;
 }
 export { upgrade };

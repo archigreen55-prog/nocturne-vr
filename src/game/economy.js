@@ -6,7 +6,8 @@
 // Every change reads the wallet afresh before writing it (another tab of the game may have changed it).
 import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting, PREVIEW } from '../settings.js';
-import { bestStars } from './contracts.js';
+import { bestStars, bestBits } from './contracts.js';
+import { CLASSIC } from '../config/campaign.js';
 import { contracts as DACHA } from '../config/contracts.js';
 import { mansion as MANSION } from '../config/mansion.js';
 
@@ -18,8 +19,13 @@ const DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.se
 
 // The wallet as saved. A first wallet counts the stars won before the shop existed as already paid
 // (no bonus for replaying them).
+// Campaign v2 keeps its own wallet (CFG.shop.v2.walletKey: the money and the upgrades from zero, decision R12 А);
+// the tests' classic game the old one.
+const V2 = !CLASSIC;
+const KEY = () => (V2 ? CFG.shop.v2.walletKey : 'wallet');
 export function wallet() {
-  let w = loadSetting('wallet', null);
+  let w = loadSetting(KEY(), null);
+  if (V2 && (!w || typeof w !== 'object')) w = { cash: 0, earned: 0, spent: 0, owned: [], paid: {}, log: [] };
   if (!w || typeof w !== 'object') {
     const paid = {};
     for (const c of allContracts()) {
@@ -32,26 +38,35 @@ export function wallet() {
   w.paid = w.paid && typeof w.paid === 'object' ? w.paid : {};
   w.log = Array.isArray(w.log) ? w.log : [];
   w.stock = w.stock && typeof w.stock === 'object' ? w.stock : {};   // W2b: traps bought and not used yet { kind: n }
+  w.best = w.best && typeof w.best === 'object' ? w.best : {};   // v2: the loot already paid per level (its record)
   for (const k of ['cash', 'earned', 'spent']) w[k] = Number.isFinite(w[k]) ? w[k] : 0;
   return w;
 }
 function save(w) {
   if (w.log.length > CFG.shop.logSize) w.log = w.log.slice(-CFG.shop.logSize);
-  saveSetting('wallet', w);
+  saveSetting(KEY(), w);
   return w;
 }
 const note = (w, kind, amount, text) => w.log.push({ t: new Date().toISOString().slice(0, 16), kind, amount, note: text });
 
 // The game creates the wallet when it starts (systems/economy.js), before any round: the stars won
 // until then are the ones counted as paid (a round's own new stars are recorded before it is credited).
-export function ensureWallet() { if (loadSetting('wallet', null) === null) save(wallet()); }
+export function ensureWallet() { if (loadSetting(KEY(), null) === null) save(wallet()); }
 
-export const upgrade = (id) => CFG.shop.upgrades.find((u) => u.id === id) || null;
+// an upgrade with this game's price (v2: CFG.shop.v2.prices; its «незабаром» rows are gone)
+export function upgrade(id) {
+  const u = CFG.shop.upgrades.find((x) => x.id === id) || null;
+  if (!u || !V2) return u;
+  return CFG.shop.v2.prices[id] === undefined ? null : { ...u, price: CFG.shop.v2.prices[id] };
+}
+export const upgradeIds = () => (V2 ? CFG.shop.v2.order.slice() : CFG.shop.upgrades.map((u) => u.id));
+export const trapPrice = (kind) => (V2 && CFG.shop.v2.trapPrices[kind] !== undefined ? CFG.shop.v2.trapPrices[kind] : CFG.traps.kinds[kind].price);
 export const has = (id) => wallet().owned.includes(id);
 
 // After a round: the loot money (0 when caught or late: decision R5 A) and $starBonus for every star not
 // paid before on this contract and difficulty. Returns { loot, stars, bonus } as credited.
-export function creditRound({ contractId, difficulty, loot, stars }) {
+export function creditRound({ contractId, difficulty, loot, stars, bits, practice }) {
+  if (V2 && bits) return creditLevel({ contractId, loot, bits, practice });
   const w = wallet();
   const paid = w.paid[contractId] || (w.paid[contractId] = {});
   const newStars = Math.max(0, (stars || 0) - (paid[difficulty] || 0));
@@ -64,6 +79,26 @@ export function creditRound({ contractId, difficulty, loot, stars }) {
   save(w);
   return { loot: Math.max(0, loot || 0), stars: newStars, bonus };
 }
+
+// Campaign v2 (plan §3.1, §5.3): each star of the level once ($200 / $300 / $500), the loot only above the
+// level's record (the rehearsal's: never). Returns { loot (paid), sum, best (the record before), stars (new),
+// bonus, fresh: [bool x3], practice }.
+function creditLevel({ contractId, loot, bits, practice }) {
+  const w = wallet(), P = CFG.shop.v2.stars;
+  const had = Array.isArray(w.paid[contractId]) ? w.paid[contractId] : [0, 0, 0];
+  const fresh = bits.map((b, i) => !!b && !had[i]);
+  const bonus = fresh.reduce((n, f, i) => n + (f ? P[i] : 0), 0);
+  w.paid[contractId] = had.map((h, i) => (h || bits[i] ? 1 : 0));
+  const sum = Math.max(0, loot || 0), best = w.best[contractId] || 0;
+  const gain = practice ? 0 : Math.max(0, sum - best);
+  if (!practice && sum > best) w.best[contractId] = sum;
+  w.cash += gain + bonus; w.earned += gain + bonus;
+  if (gain) note(w, 'round', gain, `${contractId} record ${sum}`);
+  if (bonus) note(w, 'stars', bonus, `${contractId} +${fresh.filter(Boolean).length}★`);
+  save(w);
+  return { loot: gain, sum, best, stars: fresh.filter(Boolean).length, bonus, fresh, practice: !!practice };
+}
+export const lootRecord = (id) => wallet().best[id] || 0;
 
 // Buying: only before the clock starts (decision R6 A). Returns { ok } or { ok: false, why, need }.
 export function buy(id, phase) {
@@ -87,10 +122,10 @@ export function buyTrap(kind, phase) {
   const T = CFG.traps.kinds[kind];
   if (!T) return { ok: false, why: 'unknown' };
   if (phase !== 'ready') return { ok: false, why: 'phase' };
-  const w = wallet();
-  if (w.cash < T.price) return { ok: false, why: 'cash', need: T.price - w.cash };
-  w.cash -= T.price; w.spent += T.price; w.stock[kind] = (w.stock[kind] || 0) + 1;
-  note(w, 'buy', -T.price, kind);
+  const w = wallet(), price = trapPrice(kind);
+  if (w.cash < price) return { ok: false, why: 'cash', need: price - w.cash };
+  w.cash -= price; w.spent += price; w.stock[kind] = (w.stock[kind] || 0) + 1;
+  note(w, 'buy', -price, kind);
   save(w);
   return { ok: true };
 }
@@ -116,13 +151,15 @@ export const openAll = () => openAllAllowed() && loadSetting('openAll', false) =
 export function setOpenAll(on) { if (openAllAllowed()) saveSetting('openAll', !!on); }
 
 const mapOf = (c) => c.map || MAPS.find((m) => LISTS[m].some((x) => x.id === c.id)) || 'dacha';
-export const bestOf = (id) => { const b = bestStars(id); return Math.max(b.easy || 0, b.medium || 0, b.hard || 0); };
+export const bestOf = (id) => { const b = bestStars(id); return Math.max(b.easy || 0, b.medium || 0, b.hard || 0, V2 ? bestBits(id).filter(Boolean).length : 0); };
 // stars on a map: the best of each of its contracts (any difficulty); W19: not the rehearsal's (`practice`)
 export const mapStars = (map) => (LISTS[map] || []).reduce((n, c) => n + (c.practice ? 0 : bestOf(c.id)), 0);
 // A map is open once the stars on the maps before it reach its threshold (CFG.shop.unlock.maps).
 export const starsBefore = (map) => MAPS.slice(0, Math.max(0, MAPS.indexOf(map))).reduce((n, m) => n + mapStars(m), 0);
 export function mapOpen(map) {
   if (openAll() || map === 'dacha') return true;
+  const after = V2 && CFG.campaign.opens[map];   // v2 (decision R13 А): a star on the house's last level before it
+  if (after) return bestOf(after) >= CFG.shop.unlock.chainStars || mapStars(map) > 0;   // (or stars already won in it)
   const need = CFG.shop.unlock.maps[map];
   return need === undefined || starsBefore(map) >= need;
 }
@@ -132,6 +169,8 @@ export function lockOf(c) {
   if (openAll()) return null;
   const map = mapOf(c);
   if (!mapOpen(map)) {
+    const after = V2 && CFG.campaign.opens[map], l = after && CFG.campaign.levels.find((x) => x.id === after);
+    if (l) return { map, level: l.n, after: null };
     return { map, need: CFG.shop.unlock.maps[map], have: starsBefore(map) };
   }
   // the previous contract of its map that can be played (W6's placeholders, `locked`, give no stars);

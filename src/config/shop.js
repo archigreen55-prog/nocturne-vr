@@ -20,4 +20,16 @@ export const shop = {
   // `chainStars` on contract k (any difficulty). Maps: by the stars on the earlier maps (the best of
   // each contract, any difficulty).
   unlock: { chainStars: 1, maps: { mansion: 8, museum: 20 } },
+  // Campaign v2 (plan 2026-11-15 §3.1, §5; decisions R3 Б, R5 Б, R6, R7 Б, R12 А). The tests' classic game keeps
+  // the numbers above. Its own wallet (a fresh start: the money and the upgrades from zero, the stars stay).
+  // Each star of a level pays once (★ goal, ★★ «Тихо», ★★★ the level's own), whatever the difficulty; the
+  // loot pays only what beats the level's record (the rehearsal's loot never); the shop's prices; when caught,
+  // the traps taken out of the van are lost.
+  v2: {
+    walletKey: 'wallet2',
+    stars: [200, 300, 500],
+    prices: { gloves: 1000, thermos: 1200, mask: 1500, sneakers: 2500, boots: 4500 },
+    order: ['gloves', 'thermos', 'mask', 'sneakers', 'boots'],   // the shop's rows: cheapest (useful soonest) first; no «незабаром» rows
+    trapPrices: { soap: 300, marbles: 300, rope: 300, bucket: 400, clock: 600 },
+  },
 };

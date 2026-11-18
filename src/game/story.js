@@ -7,6 +7,7 @@ import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { bestStars } from './contracts.js';
+import { CLASSIC } from '../config/campaign.js';
 
 export const THIEVES = ['zoya', 'frol', 'rita', 'nazar'];
 // the thief this device plays (the choice of «Грати з друзями», decision R1 A); Зоя by default
@@ -16,10 +17,12 @@ export const crewLine = (o) => (o ? `${S.crew.names[o.who] || o.who}: ${o.line}`
 
 // ---------- the customer ----------
 // Before a contract: { lines: [2-3], crew: 'Зоя: …' } or null (a contract without lines)
+// campaign v2 (a level of its ladder: c.level): its own lines where the old numbers no longer hold
+const own = (c, key) => (c && c.level !== undefined && S.campaign2.story[key][c.id]) || (c && S.story[key][c.id]);
 export function storyBefore(c) {
-  const lines = c && S.story.before[c.id];
+  const lines = own(c, 'before');
   if (!lines) return null;
-  const C = S.story.crew[c.id];
+  const C = own(c, 'crew');
   return { lines, crew: crewLine(C && C.before) };
 }
 // The kind of a round's ending (story-texts-uk.md §9.2):
@@ -40,23 +43,25 @@ export function endingOf(c, r, v, o = {}) {
 export function storyAfter(c, r, v, o = {}) {
   const kind = endingOf(c, r, v, o);
   if (!kind) return null;
-  const A = S.story.after, own = A[c.id] || {};
-  const line = own[kind] || (['shout', 'alarm', 'clean', 'damaged'].includes(kind) ? own.done : undefined) || A.common[kind];
-  const C = S.story.crew[c.id];
+  const A = S.story.after, mine = { ...(A[c.id] || {}), ...((c.level !== undefined && S.campaign2.story.after[c.id]) || {}) };   // campaign v2: its own where the next level changed
+  const line = mine[kind] || (['shout', 'alarm', 'clean', 'damaged'].includes(kind) ? mine.done : undefined) || A.common[kind];
+  const C = own(c, 'crew');
   return { kind, line: line || '', crew: v && v.goal ? crewLine(C && C.after) : '' };
 }
 
 // ---------- Тихарник ----------
 const metSet = () => new Set(loadSetting('lurkers', []));
 // Every card in the page's order: { id, name, wants, warns, avoid, met } (a card not met: name '???', no lines)
+// campaign v2 (plan §2.5): only the lurkers its ladder has (CFG.campaign.lurkers) — no wall of «???»
+const shown = () => (CLASSIC ? CFG.story.lurkers : CFG.story.lurkers.filter((id) => CFG.campaign.lurkers.includes(id)));
 export function lurkerCards() {
   const met = metSet();
-  return CFG.story.lurkers.map((id) => {
+  return shown().map((id) => {
     const C = S.lurkers.cards[id], m = met.has(id);
-    return m ? { id, met: true, ...C } : { id, met: false, name: S.lurkers.locked, wants: '', warns: '', avoid: '', hint: S.lurkers.where[id] || S.lurkers.notYet };
+    return m ? { id, met: true, ...C } : { id, met: false, name: S.lurkers.locked, wants: '', warns: '', avoid: '', hint: (!CLASSIC && S.campaign2.lurkerWhere[id]) || S.lurkers.where[id] || S.lurkers.notYet };
   });
 }
-export const lurkersMet = () => ({ n: CFG.story.lurkers.filter((id) => metSet().has(id)).length, total: CFG.story.lurkers.length });
+export const lurkersMet = () => ({ n: shown().filter((id) => metSet().has(id)).length, total: shown().length });
 export const hasMet = (id) => metSet().has(id);
 // A first meeting: true when the card is new (saved)
 export function meetLurker(id) {

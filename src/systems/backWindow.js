@@ -22,8 +22,9 @@ import { CFG } from '../config/index.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
 import { S } from '../i18n/index.js';
+import { CLASSIC } from '../config/campaign.js';
 
-const local = { climb: null };   // the sequence being played
+const local = { climb: null, lowering: [] };   // the sequence being played; items going over the sill (host / solo)
 const busy = new Map();          // host: window index -> { by, until (G.simT) }: who is on it
 const _hand = new THREE.Vector3(), _handle = new THREE.Vector3();
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
@@ -56,7 +57,75 @@ export function windowAhead() {
   return null;
 }
 export const climbing = () => !!local.climb;
-export const climbLabel = () => (windowAhead() ? S.backWindow.climb : null);
+// the context button: «Спустити у вікно» with a big item in hand (campaign v2), else «Лізти у вікно»
+export const climbLabel = () => (windowAhead() ? (bigInHand() ? S.campaign2.window.lower : S.backWindow.climb) : null);
+const bigInHand = () => !!(G.hands.desk && G.hands.desk.twoHanded);
+const isOpenSash = (win) => Math.abs(win.angle) >= CFG.backWindow.openAngle;
+
+// ---------- campaign v2 (plan §7.2): a big item lowered through the open sash ----------
+// Host / solo: the item flies from where it is over the sill (an arc) and lands under the window on the far side
+// (the dacha's flowerbed: soft, a quiet rustle). Everyone sees it: the item's place is synced like any other.
+export function lowerItem(it, win) {
+  const BW = CFG.backWindow, L = BW.lower, p = it.mesh.position;
+  const f = frame(win, p.x, p.z), side = f.side;
+  const along = Math.max(-BW.maxSlide, Math.min(BW.maxSlide, L.along));
+  const tx = win.cx - f.nx * side * L.out + f.tx * along, tz = win.cz - f.nz * side * L.out + f.tz * along;
+  const ty = G.level.surfaceAt ? G.level.surfaceAt(tx, tz, 0.5) : 0;
+  it.holders.length = 0; it.netHolder = null; it.state = 'rest'; it.vel.set(0, 0, 0);
+  it.lowering = { from: p.clone(), to: new THREE.Vector3(tx, ty, tz), t: 0, top: BW.sill + L.arc };   // (the window's y0 is its sill: the dacha's floor is 0)
+  local.lowering.push(it);
+  win.lastUser = 'player';
+  return true;
+}
+function stepLowering(dt) {
+  const L = CFG.backWindow.lower;
+  for (const it of [...local.lowering]) {
+    const w = it.lowering;
+    if (!w) { local.lowering.splice(local.lowering.indexOf(it), 1); continue; }
+    w.t += dt;
+    const u = Math.min(1, w.t / L.dur), e = ease(u), p = it.mesh.position;
+    p.x = lerp(w.from.x, w.to.x, e); p.z = lerp(w.from.z, w.to.z, e);
+    p.y = u < 0.5 ? lerp(w.from.y, w.top, ease(u * 2)) : lerp(w.top, w.to.y + 0.35, ease(u * 2 - 1));
+    if (u >= 1) {   // over: it falls the last bit and lands (the flowerbed: soft)
+      it.lowering = null; local.lowering.splice(local.lowering.indexOf(it), 1);
+      it.landed = false; it.drop(new THREE.Vector3(0, -0.3, 0));
+    }
+  }
+}
+// The press with a big item in hand, in the window's zone: lower it (host / solo), ask the host (a guest), or say why not
+export function lowerFromHands(win = windowAhead()) {
+  const it = G.hands.desk;
+  if (!win || !it || !it.twoHanded) return false;
+  if (!isOpenSash(win)) { flash(S.campaign2.window.shut, 2.5, '#ffb347'); return true; }
+  G.hands.detach(it);
+  if (G.isGuest) { G.netIntent('lower', { i: G.level.doors.indexOf(win), it: G.loot.items.indexOf(it) }); return true; }
+  lowerItem(it, win);
+  flash(S.campaign2.window.lowered(it.name), 2, '#5fd38d');
+  return true;
+}
+// VR: both hands let go of a big item with it over the sill of an open sash, within reach of the opening
+export function lowerAtRelease(it) {
+  if (!it || !it.twoHanded || G.isGuest || !G.level || !G.level.doors) return false;
+  const p = it.mesh.position, BW = CFG.backWindow;
+  for (const d of G.level.doors) {
+    if (!d.window || !isOpenSash(d)) continue;
+    const f = frame(d, p.x, p.z);
+    if (Math.abs(f.along) > d.w / 2 + 0.1 || Math.abs(f.u) > BW.lower.reach || p.y < BW.sill - 0.15) continue;
+    lowerItem(it, d);
+    return true;
+  }
+  return false;
+}
+// the host: a guest's `lower` (its desk item, its window); deny(why) when it cannot be
+export function hostLower(r, m, deny) {
+  const win = G.level.doors[m.i], it = r.desk;
+  if (!it) return;
+  const f = win && win.window ? frame(win, r.head.x, r.head.z) : null;
+  const near = f && Math.abs(f.along) < CFG.backWindow.zone.halfW + 0.3 && Math.abs(f.u) < CFG.backWindow.zone.depth + 0.6;
+  r.desk = null;
+  if (!near || !isOpenSash(win) || G.round.phase === 'result') { it.netHolder = null; it.holders.length = 0; it.drop(new THREE.Vector3()); deny(); return; }
+  lowerItem(it, win);
+}
 
 // ---------- the sequence ----------
 const total = (open) => { const T = CFG.backWindow.steps; return T.align + (open ? T.open : 0) + T.rise + T.carry + T.drop; };
@@ -82,7 +151,8 @@ export function startClimb(win = windowAhead()) {
   if (!win) return false;
   const BW = CFG.backWindow, { player } = G;
   if (G.role === 'guard') { flash(S.backWindow.guard, 2, '#93a1b8'); return true; }
-  if (G.hands.carrying === 'medium') { flash(S.backWindow.tooBig, 2.5, '#93a1b8'); return true; }   // a big item takes both hands; small ones go along
+  if (bigInHand() && !CLASSIC) return lowerFromHands(win);   // campaign v2: a big item goes over the sill, not you with it
+  if (G.hands.carrying === 'medium') { flash(CLASSIC ? S.backWindow.tooBig : S.campaign2.window.first, 2.5, '#93a1b8'); return true; }   // a big item takes both hands; small ones go along
   const idx = G.level.doors.indexOf(win), needOpen = Math.abs(win.angle) < BW.openAngle;
   if (!G.isGuest && isBusy(idx, 'host')) { flash(S.backWindow.busy, 2, '#93a1b8'); return true; }
   const c = plan(win);
@@ -176,11 +246,12 @@ export function hostClimb(r, m, deny) {
 
 export const backWindow = {
   id: 'backWindow',
-  init() { busy.clear(); local.climb = null; },
+  init() { busy.clear(); local.climb = null; local.lowering.length = 0; },
   input() {
     if (local.climb) { G.move.x = 0; G.move.y = 0; }
   },
   act(dt) {
+    if (local.lowering.length) stepLowering(dt);
     const c = local.climb;
     if (!c) return;
     const p = G.player, BW = CFG.backWindow;

@@ -84,16 +84,13 @@ test('menu (S3): the first run offers the microphone — «Пізніше» clos
   // Б1 (mic v2): not «Мікрофон ✓» from an old calibration while the microphone is off — it opens on «Грати»
   assert.equal(await p3.textContent('#mmmicline'), 'Мікрофон увімкнеться, коли натиснеш «Грати»');
   assert.equal(await p3.evaluate(() => window.__game.mic.state), 'off', 'not opened while the page loads');
-  // Тихарник: nine cards, «???» until met; meeting Шафник opens his
+  // Тихарник (campaign v2, plan §2.5: no wall of «???»): only the lurkers this ladder has — Шафник; «???» until met
   await p3.click('#mmnav [data-go="lurkers"]');
   const cards = () => p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}:${x.classList.contains('locked') ? 'locked' : 'open'}`));
-  assert.equal((await cards()).length, 9);
-  assert.ok((await cards()).every((c) => c.endsWith('locked')));
-  // a closed card says where to meet it (the house and the level; no name), the unbuilt ones say so honestly
+  assert.deepEqual(await cards(), ['wardrobe:locked']);
+  // a closed card says where to meet it (the house and the level; no name)
   const hints = await p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}: ${x.querySelector('span').textContent}`));
-  assert.equal(hints[0], 'wardrobe: Дача, з рівня 3. Прислухайся до шафи.');
-  assert.equal(hints[1], 'whisperer: Дача, з рівня 5. Подивись біля каміна.');
-  assert.ok(hints.slice(2).every((h) => h.endsWith('Ще не оселилося в жодному будинку.')), hints.join(' | '));
+  assert.deepEqual(hints, ['wardrobe: Дача, з рівня 4. Прислухайся до шафи.']);
   await p3.evaluate(async () => { const { meetLurker } = await import('./src/game/story.js'); meetLurker('wardrobe'); });
   await p3.click('section[data-page="lurkers"] [data-back]');
   await p3.click('#mmnav [data-go="lurkers"]');
@@ -128,6 +125,8 @@ test('menu: the small pause (T6) — «Вийти в меню» opens the new ma
     await page.waitForFunction(() => !document.getElementById('start').disabled, null, { timeout: 30000 });
     await page.tap('#start');
     await page.waitForFunction(() => window.__game.playing);
+    await page.waitForTimeout(300);   // campaign v2: a level's new thing comes as a card «Як це?» at the van — a player reads it, «Зрозуміло»
+    if (await page.$('#howcard:not([hidden])')) await page.tap('#howok');
     await page.tap('#touch .pause');
     await page.waitForFunction(() => window.__game.paused);
   };

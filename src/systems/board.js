@@ -4,17 +4,18 @@
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { LEVELS } from '../audio/mic.js';
-import { goalText, bonusText, progress, bestStars } from '../game/contracts.js';
+import { goalText, bonusText, progress, bestStars, bestBits, isLevel, starRows, starChecklist, againLabel } from '../game/contracts.js';
 import { G } from './state.js';
 import { summaryState } from './phone.js';
-import { wallet } from '../game/economy.js';
-import { money } from '../ui/board.js';
+import { wallet, lootRecord } from '../game/economy.js';
+import { money, fmtTime } from '../ui/board.js';
 import { shopPageRows, shopPages, lockText, incomeText } from './economy.js';
 import { S } from '../i18n/index.js';
 import { mapsForBoard } from '../world/maps.js';
 import { mischiefText } from './traps.js';
 import { beforeNow, afterNow } from './story.js';
-import { campaignNote, nextOpen } from './campaign.js';
+import { campaignNote, nextOpen, nextLabel } from './campaign.js';
+import { howCards } from './howCard.js';
 import { roundNoMic } from './micAuto.js';
 import { screamBy, lurkerCards, lurkersMet, papers, notesCount, thief } from '../game/story.js';
 
@@ -30,7 +31,7 @@ function boardSignature(T, lv) {
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
     wallet().cash, wallet().owned.length, JSON.stringify(wallet().stock || {}), G.shopPage, lockText(contract), incomeText(), mischiefText(), G.boardPage === 'map' ? mapsForBoard(G.level.id).map((m) => m.lock) : 0,
     G.storyPage || 0, lurkersMet().n, notesCount().n, thief(),   // W7: Тихарник, «Папери»
-    !!G.inVR, (nextOpen() || {}).n, !!G.isGuest, G.net && G.net.hostName,   // T5   // W19: the note on a phone / PC, «Далі: рівень N»
+    !!G.inVR, (nextOpen() || {}).n, !!G.isGuest, G.net && G.net.hostName, JSON.stringify(bestBits(contract.id)), lootRecord(contract.id),   // T5   // W19: the note on a phone / PC, «Далі: рівень N»
   ]);
 }
 const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4();
@@ -40,6 +41,22 @@ function boardInView() {
   _pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   _frustum.setFromProjectionMatrix(_pv);
   return _frustum.intersectsObject(G.board.mesh);
+}
+
+// Campaign v2 (plan §3.5, §4.3): what the board draws for a level of the ladder (nothing for the classic game)
+function levelBoard(c) {
+  if (!isLevel(c)) return {};
+  const items = G.loot.items, V = G.verdict, n = nextOpen();
+  const meta = [];
+  if (c.mods && c.mods.levelTime) meta.push(S.campaign2.card.time(fmtTime(Math.round(c.mods.levelTime * (CFG.campaign.levelTimeK[G.difficulty] || 1)))));
+  if (lootRecord(c.id) > 0 && c.bonus !== 'none') meta.push(S.campaign2.card.record(money(lootRecord(c.id))));
+  if (c.bonus === 'none') meta.push(S.campaign2.star.practice);
+  return {
+    stars3: { rows: starRows(c, items), got: bestBits(c.id), meta: meta.join(' · ') },
+    checklist: G.round.phase === 'result' && V && V.bits ? starChecklist(c, items, V, (G.income && G.income.fresh) || []) : null,
+    againLabel: againLabel(c, V), nextLabel: n ? nextLabel(n) : '',
+    how: howCards(c),   // «Як це?»: the button on the note, the board's page 'how' (VR reads it there)
+  };
 }
 
 export const board = {
@@ -71,6 +88,7 @@ export const board = {
         lurkers: G.boardPage === 'lurkers' ? { cards: lurkerCards(), met: lurkersMet(), page: G.storyPage || 0, noMic: G.mic.noMic || G.mic.state !== 'on' } : null,   // W7
         papers: G.boardPage === 'papers' ? { rows: papers(), count: notesCount() } : null,
         note: campaignNote(contract), vr: !!G.inVR, next: nextOpen(),   // W19: the level's note, the next level
+        ...levelBoard(contract),   // campaign v2: the star rows, the checklist, «Ще раз за ★★★», «Далі»
       });
     }
   },

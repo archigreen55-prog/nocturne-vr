@@ -66,6 +66,17 @@ export class PauseMenu {
       info.className = 'pm-info';
       info.textContent = S.menu.info(I.contractName, I.diffName, I.phase === 'ready' ? S.menu.beforeStart : I.phase === 'result' ? S.menu.roundOver : fmtTime(I.clock), money(I.vanSum));
       head.append(info);
+      if (I.stars) {   // campaign v2: the level's three stars (✓ won, ✗ lost in this round), each with its money
+        const box = document.createElement('div');
+        box.className = 'pm-stars';
+        for (const r of I.stars) {
+          const row = document.createElement('div');
+          row.className = 'pm-star' + (r.mark === S.campaign2.star.got ? ' got' : r.mark ? ' lost' : '');
+          for (const [tag, text] of [['i', '★'.repeat(r.n)], ['span', r.text], ['b', r.money], ['em', r.mark]]) { const e = document.createElement(tag); e.textContent = text; row.append(e); }
+          box.append(row);
+        }
+        head.append(box);
+      }
       const mic = document.createElement('p');
       mic.className = 'pm-info';
       mic.textContent = I.micText;
@@ -79,8 +90,9 @@ export class PauseMenu {
         this.btn(S.menu.resume, () => h.resume(), 'primary wide'),
         this.btn(S.menu.home, () => h.home()),
         this.btn(S.menu.title.settings, () => h.settings()),   // the same settings page as the menu's (systems/menu.js settingsOver)
-        this.btn(S.menu.toStart, () => h.toStart(), 'quiet wide'),
       );
+      if (I.how) grid.append(this.btn(S.campaign2.how.button, () => h.how(), 'small'));   // campaign v2: the level's card «Як це?»
+      grid.append(this.btn(S.menu.toStart, () => h.toStart(), 'quiet wide'));
     }
     card.append(head, grid);
     this.root.replaceChildren(card);

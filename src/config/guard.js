@@ -19,6 +19,7 @@ export const patrol = {
   reactDelay: 0.6,           // s between noticing something (sight or sound) and the "?"
   coverDrop: 0.25,           // crouched, it must see this far below your eyes (your face, not your hair)
   lookAround: 4,             // s spent looking around at a noise
+  giveUp: 4,                 // s without getting any nearer to where it goes (a wall, a hedge, the low fence): it stops there as if arrived
   glance: 1.4,               // s it stops and turns its head to a small noise (CFG.alert.investigateAt)
   loseSight: 3,              // s without seeing you in a chase before it gives up
   pauseAt: [2, 9, 17],       // route points where it stops and looks around (2 s): kitchen, library, hall
