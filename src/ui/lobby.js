@@ -63,8 +63,8 @@ export class Lobby {
     bindPress(q('netshare'), () => on.share());
     bindPress(q('netleave'), () => on.leave());
     bindPress(q('netsolobtn'), () => on.solo());
-    bindPress(q('netbackbtn'), () => on.back && on.back());   // Б2: back into the round that goes on
-    bindPress(q('netretrybtn'), () => on.retry && on.retry());   // Б10: the host reopens the same room
+    bindPress(q('netbackbtn'), () => on.back && on.back());   // coop B2: back into the round that goes on
+    bindPress(q('netretrybtn'), () => on.retry && on.retry());   // coop B10: the host reopens the same room
     bindPress(q('netstart'), () => { if (!q('netstart').disabled && on.start) on.start(); });   // T4b
     bindPress(q('nethouse'), () => { if (!q('nethouse').disabled && on.house) on.house(); });
     bindPress(q('netguard'), () => on.role && on.role(this.el.guard.dataset.want === '1'));   // W15: play the guard
@@ -81,12 +81,12 @@ export class Lobby {
     e.card.hidden = !st.card; e.card.textContent = st.card || '';
     e.status.textContent = st.status || '';
     e.status.style.color = st.statusBad ? 'var(--bad)' : 'var(--warn)';
-    const tips = st.tips || [], sig = tips.join('\n');   // Б10: what to do, as a list under the line
+    const tips = st.tips || [], sig = tips.join('\n');   // coop B10: what to do, as a list under the line
     if (e.tips.dataset.sig !== sig) { e.tips.dataset.sig = sig; e.tips.replaceChildren(...tips.map((t) => Object.assign(document.createElement('li'), { textContent: t }))); }
     e.tips.hidden = !tips.length;
     e.retry.hidden = !st.retry;
     e.solo.hidden = !st.lost;
-    const back = this.root.querySelector('#netback');   // Б2: st.back = the line above «Повернутись у раунд»
+    const back = this.root.querySelector('#netback');   // coop B2: st.back = the line above the button back into the round
     back.hidden = !st.back;
     if (st.back) this.root.querySelector('#netbacktext').textContent = st.back;
     e.ver.textContent = st.version ? S.net.versionLine(st.version) : '';   // T3: friends compare their builds
