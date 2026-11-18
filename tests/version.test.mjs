@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { newContext, watchErrors } from './harness.mjs';
+import { newContext, watchErrors, ROOT } from './harness.mjs';
+import { staleVersion } from '../tools/version-check.mjs';
 import { browser, test, LAND, siteCopy, swReady, swUpdatedTo } from './runner.mjs';
 
 const SEQUENCE = ['0.6.0-pre.9.w0.2', '0.6.0-pre.9.t5.1', '0.6.0-pre.10', '0.6.0-pre.10.run.1', '0.6.0-pre.11'];
@@ -75,4 +76,11 @@ test('versions of parallel branches (0.6.0-pre.9.w0.2 -> …t5.1 -> pre.10 -> pr
     assert.deepEqual(errors.filter((e) => !/ERR_INTERNET_DISCONNECTED|Failed to fetch|net::/.test(e)), []);
     await ctx.close();
   } finally { await site.close(); }
+});
+
+// plan 2026-11-17, step 6: every module URL is ?v=<version> and the service worker keeps it (cache first),
+// so the same version must mean the same files. Also warned on every site build (tools/build-site.mjs).
+test('version: a change to a served file (src/, index.html, sw.js, …) comes with a new version (node tools/bump-version.mjs)', async () => {
+  const r = staleVersion('HEAD', { worktree: true, cwd: ROOT });
+  assert.equal(r, null, r ? `version ${r.version} (set in ${r.since}), but changed since: ${r.files.join(', ')} — run node tools/bump-version.mjs <new version>` : '');
 });
