@@ -10,13 +10,18 @@ import { chromium } from 'playwright';
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.md': 'text/markdown', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 
-export async function startServer(root = ROOT) {
+// fault(rel, req): a failure to serve instead of the file (the boot tests): a status (503, 404), 'drop' (the
+// connection is cut, a network error) or nothing (serve it)
+export async function startServer(root = ROOT, { fault } = {}) {
   const server = createServer(async (req, res) => {
     const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const m = /^\/nocturne-vr(?:\/preview\/[^/]+)?(\/.*)$/.exec(path);
     if (!m) { res.writeHead(404); res.end(); return; }
     let rel = normalize(m[1]).replace(/^(\.\.[/\\])+/, '');
     if (rel.endsWith('/')) rel += 'index.html';
+    const f = fault && fault(rel.replace(/^\//, ''), req);
+    if (f === 'drop') { req.socket.destroy(); return; }
+    if (f) { res.writeHead(f, { 'cache-control': 'no-store' }); res.end(); return; }
     try {
       const body = await readFile(join(root, rel));
       res.writeHead(200, { 'content-type': TYPES[extname(rel)] || 'application/octet-stream', 'cache-control': 'no-store' });

@@ -105,8 +105,9 @@ test('three.js (vendor/) does not load: "Гра не завантажилась"
   await page.waitForSelector('#bootfail', { timeout: 30000 });
   assert.equal(await page.textContent('#start'), 'Гра не завантажилась');
   assert.match(await page.textContent('#bootfail pre'), /three|vendor|module/i);
-  await page.tap('#bootfail button');
-  await page.waitForFunction(() => document.querySelector('#bootfail button').textContent === 'Скопійовано');
+  assert.equal(new URL(page.url()).searchParams.get('retry'), '1', 'one automatic reload first (plan 2026-11-17, step 3)');
+  await page.tap('#bootcopy');
+  await page.waitForFunction(() => document.querySelector('#bootcopy').textContent === 'Скопійовано');
   const r = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
   assert.equal(r.report, 'nocturne-boot'); assert.ok(r.errors.length > 0);
   await ctx.close();

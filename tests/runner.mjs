@@ -163,10 +163,10 @@ export const aimAt = (page, id) => page.evaluate((id) => {
   g.player.lookYaw = Math.atan2(-dx, -dz); g.player.lookPitch = Math.atan2(dy, Math.hypot(dx, dz));
 }, id);
 // A copy of the site in a temp folder, its own server: the service-worker tests change the version there.
-export async function siteCopy() {
+export async function siteCopy(serverOpts) {
   const dir = await mkdtemp(join(tmpdir(), 'nocturne-site-'));
   for (const f of ['index.html', 'privacy.html', 'version.json', 'sw.js', 'manifest.webmanifest', 'src', 'vendor', 'icons', 'fonts', 'tools']) await cp(join(ROOT, f), join(dir, f), { recursive: true });
-  const srv = await startServer(dir);
+  const srv = await startServer(dir, serverOpts);
   return { dir, ...srv, bump: (v) => execFileSync('node', [join(dir, 'tools/bump-version.mjs'), v]), close: async () => { srv.server.close(); await rm(dir, { recursive: true, force: true }); } };
 }
 // the worker installed and active, then a page load it controls (a load that began while it was still

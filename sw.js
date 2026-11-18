@@ -215,15 +215,33 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('message', (e) => { if (e.data === 'version' && e.source) e.source.postMessage({ version: VERSION }); });
 
+// One failed request out of ~175 modules stops the whole game (the browser gives up on the module graph),
+// so a request is tried again before the page sees it fail (plan 2026-11-17, step 2): a network error, a 5xx
+// or a 429 after 0.4, 1.2 and 2.5 s (a phone that drops the network for a second gets it back), a 404 of a
+// versioned file once (a deploy switching over). A page load (navigation) offline goes straight to the cache.
+const WAITS = [400, 1200, 2500];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function fetchRetry(req, init, { navigate = false, versioned = false } = {}) {
+  for (let i = 0; ; i++) {
+    let res = null, err = null;
+    try { res = await fetch(req, init); } catch (e) { err = e; }
+    const again = err ? true : res.status >= 500 || res.status === 429 || (versioned && res.status === 404 && i === 0);
+    if (!again || i >= (navigate ? 1 : WAITS.length) || (navigate && !self.navigator.onLine)) { if (err) throw err; return res; }
+    await sleep(WAITS[i]);
+  }
+}
+
 async function networkFirst(req, fallbackUrl) {
   const cache = await caches.open(CACHE);
+  const fromCache = () => cache.match(fallbackUrl || req, { ignoreSearch: !!fallbackUrl }).then((hit) => hit || cache.match(req, { ignoreSearch: true }));
   try {
     // a navigation goes by its URL (a navigate-mode request cannot be re-sent with options)
-    const res = await fetch(fallbackUrl ? req.url : req, { cache: 'no-cache' });
+    const res = await fetchRetry(fallbackUrl ? req.url : req, { cache: 'no-cache' }, { navigate: !!fallbackUrl });
     if (res.ok) cache.put(fallbackUrl || req, res.clone());
+    else if (res.status >= 500) { const hit = await fromCache(); if (hit) return hit; }   // the server is down: the copy we have
     return res;
   } catch (err) {
-    const hit = await cache.match(fallbackUrl || req, { ignoreSearch: !!fallbackUrl }) || await cache.match(req, { ignoreSearch: true });
+    const hit = await fromCache();
     if (hit) return hit;
     throw err;
   }
@@ -233,7 +251,7 @@ async function cacheFirst(req) {
   const cache = await caches.open(CACHE);
   const hit = await cache.match(req);
   if (hit) return hit;
-  const res = await fetch(req);
+  const res = await fetchRetry(req, undefined, { versioned: true });
   if (res.ok) cache.put(req, res.clone());
   return res;
 }
