@@ -23,6 +23,7 @@ export function whyClosed(c) {
   if (c.locked) return S.levels.soon;
   const L = lockOf(c);
   if (!L) return '';
+  if (L.map && L.level !== undefined) return S.campaign2.houseAfter(S.campaign.house[L.map] || L.map, L.level);   // campaign v2
   if (L.map) return S.levels.houseLock(S.campaign.house[L.map] || L.map, L.need, L.have);
   return S.levels.after(L.after.name);
 }
@@ -44,7 +45,9 @@ export function levelGroups() {
     let g = groups.find((x) => x.map === map);
     if (!g) {
       const open = mapOpen(map);
-      g = { map, title: S.campaign.house[map] || map, open, note: open ? '' : S.levels.houseLock(S.campaign.house[map] || map, CFG.shop.unlock.maps[map], starsBefore(map)), levels: [] };
+      const after = CFG.campaign.opens && CFG.campaign.opens[map], al = after && levels().find((x) => x.id === after);   // campaign v2: after a level
+      const note = open ? '' : al ? S.campaign2.houseAfter(S.campaign.house[map] || map, al.n) : S.levels.houseLock(S.campaign.house[map] || map, CFG.shop.unlock.maps[map], starsBefore(map));
+      g = { map, title: S.campaign.house[map] || map, open, note, levels: [] };
       groups.push(g);
     }
     const c = contractOf(l), why = l.soon ? S.levels.soon : whyClosed(c);

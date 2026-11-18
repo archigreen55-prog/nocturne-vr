@@ -23,4 +23,10 @@ export const backWindow = {
   // VR: the camera is not moved or lifted (a real head cannot be): the picture fades out, the body goes over, it fades in
   vr: { fadeOut: 0.3, fadeIn: 0.4 },
   cancelUntil: 0.45,       // a guest's climb the host refused (busy window): can be taken back until this share of the carry step
+  // Campaign v2 (plan §7.2): a big item lowered through the open sash (phone / PC: the button «Спустити у вікно»; VR: let
+  // it go over the sill). It flies `dur` s in an arc `arc` m over the sill and lands on the flowerbed under the window
+  // outside: a soft landing (x `soft` of its speed: no damage), a rustle heard `rustle` m (the hall does not hear it).
+  // The sash must be open at least openAngle; the item's centre this close to the opening (VR).
+  lower: { dur: 0.8, arc: 0.45, out: 0.75, along: -0.45, reach: 0.5 },
+  flowerbed: { x0: 3.15, x1: 4.85, z0: -15.05, z1: -14.2, soft: 0.3, rustle: 3 },
 };

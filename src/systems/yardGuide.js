@@ -12,7 +12,7 @@ import { GATE, YARD_FENCE_Z } from '../world/yard.js';
 
 let group = null, smalls = null, waited = 0, bigMat = null, glowMat = null, t = 0, hinted = false, wasOn = false, phase = '';
 
-function chalkArrow() {
+export function chalkArrow() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 128;
   const g = c.getContext('2d');
   g.lineCap = 'round'; g.lineJoin = 'round';
@@ -35,6 +35,16 @@ function bigArrow(word) {
   g.textAlign = 'center'; g.font = '900 108px system-ui, sans-serif'; g.lineWidth = 22; g.strokeStyle = 'rgba(5,7,13,0.6)'; g.strokeText(word, 256, 150);
   g.fillStyle = 'rgba(252,249,240,1)'; g.fillText(word, 256, 150);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
+}
+// a small chalk word with a little arrow up (to the window over it)
+function smallWord(word) {
+  const c = document.createElement('canvas'); c.width = 384; c.height = 128;
+  const g = c.getContext('2d');
+  g.textAlign = 'center'; g.font = '800 54px system-ui, sans-serif'; g.fillStyle = 'rgba(245,245,235,0.92)'; g.fillText(word, 172, 84);
+  g.strokeStyle = 'rgba(245,245,235,0.85)'; g.lineWidth = 7; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(352, 100); g.lineTo(352, 30); g.moveTo(332, 50); g.lineTo(352, 28); g.lineTo(372, 50); g.stroke();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 function glowTexture() {
@@ -66,6 +76,12 @@ export const yardGuide = {
     big.rotation.set(-Math.PI / 2, 0, 0); big.position.set(gx, 0.055, YARD_FENCE_Z + 1.95); big.renderOrder = 8; group.add(big);
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 5.2), glowMat = new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
     glow.rotation.set(-Math.PI / 2, 0, 0); glow.position.set(gx, 0.045, YARD_FENCE_Z + 1.95); glow.renderOrder = 7; group.add(glow);
+    // campaign v2 (decision 2 of 16.11): a small chalk «АБО СЮДИ» under the back window, outside and inside — the other way in
+    const BW = CFG.backWindow, word = new THREE.MeshBasicMaterial({ map: smallWord(S.campaign2.window.orHere), transparent: true, depthWrite: false, opacity: 0.85 });
+    for (const [z, ry] of [[-14.165, Math.PI], [-13.835, 0]]) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.3), word);
+      m.rotation.y = ry; m.position.set(BW.x, 0.5, z); m.renderOrder = 6; group.add(m);
+    }
     group.visible = false;
     G.scene.add(group);
     G.yardGuide = group;

@@ -10,6 +10,8 @@ import { WristPanel } from '../ui/wrist.js';
 import { Pointer } from '../ui/pointer.js';
 import { Hands } from '../loot/hands.js';
 import { G } from './state.js';
+import { lowerAtRelease } from './backWindow.js';
+import { CLASSIC } from '../config/campaign.js';
 import { flash } from './messages.js';
 import { lit } from '../style/materials.js';
 
@@ -39,7 +41,7 @@ export const rig = {
       }
     }
     const xrIn = G.xrIn = new XRInput();
-    G.hands = new Hands({ loot: G.loot, rig: player.rig, grips, pulse: (h, s, ms) => xrIn.pulse(h, s, ms), onMessage: (t, c) => flash(t, 2, c) });
+    G.hands = new Hands({ loot: G.loot, rig: player.rig, grips, pulse: (h, s, ms) => xrIn.pulse(h, s, ms), onMessage: (t, c) => flash(t, 2, c), lowerAt: (it) => !CLASSIC && lowerAtRelease(it) });
     const pointer = G.pointer = new Pointer(renderer, player.rig, G.board);
     pointer.addTo(scene);
 

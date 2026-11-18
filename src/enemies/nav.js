@@ -79,8 +79,9 @@ export class Nav {
     return best >= 0 ? best : fallback;
   }
 
-  // List of [x, z] points from (fx, fz) on floor `from` to (tx, tz) on floor `to`.
-  path(fx, fz, tx, tz, from = 0, to = from) {
+  // List of [x, z] points from (fx, fz) on floor `from` to (tx, tz) on floor `to`. ok(node): the points it may
+  // go through (the guard's leash: enemies/patrol.js goTo); the start and the goal's own point always.
+  path(fx, fz, tx, tz, from = 0, to = from, ok = null) {
     if (from === to && this.clear(fx, fz, tx, tz, BODY, from)) return [[tx, tz]];
     const s = this.nearest(fx, fz, from), g = this.nearest(tx, tz, to);
     const N = this.nodes, dist = new Float64Array(N.length).fill(Infinity), prev = new Int32Array(N.length).fill(-1);
@@ -93,6 +94,7 @@ export class Nav {
       if (cur === g) break;
       open.delete(cur);
       for (const [j, d] of N[cur].edges) {
+        if (ok && j !== g && !ok(N[j])) continue;
         if (dist[cur] + d < dist[j]) { dist[j] = dist[cur] + d; prev[j] = cur; open.add(j); }
       }
     }

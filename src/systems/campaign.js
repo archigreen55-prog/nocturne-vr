@@ -9,6 +9,8 @@ import { pause2D } from './desktop.js';
 import { goPage } from './menu.js';
 import { CLASSIC, unlocked, levelOf, nextLevel, isOpenLevel, introOf } from '../game/campaign.js';
 import { S } from '../i18n/index.js';
+import { saveSetting } from '../settings.js';
+import { switchMap } from '../world/maps.js';
 
 // After a new round, another contract or difficulty (systems/contract.js) and at the start: the cans
 // and bottles are not in the house before their level, the devices are not there (decision §7.7).
@@ -23,6 +25,22 @@ export function applyLevel() {
     }
   }
   if (G.devices) G.devices.setEnabled(unlocked('devices', c));
+  placeItems(c);
+  // the dacha's gate watch (config/campaign.js gateWatch): the guard's leash becomes the corridor to the gate
+  if (CFG.run) CFG.run.gateWatch = !CLASSIC && G.level && G.level.id === 'dacha' && unlocked('gateWatch', c) ? CFG.campaign.gateWatch : null;
+}
+// campaign v2: a level's own places for some items (CFG.campaign.levels[].place; the rehearsal: a book by the back
+// window); every other level: where they always lie. Moved only while the round waits at the van.
+function placeItems(c) {
+  if (!G.loot) return;
+  const l = !CLASSIC && levelOf(c.id), P = (l && l.place) || {};
+  for (const it of G.loot.items) {
+    if (!it.def0) it.def0 = it.def;
+    const want = P[it.id] ? { ...it.def0, pos: P[it.id] } : it.def0;
+    if (it.def === want || (it.def.pos === want.pos)) continue;
+    it.def = want;
+    if (G.round && G.round.phase === 'ready' && !it.held && !it.delivered && it.state === 'rest') it.reset();
+  }
 }
 
 // The board's note (null in the classic game or off the ladder): the level, its act, what is new
@@ -36,12 +54,19 @@ export function campaignNote(c = G.contract) {
     noClock: !!(c.mods && c.mods.noClock),
   };
 }
-// the result page: the next level, once it is open and this round's goal was met
+// the result page: the next level whenever it is open — after a success, caught or late alike (the owner's test
+// of 16.11: «Ще раз» and «Далі: рівень N», the latter only when that level is open)
 export function nextOpen() {
-  if (CLASSIC || !G.verdict || !G.verdict.goal) return null;
+  if (CLASSIC || !G.verdict) return null;
   const n = nextLevel(G.contract.id);
-  return n && isOpenLevel(n) && CFG.contracts.some((c) => c.id === n.id) ? n : null;   // the same house only (another map: the menu)
+  if (!n || !isOpenLevel(n)) return null;
+  if (CFG.contracts.some((c) => c.id === n.id)) return n;
+  // campaign v2 (plan §4.2): the next level in the other house — «Далі: Маєток» reloads the page there
+  const act = CFG.campaign.acts.find((a) => a.n === n.act);
+  return act && act.map ? { ...n, other: act.map, house: S.campaign.house[act.map] || act.map } : null;
 }
+// the button's words: «Далі: рівень N» or «Далі: Маєток»
+export const nextLabel = (n) => (n.other ? S.campaign2.nextHouse(n.house) : S.campaign.next(n.n));
 
 // The board's buttons of the campaign; true when it was one of them (systems/contract.js pressBoard)
 export function campaignPress(id, { newRound, setContract }) {
@@ -60,6 +85,7 @@ export function campaignPress(id, { newRound, setContract }) {
   if (id === 'nextlvl') {
     const n = nextOpen();
     if (!n) return true;
+    if (n.other) { saveSetting('contract', n.id); switchMap(n.other, 'next'); return true; }   // the other house: «Їдемо в …», «Поїхали ▶» starts it
     newRound();
     setContract(n.id);
     return true;
