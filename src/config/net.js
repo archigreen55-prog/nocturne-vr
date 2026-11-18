@@ -28,7 +28,11 @@ export const net = {
   connectTimeout: 15,          // Б10: the host's room: no relay open in this time = «Не можу дістатися серверів зв'язку»
   relayCheck: 2,               // Б10: s between the host's looks at its relays (they come back = the line goes by itself)
   peerLostAfter: 3,            // no packets: «Оля: зв'язок…» (invisible to the guards meanwhile)
-  peerGoneAfter: 30,           // then «Оля вийшла»; coming back later = joining anew at the van
+  peerGoneAfter: 30,           // then «Оля вийшла»; coming back later = joining anew at the van (Б2: in the middle of a round the place is kept to its end)
+  awayDropAfter: 60,           // Б2 (Р1-C): a friend on pause / silent this long drops its item where it stood
+  backWait: 4,                 // Б2: a guest back from pause waits this long for the host, then opens the room again itself
+  rejoinEvery: 10,             // Б2: while the host is silent the guest tries the room again this often
+  backFor: 10,                 // Б2: min: a reloaded tab goes back into its room by itself within this time
   hostLostAfter: 10,           // a guest: the host is gone, the round stops for it (Б9: the card «Хост не відповідає…»)
   hostWaitMore: 20,            // Б9: «Чекати» on that card hides it for this long; still silent = the card again
   wakeGrace: 10,               // Б9: a host back from sleep gives every friend this long to be heard again

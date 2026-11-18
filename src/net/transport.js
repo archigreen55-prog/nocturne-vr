@@ -14,15 +14,16 @@ const LOSSY = new Set(['pose', 'state']);
 // tests: ms, ms, 0..1; cut = nothing goes in or out; strategies = the local kind has a channel per kind of
 // relay (as Trystero does); blockStrategy = a guest hears nobody on that one; failConnect = a guest sees
 // the host but cannot connect (as two phones in different networks without TURN; on the host's page: the
-// host sees a friend it cannot connect to); relaysDown = no relay answers (Б10: the count says 0)
-export const sim = { lag: 0, jitter: 0, loss: 0, cut: false, strategies: false, blockStrategy: '', failConnect: false, relaysDown: false };
+// host sees a friend it cannot connect to); relaysDown = no relay answers (Б10: the count says 0); dead = the
+// selfIds of connections that died without a word (Б2: a guest's connection lost during a call)
+export const sim = { lag: 0, jitter: 0, loss: 0, cut: false, strategies: false, blockStrategy: '', failConnect: false, relaysDown: false, dead: [] };
 
 // opts.all (the host): the room is open on every kind of relay at once, so a guest finds it on whichever
 // one it tries (T3: the host stayed on Nostr while a guest that found nobody in time moved to the
 // trackers, where nobody would ever be). A guest uses one kind at a time (nextStrategy).
 export async function openTransport(opts) {
   const local = opts.kind === 'local';
-  const strategies = local && !sim.strategies ? [null] : CFG.net.strategies;
+  const strategies = local && !sim.strategies ? [null] : opts.order || CFG.net.strategies;   // order: Б2's rejoin starts on another kind
   const openOne = local ? openLocal : openTrystero;
   const subs = [], roomOf = new Map(), d = { kind: local ? 'local' : 'trystero', tried: [], errors: [], connectFail: 0 };
   let closed = false;
@@ -82,10 +83,11 @@ export async function openTransport(opts) {
 function openLocal({ code, strategy, guest, onMessage, onPeerJoin, onPeerLeave, onStatus }) {
   const selfId = randomId('L');
   const ch = new BroadcastChannel(`nocturne-net-${CFG.net.appId}-${strategy ? strategy + '-' : ''}${code}`);
-  const deaf = guest && strategy && sim.blockStrategy === strategy;
+  let deaf = guest && strategy && sim.blockStrategy === strategy;   // (also after close: nothing more in or out)
+  const dead = () => sim.dead.includes(selfId);
   const peers = new Map();   // id -> last heard (ms)
   const deliver = (fn) => { const d = sim.lag + Math.random() * sim.jitter; if (d > 0) setTimeout(fn, d); else fn(); };
-  const post = (o) => { if (!sim.cut && !deaf) ch.postMessage(o); };
+  const post = (o) => { if (!sim.cut && !deaf && !dead()) ch.postMessage(o); };
   const failed = new Set();
   const seen = (id) => {
     if (sim.failConnect) { if (!failed.has(id)) { failed.add(id); if (onStatus) onStatus({ step: 'connectFail', strategy }); } return false; }
@@ -95,7 +97,7 @@ function openLocal({ code, strategy, guest, onMessage, onPeerJoin, onPeerLeave, 
     return true;
   };
   ch.onmessage = ({ data: o }) => {
-    if (sim.cut || deaf || !o || o.from === selfId) return;
+    if (sim.cut || deaf || dead() || !o || o.from === selfId) return;
     if (o.hi) { if (!o.to || o.to === selfId) seen(o.hi); return; }
     if (o.bye) { if (peers.delete(o.bye)) onPeerLeave(o.bye); return; }
     if (o.to && o.to !== selfId) return;
@@ -110,7 +112,7 @@ function openLocal({ code, strategy, guest, onMessage, onPeerJoin, onPeerLeave, 
     send(msg, to) { const ids = to ? [].concat(to) : [null]; for (const id of ids) post({ from: selfId, to: id, msg }); },
     peers: () => [...peers.keys()],
     ping: async () => sim.lag * 2,
-    close() { post({ bye: selfId }); ch.close(); },
+    close() { post({ bye: selfId }); deaf = true; ch.close(); },
     diag: () => ({ kind: 'local', peers: peers.size }),
     relays: () => ({ open: sim.relaysDown ? 0 : 1, total: 1 }),
   };

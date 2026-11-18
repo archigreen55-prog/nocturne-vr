@@ -1191,6 +1191,9 @@ export default {
       started: 'Раунд уже йде — зачекай, поки він закінчиться, і зайди знову.',
       hostLost: 'Зв\'язок із хостом втрачено. Раунд для тебе зупинено.',
       hostEnded: 'Хост завершив гру.',   // Б9
+      // Б2: back after a pause, a call or a reload
+      rejoining: 'Повертаюсь у кімнату…',
+      startedBack: 'Раунд уже йде без тебе — зачекай його кінця й зайди знову.',
       failed: (why) => `Мережа не відкрилась: ${why}`,
       reloadMap: 'Завантажую карту хоста…',
       // Б10: the relays (the servers through which friends find each other)
@@ -1226,6 +1229,10 @@ export default {
     hostChose: (house, level, diff) => `Хост обрав: ${house} · ${level} · ${diff}`,
     friendLost: (n) => `${n}: зв'язок…`,
     friendBack: (n) => `${n} знову в кімнаті`,
+    friendAway: (n) => `${n} на паузі`,   // Б2
+    awayTag: 'пауза',
+    roundOn: (host) => `Раунд ще йде (хост: ${host}).`,
+    backToRound: 'Повернутись у раунд',
     friendGone: (n) => `${n} — поза кімнатою`,
     friendJoined: (n) => `${n} у кімнаті`,
     caughtFriend: (n) => `${n}: спіймали!`,

@@ -113,6 +113,7 @@ async function roundOfTwo(ctx, code, { guestCfg = {}, hostCfg = {} } = {}) {
   await host.page.evaluate(([code, cfg]) => { Object.assign(window.__game.CFG.net, cfg); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, [code, hostCfg]);
   const guest = await open(ctx, base + `?room=${code}&net=local`);
   await guest.page.evaluate((cfg) => Object.assign(window.__game.CFG.net, cfg), guestCfg);
+  await guest.page.fill('#netname', 'Оля');
   await guest.page.click('#netjoin');
   await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
   await host.page.waitForFunction(() => !document.querySelector('#netstart').disabled);
@@ -247,5 +248,170 @@ test('coop (Б9): a guest in VR (IWER Quest 3) — the host closed the game: a l
   await run([guest.page], 0.2);
   assert.equal((await cardOf(guest.page)).kind, 'end', 'out of VR: the same card');
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+// ---------- Б2 ----------
+const setPaused = (page, v) => page.evaluate(async (v) => { const { G } = await import('./src/systems/state.js'); G.paused = v; }, v);
+
+test('coop (Б2): a guest on pause / a call mid-round keeps its place; the host moves things meanwhile; «Продовжити» = the same round, player and world', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '818181', { hostCfg: { peerGoneAfter: 2 } });
+  const pid = await guest.page.evaluate(() => window.__game.net.state().pid);
+  await guest.page.evaluate(() => window.__game.player.teleport(-4, 1.6, 0));
+  await run(pages, 0.6);
+  // the call: the pause menu, then nothing at all for longer than peerGoneAfter
+  await setPaused(guest.page, true);
+  await wait(host.page, 400);
+  await run([host.page], 0.3);
+  let h = await host.page.evaluate(() => ({ s: window.__game.net.state(), flash: window.__game.flashText, list: document.querySelector('#netlist').textContent }));
+  assert.equal(h.s.remotes[0].away, true, JSON.stringify(h.s.remotes));
+  assert.equal(h.s.remotes[0].inGame, false, 'out of G.players: the guards do not see it');
+  assert.equal(h.s.remotes[0].drawn, false, 'its body is not drawn');
+  assert.match(h.flash, /Оля на паузі/);
+  assert.match(h.list, /пауза/);
+  await guest.page.evaluate(() => { window.__game.net.sim.cut = true; });
+  await wait(host.page, 2600);
+  await run([host.page], 0.3);
+  h = await host.page.evaluate(() => window.__game.net.state());
+  assert.equal(h.remotes.length, 1, 'its place is kept to the round’s end');
+  // meanwhile the host opens a door and moves an item
+  const [door, item] = await host.page.evaluate(() => {
+    const g = window.__game, d = g.level.doors.find((x) => !x.locked && x.floor === 0);
+    g.useDoor(d);
+    const it = g.loot.items.find((x) => x.takeable && !x.held && x.mesh.visible);
+    it.mesh.position.x += 0.4;
+    return [g.level.doors.indexOf(d), g.loot.items.indexOf(it)];
+  });
+  await run([host.page], 1.2);
+  // back: «Продовжити»
+  await guest.page.evaluate(() => { window.__game.net.sim.cut = false; });
+  await setPaused(guest.page, false);
+  await run(pages, 1.5);
+  const [hw, gw] = await Promise.all(pages.map((p) => p.evaluate(([i, j]) => { const g = window.__game; return { door: +g.level.doors[i].target.toFixed(2), x: +g.loot.items[j].mesh.position.x.toFixed(2) }; }, [door, item])));
+  assert.notEqual(hw.door, 0);
+  assert.deepEqual(gw, hw, 'the guest’s door and item are the host’s');
+  const g = await guest.page.evaluate(() => ({ s: window.__game.net.state(), phase: window.__game.round.phase }));
+  assert.equal(g.s.welcomed, true);
+  assert.equal(g.s.pid, pid, 'the same player');
+  assert.equal(g.phase, 'heist', 'in the same round');
+  h = await host.page.evaluate(() => window.__game.net.state());
+  assert.equal(h.remotes.length, 1, 'one friend, not two');
+  assert.equal(h.remotes[0].pid, pid);
+  assert.equal(h.remotes[0].away, false);
+  assert.equal(h.remotes[0].inGame, true);
+  assert.ok(h.stats.rejoins >= 1, JSON.stringify(h.stats));
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2): the connection died during the call — the guest opens the same room again by itself, without a reload', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '828282', { hostCfg: { peerGoneAfter: 2 }, guestCfg: { backWait: 1 } });
+  const pid = await guest.page.evaluate(() => window.__game.net.state().pid);
+  const url = guest.page.url();
+  await setPaused(guest.page, true);
+  await guest.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); window.__game.net.sim.dead.push(G.net.t.selfId); });
+  await wait(host.page, 2600);
+  await run([host.page], 0.3);
+  await setPaused(guest.page, false);
+  await guest.page.waitForFunction(() => { const s = window.__game.net.state(); return s.stats.rejoins >= 1 && !s.rejoining && s.welcomed; }, null, { timeout: 15000 });
+  await run(pages, 1);
+  const h = await host.page.evaluate(() => window.__game.net.state());
+  assert.equal(h.remotes.length, 1, JSON.stringify(h.remotes));
+  assert.equal(h.remotes[0].pid, pid);
+  assert.equal(h.remotes[0].lost, false);
+  assert.equal(await guest.page.evaluate(() => window.__game.round.phase), 'heist');
+  assert.equal(guest.page.url().replace(/[?&](room|map)=[^&]*/g, ''), url.replace(/[?&](room|map)=[^&]*/g, ''), 'no reload');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2): Р1-C — after awayDropAfter its item falls where it stood; nobody holds it any more', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '838383', { hostCfg: { awayDropAfter: 4 } });
+  const item = await guest.page.evaluate(() => {
+    const g = window.__game, it = g.loot.items.find((x) => x.takeable && !x.twoHanded && !x.throwable && !x.trap && !x.heavy && !x.prop);
+    const p = it.mesh.position;
+    g.player.teleport(p.x + 0.6, p.z, Math.PI / 2, it.floor ? 3 : 0);
+    return g.loot.items.indexOf(it);
+  });
+  await run(pages, 0.6);
+  await guest.page.evaluate(async (i) => { const { G } = await import('./src/systems/state.js'); G.netIntent('take', { i }); }, item);
+  await run(pages, 0.8);
+  assert.ok((await host.page.evaluate((i) => window.__game.loot.items[i].netHolder || '', item)).startsWith('p'), 'the guest holds it');
+  await setPaused(guest.page, true);
+  await wait(host.page, 300);
+  await run([host.page], 0.1);
+  const held = await host.page.evaluate((i) => window.__game.loot.items[i].netHolder || '', item);
+  assert.ok(held.startsWith('p'), 'still in its hands at first (a short call costs nothing)');
+  await wait(host.page, 4300);
+  await run([host.page], 1);
+  const h = await host.page.evaluate((i) => { const g = window.__game, it = g.loot.items[i], r = g.net.state().remotes[0]; return { holder: it.netHolder || '', held: !!it.held, takeable: it.takeable, d: Math.hypot(it.mesh.position.x - r.x, it.mesh.position.z - r.z), desk: r.desk }; }, item);
+  assert.deepEqual([h.holder, h.held, h.desk, h.takeable], ['', false, null, true], JSON.stringify(h));
+  assert.ok(h.d < 1.5, 'it fell where the guest stood: ' + h.d);
+  await setPaused(guest.page, false);
+  await run(pages, 1.2);
+  assert.equal(await guest.page.evaluate((i) => window.__game.hands.desk === window.__game.loot.items[i], item), false, 'not in the guest’s hands any more');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2): a guest that missed the round’s end and the host’s next pick comes back to where the host is — the room', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '848484');
+  await setPaused(guest.page, true);
+  await guest.page.evaluate(() => { window.__game.net.sim.cut = true; });
+  await host.page.evaluate(() => window.__game.round.finish('left'));
+  await run([host.page], 1);
+  await host.page.evaluate(async () => { const { newRound } = await import('./src/systems/contract.js'); newRound(); });
+  await run([host.page], 0.5);
+  await guest.page.evaluate(() => { window.__game.net.sim.cut = false; });
+  await setPaused(guest.page, false);
+  await run(pages, 1.5);
+  const g = await guest.page.evaluate(() => ({ phase: window.__game.round.phase, playing: window.__game.playing, welcomed: window.__game.net.state().welcomed, overlay: document.querySelector('#overlay').style.display }));
+  assert.deepEqual(g, { phase: 'ready', playing: false, welcomed: true, overlay: 'flex' }, JSON.stringify(g));
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2): the guest’s tab reloaded mid-round — «Повернутись у раунд» puts it back in the same round, where it stood', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '858585');
+  const pid = await guest.page.evaluate(() => window.__game.net.state().pid);
+  await guest.page.evaluate(() => window.__game.player.teleport(-4, 1.6, 0));
+  await run(pages, 0.8);
+  assert.match(guest.page.url(), /room=858585/);
+  await guest.page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
+  await guest.page.waitForFunction(() => window.__game && window.__game.net && window.__game.net.state().welcomed, null, { timeout: 60000, polling: 200 });
+  await guest.page.waitForFunction(() => !document.querySelector('#netback').hidden, null, { timeout: 10000 });
+  assert.match(await guest.page.evaluate(() => document.querySelector('#netbacktext').textContent), /Раунд ще йде \(хост: Аня\)/);
+  await guest.page.click('#netbackbtn');
+  await run(pages, 0.6);
+  const g = await guest.page.evaluate(() => ({ playing: window.__game.playing, phase: window.__game.round.phase, x: window.__game.player.head.x, z: window.__game.player.head.z, pid: window.__game.net.state().pid }));
+  assert.equal(g.playing, true);
+  assert.equal(g.phase, 'heist');
+  assert.equal(g.pid, pid, 'the same player id after the reload');
+  assert.ok(Math.hypot(g.x + 4, g.z - 1.6) < 0.6, 'where it stood: ' + JSON.stringify(g));
+  const h = await host.page.evaluate(() => window.__game.net.state().remotes);
+  assert.equal(h.length, 1, JSON.stringify(h));
+  assert.equal(h[0].pid, pid);
+  assert.deepEqual(host.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2): turned away in the middle of a round — a clean page on «Грати з друзями» with the reason', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest } = await roundOfTwo(ctx, '868686');
+  // the host forgot this guest (as after the round's end + 30 s, then a new round)
+  await host.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); for (const [pid, r] of G.net.remotes) { r.dispose(); G.net.remotes.delete(pid); } });
+  await guest.page.waitForURL((u) => !u.search.includes('room='), { timeout: 15000, waitUntil: 'commit' });
+  await guest.page.waitForFunction(() => window.__game && window.__game.net && document.querySelector('#netstatus'), null, { timeout: 60000, polling: 200 });
+  const g = await guest.page.evaluate(() => ({ phase: window.__game.round.phase, role: window.__game.net.state().role, url: location.search, status: document.querySelector('#netstatus').textContent }));
+  assert.equal(g.phase, 'ready');
+  assert.equal(g.role, null);
+  assert.match(g.url, /page=friends/);
+  assert.match(g.status, /Раунд уже йде без тебе/);
+  assert.deepEqual(host.errors, []);
   await ctx.close();
 });

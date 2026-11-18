@@ -26,6 +26,7 @@ export class Lobby {
         </div>
       </div>
       <p id="netcard" class="nt-card" hidden></p>
+      <div id="netback" hidden><p id="netbacktext" class="nt-choice"></p><button id="netbackbtn" class="primary" type="button">${esc(S.net.backToRound)}</button></div>
       <div id="netin" class="nt-room" hidden>
         <div class="nt-left">
           <div class="nt-code"><b id="netroom"></b><canvas id="netqr" width="132" height="132"></canvas></div>
@@ -62,6 +63,7 @@ export class Lobby {
     bindPress(q('netshare'), () => on.share());
     bindPress(q('netleave'), () => on.leave());
     bindPress(q('netsolobtn'), () => on.solo());
+    bindPress(q('netbackbtn'), () => on.back && on.back());   // Б2: back into the round that goes on
     bindPress(q('netretrybtn'), () => on.retry && on.retry());   // Б10: the host reopens the same room
     bindPress(q('netstart'), () => { if (!q('netstart').disabled && on.start) on.start(); });   // T4b
     bindPress(q('nethouse'), () => { if (!q('nethouse').disabled && on.house) on.house(); });
@@ -84,11 +86,14 @@ export class Lobby {
     e.tips.hidden = !tips.length;
     e.retry.hidden = !st.retry;
     e.solo.hidden = !st.lost;
+    const back = this.root.querySelector('#netback');   // Б2: st.back = the line above «Повернутись у раунд»
+    back.hidden = !st.back;
+    if (st.back) this.root.querySelector('#netbacktext').textContent = st.back;
     e.ver.textContent = st.version ? S.net.versionLine(st.version) : '';   // T3: friends compare their builds
     if (st.inRoom) {
       if (e.room.textContent !== S.net.room(prettyCode(st.code))) { e.room.textContent = S.net.room(prettyCode(st.code)); this.drawQr(st.link); }
       e.link.textContent = st.link;
-      e.list.innerHTML = (st.players || []).map((p) => `<li>${esc(p.name)} · ${esc(S.crew.names[p.thief] || p.thief)}${p.host ? ` · ${esc(S.net.host)}` : ''}${p.you ? ` · ${esc(S.net.you)}` : ''}${p.lost ? ` · ${esc(S.net.lostTag)}` : ''}${p.mic === false ? ` · ${esc(S.net.noMic)}` : ''}${p.guard ? ` · ${esc(S.hguard.tag)}` : ''}</li>`).join('');
+      e.list.innerHTML = (st.players || []).map((p) => `<li>${esc(p.name)} · ${esc(S.crew.names[p.thief] || p.thief)}${p.host ? ` · ${esc(S.net.host)}` : ''}${p.you ? ` · ${esc(S.net.you)}` : ''}${p.away ? ` · ${esc(S.net.awayTag)}` : p.lost ? ` · ${esc(S.net.lostTag)}` : ''}${p.mic === false ? ` · ${esc(S.net.noMic)}` : ''}${p.guard ? ` · ${esc(S.hguard.tag)}` : ''}</li>`).join('');
       // W15: who plays the guard, and the button to take the role or give it back
       const g = (st.players || []).find((p) => p.guard), mine = !!st.guardPid && st.guardPid === st.myPid;
       e.guardIs.textContent = g ? S.hguard.guardIs(g.name) : S.hguard.guardAi;
