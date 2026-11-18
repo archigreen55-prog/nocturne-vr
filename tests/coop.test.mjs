@@ -106,3 +106,146 @@ test('coop (Б10): no false alarm when the relays answer; a guest without relays
   await ctx.close();
 });
 
+// ---------- Б9 ----------
+// a room with the host and one guest, both in the round («Почати»), the guards and lurkers still
+async function roundOfTwo(ctx, code, { guestCfg = {}, hostCfg = {} } = {}) {
+  const host = await open(ctx, base + '?net=local');
+  await host.page.evaluate(([code, cfg]) => { Object.assign(window.__game.CFG.net, cfg); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, [code, hostCfg]);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.evaluate((cfg) => Object.assign(window.__game.CFG.net, cfg), guestCfg);
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  await host.page.waitForFunction(() => !document.querySelector('#netstart').disabled);
+  await host.page.click('#netstart');
+  for (const p of [host.page, guest.page]) await p.evaluate(() => { const g = window.__game; for (const l of g.lurkers) l.update = () => {}; for (const x of g.guards) x.update = () => null; });
+  await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
+  await run([host.page, guest.page], 0.6);
+  return { host, guest, pages: [host.page, guest.page] };
+}
+const cardOf = (page) => page.evaluate(() => {
+  const el = document.querySelector('#hostgone');
+  return { kind: window.__game.net.state().card, shown: !!el && !el.hidden, text: el ? el.querySelector('.hg-text').textContent : '', wait: !!el && !el.querySelector('.hg-wait').hidden };
+});
+
+test('coop (Б9): the host closes the game mid-round — the guest’s card «Хост завершив гру»; «В меню» = a clean main menu', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest } = await roundOfTwo(ctx, '717171');
+  assert.equal(await guest.page.evaluate(() => window.__game.round.phase), 'heist');
+  // the page's own «pagehide» (Chromium may tear a closing tab down before a message sent from it leaves; the
+  // game then has the guest's hostLostAfter s of silence — the next test), then the tab closes
+  await host.page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+  await host.page.close();
+  await guest.page.waitForFunction(() => window.__game.net.state().card === 'end', null, { timeout: 8000 });
+  const c = await cardOf(guest.page);
+  assert.equal(c.shown, true);
+  assert.match(c.text, /Хост \(Аня\) завершив гру/);
+  assert.equal(c.wait, false, 'no «Чекати» when the host closed the game');
+  await guest.page.click('#hostgone .hg-menu');
+  await guest.page.waitForURL((u) => !u.search.includes('room='), { timeout: 15000, waitUntil: 'commit' });
+  await guest.page.waitForFunction(() => window.__game && window.__game.round && window.__game.net, null, { timeout: 60000 });
+  const g = await guest.page.evaluate(() => ({ phase: window.__game.round.phase, url: location.search, role: window.__game.net.state().role, card: !!document.querySelector('#hostgone:not([hidden])') }));
+  assert.equal(g.phase, 'ready');
+  assert.equal(g.role, null);
+  assert.ok(!/room=|page=|join=|host=/.test(g.url), g.url);
+  assert.equal(g.card, false);
+  assert.deepEqual(guest.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б9): a silent host — «Хост не відповідає…» with «Чекати»; the host back = the card goes by itself; «Чекати» hides it a while', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '727272', { guestCfg: { hostLostAfter: 1.5, hostWaitMore: 4, rejoinEvery: 600 } });
+  await host.page.evaluate(() => { window.__game.net.sim.cut = true; });
+  await wait(guest.page, 2200);
+  await run([guest.page], 0.3);
+  let c = await cardOf(guest.page);
+  assert.equal(c.kind, 'silent', JSON.stringify(c));
+  assert.match(c.text, /Хост \(Аня\) не відповідає вже \d+ с/);
+  assert.equal(c.wait, true, '«Чекати» is there');
+  await host.page.evaluate(() => { window.__game.net.sim.cut = false; });
+  await run(pages, 1);
+  c = await cardOf(guest.page);
+  assert.equal(c.shown, false, 'the card went by itself');
+  assert.equal(await guest.page.evaluate(() => window.__game.round.phase), 'heist', 'the round goes on');
+  // silent again: «Чекати» hides it, still silent after hostWaitMore = the card again
+  await host.page.evaluate(() => { window.__game.net.sim.cut = true; });
+  await wait(guest.page, 2200);
+  await run([guest.page], 0.3);
+  await guest.page.click('#hostgone .hg-wait');
+  assert.equal((await cardOf(guest.page)).shown, false, '«Чекати» hides it');
+  await wait(guest.page, 4200);
+  await run([guest.page], 0.3);
+  assert.equal((await cardOf(guest.page)).kind, 'silent', 'still silent: the card is back');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б9): a host back from sleep keeps its guests; «bye» for another house or from a guest shows no card', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '737373';
+  await host.page.evaluate((code) => { Object.assign(window.__game.CFG.net, { peerGoneAfter: 2, wakeGrace: 2 }); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, code);
+  const guest = await open(ctx, base + '?net=local');
+  await guest.page.evaluate((code) => window.__game.net.open(code, 'guest', 'Оля', 'rita'), code);
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  // the host's page sleeps as on an iPhone: no frames, no timers (nothing in or out)
+  await host.page.evaluate(() => {
+    window.__game.net.sim.cut = true;
+    window.__game.renderer.setAnimationLoop(null);
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await wait(host.page, 3000);
+  await host.page.evaluate(() => {
+    window.__game.net.sim.cut = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await run([host.page, guest.page], 1);
+  const h = await host.page.evaluate(() => window.__game.net.state());
+  assert.equal(h.remotes.length, 1, 'the guest is still in the room: ' + JSON.stringify(h.remotes));
+  assert.equal(h.remotes[0].lost, false);
+  // the guest in the game; another guest says «bye … end» to everybody, the host says «bye» for another house: no card
+  await guest.page.evaluate(() => { window.__game.playing = true; });
+  const other = await open(ctx, base + '?net=local');
+  await other.page.evaluate((code) => window.__game.net.open(code, 'guest', 'Рита', 'rita'), code);
+  await other.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  await other.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); G.net.t.send({ type: 'bye', pid: 'x', why: 'end' }); G.net.t.send({ type: 'deny', why: 'full' }); });
+  await run([guest.page], 0.5);
+  let g = await guest.page.evaluate(() => ({ s: window.__game.net.state() }));
+  assert.equal(g.s.card, '', 'a guest’s «bye» is nothing');
+  assert.equal(g.s.welcomed, true, 'a guest’s «deny» is nothing');
+  await host.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); G.net.t.send({ type: 'bye', pid: G.net.pid, why: 'house' }); });
+  await run([guest.page], 0.5);
+  g = await guest.page.evaluate(() => window.__game.net.state());
+  assert.equal(g.card, '', 'another house: no card');
+  assert.equal(g.hostEnded, false);
+  for (const p of [host, guest, other]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б9): a guest in VR (IWER Quest 3) — the host closed the game: a line on the wrist that does not go out', async () => {
+  const ctx = await newContext(browser, { userAgent: UA.quest });
+  await ctx.addInitScript({ content: (readFileSync(join(ROOT, 'node_modules/iwer/build/iwer.min.js'), 'utf8')) + `
+    window.__xrDevice = new IWER.XRDevice(IWER.metaQuest3);
+    window.__xrDevice.installRuntime({ forceInstall: true });` });
+  const host = await open(ctx, base + '?net=local');
+  const code = '747474';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + '?net=local');
+  await guest.page.evaluate((code) => window.__game.net.open(code, 'guest', 'Оля', 'nazar'), code);
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  await guest.page.waitForFunction(() => /ENTER VR/i.test(document.getElementById('vrbutton').textContent));
+  await guest.page.click('#vrbutton');
+  await guest.page.waitForFunction(() => window.__game.inVR, null, { timeout: 10000 });
+  await host.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); G.net.t.send({ type: 'bye', pid: G.net.pid, why: 'end' }); });
+  await guest.page.waitForFunction(() => /Хост вийшов\. Вийди з VR/.test(window.__game.flashText || ''), null, { timeout: 8000 });
+  await wait(guest.page, 2500);   // longer than one flash: it is said again and again
+  assert.match(await guest.page.evaluate(() => window.__game.flashText), /Хост вийшов/);
+  await guest.page.evaluate(() => window.__game.renderer.xr.getSession().end());
+  await guest.page.waitForFunction(() => !window.__game.inVR, null, { timeout: 10000 });
+  await run([guest.page], 0.2);
+  assert.equal((await cardOf(guest.page)).kind, 'end', 'out of VR: the same card');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

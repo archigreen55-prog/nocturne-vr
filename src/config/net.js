@@ -29,7 +29,9 @@ export const net = {
   relayCheck: 2,               // Б10: s between the host's looks at its relays (they come back = the line goes by itself)
   peerLostAfter: 3,            // no packets: «Оля: зв'язок…» (invisible to the guards meanwhile)
   peerGoneAfter: 30,           // then «Оля вийшла»; coming back later = joining anew at the van
-  hostLostAfter: 10,           // a guest: the host is gone, the round stops for it
+  hostLostAfter: 10,           // a guest: the host is gone, the round stops for it (Б9: the card «Хост не відповідає…»)
+  hostWaitMore: 20,            // Б9: «Чекати» on that card hides it for this long; still silent = the card again
+  wakeGrace: 10,               // Б9: a host back from sleep gives every friend this long to be heard again
   // T5 (decision R-11.3, P2): the board at the van is the host's; a guest's board shows the round with only these
   // buttons (they change nothing the others see: «Послухати» plays this player's own scream)
   guestBoard: ['play'],

@@ -192,3 +192,14 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 #gobanner span { display: block; margin-top: 8px; font-weight: 700; font-size: clamp(14px, 4.4vmin, 26px); color: #efe6d4; text-shadow: 0 1px 4px #000, 0 0 10px #000; }
 #gobanner.on { animation: gopop var(--go-total, 1.9s) ease-out forwards; }
 @keyframes gopop { 0% { opacity: 0; transform: scale(1.4); } 10% { opacity: 1; transform: scale(1); } 68% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.04); } }
+
+/* ---------- кооп Б9: the host is gone — the guest's card above everything (ui/hostGone.js; phone and PC) ---------- */
+#hostgone { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5, 8, 16, .72); font-family: system-ui, sans-serif; }
+#hostgone[hidden] { display: none; }
+#hostgone .hg-box { max-width: 460px; width: 100%; box-sizing: border-box; padding: 18px 18px 16px; border-radius: 14px; background: #0d1322; border: 2px solid #ff5468; box-shadow: 5px 5px 0 #05070d; color: #efe6d4; }
+#hostgone .hg-text { margin: 0 0 14px; font-size: 17px; line-height: 1.4; font-weight: 700; }
+#hostgone .hg-acts { display: flex; flex-wrap: wrap; gap: 10px; }
+#hostgone button { flex: 1; min-width: 120px; min-height: 52px; border-radius: 12px; border: 2px solid #05070d; font: 800 17px system-ui, sans-serif; box-shadow: 3px 3px 0 #05070d; cursor: pointer; }
+#hostgone .hg-wait { background: #18223a; color: #efe6d4; }
+#hostgone .hg-wait[hidden] { display: none; }
+#hostgone .hg-menu { background: #ffb347; color: #05070d; }

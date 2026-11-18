@@ -1190,6 +1190,7 @@ export default {
       full: 'Кімната повна.',
       started: 'Раунд уже йде — зачекай, поки він закінчиться, і зайди знову.',
       hostLost: 'Зв\'язок із хостом втрачено. Раунд для тебе зупинено.',
+      hostEnded: 'Хост завершив гру.',   // Б9
       failed: (why) => `Мережа не відкрилась: ${why}`,
       reloadMap: 'Завантажую карту хоста…',
       // Б10: the relays (the servers through which friends find each other)
@@ -1202,6 +1203,14 @@ export default {
       someoneFailed: 'Хтось пробував зайти, але з\'єднання не вдалося: ви, мабуть, у різних мережах. Спробуйте одну Wi-Fi.',
     },
     retry: 'Спробувати ще раз',
+    // Б9 (Р3-A): the guest's card in the game when the host is gone
+    gone: {
+      ended: (n) => `Хост (${n}) завершив гру. Раунд зупинено.`,
+      silent: (n, s) => `Хост (${n}) не відповідає вже ${s} с — мабуть, згорнув гру або зник зв'язок.`,
+      wait: 'Чекати',
+      menu: 'В меню',
+      vr: 'Хост вийшов. Вийди з VR — там кнопка «В меню».',
+    },
     soloAfterLost: 'Грати самому',
     versionLine: (v) => `Версія гри: ${v}`,
     link: { direct: 'напряму', turn: 'через TURN (Cloudflare)', mixed: 'частково через TURN', none: 'ще не з\'єдналось' },   // W8c: the report
