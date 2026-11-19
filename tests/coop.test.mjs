@@ -589,3 +589,43 @@ test('coop (20.11): a digit in the room code greys «Створити кімна
     await ctx.close();
   }
 });
+
+// ---------- live test 20.11: the host changes house in the room ----------
+// The guest has not opened the mansion itself (no stars): its page used to fall back to the dacha, the host said
+// «mansion» again, and the page reloaded round and round. The host is a preview build with «Відкрити все» on (its own
+// settings), the guest the main build (its own settings): one origin, so the two tabs still talk.
+test('coop (20.11): the host changes house in the room — no reload loop, both end up in the room in the new house (dacha → mansion → dacha)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const code = '929292';
+  const host = await open(ctx, base + 'preview/test/?net=local');
+  await host.page.evaluate(async (code) => { const e = await import('./src/game/economy.js'); e.setOpenAll(true); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  let loads = 0;
+  guest.page.on('load', () => { loads++; });
+  await guest.page.fill('#netname', 'Оля');
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  assert.equal(await guest.page.evaluate(async () => { const m = await import('./src/world/maps.js'); return m.mapOpen('mansion'); }), false, 'the guest has not opened the mansion itself');
+  const settle = async (map) => {
+    for (const p of [host.page, guest.page]) {
+      await p.waitForFunction((map) => window.__game && window.__game.level && window.__game.level.id === map && window.__game.net && window.__game.net.state().welcomed && window.__game.net.state().role, map, { timeout: 90000, polling: 250 });
+    }
+  };
+  for (const map of ['mansion', 'dacha']) {
+    loads = 0;
+    await host.page.waitForFunction(() => !document.querySelector('#nethouse').disabled, null, { timeout: 10000 });
+    await host.page.click('#nethouse');
+    await settle(map);
+    await guest.page.waitForTimeout(6000);   // a loop would go on reloading meanwhile
+    const g = await guest.page.evaluate(() => ({ map: window.__game.level.id, role: window.__game.net.state().role, welcomed: window.__game.net.state().welcomed, page: [...document.querySelectorAll('#overlay section[data-page]')].filter((s) => !s.hidden).map((s) => s.dataset.page) }));
+    assert.deepEqual([g.map, g.role, g.welcomed], [map, 'guest', true], `${map}: ${JSON.stringify(g)}`);
+    assert.ok(g.page.includes('friends'), 'in the room screen: ' + g.page);
+    assert.ok(loads <= 1, `${map}: the guest's page loaded ${loads} times (one move, no loop)`);
+    const h = await host.page.evaluate(() => ({ map: window.__game.level.id, players: window.__game.net.state().players.length }));
+    assert.deepEqual(h, { map, players: 2 }, JSON.stringify(h));
+  }
+  // solo play keeps the guest's own lock: the mansion is not opened for it by the room
+  assert.equal(await guest.page.evaluate(async () => { const m = await import('./src/world/maps.js'); return m.mapOpen('mansion'); }), false);
+  assert.deepEqual(guest.errors, []);
+  await ctx.close();
+});

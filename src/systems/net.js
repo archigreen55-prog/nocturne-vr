@@ -341,7 +341,11 @@ function guestMessage(m, peer) {
     setStatus(text, true); leave(true); refreshLobby(); return;
   }
   if (m.type === 'welcome') {
-    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); travelNote(m.map, 'room', true); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
+    if (m.map !== G.level.id) {
+      // a fuse: this page was already loaded for that map and still is not on it — say so, never reload again (no loop)
+      if (params.get('map') === m.map) { leave(true); setStatus(S.net.status.mapFailed, true); refreshLobby(); return; }
+      setStatus(S.net.status.reloadMap); travelNote(m.map, 'room', true); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return;
+    }
     const again = N.welcomed || N.returning;   // Б2: back after a pause, a lost connection or a reload
     N.welcomed = true; N.hostPeer = peer; N.hostPid = m.hostPid; N.hostName = m.host; N.lastHost = performance.now(); N.hostLost = N.hostEnded = false;
     N.backT = 0; if (N.rejoining) { N.rejoining = false; N.stats.rejoins++; }
