@@ -6,22 +6,24 @@
 // A message is a plain object; `type` names it. pose / state are "unreliable": the local kind may drop
 // them on purpose (net.loss), as a real network would; the rest always arrive.
 //   const t = await openTransport({ kind, code, onMessage(msg, from), onPeerJoin(id), onPeerLeave(id), onStatus(s) })
-//   t.selfId, t.send(msg, to?), t.peers(), t.ping(id), t.close(), t.diag()
+//   t.selfId, t.send(msg, to?), t.peers(), t.ping(id), t.close(), t.diag(), t.relays()
 import { CFG } from '../config/index.js';
 import { randomId } from './room.js';
 
 const LOSSY = new Set(['pose', 'state']);
 // tests: ms, ms, 0..1; cut = nothing goes in or out; strategies = the local kind has a channel per kind of
 // relay (as Trystero does); blockStrategy = a guest hears nobody on that one; failConnect = a guest sees
-// the host but cannot connect (as two phones in different networks without TURN)
-export const sim = { lag: 0, jitter: 0, loss: 0, cut: false, strategies: false, blockStrategy: '', failConnect: false };
+// the host but cannot connect (as two phones in different networks without TURN; on the host's page: the
+// host sees a friend it cannot connect to); relaysDown = no relay answers (Б10: the count says 0); dead = the
+// selfIds of connections that died without a word (Б2: a guest's connection lost during a call)
+export const sim = { lag: 0, jitter: 0, loss: 0, cut: false, strategies: false, blockStrategy: '', failConnect: false, relaysDown: false, dead: [] };
 
 // opts.all (the host): the room is open on every kind of relay at once, so a guest finds it on whichever
 // one it tries (T3: the host stayed on Nostr while a guest that found nobody in time moved to the
 // trackers, where nobody would ever be). A guest uses one kind at a time (nextStrategy).
 export async function openTransport(opts) {
   const local = opts.kind === 'local';
-  const strategies = local && !sim.strategies ? [null] : CFG.net.strategies;
+  const strategies = local && !sim.strategies ? [null] : opts.order || CFG.net.strategies;   // order: Б2's rejoin starts on another kind
   const openOne = local ? openLocal : openTrystero;
   const subs = [], roomOf = new Map(), d = { kind: local ? 'local' : 'trystero', tried: [], errors: [], connectFail: 0 };
   let closed = false;
@@ -67,6 +69,12 @@ export async function openTransport(opts) {
     close() { closed = true; for (const t of subs) t.close(); },
     // W8c: how each friend is connected: { peerId: 'host' | 'srflx' | 'prflx' | 'relay' } (relay = through TURN)
     async links() { const out = {}; for (const t of subs) if (t.links) Object.assign(out, await t.links()); return out; },
+    // Б10: how many relays of each kind are open now: { nostr: { open, total } }; null = this library file cannot say
+    relays() {
+      const out = {};
+      for (const t of subs) { const r = t.relays && t.relays(); if (!r) return null; out[t.strategy || 'local'] = r; }
+      return out;
+    },
     diag: () => ({ ...d, strategies: subs.map((t) => t.strategy), strategy: subs.length ? subs[subs.length - 1].strategy : null, peers: subs.reduce((n, t) => n + t.peers().length, 0), errors: d.errors.concat(...subs.map((t) => (t.diag().errors || []))).slice(-5) }),
   };
 }
@@ -75,20 +83,21 @@ export async function openTransport(opts) {
 function openLocal({ code, strategy, guest, onMessage, onPeerJoin, onPeerLeave, onStatus }) {
   const selfId = randomId('L');
   const ch = new BroadcastChannel(`nocturne-net-${CFG.net.appId}-${strategy ? strategy + '-' : ''}${code}`);
-  const deaf = guest && strategy && sim.blockStrategy === strategy;
+  let deaf = guest && strategy && sim.blockStrategy === strategy;   // (also after close: nothing more in or out)
+  const dead = () => sim.dead.includes(selfId);
   const peers = new Map();   // id -> last heard (ms)
   const deliver = (fn) => { const d = sim.lag + Math.random() * sim.jitter; if (d > 0) setTimeout(fn, d); else fn(); };
-  const post = (o) => { if (!sim.cut && !deaf) ch.postMessage(o); };
+  const post = (o) => { if (!sim.cut && !deaf && !dead()) ch.postMessage(o); };
   const failed = new Set();
   const seen = (id) => {
-    if (guest && sim.failConnect) { if (!failed.has(id)) { failed.add(id); if (onStatus) onStatus({ step: 'connectFail', strategy }); } return false; }
+    if (sim.failConnect) { if (!failed.has(id)) { failed.add(id); if (onStatus) onStatus({ step: 'connectFail', strategy }); } return false; }
     const fresh = !peers.has(id);
     peers.set(id, performance.now());
     if (fresh) { post({ hi: selfId, to: id }); onPeerJoin(id); }
     return true;
   };
   ch.onmessage = ({ data: o }) => {
-    if (sim.cut || deaf || !o || o.from === selfId) return;
+    if (sim.cut || deaf || dead() || !o || o.from === selfId) return;
     if (o.hi) { if (!o.to || o.to === selfId) seen(o.hi); return; }
     if (o.bye) { if (peers.delete(o.bye)) onPeerLeave(o.bye); return; }
     if (o.to && o.to !== selfId) return;
@@ -103,8 +112,9 @@ function openLocal({ code, strategy, guest, onMessage, onPeerJoin, onPeerLeave, 
     send(msg, to) { const ids = to ? [].concat(to) : [null]; for (const id of ids) post({ from: selfId, to: id, msg }); },
     peers: () => [...peers.keys()],
     ping: async () => sim.lag * 2,
-    close() { post({ bye: selfId }); ch.close(); },
+    close() { post({ bye: selfId }); deaf = true; ch.close(); },
     diag: () => ({ kind: 'local', peers: peers.size }),
+    relays: () => ({ open: sim.relaysDown ? 0 : 1, total: 1 }),
   };
 }
 
@@ -141,6 +151,12 @@ async function openTrystero({ code, strategy, onMessage, onPeerJoin, onPeerLeave
     close: () => room.leave(),
     diag: () => ({ errors: errors.slice(-5) }),
     links: () => linkTypes(room.getPeers()),
+    // Б10: the relays this kind of library keeps (WebSocket 1 = open); an old cached library file has no getRelaySockets
+    relays: () => {
+      if (typeof lib.getRelaySockets !== 'function') return null;
+      const all = Object.values(lib.getRelaySockets() || {}).filter(Boolean);
+      return all.length ? { open: all.filter((w) => w.readyState === 1).length, total: all.length } : null;
+    },
   };
 }
 

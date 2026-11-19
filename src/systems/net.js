@@ -16,10 +16,13 @@ import { newCode, roomLink, roomFromUrl, playerId, validCode, prettyCode } from 
 import { RemotePlayer } from '../net/remotePlayer.js';
 import { hostState, guestApply, guestGuardSounds, forgetSent, resetGuestView } from '../net/sync.js';
 import { Lobby } from '../ui/lobby.js';
+import { HostGone } from '../ui/hostGone.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { contractById, goalText } from '../game/contracts.js';
 import { newRound, caught, setContract, setDifficulty } from './contract.js';
+import { pause2D } from './desktop.js';
+import { travelShow } from './travel.js';
 import { levelOf, CLASSIC } from '../game/campaign.js';
 import { applyLevel } from './campaign.js';
 import { levelGroups, pickLevel as pickLevelOf } from './levels.js';
@@ -44,24 +47,28 @@ const N = {
   status: '', statusBad: false, card: '', sendT: 0, findT: 0, stage: '',
   events: [], stats: { sent: 0, got: 0, snapshots: 0, rejoins: 0, intents: 0 },
 };
-let lobby = null;
+let lobby = null, gone = null;   // gone: Б9's card (made the first time it is needed)
 
 const isHost = () => N.role === 'host';
 const send = (msg, to) => { if (N.t) { N.t.send(msg, to); N.stats.sent++; } };
-const hostPlayers = () => [{ pid: N.pid, head: G.player.head, floorY: G.player.floorY, yaw: G.player.yaw, crouched: G.player.crouched || G.player.virtualCrouch, running: G.player.running, lost: false }, ...N.remotes.values()].map((p) => (p.pid ? p : Object.assign(p, { pid: p.id }))).filter((p) => p.pid !== G.guardPid);   // the guard is drawn as the guard
+const hostPlayers = () => [{ pid: N.pid, head: G.player.head, floorY: G.player.floorY, yaw: G.player.yaw, crouched: G.player.crouched || G.player.virtualCrouch, running: G.player.running, lost: false },
+  ...[...N.remotes.values()].map((r) => ({ pid: r.id, head: r.head, floorY: r.floorY, yaw: r.yaw, crouched: r.crouched, running: r.running, lost: r.lost || (!!r.away && !r.held) }))].filter((p) => p.pid !== G.guardPid);   // the guard is drawn as the guard; Б2: one on pause is not drawn
+const midRound = () => G.round.phase === 'heist' || G.round.phase === 'escape';
 const nameOf = (pid) => (pid === N.pid ? N.name : (N.info.get(pid) || {}).name || '?');
 
 // T3: why a guest is not in the room — nobody answered, or the host was found but the connection failed
 const lostText = () => (N.connectFail ? S.net.status.cantConnect : S.net.status.noHost(prettyCode(N.code)));
-function setStatus(text, bad = false) { N.status = text; N.statusBad = bad; refreshLobby(); }
+// tips: a list under the line (Б10: what to do); retry: the host's «Спробувати ще раз» with it
+function setStatus(text, bad = false, tips = null, retry = false) { N.status = text; N.statusBad = bad; N.tips = tips; N.retry = retry; refreshLobby(); }
 function lobbyPlayers() {
   const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic, guard: G.guardPid === N.pid };
-  if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, mic: (N.info.get(r.id) || {}).mic, guard: G.guardPid === r.id }))];
+  if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, away: !!r.away, mic: (N.info.get(r.id) || {}).mic, guard: G.guardPid === r.id }))];
   return N.lobbyList ? N.lobbyList.map((p) => ({ ...p, you: p.pid === N.pid })) : [me];
 }
 function refreshLobby() {
   if (!lobby) return;
-  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
+  lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, tips: N.tips, retry: N.retry, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
+    back: backLine(),   // Б2: «Повернутись у раунд» / after a reload between rounds the tap for the sound
     canStart: isHost() && [...N.remotes.values()].every((r) => !r.lost), house: isHost() ? { name: houseName(otherMap()), open: mapOpen(otherMap()) && G.round.phase !== 'heist' && G.round.phase !== 'escape' } : null,
     role: N.role, choice: N.t ? choiceText() : '', levels: N.t ? levelsForRoom() : null, diffs: N.t ? diffsForRoom() : null, goal: N.t ? goalLine() : '' });
 }
@@ -107,6 +114,7 @@ function hostStart() {
   if (!isHost()) return;
   if (G.round.phase !== 'ready') newRound();
   netEvent('start', {});
+  travelShow(G.level.id, CFG.net.startTravel);   // decision of 7.11: everybody sees the van «Їдемо…», then the game
   G.start.play();
 }
 const otherMap = () => (G.level.id === 'mansion' ? 'dacha' : 'mansion');
@@ -116,7 +124,7 @@ function otherHouse() {
   if (!isHost() || G.round.phase === 'heist' || G.round.phase === 'escape' || !mapOpen(otherMap())) return;
   saveSetting('map', otherMap());
   travelNote(otherMap(), 'room');   // campaign v2: «Їдемо в …» instead of a bare reload
-  if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); N.t = null; }
+  if (N.t) { send({ type: 'bye', pid: N.pid, why: 'house' }); N.t.close(); N.t = null; }   // Б9: no card for the guests, they say hello again
   location.replace(roomLink(N.code, otherMap(), location.href, { host: '1' }));
 }
 function netSetupChanged() { if (N.t && isHost()) send(lobbyMessage()); refreshLobby(); }
@@ -137,7 +145,9 @@ async function open(code, role) {
       kind: params.get('net') === 'local' ? 'local' : 'trystero', code, all: role === 'host',   // T3: the host listens on every relay
       onMessage, onPeerJoin, onPeerLeave,
       onStatus: (s) => {
-        if (role !== 'guest' || N.welcomed) return;
+        // Б10: the host hears that a friend was found but the connection failed (no TURN, different networks)
+        if (role === 'host') { if (s.step === 'connectFail' && seq === N.openSeq) setStatus(S.net.status.someoneFailed, true); return; }
+        if (N.welcomed) return;
         if (s.step === 'connectFail') { N.connectFail = true; setStatus(S.net.status.cantConnect, true); }   // T3: found, not connected
         else if (s.step === 'find' && N.t && !N.connectFail) setStatus(S.net.status.findNext);
       },
@@ -154,15 +164,16 @@ async function open(code, role) {
   N.t = t;
   G.net = N;
   G.isHost = role === 'host';
-  if (role === 'host') { N.hostPid = N.pid; setStatus(S.net.status.waiting); }
+  if (role === 'host') { N.hostPid = N.pid; watchRelays(); }
   else for (const id of N.t.peers()) hello(id);
   refreshLobby();
 }
 function leave(quiet) {
   N.openSeq = (N.openSeq || 0) + 1; N.opening = false;   // B03: a connection still opening closes itself
-  if (N.t) { send({ type: 'bye', pid: N.pid }); N.t.close(); }
+  clearInterval(N.relayTimer); N.relayTimer = null;
+  if (N.t) { send({ type: 'bye', pid: N.pid, why: 'end' }); N.t.close(); }   // Б9: from the host = «Хост завершив гру»
   for (const r of N.remotes.values()) dropRemote(r);
-  N.t = null; N.role = null; N.welcomed = false; N.hostPeer = null; N.lobbyList = null;
+  N.t = null; N.role = null; N.welcomed = false; N.hostPeer = null; N.lobbyList = null; N.away = false; N.backT = 0; N.rejoining = false; N.needTap = false;
   G.net = null; G.isGuest = false; G.isHost = true;
   G.players = [G.player];
   applyGuard(null, N.pid); G.benchT = 0;
@@ -172,18 +183,59 @@ function leave(quiet) {
 // with the message; before, the lobby kept showing a room (its code, QR) that did not exist
 function giveUp() {
   N.stage = 'lost';
-  const text = lostText();
+  // Б10: this phone reaches no relay (or no network at all): that is why it sees nobody, not the code
+  const r = relayCount(), off = navigator.onLine === false, none = off || (r && r.open === 0);
+  const text = off ? S.net.status.offline : none ? S.net.status.guestNoRelays : lostText();
+  forgetBack();
   leave(true);
-  setStatus(text, true);
+  setStatus(text, true, none ? S.net.status.guestTips : null);
+}
+
+// ---------- Б10: the host's relays ----------
+// The room opens at once, the relays (Nostr, the trackers) connect behind it: the host now says when none
+// answered in connectTimeout s (friends would never find the room) and what to do; a relay that comes
+// back puts «Чекаю друзів» back by itself. A library file without getRelaySockets (an old cache) says nothing.
+function relayCount() {
+  const r = N.t && N.t.relays ? N.t.relays() : null;
+  if (!r) return null;
+  const v = Object.values(r);
+  return v.length ? { open: v.reduce((n, x) => n + x.open, 0), total: v.reduce((n, x) => n + x.total, 0) } : null;
+}
+function watchRelays() {
+  clearInterval(N.relayTimer);
+  N.relayOpenT = performance.now(); N.relayState = '';
+  checkRelays();
+  N.relayTimer = setInterval(checkRelays, CFG.net.relayCheck * 1000);
+}
+function checkRelays() {
+  if (!N.t || !isHost()) return;
+  if (N.remotes.size) { N.relayState = 'ok'; return; }   // friends are in: they talk directly, the relays matter no more
+  const r = relayCount();
+  const state = navigator.onLine === false ? 'offline' : !r || r.open > 0 ? 'ok' : performance.now() - N.relayOpenT > CFG.net.connectTimeout * 1000 ? 'down' : 'wait';
+  if (state === N.relayState) return;
+  N.relayState = state;
+  if (state === 'ok') setStatus(S.net.status.waiting);
+  else if (state === 'wait') setStatus(S.net.status.relays);
+  else setStatus(state === 'offline' ? S.net.status.offline : S.net.status.noRelays, true, S.net.status.hostTips, true);
+}
+// «Спробувати ще раз»: the same room, the same code, a fresh page (the library gives up on a relay for good
+// after ~100 s of failures, only a new page asks again); the reload path of «Інший будинок» (host=1)
+function retryRoom() {
+  if (!isHost() || !N.code) return;
+  const code = N.code;
+  leave(true);
+  location.replace(roomLink(code, G.level.id, location.href, { host: '1' }));
 }
 function hello(peer) {
   send({ type: 'hello', pid: N.pid, v: N.fakeVersion || VERSION, proto: CFG.net.protocol, map: G.level.id, name: N.name, thief: N.thief, q: CFG.player.quietSpeed, sh: N.shouts || 0, mic: G.mic.state === 'on' && !G.mic.noMic, dev: G.MODE.mode }, peer);
 }
 function onPeerJoin(peer) {
   if (N.role === 'guest' && !N.welcomed) { setStatus(S.net.status.connecting(S.net.host)); hello(peer); }
+  else if (N.role === 'guest' && (peer === N.hostPeer || N.rejoining)) hello(peer);   // Б2: the host found again (a new connection): its snapshot again
 }
 function onPeerLeave(peer) {
   const pid = N.pidOf.get(peer);
+  if (pid && N.peerOf.get(pid) !== peer) return;   // Б2: an old connection of a friend that is already back through a new one
   if (pid && N.remotes.has(pid)) N.remotes.get(pid).lastHeard = Math.min(N.remotes.get(pid).lastHeard, performance.now() - CFG.net.peerLostAfter * 1000);
 }
 
@@ -203,7 +255,7 @@ function hostMessage(m, peer) {
     let rp = N.remotes.get(m.pid);
     if (!rp && N.remotes.size + 1 >= CFG.net.maxThieves) { send({ type: 'deny', why: 'full' }, peer); return; }
     if (!rp && (G.round.phase === 'heist' || G.round.phase === 'escape')) { send({ type: 'deny', why: 'started' }, peer); return; }   // decision P5: only before the round starts
-    if (rp) { N.stats.rejoins++; if (rp.lost) flash(S.net.friendBack(rp.name), 2.5, '#5fd38d'); }
+    if (rp) { N.stats.rejoins++; if (rp.lost || rp.away) flash(S.net.friendBack(rp.name), 2.5, '#5fd38d'); rp.away = false; }   // Б2: its place was kept
     else {
       rp = new RemotePlayer({ id: m.pid, name: String(m.name || '?').slice(0, 12), thief: m.thief });
       rp.pid = m.pid;
@@ -220,7 +272,8 @@ function hostMessage(m, peer) {
     N.peerOf.set(m.pid, peer); N.pidOf.set(peer, m.pid);
     forgetSent();
     const snap = hostState(true, N.pid, hostPlayers()); snap.hg = guardState();
-    send({ type: 'welcome', you: m.pid, map: G.level.id, host: N.name, hostPid: N.pid, snap }, peer);
+    // Б2: the round's number (a guest that missed the end or a new round goes where the host is) and the result on the screen now
+    send({ type: 'welcome', you: m.pid, map: G.level.id, host: N.name, hostPid: N.pid, snap, rn: N.roundNo || 0, res: G.round.phase === 'result' ? { R: G.round.result, alarmed: G.round.alarmed } : null }, peer);
     N.stats.snapshots++;
     send(lobbyMessage());
     refreshLobby();
@@ -234,7 +287,9 @@ function hostMessage(m, peer) {
     r.mic.whisper = !!m.wh;   // W7: the guest whispers (Шепотун hears it; an older guest without the field: never)
     if (m.sh > r.mic.shouts) r.mic.shouts = m.sh;
   } else if (m.type === 'act') hostIntent(r, m);
-  else if (m.type === 'bye') { r.lastHeard = 0; }
+  else if (m.type === 'bye') { r.lastHeard = 0; r.left = true; }   // it left the room itself: gone now, also in the middle of a round
+  else if (m.type === 'away') { if (!r.away) { r.away = true; r.awaySince = performance.now(); flash(S.net.friendAway(r.name), 2.5, '#93a1b8'); send(lobbyMessage()); refreshLobby(); } }   // Б2: its pause / a call
+  else if (m.type === 'back') { if (r.away) { r.away = false; flash(S.net.friendBack(r.name), 2.5, '#5fd38d'); send(lobbyMessage()); refreshLobby(); } }
 }
 
 // a guest asks for something; the host does it as if that player did it here
@@ -277,20 +332,46 @@ function hostIntent(r, m) {
 }
 
 function guestMessage(m, peer) {
-  if (m.type === 'deny') { setStatus(m.why === 'full' ? S.net.status.full : m.why === 'started' ? S.net.status.started : S.net.status.version, true); leave(true); refreshLobby(); return; }
+  if (m.type === 'deny' && N.welcomed && peer !== N.hostPeer) return;   // Б12: only the host turns a guest away
+  if (m.type === 'deny') {
+    const text = m.why === 'full' ? S.net.status.full : m.why === 'started' ? (N.welcomed || N.returning ? S.net.status.startedBack : S.net.status.started) : S.net.status.version;
+    forgetBack();
+    // Б2: turned away with the host's half-world (its clock, guards, doors) here: a clean page on «Грати з друзями», with the reason
+    if (G.isGuest && G.round.phase !== 'ready') { leave(true); cleanPage({ page: 'friends' }, text); return; }
+    setStatus(text, true); leave(true); refreshLobby(); return;
+  }
   if (m.type === 'welcome') {
-    if (m.map !== G.level.id) { setStatus(S.net.status.reloadMap); travelNote(m.map, 'room', true); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return; }
-    N.welcomed = true; N.hostPeer = peer; N.hostPid = m.hostPid; N.hostName = m.host; N.lastHost = performance.now(); N.hostLost = false;
+    if (m.map !== G.level.id) {
+      // a fuse: this page was already loaded for that map and still is not on it — say so, never reload again (no loop)
+      if (params.get('map') === m.map) { leave(true); setStatus(S.net.status.mapFailed, true); refreshLobby(); return; }
+      setStatus(S.net.status.reloadMap); travelNote(m.map, 'room', true); location.replace(roomLink(N.code, m.map, location.href, { join: '1' })); return;
+    }
+    const again = N.welcomed || N.returning;   // Б2: back after a pause, a lost connection or a reload
+    N.welcomed = true; N.hostPeer = peer; N.hostPid = m.hostPid; N.hostName = m.host; N.lastHost = performance.now(); N.hostLost = N.hostEnded = false;
+    N.backT = 0; if (N.rejoining) { N.rejoining = false; N.stats.rejoins++; }
+    // Б2: the round changed while this guest was away (it missed the end or a new round): as on «newround»
+    const missed = again && N.roundNo !== undefined && m.rn !== N.roundNo;
+    if (missed) newRound(true);
+    N.roundNo = m.rn || 0;
     becomeGuest();
     guestState(m.snap);
+    if (m.res && G.round.phase !== 'result') guestEvent({ k: 'result', ...m.res });
+    // a reloaded tab stands where the host saw it last (Р1-C: the same place; its item is in its hands by the snapshot)
+    const me = N.returning && m.snap.p.find((p) => p[0] === N.pid);
+    if (me) G.player.teleport(me[1], me[2], me[5], me[4]);
+    if (N.returning) N.needTap = true;   // a reloaded page has had no tap yet: no sound on an iPhone until one
+    N.returning = false;
+    if (missed && G.round.phase === 'ready' && G.playingDesktop) pause2D();   // the host is in the room: so is this guest (T4c)
     N.stats.snapshots++;
     setStatus(S.net.status.inRoom(m.host));
+    rememberBack();
     return;
   }
   if (m.type === 'rehello') { hello(peer); return; }   // also a new host peer: the host reloaded (another house, T4b)
-  if (peer !== N.hostPeer) return;   // the logic talks host <-> guest only
-  N.lastHost = performance.now();
-  if (N.hostLost) { N.hostLost = false; setStatus(S.net.status.inRoom(N.hostName)); }
+  if (peer !== N.hostPeer) return;   // the logic talks host <-> guest only (Б12: a «bye» from another guest is nothing)
+  N.lastHost = performance.now(); N.backT = 0;   // Б2: the host answers after this guest's pause
+  if (m.type === 'bye') { if (m.why === 'end') { N.hostEnded = N.hostLost = true; setStatus(S.net.status.hostEnded, true); } return; }   // Б9; 'house': its rehello follows
+  if (N.hostLost && !N.hostEnded) { N.hostLost = false; N.waitUntil = 0; setStatus(S.net.status.inRoom(N.hostName)); }   // Б9: the card goes by itself (a host that ended the game: only its welcome again)
   if (m.type === 'state') guestState(m);
   else if (m.type === 'ev') guestEvent(m);
   else if (m.type === 'lobby') { N.lobbyList = m.players; if (m.setup) N.setup = m.setup; for (const p of m.players) N.info.set(p.pid, p); applyGuard(m.gp || null, N.pid); refreshLobby(); }
@@ -357,9 +438,9 @@ function guestEvent(m) {
       round.result = m.R; round.alarmed = !!m.alarmed; round.phase = 'result'; G.caughtT = -1;
       if (round.env.onPhase) round.env.onPhase('result');
       break;
-    case 'newround': newRound(true); break;
+    case 'newround': newRound(true); N.roundNo = m.rn ?? (N.roundNo || 0) + 1; break;
     case 'pause': flash(S.net.hostPaused, 3, '#93a1b8'); break;
-    case 'start': if (!G.playingDesktop && !G.inVR && G.start) G.start.play(); break;   // T4b: the host pressed «Почати»
+    case 'start': N.needTap = false; if (!G.inVR) travelShow(G.level.id, CFG.net.startTravel); if (!G.playingDesktop && !G.inVR && G.start) G.start.play(); break;   // T4b: the host pressed «Почати»
     case 'bench': if (m.pid === N.pid) localBench(m.s); else flash(S.hguard.benched(m.name || nameOf(m.pid), m.s), 3, '#ff5c5c'); break;
     case 'guardnote': if (G.role === 'guard') flash(m.t, 3, '#ffd166'); break;
   }
@@ -368,6 +449,7 @@ function guestEvent(m) {
 // ---------- what the rest of the game calls ----------
 // the host sends an event to everybody (nothing offline or on a guest)
 export function netEvent(k, data) {
+  if (k === 'newround') { N.roundNo = (N.roundNo || 0) + 1; data = { ...data, rn: N.roundNo }; }   // Б2: the round's number
   if (!N.t || !isHost() || !N.remotes.size) return;
   send({ type: 'ev', k, ...data });
   if (k === 'newround') forgetSent();   // the guests reset their copy: the next state is whole
@@ -387,6 +469,8 @@ export function netReport() {
   const d = N.t.diag();
   return {
     room: true, role: N.role, welcomed: N.welcomed, players: lobbyPlayers().length, transport: d.kind, strategies: d.strategies, errors: d.errors,
+    rejoins: N.stats.rejoins, away: isHost() ? [...N.remotes.values()].filter((r) => r.away).length : N.away ? 1 : 0,   // Б2
+    relays: Object.fromEntries(Object.entries((N.t.relays && N.t.relays()) || {}).map(([k, v]) => [k, `${v.open}/${v.total}`])),   // Б10: open / all
     link, connection: S.net.link[link],
     links: Object.fromEntries(Object.entries(byPeer).map(([peer, type]) => [nameOf(N.pidOf.get(peer)) || peer.slice(0, 6), type])),
     turn,
@@ -394,9 +478,10 @@ export function netReport() {
 }
 export function netState() {
   return {
-    role: N.role, code: N.code, pid: N.pid, welcomed: N.welcomed, hostLost: N.hostLost, status: N.status,
+    role: N.role, code: N.code, pid: N.pid, welcomed: N.welcomed, hostLost: N.hostLost, hostEnded: !!N.hostEnded, card: gone && gone.isOpen ? gone.kind : '', status: N.status,
     players: lobbyPlayers().map((p) => ({ pid: p.pid, name: p.name, thief: p.thief, host: !!p.host, lost: !!p.lost })),
-    remotes: [...N.remotes.values()].map((r) => ({ pid: r.id, x: +r.head.x.toFixed(2), z: +r.head.z.toFixed(2), lost: r.lost, desk: r.desk ? r.desk.id : null, inGame: G.players.includes(r), drawn: !!r.group.visible, bench: r.benchT > 0 })),
+    remotes: [...N.remotes.values()].map((r) => ({ pid: r.id, x: +r.head.x.toFixed(2), z: +r.head.z.toFixed(2), lost: r.lost, away: !!r.away, held: !!r.held, desk: r.desk ? r.desk.id : null, inGame: G.players.includes(r), drawn: !!r.group.visible, bench: r.benchT > 0 })),
+    away: !!N.away, rejoining: !!N.rejoining, back: backToRound(),
     stats: { ...N.stats }, transport: N.t ? N.t.diag() : null,
   };
 }
@@ -431,13 +516,21 @@ export const net = {
       // B05: a guest that leaves in the middle of a round would keep the host's half-world (its clock, guards,
       // doors): the page reloads clean on «Грати з друзями» instead
       leave: () => {
-        const midRound = N.role === 'guest' && N.welcomed && G.round.phase !== 'ready';
+        const halfWorld = N.role === 'guest' && N.welcomed && G.round.phase !== 'ready';
+        forgetBack();
         leave(); refreshLobby();
-        if (midRound) { const u = new URL(location.href); u.searchParams.delete('room'); u.searchParams.delete('join'); u.searchParams.set('page', 'friends'); location.replace(u.toString()); }
+        if (halfWorld) cleanPage({ page: 'friends' });
+      },
+      back: () => {   // Б2: the tap iPhone needs for the sound and the microphone
+        const k = backToRound();
+        N.needTap = false;
+        if (k === 'round') G.start.play();
+        else if (k === 'room') { unlockAudio(); ensureMic({ ask: true }); }
+        refreshLobby();
       },
       role: (want) => netRole(want),
-      pickLevel, pickDiff, start: () => hostStart(), house: () => otherHouse(),
-      solo: () => { const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
+      pickLevel, pickDiff, start: () => hostStart(), house: () => otherHouse(), retry: () => retryRoom(),
+      solo: () => { forgetBack(); const u = new URL(location.href); u.searchParams.delete('room'); location.replace(u.toString()); },
       share: async () => {
         const link = roomLink(N.code, G.level.id);
         try { if (navigator.share && G.PHONE) { await navigator.share({ title: S.net.title, text: S.net.shareText(prettyCode(N.code)), url: link }); return; } } catch { /* cancelled */ }
@@ -445,13 +538,30 @@ export const net = {
       },
     }, { name: N.name, thief: N.thief, code: code || '' });
     if (code) { N.card = S.net.joinCard(prettyCode(code), G.level.id === 'mansion' ? S.mansion.name : S.mansion.mapDacha); refreshLobby(); }
+    const said = takeNote();   // Б2: why the page was reloaded clean (turned away in the middle of a round)
+    if (said) setStatus(said, true);
     // T4b: back after a reload for another map — the guest joins and the host reopens the room by themselves
-    if (code && params.get('join') === '1') { N.card = ''; open(code, 'guest'); }
+    // Б2: a tab the phone reloaded in a room (the marker < backFor min): back into the room by itself
+    const back = readBack();
+    if (code && params.get('join') !== '1' && params.get('host') !== '1' && back && back.code === code) { N.card = ''; N.returning = true; open(code, 'guest'); }
+    else if (code && params.get('join') === '1') { N.card = ''; open(code, 'guest'); }
     else if (code && params.get('host') === '1') { N.card = ''; open(code, 'host'); }
     // a minimized host draws no frames: «пауза» for the guests and a timer says «I am here» (Android keeps
     // timers going once a second in the background; iPhone stops the page, the guests then wait for it)
+    // Б9: the host closes the page — the guests are told at once (not always delivered: Android may kill the
+    // browser first; then the guests' hostLostAfter s of silence)
+    addEventListener('pagehide', () => { if (N.t && isHost() && N.remotes.size) send({ type: 'bye', pid: N.pid, why: 'end' }); });
     document.addEventListener('visibilitychange', () => {
       clearInterval(N.kaTimer); N.kaTimer = null;
+      // Б9: a host back from sleep (iPhone stops the page): its own pre did not run, every friend looks 30 s
+      // silent at once — they get wakeGrace s to be heard again instead of all being dropped together
+      if (N.t && isHost() && !document.hidden) {
+        const keep = performance.now() - Math.max(0, CFG.net.peerGoneAfter - CFG.net.wakeGrace) * 1000;
+        for (const r of N.remotes.values()) if (r.lastHeard < keep) r.lastHeard = keep;
+      }
+      // Б2: a minimised guest says «I am here» from a timer (frames stop; Android keeps timers, iPhone does not)
+      clearInterval(N.awayTimer); N.awayTimer = null;
+      if (N.t && N.role === 'guest' && document.hidden) { guestPresence(); N.awayTimer = setInterval(guestPresence, 1000); }
       if (!N.t || !isHost() || !N.remotes.size || !document.hidden) return;
       netEvent('pause', {});
       N.kaTimer = setInterval(() => send({ type: 'ka' }), 1000);
@@ -474,12 +584,30 @@ export const net = {
     // W8c: how each friend is connected (directly or through TURN), for the report; every 5 s
     if (N.t.links && t - (N.linksT || 0) > 5000) { N.linksT = t; const tr = N.t; tr.links().then((l) => { if (N.t === tr) N.links = l; }, () => {}); }
     if (isHost()) {
+      // Б2 (decision Р2-a): in the middle of a round a friend on pause or silent keeps its place to the round's end;
+      // after it (and before the round) the old rule: peerGoneAfter s of silence, counted from the round's end
+      const mid = midRound();
+      if (N.wasMid && !mid) N.roundEndT = t;
+      N.wasMid = mid;
       // friends: drawn where they were a moment ago; a silent one stays out of the guards' sight
       for (const [pid, r] of N.remotes) {
         const wasLost = r.lost;
         r.update(dt, t, true);
-        if (r.lost && !wasLost) flash(S.net.friendLost(r.name), 2.5, '#ffb347');
-        if (t - r.lastHeard > CFG.net.peerGoneAfter * 1000) { flash(S.net.friendGone(r.name), 2.5, '#93a1b8'); dropRemote(r); N.remotes.delete(pid); N.info.delete(pid); if (pid === G.guardPid) applyGuard(null, N.pid); send(lobbyMessage()); refreshLobby(); continue; }
+        // Б2 (owner, 19.11): a pause does not save from a chase. A guard that saw or chased this friend in the
+        // last chaseSeen s keeps it: the body stays where it was, visible and catchable, chaseHold s more;
+        // otherwise it is gone for the guards and the friends at once (once per pause / silence)
+        if (G.guards.some((g) => g.target === r && (g.visible || g.state === 'chase' || g.state === 'hunt'))) r.seenT = t;
+        const quiet = r.away || r.lost;
+        if (!quiet) { r.holdUntil = 0; r.holdDone = false; }
+        else if (!r.holdDone) { r.holdDone = true; if (t - (r.seenT ?? -1e9) < CFG.net.chaseSeen * 1000) r.holdUntil = t + CFG.net.chaseHold * 1000; }
+        r.held = quiet && r.holdUntil > t;
+        if (r.held) { r.lost = false; r.speed = 0; r.running = false; r.stepNoise = 0; r.group.visible = true; }
+        else if (r.away) r.group.visible = false;
+        if (r.lost && !wasLost && !r.away) flash(S.net.friendLost(r.name), 2.5, '#ffb347');
+        // Р1-C: its item stays in its hands, after awayDropAfter s it falls where it stood
+        const awayFor = r.away ? t - r.awaySince : r.lost ? t - r.lastHeard : 0;
+        if (r.desk && awayFor > CFG.net.awayDropAfter * 1000) { const it = r.desk; r.desk = null; it.netHolder = null; it.holders.length = 0; it.drop(new THREE.Vector3()); }
+        if (r.left || (!mid && t - Math.max(r.lastHeard, N.roundEndT || 0) > CFG.net.peerGoneAfter * 1000)) { flash(S.net.friendGone(r.name), 2.5, '#93a1b8'); dropRemote(r); N.remotes.delete(pid); N.info.delete(pid); if (pid === G.guardPid) applyGuard(null, N.pid); send(lobbyMessage()); refreshLobby(); continue; }
         if (r.benchT > 0) r.benchT = Math.max(0, r.benchT - dt);   // W15: a caught thief in the van
         if (r.lost !== wasLost) { send(lobbyMessage()); refreshLobby(); }
         // its item in front of it, the way a laptop player carries one
@@ -491,13 +619,13 @@ export const net = {
         }
       }
       // the thieves in the house: not the guard (W15), not the ones on the bench, not the silent ones
-      G.players = [...(G.guardPid === N.pid || G.benchT > 0 ? [] : [G.player]), ...[...N.remotes.values()].filter((r) => !r.lost && r.id !== G.guardPid && !(r.benchT > 0))];
+      G.players = [...(G.guardPid === N.pid || G.benchT > 0 ? [] : [G.player]), ...[...N.remotes.values()].filter((r) => !r.lost && (!r.away || r.held) && r.id !== G.guardPid && !(r.benchT > 0))];
       for (const r of N.remotes.values()) if (r.id === G.guardPid) r.group.visible = false;   // its body is the guard
       // the round is over: the friends' items were stowed or lost with it (game/round.js)
       if (G.round.phase === 'result') for (const r of N.remotes.values()) if (r.desk) { r.desk.netHolder = null; r.desk = null; }
     } else {
       for (const r of N.remotes.values()) r.update(dt, t, false);
-      if (N.welcomed && !N.hostLost && t - N.lastHost > CFG.net.hostLostAfter * 1000) { N.hostLost = true; setStatus(S.net.status.hostLost, true); flash(S.net.status.hostLost, 5, '#ff5c5c'); }
+      if (N.welcomed && !N.hostLost && !N.away && t - N.lastHost > CFG.net.hostLostAfter * 1000) { N.hostLost = true; setStatus(S.net.status.hostLost, true); flash(S.net.status.hostLost, 5, '#ff5c5c'); }
       if (!N.welcomed) {   // still looking: after findTimeout try the next kind of relay, then give up
         N.findT += dt;
         if (N.findT > CFG.net.findTimeout && N.stage === 'find') {
@@ -515,7 +643,7 @@ export const net = {
     if (!N.t || !isHost() || !G.active || G.round.phase === 'result' || G.caughtT >= 0) return;
     for (const r of N.remotes.values()) {
       const it = r.desk;
-      if (it && !r.lost && !it.throwable && G.zone.contains(r.head.x, r.head.z)) { r.desk = null; it.netHolder = null; it.holders.length = 0; G.loot.deliver(it); }
+      if (it && !r.lost && !r.away && !it.throwable && G.zone.contains(r.head.x, r.head.z)) { r.desk = null; it.netHolder = null; it.holders.length = 0; G.loot.deliver(it); }
     }
   },
 
@@ -523,7 +651,7 @@ export const net = {
   world(dt) {
     if (!N.t || !isHost() || !G.active || G.round.phase === 'result') return;
     for (const r of N.remotes.values()) {
-      if (r.lost) continue;
+      if (r.lost || r.away) continue;
       if (r.id === G.guardPid || r.benchT > 0) { r.mic.shoutSeen = r.mic.shouts; continue; }
       const shout = r.mic.shouts > r.mic.shoutSeen;
       r.mic.shoutSeen = r.mic.shouts;
@@ -561,8 +689,107 @@ export const net = {
       if (G.paused && (N.kaT = (N.kaT || 0) - dt) <= 0) { N.kaT = 1; send({ type: 'ka' }); }
     }
     if (lobby && N.t && (N.lobbyTick = (N.lobbyTick || 0) + 1) % 30 === 0) refreshLobby();
+    guestPresence();
+    hostGoneCard();
   },
 };
+
+// ---------- Б2: a guest on pause, after a call, after a reload ----------
+// On pause (the phone's menu, a call, a minimised page) a guest says «на паузі», then «I am here» once a second
+// (the frame phase runs while paused; a minimised page: the timer above); back = «back» and hello: the host,
+// which kept its place, answers with the whole world (doors, items, guards, clock as they are now). No answer
+// in backWait s (the connection died during the call): the guest opens the same room again by itself — the same
+// player id, no reload; while the host stays silent it tries again every rejoinEvery s.
+function guestPresence() {
+  if (N.role !== 'guest' || !N.welcomed || !N.t) return;
+  const now = performance.now(), away = !!G.paused || document.hidden;
+  if (away !== !!N.away) {
+    N.away = away;
+    if (away) { send({ type: 'away' }, N.hostPeer); N.kaSentT = now; }
+    else {
+      send({ type: 'back' }, N.hostPeer); hello(N.hostPeer);
+      N.backT = now; N.lastHost = Math.max(N.lastHost, now);   // its own pause is not the host's silence
+    }
+  }
+  if (away && now - (N.kaSentT || 0) > 1000) { N.kaSentT = now; send({ type: 'ka' }, N.hostPeer); }
+  if (away) return;
+  if (N.rejoining && now - N.rejoinT > CFG.net.findTimeout * 1000) N.rejoining = false;   // that try found nobody
+  if (N.backT && now - N.backT > CFG.net.backWait * 1000) { N.backT = 0; rejoin(); }
+  else if (N.hostLost && !N.hostEnded && !N.rejoining && now - (N.rejoinT || 0) > CFG.net.rejoinEvery * 1000) rejoin();
+  if (now - (N.backSaveT || 0) > 10000) rememberBack();
+}
+async function rejoin() {
+  if (N.role !== 'guest' || !N.welcomed || N.rejoining || !N.t) return;
+  N.rejoining = true; N.rejoinT = performance.now();
+  N.rejoinTry = (N.rejoinTry || 0) + 1;
+  flash(S.net.status.rejoining, 3, '#93a1b8'); setStatus(S.net.status.rejoining);
+  const old = N.t, L = CFG.net.strategies, k = N.rejoinTry % L.length;
+  let t;
+  try {
+    t = await openTransport({ kind: params.get('net') === 'local' ? 'local' : 'trystero', code: N.code, all: false, order: L.slice(k).concat(L.slice(0, k)), onMessage, onPeerJoin, onPeerLeave });
+  } catch { N.rejoining = false; return; }
+  if (N.t !== old || !N.welcomed) { t.close(); return; }   // left (or the old one came back) meanwhile
+  N.t = t; old.close();   // no «bye»: the host keeps this guest's place
+  for (const id of t.peers()) hello(id);
+}
+// 'round': the round goes on while this guest is in the room screen (back after a reload, or it missed «Почати»);
+// 'room': back after a reload between rounds — one tap, so an iPhone gives the sound and the microphone
+function backToRound() {
+  if (N.role !== 'guest' || !N.welcomed || G.playingDesktop || G.inVR) return '';
+  return midRound() ? 'round' : N.needTap ? 'room' : '';
+}
+function backLine() {
+  const k = backToRound();
+  return k === 'round' ? { text: S.net.roundOn(N.hostName), button: S.net.backToRound } : k === 'room' ? { text: S.net.backInRoom(N.hostName), button: S.net.backTap } : null;
+}
+// a reload: the address keeps the room (a guest that typed the code had none) and the tab remembers it for backFor min
+const BACK = 'nocturne.net.back', NOTE = 'nocturne.net.note';
+function rememberBack() {
+  if (N.role !== 'guest' || !N.welcomed) return;
+  N.backSaveT = performance.now();
+  try { sessionStorage.setItem(BACK, JSON.stringify({ code: N.code, t: Date.now() })); } catch { /* private mode */ }
+  try {
+    const u = new URL(location.href);
+    if (u.searchParams.get('room') !== N.code || u.searchParams.get('map') !== G.level.id || u.searchParams.has('join')) {
+      u.searchParams.set('room', N.code); u.searchParams.set('map', G.level.id); u.searchParams.delete('join');
+      history.replaceState(history.state, '', u.toString());
+    }
+  } catch { /* no history here */ }
+}
+function readBack() {
+  try { const b = JSON.parse(sessionStorage.getItem(BACK) || 'null'); return b && Date.now() - b.t < CFG.net.backFor * 60000 ? b : null; } catch { return null; }
+}
+function forgetBack() { try { sessionStorage.removeItem(BACK); } catch { /* private mode */ } }
+function takeNote() { try { const t = sessionStorage.getItem(NOTE); sessionStorage.removeItem(NOTE); return t; } catch { return null; } }
+// a clean page (B05): no room in the address; note = the line to show there
+function cleanPage(set = {}, note = '') {
+  try { if (note) sessionStorage.setItem(NOTE, note); } catch { /* private mode */ }
+  const u = new URL(location.href);
+  for (const k of ['room', 'join', 'host', 'page']) u.searchParams.delete(k);
+  for (const [k, v] of Object.entries(set)) u.searchParams.set(k, v);
+  location.replace(u.toString());
+}
+
+// ---------- Б9: the host is gone (decision Р3-A) ----------
+// In the game (not in the room screen, where the line and «Грати самому» stay): the host closed the game =
+// «Хост завершив гру» [В меню]; hostLostAfter s of silence = «Хост не відповідає…» [Чекати] [В меню]; the host
+// back = the card goes by itself. In VR the HTML is not seen: the wrist keeps a line (the card waits outside VR).
+function hostGoneCard() {
+  const now = performance.now();
+  const inGame = G.playingDesktop || G.inVR || (gone && gone.isOpen);
+  const kind = N.role !== 'guest' || !N.welcomed || !inGame ? '' : N.hostEnded ? 'end' : N.hostLost && now > (N.waitUntil || 0) ? 'silent' : '';
+  if (!kind) { if (gone && gone.isOpen) gone.hide(); return; }
+  if (!gone) gone = new HostGone({ wait: () => { N.waitUntil = performance.now() + CFG.net.hostWaitMore * 1000; gone.hide(); }, menu: () => toMenu() });
+  if (G.inVR && now - (N.vrLineT || 0) > 500) { N.vrLineT = now; flash(S.net.gone.vr, 1, '#ff5c5c'); }
+  if (!gone.isOpen && document.pointerLockElement) document.exitPointerLock();   // a PC: the mouse is free to press
+  gone.show(kind, N.hostName, Math.round((now - N.lastHost) / 1000));
+}
+// «В меню»: a clean page on the main menu, as B05 (the host's half-world never stays)
+function toMenu() {
+  forgetBack();
+  leave(true);
+  cleanPage();
+}
 
 // W15: [guard pid, evidence, caught, thieves, pids the guard's screen shows, knocked down s, by which trap]
 function guardState() { return [G.guardPid || '', guardView.evidence ? 1 : 0, guardView.caught || 0, guardView.thieves || 0, [...guardView.gv], +(guardView.stunT || 0).toFixed(2), guardView.stunKind || '']; }

@@ -45,7 +45,11 @@ export const mapOpen = (id) => !!MAPS[id] && starsOpen(id);
 
 // ?map=<id> picks the map and remembers it; otherwise the remembered one; a closed map = the default.
 export function currentMapId() {
-  const q = new URLSearchParams(location.search).get('map');
+  const sp = new URLSearchParams(location.search), q = sp.get('map');
+  // in a room the map is the host's (decision of 7.11): a friend's page opens the host's house even when its own
+  // stars have not opened it — not remembered, solo play keeps its own lock. Before, a guest without the mansion
+  // got the dacha back, the host said «mansion» again, and the page reloaded round and round (live test 20.11)
+  if (q && MAPS[q] && sp.has('room') && !sp.has('host')) return q;
   let id = q || loadSetting('map', CFG.maps.default);
   if (!MAPS[id] || !mapOpen(id)) id = CFG.maps.default;
   if (q && id === q) saveSetting('map', id);

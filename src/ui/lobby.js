@@ -26,6 +26,7 @@ export class Lobby {
         </div>
       </div>
       <p id="netcard" class="nt-card" hidden></p>
+      <div id="netback" hidden><p id="netbacktext" class="nt-choice"></p><button id="netbackbtn" class="primary" type="button">${esc(S.net.backToRound)}</button></div>
       <div id="netin" class="nt-room" hidden>
         <div class="nt-left">
           <div class="nt-code"><b id="netroom"></b><canvas id="netqr" width="132" height="132"></canvas></div>
@@ -46,12 +47,23 @@ export class Lobby {
         </div>
       </div>
       <p id="netstatus" style="color:var(--warn)"></p>
+      <ol id="nettips" class="nt-tips" hidden></ol>
+      <div class="row" id="netretry" hidden><button id="netretrybtn" class="primary">${esc(S.net.retry)}</button></div>
       <p class="muted" id="netver" style="font-size:12px;margin:2px 0"></p>
       <div class="row" id="netsolo" hidden><button id="netsolobtn">${esc(S.net.soloAfterLost)}</button></div>`;
     const q = (id) => root.querySelector('#' + id);
-    this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver') };
+    this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver'), tips: q('nettips'), retry: q('netretry') };
     this.el.name.value = name; this.el.thief.value = THIEVES.includes(thief) ? thief : 'zoya';
     if (code) this.el.code.value = prettyCode(code);
+    // the owner's decision (20.11): a digit in the code = joining — «Створити кімнату» goes grey, «Увійти в кімнату» lights
+    // up; an empty field = both as before (typed, pasted, or from an invitation link ?room=)
+    this.codeLooks = () => {
+      const typed = /\d/.test(this.el.code.value), create = q('netcreate'), join = q('netjoin');
+      create.disabled = typed; create.classList.toggle('primary', !typed);
+      join.classList.toggle('lead', typed);
+    };
+    this.el.code.addEventListener('input', this.codeLooks);
+    this.codeLooks();
     if (!this.el.name.value) this.el.name.value = S.crew.names[this.el.thief.value];
     this.el.thief.addEventListener('change', () => { if (THIEVES.some((t) => S.crew.names[t] === this.el.name.value)) this.el.name.value = S.crew.names[this.el.thief.value]; });
     const who = () => [this.el.name.value.trim().slice(0, 12) || S.crew.names[this.el.thief.value], this.el.thief.value];
@@ -60,6 +72,8 @@ export class Lobby {
     bindPress(q('netshare'), () => on.share());
     bindPress(q('netleave'), () => on.leave());
     bindPress(q('netsolobtn'), () => on.solo());
+    bindPress(q('netbackbtn'), () => on.back && on.back());   // coop B2: back into the round that goes on
+    bindPress(q('netretrybtn'), () => on.retry && on.retry());   // coop B10: the host reopens the same room
     bindPress(q('netstart'), () => { if (!q('netstart').disabled && on.start) on.start(); });   // T4b
     bindPress(q('nethouse'), () => { if (!q('nethouse').disabled && on.house) on.house(); });
     bindPress(q('netguard'), () => on.role && on.role(this.el.guard.dataset.want === '1'));   // W15: play the guard
@@ -67,21 +81,30 @@ export class Lobby {
     this.el.code.addEventListener('keydown', (e) => { if (e.key === 'Enter') on.join(cleanCode(this.el.code.value), ...who()); });
   }
 
-  // st: { inRoom, code, link, players: [{ pid, name, thief, host, you, lost, mic, guard }], guardPid, myPid, status, statusBad, card, lost }
+  // st: { inRoom, code, link, players: [{ pid, name, thief, host, you, lost, away, mic, guard }], guardPid, myPid, status, statusBad, tips, retry, card, lost }
   show(st) {
     const e = this.el;
     e.out.hidden = !!st.inRoom; e.inn.hidden = !st.inRoom;
     this.root.classList.toggle('in-room', !!st.inRoom);   // menu design: the thief and the name are picked before; the room is the room
+    // the owner's decision of 7.11: a guest in a room picks nothing and goes nowhere else (menu.js keeps it on this page)
+    document.body.classList.toggle('guest-room', !!st.inRoom && st.role === 'guest');
     e.name.disabled = e.thief.disabled = !!st.inRoom;
     e.card.hidden = !st.card; e.card.textContent = st.card || '';
     e.status.textContent = st.status || '';
     e.status.style.color = st.statusBad ? 'var(--bad)' : 'var(--warn)';
+    const tips = st.tips || [], sig = tips.join('\n');   // coop B10: what to do, as a list under the line
+    if (e.tips.dataset.sig !== sig) { e.tips.dataset.sig = sig; e.tips.replaceChildren(...tips.map((t) => Object.assign(document.createElement('li'), { textContent: t }))); }
+    e.tips.hidden = !tips.length;
+    e.retry.hidden = !st.retry;
     e.solo.hidden = !st.lost;
+    const back = this.root.querySelector('#netback');   // coop B2: st.back = { text, button }: back into the round / the tap for the sound
+    back.hidden = !st.back;
+    if (st.back) { this.root.querySelector('#netbacktext').textContent = st.back.text; this.root.querySelector('#netbackbtn').textContent = st.back.button; }
     e.ver.textContent = st.version ? S.net.versionLine(st.version) : '';   // T3: friends compare their builds
     if (st.inRoom) {
       if (e.room.textContent !== S.net.room(prettyCode(st.code))) { e.room.textContent = S.net.room(prettyCode(st.code)); this.drawQr(st.link); }
       e.link.textContent = st.link;
-      e.list.innerHTML = (st.players || []).map((p) => `<li>${esc(p.name)} · ${esc(S.crew.names[p.thief] || p.thief)}${p.host ? ` · ${esc(S.net.host)}` : ''}${p.you ? ` · ${esc(S.net.you)}` : ''}${p.lost ? ` · ${esc(S.net.lostTag)}` : ''}${p.mic === false ? ` · ${esc(S.net.noMic)}` : ''}${p.guard ? ` · ${esc(S.hguard.tag)}` : ''}</li>`).join('');
+      e.list.innerHTML = (st.players || []).map((p) => `<li>${esc(p.name)} · ${esc(S.crew.names[p.thief] || p.thief)}${p.host ? ` · ${esc(S.net.host)}` : ''}${p.you ? ` · ${esc(S.net.you)}` : ''}${p.away ? ` · ${esc(S.net.awayTag)}` : p.lost ? ` · ${esc(S.net.lostTag)}` : ''}${p.mic === false ? ` · ${esc(S.net.noMic)}` : ''}${p.guard ? ` · ${esc(S.hguard.tag)}` : ''}</li>`).join('');
       // W15: who plays the guard, and the button to take the role or give it back
       const g = (st.players || []).find((p) => p.guard), mine = !!st.guardPid && st.guardPid === st.myPid;
       e.guardIs.textContent = g ? S.hguard.guardIs(g.name) : S.hguard.guardAi;
@@ -103,8 +126,12 @@ export class Lobby {
     if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
     choice.textContent = host ? '' : st.choice || '';   // the host sees its choice on the cards
     q('netgoal').textContent = st.goal || '';   // the goal of the chosen level, for the host and the guests
+    // decision of 7.11: the map, the level and the difficulty are the host's alone — a guest gets no cards and no
+    // difficulty buttons at all, only «Хост обрав: …» and the goal
+    pick.hidden = !host;
+    if (!host) return;
     if (!this.pick) this.pick = new LevelPick(q('netlevels'), (id) => this.on.pickLevel && this.on.pickLevel(id));
-    this.pick.show(st.levels || [], !host);   // a guest sees the same cards, none pressable
+    this.pick.show(st.levels || [], false);
     const sig = JSON.stringify((st.diffs || []).map((d) => d.id));
     if (sig !== this.built) {
       this.built = sig;
