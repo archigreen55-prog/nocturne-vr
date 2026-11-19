@@ -34,6 +34,7 @@ export const net = {
   chaseHold: 5,                //   last chaseSeen s: the body stays where it was, visible and catchable, chaseHold s more
   backWait: 4,                 // Б2: a guest back from pause waits this long for the host, then opens the room again itself
   rejoinEvery: 10,             // Б2: while the host is silent the guest tries the room again this often
+  startTravel: 1.6,            // s: «Почати» — the van «Їдемо…» for everybody in the room before the round shows (decision of 7.11)
   backFor: 10,                 // Б2: min: a reloaded tab goes back into its room by itself within this time
   hostLostAfter: 10,           // a guest: the host is gone, the round stops for it (Б9: the card «Хост не відповідає…»)
   hostWaitMore: 20,            // Б9: «Чекати» on that card hides it for this long; still silent = the card again

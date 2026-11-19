@@ -397,7 +397,7 @@ test('net: a guest that found nobody sees the join form, not a room (B01)', asyn
 });
 
 // T4a: the host picks the mission in the room (the levels of this house, 🔒 closed, the difficulty); the guest sees it
-test('net: the host picks the level and the difficulty in the room, the guest sees the choice (T4a)', async () => {
+test('net: the host picks the level and the difficulty in the room, the guest sees the choice as text (T4a; decision 7.11)', async () => {
   const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
   const host = await open(ctx, base + '?net=local');
   const code = '161803';
@@ -419,11 +419,9 @@ test('net: the host picks the level and the difficulty in the room, the guest se
   const g = await guest.page.evaluate(() => ({ c: window.__game.contract.id, d: window.__game.difficulty, text: document.querySelector('#netchoice').textContent, pick: document.querySelector('#netpick').hidden }));
   assert.equal(g.c, pick.id, 'the guest plays the host’s contract');
   assert.equal(g.d, 'hard');
-  assert.equal(g.pick, false, 'a guest sees the cards');
-  const gv = await guest.page.evaluate(() => ({ off: [...document.querySelectorAll('#netlevels .lv-card, #netdiffs button')].every((b) => b.disabled), on: document.querySelector('#netlevels .lv-card.on').dataset.level, amber: getComputedStyle(document.querySelector('#netlevels .lv-card.on')).backgroundColor, goal: document.querySelector('#netgoal').textContent, hostGoal: null }));
-  assert.equal(gv.off, true, 'none of the guest’s cards or difficulty buttons can be pressed');
-  assert.equal(gv.on, pick.id, 'the host’s choice is lit on the guest’s cards');
-  assert.equal(gv.amber, 'rgb(255, 179, 71)', 'in amber');
+  // the owner's decision of 7.11 (live test 19.11): a guest gets no cards and no difficulty buttons — only the host's choice as text
+  assert.equal(g.pick, true, 'a guest has no level cards or difficulty buttons');
+  const gv = await guest.page.evaluate(() => ({ goal: document.querySelector('#netgoal').textContent }));
   const hg = await host.page.evaluate(() => document.querySelector('#netgoal').textContent);
   assert.ok(/^Мета: .+/.test(gv.goal) && gv.goal === hg, `the goal line, the same for both: ${gv.goal} / ${hg}`);
   assert.ok(g.text.startsWith('Хост обрав: ') && g.text.includes(pick.t) && /важк/i.test(g.text), g.text);

@@ -7,6 +7,7 @@
 import { G, $ } from './state.js';
 import { CFG } from '../config/index.js';
 import { goPage } from './menu.js';
+import { S } from '../i18n/index.js';
 
 const local = { trip: null, done: false };
 
@@ -22,5 +23,16 @@ export const travel = {
     if (el) { el.classList.add('out'); setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 260); }
   },
 };
+// With friends (decision of 7.11): «Почати» shows everybody the same van, «Їдемо на Дачу…», for `seconds`, while the
+// round starts under it (the clock goes only when you leave the van)
+export function travelShow(mapId, seconds) {
+  const el = $('travel');
+  if (!el) return;
+  const put = (id, t) => { const e = $(id); if (e) e.textContent = t || ''; };
+  put('traveltext', S.campaign2.travel.to[mapId]); put('travelsign', S.van.sign); put('travelcrew', S.van.crew);
+  el.classList.remove('out'); el.hidden = false;
+  clearTimeout(local.goT);
+  local.goT = setTimeout(() => { el.classList.add('out'); setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 260); }, seconds * 1000);
+}
 // tests / the debug API: is the loading screen up
 export const travelState = () => ({ on: !!$('travel') && !$('travel').hidden });

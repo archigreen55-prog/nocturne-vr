@@ -22,6 +22,7 @@ import { applyDifficulty } from '../game/difficulty.js';
 import { contractById, goalText } from '../game/contracts.js';
 import { newRound, caught, setContract, setDifficulty } from './contract.js';
 import { pause2D } from './desktop.js';
+import { travelShow } from './travel.js';
 import { levelOf, CLASSIC } from '../game/campaign.js';
 import { applyLevel } from './campaign.js';
 import { levelGroups, pickLevel as pickLevelOf } from './levels.js';
@@ -113,6 +114,7 @@ function hostStart() {
   if (!isHost()) return;
   if (G.round.phase !== 'ready') newRound();
   netEvent('start', {});
+  travelShow(G.level.id, CFG.net.startTravel);   // decision of 7.11: everybody sees the van «Їдемо…», then the game
   G.start.play();
 }
 const otherMap = () => (G.level.id === 'mansion' ? 'dacha' : 'mansion');
@@ -434,7 +436,7 @@ function guestEvent(m) {
       break;
     case 'newround': newRound(true); N.roundNo = m.rn ?? (N.roundNo || 0) + 1; break;
     case 'pause': flash(S.net.hostPaused, 3, '#93a1b8'); break;
-    case 'start': N.needTap = false; if (!G.playingDesktop && !G.inVR && G.start) G.start.play(); break;   // T4b: the host pressed «Почати»
+    case 'start': N.needTap = false; if (!G.inVR) travelShow(G.level.id, CFG.net.startTravel); if (!G.playingDesktop && !G.inVR && G.start) G.start.play(); break;   // T4b: the host pressed «Почати»
     case 'bench': if (m.pid === N.pid) localBench(m.s); else flash(S.hguard.benched(m.name || nameOf(m.pid), m.s), 3, '#ff5c5c'); break;
     case 'guardnote': if (G.role === 'guard') flash(m.t, 3, '#ffd166'); break;
   }

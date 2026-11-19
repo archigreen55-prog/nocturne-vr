@@ -77,6 +77,8 @@ export class Lobby {
     const e = this.el;
     e.out.hidden = !!st.inRoom; e.inn.hidden = !st.inRoom;
     this.root.classList.toggle('in-room', !!st.inRoom);   // menu design: the thief and the name are picked before; the room is the room
+    // the owner's decision of 7.11: a guest in a room picks nothing and goes nowhere else (menu.js keeps it on this page)
+    document.body.classList.toggle('guest-room', !!st.inRoom && st.role === 'guest');
     e.name.disabled = e.thief.disabled = !!st.inRoom;
     e.card.hidden = !st.card; e.card.textContent = st.card || '';
     e.status.textContent = st.status || '';
@@ -115,8 +117,12 @@ export class Lobby {
     if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
     choice.textContent = host ? '' : st.choice || '';   // the host sees its choice on the cards
     q('netgoal').textContent = st.goal || '';   // the goal of the chosen level, for the host and the guests
+    // decision of 7.11: the map, the level and the difficulty are the host's alone — a guest gets no cards and no
+    // difficulty buttons at all, only «Хост обрав: …» and the goal
+    pick.hidden = !host;
+    if (!host) return;
     if (!this.pick) this.pick = new LevelPick(q('netlevels'), (id) => this.on.pickLevel && this.on.pickLevel(id));
-    this.pick.show(st.levels || [], !host);   // a guest sees the same cards, none pressable
+    this.pick.show(st.levels || [], false);
     const sig = JSON.stringify((st.diffs || []).map((d) => d.id));
     if (sig !== this.built) {
       this.built = sig;

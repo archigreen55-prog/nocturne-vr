@@ -22,6 +22,8 @@ let current = 'menu';
 
 function show(page) {
   if (!PAGES.includes(page)) page = 'menu';
+  // decision of 7.11: a guest in a room stays in the room (no «Грати», no levels, no shop): «Вийти з кімнати» is the way out
+  if (page !== 'friends' && !settingsOver.isOpen && document.body.classList.contains('guest-room')) page = 'friends';
   current = page;
   for (const s of document.querySelectorAll('#overlay section[data-page]')) s.hidden = s.dataset.page !== page;
   if (page === 'shop') renderShop();

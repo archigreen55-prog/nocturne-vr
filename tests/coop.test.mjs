@@ -496,3 +496,62 @@ test('coop (Б2, owner 19.11): a guest tab reloaded between rounds — one tap �
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
+
+// ---------- the guest's room (the owner's decision of 7.11, live test 19.11) ----------
+test('coop (7.11): a guest that typed the code sees the room only — no level cards, no difficulty, no way to other pages; «Почати» = the van «Їдемо…» for everybody, then the game', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } }, { menu: true });
+  const host = await open(ctx, base + '?net=local&page=friends');
+  const code = '919191';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.fill('#netname', 'Оля');
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  await run([host.page, guest.page], 0.5);
+  const seen = () => guest.page.evaluate(() => {
+    const vis = (el) => !!el && !!el.offsetParent;
+    return {
+      pages: [...document.querySelectorAll('#overlay section[data-page]')].filter((s) => !s.hidden).map((s) => s.dataset.page),
+      cards: [...document.querySelectorAll('#netlevels button')].filter(vis).length,
+      diffs: [...document.querySelectorAll('#netdiffs button')].filter(vis).length,
+      back: vis(document.querySelector('section[data-page="friends"] [data-back]')) && getComputedStyle(document.querySelector('section[data-page="friends"] [data-back]')).visibility !== 'hidden',
+      choice: document.querySelector('#netchoice').textContent,
+      wait: vis(document.querySelector('#netwait')),
+      list: document.querySelector('#netlist').textContent,
+    };
+  });
+  let s = await seen();
+  assert.deepEqual(s.pages, ['friends']);
+  assert.equal(s.cards, 0, 'no level cards for a guest');
+  assert.equal(s.diffs, 0, 'no difficulty buttons for a guest');
+  assert.equal(s.back, false, 'no «←» to the menu');
+  assert.match(s.choice, /Хост обрав: .+ · .+/);
+  assert.equal(s.wait, true, '«Чекаємо, поки хост натисне «Почати»»');
+  assert.ok(s.list.includes('Аня') && s.list.includes('Оля') && s.list.includes('хост'), s.list);
+  // no way to the old screens: any page (a link, Android's «Назад») stays the room
+  await guest.page.evaluate(async () => { const { goPage } = await import('./src/systems/menu.js'); goPage('play'); });
+  assert.deepEqual((await seen()).pages, ['friends'], '«Грати» is not for a guest in a room');
+  await guest.page.goBack().catch(() => {});
+  await guest.page.waitForTimeout(300);
+  assert.deepEqual((await seen()).pages, ['friends'], '«Назад» stays in the room');
+  // the host's choice changes: the guest sees it
+  await host.page.click('#netdiffs button[data-id="easy"]');
+  await run([host.page, guest.page], 0.5);
+  assert.match((await seen()).choice, /легкий/);
+  // «Почати»: the van for everybody, then the game
+  await host.page.waitForFunction(() => !document.querySelector('#netstart').disabled);
+  await host.page.click('#netstart');
+  const van = await Promise.all([host.page, guest.page].map((p) => p.waitForFunction(() => !document.querySelector('#travel').hidden && /Їдемо/.test(document.querySelector('#traveltext').textContent), null, { timeout: 3000, polling: 20 }).then(() => true, () => false)));
+  assert.deepEqual(van, [true, true], 'the van «Їдемо…» on both');
+  await Promise.all([host.page, guest.page].map((p) => p.waitForFunction(() => document.querySelector('#travel').hidden, null, { timeout: 8000 })));
+  assert.equal(await guest.page.evaluate(() => window.__game.playing), true, 'the guest is in the round');
+  // between rounds: back in the room, the same picture
+  await host.page.evaluate(() => window.__game.round.finish('left'));
+  await run([host.page, guest.page], 1.5);
+  await guest.page.evaluate(async () => { const { pause2D } = await import('./src/systems/desktop.js'); document.exitPointerLock(); pause2D(); });
+  await run([guest.page], 0.2);
+  s = await seen();
+  assert.deepEqual([s.pages, s.cards, s.diffs, s.back], [['friends'], 0, 0, false], JSON.stringify(s));
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

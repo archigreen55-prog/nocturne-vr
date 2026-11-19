@@ -372,6 +372,9 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
 .nt-tips li { margin: 2px 0; }
 #overlay #netretrybtn, #overlay #netbackbtn { min-height: 52px; padding: 8px 18px; font: 800 18px/1.1 var(--head); border-radius: 12px; border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); }
 #netback { margin: 0 0 10px; }
+/* decision of 7.11: a guest in a room has no way back to the menu's other pages (only «Вийти з кімнати») */
+body.guest-room section[data-page="friends"] [data-back] { visibility: hidden; }
+body.guest-room #netsetup #netpick { display: none; }
 
 /* ---------- menu design stage 2: «Магазин» and «Тихарник» as card grids ---------- */
 #shopwallet, #lurkercount, #papercount { display: inline-block; margin: 0 0 8px !important; padding: 5px 12px; border-radius: 999px; background: var(--night); border: 2px solid var(--ink2); font: 800 13px var(--head) !important; color: var(--lamp) !important; }
