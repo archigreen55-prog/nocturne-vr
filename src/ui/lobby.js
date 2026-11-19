@@ -55,6 +55,15 @@ export class Lobby {
     this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver'), tips: q('nettips'), retry: q('netretry') };
     this.el.name.value = name; this.el.thief.value = THIEVES.includes(thief) ? thief : 'zoya';
     if (code) this.el.code.value = prettyCode(code);
+    // the owner's decision (20.11): a digit in the code = joining — «Створити кімнату» goes grey, «Увійти в кімнату» lights
+    // up; an empty field = both as before (typed, pasted, or from an invitation link ?room=)
+    this.codeLooks = () => {
+      const typed = /\d/.test(this.el.code.value), create = q('netcreate'), join = q('netjoin');
+      create.disabled = typed; create.classList.toggle('primary', !typed);
+      join.classList.toggle('lead', typed);
+    };
+    this.el.code.addEventListener('input', this.codeLooks);
+    this.codeLooks();
     if (!this.el.name.value) this.el.name.value = S.crew.names[this.el.thief.value];
     this.el.thief.addEventListener('change', () => { if (THIEVES.some((t) => S.crew.names[t] === this.el.name.value)) this.el.name.value = S.crew.names[this.el.thief.value]; });
     const who = () => [this.el.name.value.trim().slice(0, 12) || S.crew.names[this.el.thief.value], this.el.thief.value];

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { newContext, ROOT } from './harness.mjs';
-import { browser, open, test, base, UA } from './runner.mjs';
+import { browser, open, test, base, UA, LAND } from './runner.mjs';
 
 const wait = (page, ms) => page.waitForTimeout(ms);
 // real time passes (the network) while the game steps (its clock)
@@ -554,4 +554,38 @@ test('coop (7.11): a guest that typed the code sees the room only — no level c
   assert.deepEqual([s.pages, s.cards, s.diffs, s.back], [['friends'], 0, 0, false], JSON.stringify(s));
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
+});
+
+// ---------- «Грати з друзями»: a digit in the code = joining (the owner's decision of 20.11) ----------
+test('coop (20.11): a digit in the room code greys «Створити кімнату» out and lights «Увійти в кімнату»; an empty field = both as before; the same from ?room= (PC, phone, Quest)', async () => {
+  const AMBER = 'rgb(255, 179, 71)', GREY = 'rgb(58, 71, 102)';
+  const look = (page) => page.evaluate(() => {
+    const c = document.querySelector('#netcreate'), j = document.querySelector('#netjoin');
+    return { createOff: c.disabled, createBg: getComputedStyle(c).backgroundColor, joinBg: getComputedStyle(j).backgroundColor };
+  });
+  for (const [name, opts] of [['PC', { viewport: { width: 1000, height: 700 } }], ['phone', LAND], ['Quest', { userAgent: UA.quest, viewport: { width: 1000, height: 700 } }]]) {
+    const ctx = await newContext(browser, opts);
+    const { page, errors } = await open(ctx, base + '?net=local');
+    let l = await look(page);
+    assert.deepEqual([l.createOff, l.createBg], [false, AMBER], `${name}: an empty field — «Створити» is the main button`);
+    assert.notEqual(l.joinBg, AMBER, name);
+    await page.click('#netcode');
+    await page.keyboard.type('4');
+    l = await look(page);
+    assert.deepEqual([l.createOff, l.createBg, l.joinBg], [true, GREY, AMBER], `${name}: one digit — «Створити» grey and off, «Увійти» the main button`);
+    await page.locator('#netcreate').dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'touch', button: 0 });
+    await page.locator('#netcreate').dispatchEvent('pointerup', { pointerId: 1, pointerType: 'touch', button: 0 });
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__game.net.state().role), null, `${name}: the grey «Створити» does nothing`);
+    await page.fill('#netcode', '');
+    l = await look(page);
+    assert.deepEqual([l.createOff, l.createBg], [false, AMBER], `${name}: the field empty again — as before`);
+    assert.notEqual(l.joinBg, AMBER, name);
+    // an invitation link puts the code in: joining at once
+    const inv = await open(ctx, base + '?room=123456&net=local');
+    l = await look(inv.page);
+    assert.deepEqual([l.createOff, l.createBg, l.joinBg], [true, GREY, AMBER], `${name}: ?room= — «Увійти» is the main button`);
+    assert.deepEqual(errors, []); assert.deepEqual(inv.errors, []);
+    await ctx.close();
+  }
 });

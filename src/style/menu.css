@@ -318,6 +318,9 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
 .nt-join { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); }
 #overlay .nt-big { min-height: 58px; font: 800 18px/1.15 var(--head); border-radius: 12px; border: 2px solid var(--ink2); background: var(--dusk); color: var(--paper); box-shadow: 4px 4px 0 var(--ink2); }
 #overlay .nt-big.primary { background: var(--lamp); color: var(--ink2); min-height: 100%; font-size: 20px; }
+/* a digit in the room code (decision 20.11): «Увійти в кімнату» is the main button, «Створити кімнату» grey and off */
+#overlay .nt-big.lead { background: var(--lamp); color: var(--ink2); font-size: 20px; }
+#overlay .nt-big:disabled { background: #3a4766; color: #9aa7bf; box-shadow: none; cursor: default; }
 .nt-card { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--night); border: 2px dashed var(--lamp); color: var(--paper); font-size: 14px; }
 .nt-room { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
 .nt-left, .nt-right { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 4px 4px 0 var(--ink2); min-width: 0; }
