@@ -32,18 +32,95 @@
   {
     const errs = window.__nocturneErrors = [];
     const t0 = Date.now();
-    let panel = null, failed = false;
+    const q = new URLSearchParams(location.search);
+    let panel = null, failed = false, retrying = false, bootEnvNow = null;
     const add = (kind, msg) => {
       errs.push({ t: +((Date.now() - t0) / 1000).toFixed(1), kind, msg: String(msg).slice(0, 500) });
       if (errs.length > 30) errs.shift();
       if (panel) panel.textContent = errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`).join('\n');
-      if (!window.__game && kind !== 'console') bootFailed();
+      if (!window.__game && !QUIET.includes(kind)) { if (kind === 'load') retryOnce(); else bootFailed(); }
     };
+    // only recorded: a console line, a note, a file the service worker gave up on (the page's own 'load'
+    // error follows when that file was needed for the start)
+    const QUIET = ['console', 'note', 'fetch'];
     addEventListener('error', (e) => {
       const t = e.target;
       if (t && t !== window && (t.src || t.href)) add('load', /main\.js/.test(t.src) ? 'не завантажились модулі гри (src/main.js або vendor/three)' : `не завантажилось: ${t.src || t.href}`);
       else add('error', `${e.message}${e.filename ? ` @ ${e.filename.split('/').pop().split('?')[0]}:${e.lineno}:${e.colno}` : ''}`);
     }, true);
+
+    // which file failed, from the service worker (sw.js, after its retries); plan 2026-11-17, step 1
+    try {
+      const SWC = navigator.serviceWorker;
+      if (SWC) {
+        SWC.addEventListener('message', (e) => { const f = e.data && e.data.nocturneFail; if (f) add('fetch', `${f.url}: ${f.what} (service worker ${f.version}, спроб: ${f.tries})`); });
+        SWC.startMessages();
+      }
+    } catch { /* no service workers here */ }
+    // what the boot report adds: the page's version, the service worker, the network, the files that failed
+    async function bootEnv() {
+      const main = document.querySelector('script[type=module][src*="main.js"]');
+      const env = { page: main ? new URL(main.src).searchParams.get('v') : null, retried: q.has('retry'), online: navigator.onLine };
+      const c = navigator.connection;
+      if (c) env.net = { type: c.effectiveType, downlinkMbps: c.downlink, rttMs: c.rtt, saveData: c.saveData };
+      try {
+        const SWC = navigator.serviceWorker;
+        if (!SWC) env.sw = 'none';
+        else {
+          const reg = await SWC.getRegistration();
+          env.sw = { controlled: !!SWC.controller, active: reg && reg.active ? reg.active.state : null, waiting: !!(reg && reg.waiting), installing: !!(reg && reg.installing) };
+          if (SWC.controller) env.sw.version = await new Promise((res) => {
+            const on = (e) => { if (e.data && e.data.version) { clearTimeout(t); SWC.removeEventListener('message', on); res(e.data.version); } };
+            const t = setTimeout(() => { SWC.removeEventListener('message', on); res(null); }, 800);
+            SWC.addEventListener('message', on);
+            SWC.controller.postMessage('version');
+          });
+        }
+      } catch (e) { env.sw = `error: ${e && e.message}`; }
+      try {
+        const rs = performance.getEntriesByType('resource');
+        env.files = rs.length;
+        // an error status, or no answer at all (a failed request still gets an entry, with nothing in it)
+        env.failed = rs.filter((r) => r.responseStatus >= 400 || (r.responseStatus === 0 && r.decodedBodySize === 0 && r.transferSize === 0 && r.responseStart === 0))
+          .slice(0, 10).map((r) => { const u = new URL(r.name); return `${u.pathname.split('/').slice(-3).join('/')}${u.search}: ${r.responseStatus ? `HTTP ${r.responseStatus}` : 'немає відповіді'}`; });
+      } catch { /* no resource timing */ }
+      return env;
+    }
+
+    // A file of the game did not load (one of ~175 modules, a stylesheet): most often the network dropped
+    // for a moment. The page reloads itself once (?retry=1; a retry in the same page would not do: the
+    // browser remembers a failed module) — after 1 s, or when the network is back (at most 15 s). The
+    // second failure shows «Гра не завантажилась». Plan 2026-11-17, step 3.
+    const RETRY_KEY = 'nocturne.bootRetry';
+    let lastRetry = 0; try { lastRetry = +sessionStorage.getItem(RETRY_KEY) || 0; } catch { /* storage blocked */ }
+    const canRetry = !q.has('retry') && Date.now() - lastRetry > 30000;
+    if (q.has('retry')) {
+      add('note', 'сторінку перезавантажено після збою завантаження');
+      // the game is up: the address without ?retry (a later failure may retry again)
+      const clean = setInterval(() => {
+        if (!window.__game) return;
+        clearInterval(clean);
+        const u = new URL(location.href); u.searchParams.delete('retry');
+        try { history.replaceState(history.state, '', u.href); } catch { /* not allowed */ }
+      }, 300);
+    }
+    function retryOnce() {
+      if (retrying || failed) return;
+      if (!canRetry) { bootFailed(); return; }
+      retrying = true;
+      const go = () => {
+        if (window.__game) { retrying = false; return; }   // it came up after all (only a stylesheet failed)
+        try { sessionStorage.setItem(RETRY_KEY, String(Date.now())); } catch { /* storage blocked */ }
+        const u = new URL(location.href); u.searchParams.set('retry', '1');
+        location.replace(u.href);
+      };
+      setTimeout(() => {
+        if (navigator.onLine !== false) { go(); return; }
+        const wait = setTimeout(() => { removeEventListener('online', back); retrying = false; bootFailed(); }, 15000);
+        const back = () => { clearTimeout(wait); setTimeout(go, 500); };
+        addEventListener('online', back, { once: true });
+      }, 1000);
+    }
     addEventListener('unhandledrejection', (e) => add('promise', e.reason && (e.reason.stack || e.reason.message) || e.reason));
     const ce = console.error;
     console.error = (...a) => { add('console', a.map((x) => (x && x.stack) || String(x)).join(' ')); ce.apply(console, a); };
@@ -71,16 +148,44 @@
         box.id = 'bootfail';
         box.style.cssText = 'margin-top:12px;padding:10px 12px;border:1px solid #ff5c5c;border-radius:10px;color:#ffd0d0;font-size:14px';
         box.innerHTML = '<b>Гра не завантажилась.</b> ' + (oldIos ? `На цьому iPhone iOS ${ios[2]}.${ios[3]}, а потрібна 16.4 або новіша (Параметри → Загальні → Оновлення ПЗ).`
-          : 'Онови сторінку. Якщо не допомогло — натисни «Скопіювати звіт» і встав у чат.') + '<pre style="white-space:pre-wrap;font:11px/1.3 ui-monospace,monospace;margin:8px 0"></pre>';
+          : 'Перевір інтернет і натисни «Спробувати ще». Якщо не допомогло — «Скопіювати звіт» (встав у чат), потім «Скинути кеш».') + '<pre style="white-space:pre-wrap;font:11px/1.3 ui-monospace,monospace;margin:8px 0"></pre>';
+        const btnCss = 'margin:4px 8px 0 0;padding:8px 12px;font:600 14px system-ui,sans-serif;border-radius:8px';
+        const again = document.createElement('button');
+        again.id = 'bootretry'; again.textContent = 'Спробувати ще'; again.style.cssText = btnCss;
+        again.addEventListener('click', () => {
+          try { sessionStorage.removeItem(RETRY_KEY); } catch { /* storage blocked */ }
+          const u = new URL(location.href); u.searchParams.delete('retry'); location.replace(u.href);
+        });
+        // the service worker of this site copy and its caches go (as ?nosw does, but that needs the game's
+        // modules), then the page loads again from the network
+        const reset = document.createElement('button');
+        reset.id = 'bootreset'; reset.textContent = 'Скинути кеш'; reset.style.cssText = btnCss;
+        reset.addEventListener('click', () => {
+          reset.disabled = true;
+          const scope = new URL('./', location.href).pathname, jobs = [];
+          try {
+            if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then((rs) => Promise.all(rs.filter((r) => new URL(r.scope).pathname === scope).map((r) => r.unregister()))));
+            if (self.caches) jobs.push(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith(`nocturne:${scope}:`)).map((k) => caches.delete(k)))));
+          } catch { /* not available */ }
+          try { sessionStorage.removeItem(RETRY_KEY); } catch { /* storage blocked */ }
+          Promise.all(jobs).catch(() => {}).then(() => {
+            const u = new URL(location.href); u.searchParams.delete('retry'); u.searchParams.set('fresh', String(Date.now()));
+            location.replace(u.href);
+          });
+        });
         const copy = document.createElement('button');
+        copy.id = 'bootcopy'; copy.style.cssText = btnCss;
         copy.textContent = 'Скопіювати звіт';
         copy.addEventListener('click', () => {
-          const text = JSON.stringify({ report: 'nocturne-boot', time: new Date().toISOString(), url: location.pathname + location.search, ua: navigator.userAgent, errors: errs }, null, 1);
+          const text = JSON.stringify({ report: 'nocturne-boot', time: new Date().toISOString(), url: location.pathname + location.search, ua: navigator.userAgent, env: bootEnvNow, errors: errs }, null, 1);
           const done = (ok) => { copy.textContent = ok ? 'Скопійовано' : 'Не вдалося — виділи текст вище'; };
           try { navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); } catch { done(false); }
         });
-        box.querySelector('pre').textContent = errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`).join('\n');
-        box.append(copy);
+        const pre = box.querySelector('pre'), lines = () => errs.map((e) => `${e.t}s ${e.kind}: ${e.msg}`);
+        pre.textContent = lines().join('\n');
+        // the failed files on screen too (a photo of the screen is a report as well)
+        bootEnv().then((env) => { bootEnvNow = env; if (env.failed && env.failed.length) pre.textContent = lines().concat(env.failed.map((f) => `файл: ${f}`)).join('\n'); });
+        box.append(oldIos ? '' : again, copy, oldIos ? '' : reset);
         document.getElementById('buttons').after(box);
         // W17 S3: the start button lives on the «Грати» page; without the game's modules nothing opens it
         const sec = btn.closest('section[data-page]');
@@ -135,10 +240,10 @@
   #privacylink { color: var(--accent); }
   #hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 13px; color: var(--muted); background: rgba(0, 0, 0, .5); padding: 4px 10px; border-radius: 6px; z-index: 5; display: none; }
 </style>
-<link rel="stylesheet" href="src/ui/phone.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5">
-<link rel="stylesheet" href="src/style/menu.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5">
-<link rel="stylesheet" href="src/style/hud.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5">
-<link rel="stylesheet" href="src/ui/tutorial.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5">
+<link rel="stylesheet" href="src/ui/phone.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6">
+<link rel="stylesheet" href="src/style/menu.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6">
+<link rel="stylesheet" href="src/style/hud.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6">
+<link rel="stylesheet" href="src/ui/tutorial.css?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6">
 <script type="importmap">
 {
   "imports": {
@@ -148,177 +253,177 @@
     "trystero-nostr": "./vendor/trystero-nostr-0.25.4.min.js",
     "trystero-torrent": "./vendor/trystero-torrent-0.25.4.min.js",
     "qrcode-generator": "./vendor/qrcode-generator-2.0.4.min.js",
-    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/distractSfx.js": "./src/audio/distractSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/goSfx.js": "./src/audio/goSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/placeSfx.js": "./src/audio/placeSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/runSfx.js": "./src/audio/runSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/stairSfx.js": "./src/audio/stairSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/trapSfx.js": "./src/audio/trapSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/audio/whisperSfx.js": "./src/audio/whisperSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/backWindow.js": "./src/config/backWindow.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/campaign.js": "./src/config/campaign.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/contracts.js": "./src/config/contracts.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/devices.js": "./src/config/devices.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/difficulty.js": "./src/config/difficulty.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/doors.js": "./src/config/doors.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/guard.js": "./src/config/guard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/hud.js": "./src/config/hud.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/humanGuard.js": "./src/config/humanGuard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/index.js": "./src/config/index.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/items.js": "./src/config/items.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/mansion.js": "./src/config/mansion.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/maps.js": "./src/config/maps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/mic.js": "./src/config/mic.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/net.js": "./src/config/net.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/noise.js": "./src/config/noise.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/placeSound.js": "./src/config/placeSound.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/player.js": "./src/config/player.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/round.js": "./src/config/round.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/shop.js": "./src/config/shop.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/sprint.js": "./src/config/sprint.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/start.js": "./src/config/start.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/story.js": "./src/config/story.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/style.js": "./src/config/style.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/throw.js": "./src/config/throw.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/config/traps.js": "./src/config/traps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/flashWalls.js": "./src/enemies/flashWalls.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/enemies/whisperer.js": "./src/enemies/whisperer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/campaign.js": "./src/game/campaign.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/economy.js": "./src/game/economy.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/mischief.js": "./src/game/mischief.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/players.js": "./src/game/players.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/progress.js": "./src/game/progress.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/run.js": "./src/game/run.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/story.js": "./src/game/story.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/game/watchers.js": "./src/game/watchers.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/i18n/index.js": "./src/i18n/index.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/i18n/name.js": "./src/i18n/name.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/i18n/uk-w19-draft.js": "./src/i18n/uk-w19-draft.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/i18n/uk.js": "./src/i18n/uk.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/loot/throw.js": "./src/loot/throw.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/main.js": "./src/main.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/net/remotePlayer.js": "./src/net/remotePlayer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/net/room.js": "./src/net/room.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/net/sync.js": "./src/net/sync.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/net/transport.js": "./src/net/transport.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/anim.js": "./src/style/anim.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/decor.js": "./src/style/decor.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/figures.js": "./src/style/figures.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/ink.js": "./src/style/ink.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/materials.js": "./src/style/materials.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/menuScene.js": "./src/style/menuScene.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/palette.js": "./src/style/palette.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/portraits.js": "./src/style/portraits.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/quiet.js": "./src/style/quiet.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/sheet.js": "./src/style/sheet.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/style/toon.js": "./src/style/toon.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/backWindow.js": "./src/systems/backWindow.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/board.js": "./src/systems/board.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/brightness.js": "./src/systems/brightness.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/campaign.js": "./src/systems/campaign.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/contract.js": "./src/systems/contract.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/controls.js": "./src/systems/controls.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/debugApi.js": "./src/systems/debugApi.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/desktop.js": "./src/systems/desktop.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/distract.js": "./src/systems/distract.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/doors.js": "./src/systems/doors.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/economy.js": "./src/systems/economy.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/flashlight.js": "./src/systems/flashlight.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/flatScreen.js": "./src/systems/flatScreen.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/goBanner.js": "./src/systems/goBanner.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/guards.js": "./src/systems/guards.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/heist.js": "./src/systems/heist.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/howCard.js": "./src/systems/howCard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/humanGuard.js": "./src/systems/humanGuard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/index.js": "./src/systems/index.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/levelHints.js": "./src/systems/levelHints.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/levelStars.js": "./src/systems/levelStars.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/levels.js": "./src/systems/levels.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/mapView.js": "./src/systems/mapView.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/menu.js": "./src/systems/menu.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/messages.js": "./src/systems/messages.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/micAuto.js": "./src/systems/micAuto.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/net.js": "./src/systems/net.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/panel.js": "./src/systems/panel.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/phone.js": "./src/systems/phone.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/placeSound.js": "./src/systems/placeSound.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/playPage.js": "./src/systems/playPage.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/player.js": "./src/systems/player.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/progressCode.js": "./src/systems/progressCode.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/puddles.js": "./src/systems/puddles.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/render.js": "./src/systems/render.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/rig.js": "./src/systems/rig.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/sprint.js": "./src/systems/sprint.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/startLine.js": "./src/systems/startLine.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/startScreen.js": "./src/systems/startScreen.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/state.js": "./src/systems/state.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/stats.js": "./src/systems/stats.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/story.js": "./src/systems/story.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/style.js": "./src/systems/style.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/traps.js": "./src/systems/traps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/travel.js": "./src/systems/travel.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/tutorial.js": "./src/systems/tutorial.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/vr.js": "./src/systems/vr.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/world.js": "./src/systems/world.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/systems/yardGuide.js": "./src/systems/yardGuide.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/hostGone.js": "./src/ui/hostGone.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/levelPick.js": "./src/ui/levelPick.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/tutorial.js": "./src/ui/tutorial.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/version.js": "./src/version.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/devices.js": "./src/world/devices.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/floors.js": "./src/world/floors.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/kit.js": "./src/world/kit.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/mansion/furniture.js": "./src/world/mansion/furniture.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/mansion/layout.js": "./src/world/mansion/layout.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/mansion/level.js": "./src/world/mansion/level.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/maps.js": "./src/world/maps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/vans.js": "./src/world/vans.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/world/yard.js": "./src/world/yard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5",
-    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5"
+    "./src/audio/audio.js": "./src/audio/audio.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/calibrate.js": "./src/audio/calibrate.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/distractSfx.js": "./src/audio/distractSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/goSfx.js": "./src/audio/goSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/mic.js": "./src/audio/mic.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/micHelp.js": "./src/audio/micHelp.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/placeSfx.js": "./src/audio/placeSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/ringTap.worklet.js": "./src/audio/ringTap.worklet.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/runSfx.js": "./src/audio/runSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/scream.js": "./src/audio/scream.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/stairSfx.js": "./src/audio/stairSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/trapSfx.js": "./src/audio/trapSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/audio/whisperSfx.js": "./src/audio/whisperSfx.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/comfort/vignette.js": "./src/comfort/vignette.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/backWindow.js": "./src/config/backWindow.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/campaign.js": "./src/config/campaign.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/contracts.js": "./src/config/contracts.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/devices.js": "./src/config/devices.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/difficulty.js": "./src/config/difficulty.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/doors.js": "./src/config/doors.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/guard.js": "./src/config/guard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/hud.js": "./src/config/hud.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/humanGuard.js": "./src/config/humanGuard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/index.js": "./src/config/index.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/items.js": "./src/config/items.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/mansion.js": "./src/config/mansion.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/maps.js": "./src/config/maps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/mic.js": "./src/config/mic.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/net.js": "./src/config/net.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/noise.js": "./src/config/noise.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/placeSound.js": "./src/config/placeSound.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/player.js": "./src/config/player.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/round.js": "./src/config/round.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/shop.js": "./src/config/shop.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/sprint.js": "./src/config/sprint.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/start.js": "./src/config/start.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/story.js": "./src/config/story.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/style.js": "./src/config/style.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/throw.js": "./src/config/throw.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/config/traps.js": "./src/config/traps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/debug/report.js": "./src/debug/report.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/alert.js": "./src/enemies/alert.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/brain.js": "./src/enemies/brain.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/flashMask.js": "./src/enemies/flashMask.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/flashWalls.js": "./src/enemies/flashWalls.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/lurker.js": "./src/enemies/lurker.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/nav.js": "./src/enemies/nav.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/patrol.js": "./src/enemies/patrol.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/enemies/whisperer.js": "./src/enemies/whisperer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/campaign.js": "./src/game/campaign.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/contracts.js": "./src/game/contracts.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/difficulty.js": "./src/game/difficulty.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/dropzone.js": "./src/game/dropzone.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/economy.js": "./src/game/economy.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/mischief.js": "./src/game/mischief.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/players.js": "./src/game/players.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/progress.js": "./src/game/progress.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/round.js": "./src/game/round.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/run.js": "./src/game/run.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/stealth.js": "./src/game/stealth.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/story.js": "./src/game/story.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/game/watchers.js": "./src/game/watchers.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/i18n/index.js": "./src/i18n/index.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/i18n/name.js": "./src/i18n/name.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/i18n/uk-w19-draft.js": "./src/i18n/uk-w19-draft.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/i18n/uk.js": "./src/i18n/uk.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/input/gyro.js": "./src/input/gyro.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/input/keyboard.js": "./src/input/keyboard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/input/touch.js": "./src/input/touch.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/input/xrInput.js": "./src/input/xrInput.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/loot/hands.js": "./src/loot/hands.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/loot/items.js": "./src/loot/items.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/loot/throw.js": "./src/loot/throw.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/main.js": "./src/main.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/net/remotePlayer.js": "./src/net/remotePlayer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/net/room.js": "./src/net/room.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/net/sync.js": "./src/net/sync.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/net/transport.js": "./src/net/transport.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/noise/noise.js": "./src/noise/noise.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/perf/gpuTimer.js": "./src/perf/gpuTimer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/perf/quality.js": "./src/perf/quality.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/platform/feedback.js": "./src/platform/feedback.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/platform/mode.js": "./src/platform/mode.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/platform/pwa.js": "./src/platform/pwa.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/platform/screen.js": "./src/platform/screen.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/settings.js": "./src/settings.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/anim.js": "./src/style/anim.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/decor.js": "./src/style/decor.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/figures.js": "./src/style/figures.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/ink.js": "./src/style/ink.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/materials.js": "./src/style/materials.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/menuScene.js": "./src/style/menuScene.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/palette.js": "./src/style/palette.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/portraits.js": "./src/style/portraits.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/quiet.js": "./src/style/quiet.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/sheet.js": "./src/style/sheet.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/style/toon.js": "./src/style/toon.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/backWindow.js": "./src/systems/backWindow.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/board.js": "./src/systems/board.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/brightness.js": "./src/systems/brightness.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/campaign.js": "./src/systems/campaign.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/contract.js": "./src/systems/contract.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/controls.js": "./src/systems/controls.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/debugApi.js": "./src/systems/debugApi.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/desktop.js": "./src/systems/desktop.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/distract.js": "./src/systems/distract.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/doors.js": "./src/systems/doors.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/economy.js": "./src/systems/economy.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/flashlight.js": "./src/systems/flashlight.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/flatScreen.js": "./src/systems/flatScreen.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/goBanner.js": "./src/systems/goBanner.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/guards.js": "./src/systems/guards.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/heist.js": "./src/systems/heist.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/howCard.js": "./src/systems/howCard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/humanGuard.js": "./src/systems/humanGuard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/index.js": "./src/systems/index.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/levelHints.js": "./src/systems/levelHints.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/levelStars.js": "./src/systems/levelStars.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/levels.js": "./src/systems/levels.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/mapView.js": "./src/systems/mapView.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/menu.js": "./src/systems/menu.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/messages.js": "./src/systems/messages.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/micAuto.js": "./src/systems/micAuto.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/net.js": "./src/systems/net.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/panel.js": "./src/systems/panel.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/phone.js": "./src/systems/phone.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/placeSound.js": "./src/systems/placeSound.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/playPage.js": "./src/systems/playPage.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/player.js": "./src/systems/player.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/progressCode.js": "./src/systems/progressCode.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/puddles.js": "./src/systems/puddles.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/render.js": "./src/systems/render.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/rig.js": "./src/systems/rig.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/sprint.js": "./src/systems/sprint.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/startLine.js": "./src/systems/startLine.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/startScreen.js": "./src/systems/startScreen.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/state.js": "./src/systems/state.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/stats.js": "./src/systems/stats.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/story.js": "./src/systems/story.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/style.js": "./src/systems/style.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/traps.js": "./src/systems/traps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/travel.js": "./src/systems/travel.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/tutorial.js": "./src/systems/tutorial.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/vr.js": "./src/systems/vr.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/world.js": "./src/systems/world.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/systems/yardGuide.js": "./src/systems/yardGuide.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/board.js": "./src/ui/board.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/hostGone.js": "./src/ui/hostGone.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/hud.js": "./src/ui/hud.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/levelPick.js": "./src/ui/levelPick.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/lobby.js": "./src/ui/lobby.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/menu.js": "./src/ui/menu.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/pointer.js": "./src/ui/pointer.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/press.js": "./src/ui/press.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/start.js": "./src/ui/start.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/summary.js": "./src/ui/summary.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/tutorial.js": "./src/ui/tutorial.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/ui/wrist.js": "./src/ui/wrist.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/version.js": "./src/version.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/collision.js": "./src/world/collision.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/devices.js": "./src/world/devices.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/floors.js": "./src/world/floors.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/kit.js": "./src/world/kit.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/level.js": "./src/world/level.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/mansion/furniture.js": "./src/world/mansion/furniture.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/mansion/layout.js": "./src/world/mansion/layout.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/mansion/level.js": "./src/world/mansion/level.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/maps.js": "./src/world/maps.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/vans.js": "./src/world/vans.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/world/yard.js": "./src/world/yard.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6",
+    "./src/xr/player.js": "./src/xr/player.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6"
   }
 }
 </script>
@@ -327,7 +432,7 @@
   // cached) page, reload once with ?v=<new>, a URL no cache has seen. Every module URL carries
   // ?v=<version> too (import map above). Versions are set by tools/bump-version.mjs.
   {
-    const PAGE_VERSION = '0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5';
+    const PAGE_VERSION = '0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6';
     fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
       const url = new URL(location.href);
       if (version && version !== PAGE_VERSION && url.searchParams.get('v') !== version) {
@@ -615,6 +720,6 @@
     }
   }
 </script>
-<script type="module" src="src/main.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.coop.5"></script>
+<script type="module" src="src/main.js?v=0.6.0-pre.12.mic.7.breath.10.cv2.12.boot.2.coop.6"></script>
 </body>
 </html>

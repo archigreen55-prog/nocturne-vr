@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { staleVersion } from './version-check.mjs';
 
 const out = process.argv[2] || '_site';
 const MAIN = 'main';
@@ -37,9 +38,16 @@ function manifest(dir, skip = '') {
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const versionOf = (ref) => { try { return JSON.parse(git('show', `${ref}:version.json`)).version; } catch { return '?'; } };
+// served files changed without a new version: phones would mix old cached modules with new ones (plan
+// 2026-11-17, step 6). A warning on the run, the site is built anyway.
+function checkVersion(ref, name) {
+  const r = staleVersion(ref);
+  if (r) console.log(`::warning title=Version not bumped (${name})::version ${r.version} was set in ${r.since}, but served files changed since (${r.files.slice(0, 5).join(', ')}${r.files.length > 5 ? ', …' : ''}). Phones that have it cached keep old modules. Run node tools/bump-version.mjs.`);
+}
 
 rmSync(out, { recursive: true, force: true });
 exportTree(`origin/${MAIN}`, out);
+checkVersion(`origin/${MAIN}`, MAIN);
 const root = manifest(out);
 const rootHash = createHash('sha256').update(Object.entries(root).sort().map(([f, h]) => `${h}  ${f}\n`).join('')).digest('hex');
 console.log(`root: ${MAIN} ${git('rev-parse', '--short', `origin/${MAIN}`)}, version ${versionOf(`origin/${MAIN}`)}, ${Object.keys(root).length} files, tree sha256 ${rootHash.slice(0, 16)}`);
@@ -51,6 +59,7 @@ for (const branch of git('for-each-ref', '--format=%(refname:lstrip=3)', 'refs/r
   if (tryGit('cat-file', '-e', `${ref}:index.html`) === null) { console.log(`skip ${branch}: no index.html`); continue; }
   const slug = branch.replace(/[^A-Za-z0-9._-]+/g, '-');
   exportTree(ref, join(out, 'preview', slug));
+  checkVersion(ref, branch);
   const [sha, date, subject] = git('log', '-1', '--format=%h%x00%cI%x00%s', ref).split('\0');
   previews.push({ branch, slug, sha, date, subject, version: versionOf(ref) });
   console.log(`preview/${slug}/: ${sha}, version ${previews.at(-1).version}`);

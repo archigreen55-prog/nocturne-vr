@@ -1,6 +1,12 @@
 # GitHub Pages: main at the site root (as before), every other branch at /preview/<branch>/.
 # Settings -> Pages -> Source must be "GitHub Actions"; while it is still "Deploy from a branch" the
 # site is built and checked here but not deployed (the branch build keeps serving the site).
+#
+# Freeze (a test with players): Settings -> Secrets and variables -> Actions -> Variables ->
+# PAGES_FREEZE = 1. Then no push (no branch, not even main) and no branch deletion changes the site: every
+# deploy is one artifact with main AND all the previews, so a push to a preview also redeploys the main
+# site. To lift it: delete the variable or set 0, then Actions -> this workflow -> Run workflow. A run
+# started by hand with "force" deploys even while frozen.
 name: Pages (main + previews)
 
 on:
@@ -8,30 +14,52 @@ on:
     branches: ['**']
   delete:             # a branch was deleted: rebuild without its preview
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Deploy even while PAGES_FREEZE = 1'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  # A push to a work branch rebuilds the site through a run on main: the github-pages environment
-  # accepts deployments from main only. (workflow_dispatch is one of the events GITHUB_TOKEN may start.)
+  # Every push (a work branch, and main too) rebuilds the site through a workflow_dispatch run on main:
+  # the github-pages environment accepts deployments from main only, and the deploy of a push run on
+  # main hung (07.11.2026: «Current status: » for 10 min, twice, after merging PR #17) while every
+  # dispatched run deployed in ~30 s (from PR #18). (workflow_dispatch is one of the events GITHUB_TOKEN
+  # may start.) While frozen nothing is started.
   kick:
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       actions: write
       contents: read
     steps:
       - run: |
+          if [ "$FREEZE" = 1 ]; then
+            echo "::notice::PAGES_FREEZE = 1: the site is frozen, $GITHUB_REF_NAME is not deployed (see pages.yml)"; exit 0
+          fi
           if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/pages.yml?ref=main" --silent 2>/dev/null; then
             echo "::notice::pages.yml is not on main yet: previews start after it is merged"; exit 0
           fi
           gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
         env:
           GH_TOKEN: ${{ github.token }}
+          FREEZE: ${{ vars.PAGES_FREEZE }}
+
+  # a branch deleted while frozen: say why nothing happens
+  frozen:
+    if: github.event_name == 'delete' && vars.PAGES_FREEZE == '1'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::PAGES_FREEZE = 1: the site is frozen, not rebuilt after deleting a branch (see pages.yml)"
 
   build:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name != 'push' &&
+      (vars.PAGES_FREEZE != '1' || (github.event_name == 'workflow_dispatch' && inputs.force))
     runs-on: ubuntu-latest
     concurrency:
       group: pages-build
@@ -75,3 +103,5 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1200000   # ms: 20 min instead of 10 before giving up on a slow Pages backend (PR #18)

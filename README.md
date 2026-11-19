@@ -205,6 +205,12 @@ site's until they save their own). Versions are `X.Y.Z-pre.N`; a branch built in
 uses `<base>.<label>.<n>` (CONTRIBUTING-agents.md). The page reloads itself once when `version.json`
 differs from the cached page.
 
+Every deploy is one artifact (main and all the previews), so a push to any branch redeploys the main
+site too. **Freeze** for a test with players: repository variable `PAGES_FREEZE = 1` (Settings → Secrets
+and variables → Actions → Variables): no push and no branch deletion changes the site. To lift it,
+delete the variable (or set 0) and run the workflow by hand (Actions → Pages → Run workflow); a hand run
+with *force* deploys even while frozen.
+
 ## Tests
 
     npm install && npm test
