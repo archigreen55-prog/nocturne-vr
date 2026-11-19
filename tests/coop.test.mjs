@@ -98,7 +98,7 @@ test('coop (Б10): no false alarm when the relays answer; a guest without relays
   await a.page.evaluate(() => { const g = window.__game; g.net.sim.relaysDown = true; g.CFG.net.findTimeout = 0.5; return g.net.open('100003', 'guest', 'Оля', 'rita'); });
   await run([a.page], 1.5);
   const g = await lobbyOf(a.page);
-  assert.match(g.status, /Твій телефон не дістає серверів зв'язку/);
+  assert.match(g.status, /Твій пристрій не дістає серверів зв'язку/);
   assert.equal(g.tips.length, 3);
   assert.match(g.tips[2], /Увійти в кімнату/);
   assert.equal(g.retry, false, 'a guest gets the join form back, not the host’s button');
@@ -118,7 +118,7 @@ async function roundOfTwo(ctx, code, { guestCfg = {}, hostCfg = {} } = {}) {
   await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
   await host.page.waitForFunction(() => !document.querySelector('#netstart').disabled);
   await host.page.click('#netstart');
-  for (const p of [host.page, guest.page]) await p.evaluate(() => { const g = window.__game; for (const l of g.lurkers) l.update = () => {}; for (const x of g.guards) x.update = () => null; });
+  for (const p of [host.page, guest.page]) await p.evaluate(() => { const g = window.__game; for (const l of g.lurkers) l.update = () => {}; for (const x of g.guards) { x.realUpdate = x.update; x.update = () => null; } });
   await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
   await run([host.page, guest.page], 0.6);
   return { host, guest, pages: [host.page, guest.page] };
@@ -413,5 +413,86 @@ test('coop (Б2): turned away in the middle of a round — a clean page on «Г�
   assert.match(g.url, /page=friends/);
   assert.match(g.status, /Раунд уже йде без тебе/);
   assert.deepEqual(host.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2, owner 19.11): a pause in a chase does not save — the body stays catchable chaseHold s; without a chase it hides at once', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { host, guest, pages } = await roundOfTwo(ctx, '878787', { hostCfg: { chaseHold: 8 } });
+  await guest.page.evaluate(() => window.__game.player.teleport(-4, 1.6, 0));
+  await run(pages, 0.6);
+  const remote = () => host.page.evaluate(() => window.__game.net.state().remotes[0]);
+  // 1. nobody sees it: the pause hides it at once
+  await setPaused(guest.page, true);
+  await wait(host.page, 300);
+  await run([host.page], 0.2);
+  let r = await remote();
+  assert.deepEqual([r.away, r.held, r.inGame, r.drawn], [true, false, false, false], JSON.stringify(r));
+  await setPaused(guest.page, false);
+  await run(pages, 0.8);
+  // 2. the guard chases it: the pause keeps the body there (visible, in the round), chaseHold s, then it goes
+  const chase = () => host.page.evaluate(async () => {
+    const { G } = await import('./src/systems/state.js');
+    const P = G.guards[0], r = [...G.net.remotes.values()][0];
+    P.target = r; P.visible = true; P.state = 'chase';
+  });
+  await chase();
+  await run([host.page], 0.3);
+  await setPaused(guest.page, true);
+  await wait(host.page, 300);
+  await run([host.page], 0.2);
+  r = await remote();
+  assert.deepEqual([r.away, r.held, r.inGame, r.drawn], [true, true, true, true], 'held: ' + JSON.stringify(r));
+  await wait(host.page, 8200);
+  await run([host.page], 0.2);
+  r = await remote();
+  assert.deepEqual([r.held, r.inGame, r.drawn], [false, false, false], 'the hold is over: ' + JSON.stringify(r));
+  await setPaused(guest.page, false);
+  await run(pages, 0.8);
+  // 3. held in a chase, the guard reaches it and catches it
+  await host.page.evaluate(() => { window.__game.CFG.net.chaseHold = 30; });
+  await chase();
+  await run([host.page], 0.3);
+  await setPaused(guest.page, true);
+  await wait(host.page, 300);
+  await host.page.evaluate(async () => {
+    const { G } = await import('./src/systems/state.js');
+    const P = G.guards[0], r = [...G.net.remotes.values()][0];
+    P.update = P.realUpdate;
+    P.x = r.head.x + 0.3; P.z = r.head.z; P.y = r.floorY || 0; P.target = r; P.state = 'chase'; P.visible = true;
+  });
+  let caught = false;
+  for (let i = 0; i < 30 && !caught; i++) {
+    await run([host.page], 0.2);
+    caught = await host.page.evaluate(() => window.__game.caughtT >= 0 || window.__game.round.phase === 'result' || /спіймали/.test(window.__game.flashText || ''));
+  }
+  assert.equal(caught, true, 'the guard caught the guest on pause');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});
+
+test('coop (Б2, owner 19.11): a guest tab reloaded between rounds — one tap «Продовжити» (the sound on an iPhone)', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '888888';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.fill('#netname', 'Оля');
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  assert.equal(await guest.page.evaluate(() => document.querySelector('#netback').hidden), true, 'no button after a join by finger');
+  await run([host.page, guest.page], 0.6);
+  await guest.page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
+  await guest.page.waitForFunction(() => window.__game && window.__game.net && window.__game.net.state().welcomed, null, { timeout: 60000, polling: 200 });
+  await guest.page.waitForFunction(() => !document.querySelector('#netback').hidden, null, { timeout: 10000 });
+  const b = await guest.page.evaluate(() => ({ text: document.querySelector('#netbacktext').textContent, button: document.querySelector('#netbackbtn').textContent, phase: window.__game.round.phase }));
+  assert.match(b.text, /Ти знову в кімнаті \(хост: Аня\)/);
+  assert.equal(b.button, 'Продовжити');
+  assert.equal(b.phase, 'ready');
+  await guest.page.click('#netbackbtn');
+  await guest.page.waitForFunction(() => document.querySelector('#netback').hidden, null, { timeout: 5000 });
+  assert.equal(await guest.page.evaluate(() => window.__game.playing), false, 'still in the room: the host starts the round');
+  assert.equal((await host.page.evaluate(() => window.__game.net.state().remotes)).length, 1);
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });

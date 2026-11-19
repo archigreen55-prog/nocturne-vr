@@ -30,6 +30,8 @@ export const net = {
   peerLostAfter: 3,            // no packets: «Оля: зв'язок…» (invisible to the guards meanwhile)
   peerGoneAfter: 30,           // then «Оля вийшла»; coming back later = joining anew at the van (Б2: in the middle of a round the place is kept to its end)
   awayDropAfter: 60,           // Б2 (Р1-C): a friend on pause / silent this long drops its item where it stood
+  chaseSeen: 3,                // Б2 (owner, 19.11): a pause does not save from a chase — seen by a guard (or chased) in the
+  chaseHold: 5,                //   last chaseSeen s: the body stays where it was, visible and catchable, chaseHold s more
   backWait: 4,                 // Б2: a guest back from pause waits this long for the host, then opens the room again itself
   rejoinEvery: 10,             // Б2: while the host is silent the guest tries the room again this often
   backFor: 10,                 // Б2: min: a reloaded tab goes back into its room by itself within this time

@@ -86,9 +86,9 @@ export class Lobby {
     e.tips.hidden = !tips.length;
     e.retry.hidden = !st.retry;
     e.solo.hidden = !st.lost;
-    const back = this.root.querySelector('#netback');   // coop B2: st.back = the line above the button back into the round
+    const back = this.root.querySelector('#netback');   // coop B2: st.back = { text, button }: back into the round / the tap for the sound
     back.hidden = !st.back;
-    if (st.back) this.root.querySelector('#netbacktext').textContent = st.back;
+    if (st.back) { this.root.querySelector('#netbacktext').textContent = st.back.text; this.root.querySelector('#netbackbtn').textContent = st.back.button; }
     e.ver.textContent = st.version ? S.net.versionLine(st.version) : '';   // T3: friends compare their builds
     if (st.inRoom) {
       if (e.room.textContent !== S.net.room(prettyCode(st.code))) { e.room.textContent = S.net.room(prettyCode(st.code)); this.drawQr(st.link); }
