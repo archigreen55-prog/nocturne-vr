@@ -427,6 +427,13 @@ export function buildLevel() {
 
   // ---------- yard, street, van (world/yard.js) ----------
   const yard = buildYard({ S, G, P, C, solid, both, furniture, world });
+  // campaign v2 (plan §7.2): the flowerbed under the back window, outside; an item lowered through the sash lands on it
+  // softly (softAt); bodies walk over it (it is not a solid). The owner's «красива клумба» (17.11): a border of bricks
+  // set on edge, raked soil, a row of flowers by the wall and a lower one in front, the middle (where the item lands)
+  // only low leaves. ~90 boxes in the static mesh (the phone's budget: about a thousand triangles).
+  const FB = CFG.backWindow.flowerbed;
+  flowerbed(S, FB, C);
+  const SOFT = [{ minX: FB.x0, maxX: FB.x1, minZ: FB.z0, maxZ: FB.z1, k: FB.soft, noise: FB.rustle }];
 
   // moon, far away, unaffected by fog
   const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 12), new THREE.MeshBasicMaterial({ color: GLOW.moon, fog: false }));
@@ -469,6 +476,7 @@ export function buildLevel() {
     nav: { nodes: YARD_NODES.concat(NODES.slice(7)) },
     roomAt: (x, z) => roomAt(x, z),
     floorY: () => 0, floorIndex: () => 0, onRamp: () => false, worldAt: () => world,
+    softAt(x, z) { for (const s of SOFT) if (x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ) return s; return null; },   // the flowerbed (campaign v2)
     resolveBody: (x, z, r) => world.resolveCircle(x, z, r),
 
     // Push a circle out of the static world and all door leaves (the player). Returns [x, z].
@@ -730,4 +738,36 @@ function segmentsCross(ax, az, bx, bz, cx, cz, dx, dz) {
   const t = ((cx - ax) * sz - (cz - az) * sx) / den;
   const u = ((cx - ax) * rz - (cz - az) * rx) / den;
   return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+// The dacha's flowerbed (see above): bricks on edge round it, the soil a little raised, flowers in two rows.
+function flowerbed(S, FB, C) {
+  const H = 0.12, T = 0.07, L = 0.2, GAP = 0.02, BRICK = [C.brick, 0x7d4a3a];
+  let k = 0;
+  const run = (a0, a1, fixed, alongX) => {   // bricks on edge from a0 to a1 along one side
+    const n = Math.max(1, Math.round((a1 - a0) / L)), l = (a1 - a0) / n;
+    for (let i = 0; i < n; i++) {
+      const b0 = a0 + i * l + GAP / 2, b1 = a0 + (i + 1) * l - GAP / 2, c = BRICK[k++ % 2];
+      if (alongX) S.box(b0, 0, fixed - T / 2, b1, H, fixed + T / 2, c); else S.box(fixed - T / 2, 0, b0, fixed + T / 2, H, b1, c);
+    }
+  };
+  run(FB.x0, FB.x1, FB.z0 + T / 2, true); run(FB.x0, FB.x1, FB.z1 - T / 2, true);
+  run(FB.z0 + T, FB.z1 - T, FB.x0 + T / 2, false); run(FB.z0 + T, FB.z1 - T, FB.x1 - T / 2, false);
+  const x0 = FB.x0 + T, x1 = FB.x1 - T, z0 = FB.z0 + T, z1 = FB.z1 - T;
+  S.box(x0, 0, z0, x1, 0.05, z1, 0x3a2a20);                                   // the soil (low: a lowered item lies on the ground)
+  S.box(x0 + 0.08, 0.05, z0 + 0.08, x1 - 0.08, 0.065, z1 - 0.08, 0x2e2118);    // raked, a little higher in the middle
+  const PETAL = [0xe0708e, 0xf3ead8, 0xe8b030, 0xa08ce0];
+  const flower = (x, z, h, c) => {
+    S.box(x - 0.012, 0.05, z - 0.012, x + 0.012, h, z + 0.012, C.leaves2);                  // the stem
+    S.box(x - 0.07, h * 0.55, z - 0.02, x + 0.07, h * 0.55 + 0.015, z + 0.02, C.leaves2);   // two leaves
+    S.box(x - 0.08, h, z - 0.03, x + 0.08, h + 0.035, z + 0.03, c);                         // the bloom: a cross of petals
+    S.box(x - 0.03, h, z - 0.08, x + 0.03, h + 0.035, z + 0.08, c);
+    S.box(x - 0.025, h + 0.005, z - 0.025, x + 0.025, h + 0.05, z + 0.025, 0xf0c040);       // its middle
+  };
+  for (let i = 0; i < 5; i++) flower(x0 + 0.12 + i * (x1 - x0 - 0.24) / 4, z1 - 0.12, 0.4 + (i % 2) * 0.07, PETAL[i % PETAL.length]);   // by the wall: taller
+  [0.12, 0.34].forEach((dx, i) => flower(x1 - dx, z0 + 0.12, 0.24 + i * 0.05, PETAL[(i + 2) % PETAL.length]));   // in front, lower: the east end only
+  for (let i = 0; i < 5; i++) {        // the rest, where a lowered item lands (west of the middle, away from the sash): low leaves only
+    const x = x0 + 0.18 + i * (x1 - x0 - 0.8) / 4, z = (z0 + z1) / 2 + (i % 2 ? 0.08 : -0.08);
+    S.box(x - 0.08, 0.05, z - 0.06, x + 0.08, 0.11, z + 0.06, C.leaves);
+  }
 }

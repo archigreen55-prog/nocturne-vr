@@ -110,6 +110,7 @@ export class Round {
       shouts: this.shouts,
       scares: (this.env.lurkers || [this.env.lurker]).reduce((n, l) => n + l.scares, 0),
       seen: this.env.patrol.seenCount,
+      doubts: (this.env.guards || [this.env.patrol]).reduce((n, g) => n + (g.doubts || 0), 0),   // campaign v2: the guards' «?» because of a thief
       lostLoot: lost ? tally.sum : 0,
     };
     this.phase = 'result';

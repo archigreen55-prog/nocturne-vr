@@ -70,6 +70,19 @@ function loadVan() {
 // a trap bought at the van, another contract: into the van at once (only before the clock starts)
 export function reloadVan() { if (G.round.phase === 'ready' && local.stats) loadVan(); }
 // a new round (systems/contract.js, after loot.reset put every item back): the van, the points, the stats
+// Campaign v2 (decision R7 Б): caught or late — every trap taken out of the van (in a hand, put down, on a
+// door, not sprung) is lost from the stock. Returns their names (for the summary), [] when none.
+export function confiscateTraps() {
+  if (!G.loot || G.isGuest) return [];
+  const out = [];
+  for (const it of G.loot.items) {
+    if (!isTrap(it) || it.gone || it.inVan) continue;
+    const p = it.mesh.position;
+    if (inCargo(p.x, p.z) && p.y > 0.2) continue;   // put back in the van
+    consume(it); out.push(S.traps.names[it.trap]);
+  }
+  return out;
+}
 export function newRoundTraps() { if (!local.stats) return; loadVan(); mischief.reset(); local.stats = newStats(); local.lastPhase = G.round.phase; }
 
 // ---------- placing ----------

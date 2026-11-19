@@ -9,6 +9,7 @@ import { listWatchers, houseScale, pickMain } from '../game/watchers.js';
 import { G } from './state.js';
 import { fx } from './messages.js';
 import { S } from '../i18n/index.js';
+import { money } from '../ui/board.js';
 
 export const panel = {
   id: 'panel',
@@ -50,7 +51,7 @@ export const panel = {
         mic, breath, stepsAudible: player.stepsAudible, crouched: player.crouched, virtualCrouch: player.virtualCrouch, run: G.run,
         room: level.roomAt(player.head.x, player.head.z, player.floorY),
         heldItem: held ? { kind: (held.def && held.def.kind) || 'light', damaged: !!held.damaged } : null,   // the phone HUD's icon
-        holding: held ? `${held.name}${held.damaged ? S.hud.damagedMark : ''}` : '',
+        holding: held ? `${held.name}${held.damaged ? S.hud.damagedMark : ''}${held.value > 0 ? ` · ${money(held.value)}` : ''}` : '',   // campaign v2 (plan §5.1): the price in hand
         clock: round.clock, phase: round.phase, alertLevel: alert.level,
         fps: perf.fps, calls: perf.calls, tris: perf.tris, hz: session && session.frameRate ? Math.round(session.frameRate) : 0,
         gpuMs: (perf.gpuMs = gpu.take()), cpuMs: (perf.cpuMs = cpu.n ? (cpu.ms = cpu.sum / cpu.n, cpu.sum = cpu.n = 0, cpu.ms) : cpu.ms),

@@ -544,21 +544,22 @@ test('net: a double tap on «Увійти в кімнату» opens one connecti
   await ctx.close();
 });
 
-// B04: the guest has the devices of the host's level (W19: from level 7), and the host does not run a device its level has not got
+// B04: the guest has the devices of the host's level (campaign v2: none on its ladder yet — the guest's page is given them
+// from level 5 for the test), and the host does not run a device its level has not got
 test('net: the guest has the host’s devices for the level; a guest cannot switch on a device the level has not got (B04)', async () => {
   const ctx = await newContext(browser, { viewport: { width: 900, height: 600 } });
   await ctx.addInitScript(() => { window.__NOCTURNE_TEST = { ...(window.__NOCTURNE_TEST || {}), campaign: true }; });
   const host = await open(ctx, base + '?net=local');
   const code = '577215';
-  await host.page.evaluate((code) => { window.__game.setContract('clock'); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, code);
+  await host.page.evaluate((code) => { window.__game.setContract('chest'); return window.__game.net.open(code, 'host', 'Аня', 'zoya'); }, code);
   const guest = await open(ctx, base + '?net=local');
-  const before = await guest.page.evaluate(() => { window.__game.setContract('evening'); return window.__game.devices.enabled; });
-  assert.equal(before, true, 'the guest alone on level 7 has the devices');
+  const before = await guest.page.evaluate(() => { window.__game.CFG.campaign.mechanics.devices = 5; window.__game.setContract('clock'); return window.__game.devices.enabled; });
+  assert.equal(before, true, 'the guest alone on level 5 (devices from 5 on this page) has the devices');
   await guest.page.evaluate((code) => window.__game.net.open(code, 'guest', 'Оля', 'rita'), code);
   await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
   await run([host.page, guest.page], 0.5);
   const g = await guest.page.evaluate(() => ({ c: window.__game.contract.id, dev: window.__game.devices.enabled }));
-  assert.deepEqual(g, { c: 'clock', dev: false }, 'level 2 of the host: no devices on the guest either');
+  assert.deepEqual(g, { c: 'chest', dev: false }, 'level 2 of the host: no devices on the guest either');
   // a guest asks anyway (an old build): the host does not switch it on
   await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
   await guest.page.evaluate(async () => { const { useDevice } = await import('./src/systems/distract.js'); useDevice(window.__game.devices.list[0]); });

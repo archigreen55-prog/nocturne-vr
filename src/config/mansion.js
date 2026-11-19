@@ -2,6 +2,7 @@
 // Units: metres, seconds, m/s (see src/config/index.js). The numbers of sight, hearing and the
 // suspicion meter are the same as on the first map (src/config/guard.js); only places differ.
 import { S } from '../i18n/index.js';
+import { ladderOf } from './campaign.js';
 
 const R = S.rooms, M = S.mansion.rooms;
 
@@ -138,7 +139,7 @@ export const mansion = {
 
   // Contracts 8–14 (plan-W6 §5.1; game/contracts.js). 9 (the safe) and 11 (the statue) are places:
   // locked until their waves, shown grey on the board.
-  contracts: [
+  contracts: ladderOf([
     { id: 'm8', name: S.mansion.contracts.m8.name, brief: S.mansion.contracts.m8.brief, goal: { sum: 4000 }, bonus: 'clean' },
     { id: 'm9', name: S.mansion.contracts.m9.name, brief: S.mansion.contracts.m9.brief, goal: { sum: 1 }, bonus: 'clean', locked: S.mansion.contracts.m9.locked },
     { id: 'm10', name: S.mansion.contracts.m10.name, brief: S.mansion.contracts.m10.brief, goal: { floorItems: { floor: 1, n: 4 } }, bonus: 'intact' },
@@ -146,5 +147,5 @@ export const mansion = {
     { id: 'm12', name: S.mansion.contracts.m12.name, brief: S.mansion.contracts.m12.brief, goal: { swap: { item: 'm_painting', prop: 'fake', within: 0.5, seenFrom: 2 } }, bonus: 'clean' },
     { id: 'm13', name: S.mansion.contracts.m13.name, brief: S.mansion.contracts.m13.brief, goal: { sum: 3000, noAlarm: true }, bonus: 'intact' },
     { id: 'm14', name: S.mansion.contracts.m14.name, brief: S.mansion.contracts.m14.brief, goal: { sum: 5000 }, bonus: 'clean', mods: { time: 300, warnAt: 240, escapeTime: 45, teaAtStart: 60 } },
-  ],
+  ], S.campaign2.contracts),   // campaign v2: the ladder's levels only (config/campaign.js ladderOf)
 };

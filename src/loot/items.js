@@ -287,13 +287,13 @@ class Item {
     if (this.shards) this.shards.visible = false;
     // W2a: thrown (from where), found by the guard, carried by it, binned / swept up
     this.thrown = false; this.thrownFrom = null; this.hitGuard = false; this.landedAt = null;
-    this.found = false; this.carrier = null; this.gone = false;
+    this.found = false; this.carrier = null; this.gone = false; this.lowering = null;
   }
 
   get value() { return this.broken ? 0 : Math.round(this.def.value * (this.damaged ? CFG.loot.damagedK : 1)); }
   get held() { return this.holders.length > 0; }
   // can a hand pick it up? (not broken, not flying, not already in the van)
-  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered && !this.carrier && !this.gone && !this.shut; }
+  get takeable() { return !this.heavy && this.state !== 'broken' && this.state !== 'fly' && !this.delivered && !this.carrier && !this.gone && !this.shut && !this.lowering; }   // lowering: over the back window's sill (campaign v2)
 
   centre(out) { return out.copy(this.mesh.position).addScaledVector(_up.set(0, 1, 0).applyQuaternion(this.mesh.quaternion), this.h / 2); }
 

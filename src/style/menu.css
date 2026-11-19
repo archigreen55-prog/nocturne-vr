@@ -103,6 +103,32 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 /* the first run: «Налаштуємо мікрофон?» */
 #micask { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .78); }
 #micask[hidden] { display: none; }
+/* campaign v2: a change of house (systems/travel.js; the owner's decisions of 16.11) — the loading screen: our van
+   «ПЕРЕЇЗДИ / Фрол і Ко», flat, bobbing a little as if it drove, the road's dashes running; one line under it */
+#travel { position: fixed; inset: 0; z-index: 58; display: flex; align-items: center; justify-content: center; background: var(--night, #0d1322); transition: opacity .25s; }
+#travel[hidden] { display: none; }
+#travel.out { opacity: 0; }
+#travel .tv-box { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 16px; text-align: center; }
+#travel p { margin: 0; font: 800 20px var(--head, system-ui); color: var(--paper, #efe6d4); letter-spacing: .02em; }
+#travel .tv-van { width: 240px; height: auto; overflow: visible; filter: drop-shadow(4px 5px 0 #05070d); }
+#travel .tv-van text { font-family: var(--head, system-ui); }
+#travel .tv-body, #travel .tv-wheels { animation: tvbob .42s ease-in-out infinite alternate; }
+#travel .tv-wheels { animation-duration: .38s; }
+#travel .tv-road { animation: tvroad .5s linear infinite; }
+@keyframes tvbob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+@keyframes tvroad { to { stroke-dashoffset: 32; } }
+@media (max-height: 360px) { #travel .tv-van { width: 200px; } #travel p { font-size: 17px; } }
+@media (prefers-reduced-motion: reduce) { #travel .tv-body, #travel .tv-wheels, #travel .tv-road { animation: none; } }
+/* campaign v2: the card «Як це?» (systems/howCard.js) — the same paper box as the microphone's question, three numbered steps */
+#howcard { --accent: var(--whisper); position: fixed; inset: 0; z-index: 56; display: flex; align-items: center; justify-content: center; background: rgba(13, 19, 34, .7); }
+#howcard[hidden] { display: none; }
+#howcard .box { max-width: 460px; width: calc(100% - 32px); box-sizing: border-box; padding: 16px 20px; border-radius: 14px; background: var(--paper); color: var(--ink2); border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); }
+#howcard h2 { margin: 0 0 8px; font: 800 18px var(--head); color: var(--ink2); }
+#howcard ol { margin: 0 0 12px; padding-left: 1.6em; font-size: 15px; line-height: 1.45; color: #2a2a2a; }
+#howcard ol li::marker { font: 800 16px var(--head); color: var(--ink2); }
+#howcard button { font-size: 15px; min-height: 44px; padding: 4px 18px; border: 2px solid var(--ink2); border-radius: 10px; background: var(--lamp); color: var(--ink2); box-shadow: 3px 3px 0 var(--ink2); }
+@media (max-height: 460px) { #howcard ol { font-size: 14px; line-height: 1.35; margin-bottom: 8px; } #howcard .box { padding: 12px 16px; } }
+#overlay .lv-how { align-self: flex-start; margin-top: 4px; min-height: 32px; padding: 2px 12px; font: 700 12px system-ui, sans-serif; border: 2px solid var(--lamp); border-radius: 9px; background: transparent; color: var(--lamp); }
 #micask .box { max-width: 460px; width: calc(100% - 32px); box-sizing: border-box; padding: 18px 20px; border-radius: 14px; background: var(--paper); color: var(--ink2); border: 2px solid var(--ink2); box-shadow: 6px 6px 0 var(--ink2); }
 #micask h2 { margin: 0 0 6px; font: 800 18px var(--head); color: var(--ink2); }
 #micask p { margin: 0 0 12px; font-size: 15px; color: #2a2a2a; }
@@ -160,6 +186,15 @@ body.pages-all .pl-legacy { display: block; }   /* the tests' long card still ha
 .lv-info b { font: 800 16px/1.2 var(--head); color: var(--paper); }
 .lv-info span:not(.lv-info-n) { font-size: 13px; color: #c9d3e3; }
 .lv-info .lv-info-why { color: var(--lamp); font-weight: 700; }
+/* campaign v2 (plan 2026-11-15, card A «Записка»): the level's three stars, each with its money; the time and the loot record */
+.lv-stars3 { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 2px; }
+.lv-stars3 .st3 { display: grid; grid-template-columns: 3.3em 1fr auto auto; gap: 6px; align-items: baseline; font-size: 12px; color: #c9d3e3; }
+.lv-stars3 .st3 i { font-style: normal; color: var(--lamp); letter-spacing: 1px; }
+.lv-stars3 .st3 b { font: 700 12px/1.2 system-ui, sans-serif; color: var(--lamp); }
+.lv-stars3 .st3 em { font-style: normal; color: var(--paper); font-weight: 800; min-width: 1em; }
+.lv-stars3 .st3.got span { color: var(--paper); }
+.lv-info .lv-info-meta { font-size: 12px; color: #9aa7bf; }
+.st-diff { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 #overlay .seg button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 44px; padding: 4px 4px; font: 800 12px/1.1 var(--head); border: 2px solid var(--ink2); border-radius: 10px; background: var(--night); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
 #overlay .seg button.on { background: var(--lamp); color: var(--ink2); }
@@ -172,7 +207,7 @@ body.pages-all .pl-legacy { display: block; }   /* the tests' long card still ha
 @media (max-width: 640px) and (orientation: portrait) { .pl-grid { grid-template-columns: 1fr; } .pl-side { position: static; } }
 /* a phone in landscape: the cards a bit smaller, the side column narrower, nothing below the fold to start */
 @media (max-height: 460px) {
-  .pl-grid { grid-template-columns: minmax(0, 1fr) minmax(200px, 250px); gap: 10px 12px; }
+  .pl-grid { grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 10px 12px; }
   /* a phone in landscape (720 px tall = 360 CSS px): a house is one row that scrolls sideways, its right edge
      fades out to say there is more; the chosen card is scrolled into view (systems/playPage.js) */
   .lv-row { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; gap: 6px; padding: 2px 4px 6px 0; scrollbar-width: none;
@@ -186,6 +221,11 @@ body.pages-all .pl-legacy { display: block; }   /* the tests' long card still ha
   #overlay .lv-card .lv-n { font-size: 16px; }
   .lv-info { min-height: 0; padding: 7px 10px; }
   .lv-info b { font-size: 14px; }
+  /* campaign v2: the three star rows tighter, so «Грати» stays on screen */
+  .lv-stars3 { margin: 2px 0 0; gap: 1px; }
+  .lv-stars3 .st3, .lv-info span.lv-info-meta { font-size: 11px; line-height: 1.2; }
+  .lv-stars3 .st3 { grid-template-columns: 2.9em 1fr auto auto; gap: 4px; }
+  .lv-stars3 .st3 span { font-size: 11px; }
   #overlay .pl-start { min-height: 50px; font-size: 19px; }
   .pl-side { gap: 7px; }
   #overlay .seg { gap: 5px; }

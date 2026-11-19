@@ -10,6 +10,7 @@
 // guard's own view (its body hidden, its flashlight from its eyes, thieves drawn only when seen).
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
+import { leashZ } from '../enemies/patrol.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
 import { progress } from '../game/contracts.js';
@@ -163,9 +164,9 @@ export const humanGuard = {
     } else if (was) { H.stunShown = -1; flash(S.hguard.up, 1.5, '#5fd38d'); G.comfort.fadeRate = 2.5; }   // the dark goes in 0.4 s
     // the guard keeps away from the van (the thieves' drop-off ring is beside it); on the dacha he stays
     // in the yard: the gate is as far as he goes (world/yard.js LEASH)
-    const Lsh = G.level && G.level.leash;
-    if (isGuard() && round.phase !== 'result' && Lsh && player.head.z > Lsh.maxZ) {
-      player.teleport(player.head.x, Lsh.maxZ, player.yaw, player.floorY);
+    const Lz = leashZ(G.level, player.head.x);   // campaign v2: the gate watch's corridor on the dacha
+    if (isGuard() && round.phase !== 'result' && Lz !== null && player.head.z > Lz) {
+      player.teleport(player.head.x, Lz, player.yaw, player.floorY);
       if ((H.fenceT -= dt) <= 0) { H.fenceT = 3; flash(S.hguard.gate || S.hguard.fence, 2, '#93a1b8'); }
     }
     if (isGuard() && round.phase !== 'result') {

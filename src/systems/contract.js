@@ -18,6 +18,7 @@ import { applyLevel, campaignPress } from './campaign.js';
 import { CLASSIC, currentLevel } from '../game/campaign.js';
 import { whyClosed } from './levels.js';
 import { S } from '../i18n/index.js';
+import { howCards, markSeen } from './howCard.js';
 import { ensureMic } from './micAuto.js';
 
 // fromHost: a guest starts a new round only when the host does (systems/net.js)
@@ -40,7 +41,7 @@ export function newRound(fromHost = false) {
   player.teleport(SPAWN.x, SPAWN.z, SPAWN.yaw);
   comfort.fadeIn(0.5);
   G.boardDirty = true;
-  flash(S.messages.newRound, 4);
+  flash(CLASSIC || !G.contract || G.contract.level === undefined ? S.messages.newRound : S.campaign2.againFlash, 4);   // campaign v2: no «Новий раунд» (the owner's test)
   if (G.netEvent) G.netEvent('newround', {});
 }
 // Contract / difficulty can change only before the clock starts (at the van, or on the start screen).
@@ -60,6 +61,7 @@ export function setDifficulty(id) {
   G.difficulty = id; saveSetting('difficulty', id);
   applyDifficulty(G.difficulty, G.contract); for (const g of G.guards || [G.patrol]) g.reset(); for (const l of G.lurkers || [G.lurker]) l.reset(); G.round.reset();
   reloadVan();   // W2b: another contract / difficulty: another number of traps
+  applyLevel();  // the level's own rules live in the new CFG.run too (the dacha's gate watch was lost here)
   syncStartScreen(); G.boardDirty = true;
   if (G.netSetup) G.netSetup();
 }
@@ -98,6 +100,8 @@ export function pressBoard(id) {
   else if (id === 'mappage') G.boardPage = 'map';
   else if (id === 'lurkers') { G.boardPage = 'lurkers'; G.storyPage = 0; }   // W7: Тихарник
   else if (id === 'papers') G.boardPage = 'papers';   // W7: «Папери»
+  else if (id === 'how') G.boardPage = 'how';   // campaign v2: the level's card «Як це?»
+  else if (id === 'howok') { for (const c of howCards(G.contract)) markSeen(c.id); G.boardPage = 'contract'; }
   else if (id === 'lprev') G.storyPage = Math.max(0, (G.storyPage || 0) - 1);
   else if (id === 'lnext') G.storyPage = Math.min(Math.ceil(CFG.story.lurkers.length / 3) - 1, (G.storyPage || 0) + 1);
   else if (id.startsWith('map:')) { if (round.phase === 'ready') switchMap(id.slice(4)); }
