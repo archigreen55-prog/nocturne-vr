@@ -20,7 +20,7 @@ export class Summary {
   get isOpen() { return !this.root.hidden; }
   hide() { this.root.hidden = true; this.refs = null; }
 
-  // s: { result, verdict, contractName, difficulty, bonusText, clip, playing, recMode, noMic, income }
+  // s: { result, verdict, contractName, difficulty, bonusText, clip, playing, recMode, noMic, income, saved: { text, warn } }
   show(s) {
     const R = s.result, V = s.verdict, good = R.kind === 'left' || R.kind === 'escaped';
     const card = el('div', 'sm-card scroll ' + (good ? 'good' : 'bad'));
@@ -30,6 +30,7 @@ export class Summary {
     left.append(el('div', 'sm-money', good ? money(R.sum) : `−${money(R.lostLoot)}`));
     left.append(el('div', 'sm-sub', good ? S.board.res.kept(R.inVan, R.total, fmtTime(R.time, true)) : S.board.res.lost(fmtTime(R.time, true))));
     if (s.income) left.append(el('div', 'sm-income', s.income));   // the money for the wallet (W3)
+    if (s.saved) left.append(el('div', 'sm-saved' + (s.saved.warn ? ' warn' : ''), s.saved.text));   // plan 2026-11-19: saved on this device
     if (s.mischief) left.append(el('div', 'sm-income', s.mischief));   // W2b: mischief points
     if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b, W7: the customer and the crew (every contract)
     const list = el('div', 'sm-list scroll');

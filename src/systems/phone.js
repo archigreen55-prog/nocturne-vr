@@ -35,6 +35,7 @@ import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
 import { roundNoMic } from './micAuto.js';
 import { S } from '../i18n/index.js';
+import { savedNote } from './progressCode.js';
 
 export const pauseLog = [];                 // for the report: { reason, t (s of game time) }
 export const optVal = {};
@@ -94,6 +95,7 @@ export const summaryState = () => ({
   clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: roundNoMic(), income: G.role === 'guard' ? guardResultText() : incomeText(), mischief: mischiefText(), story: afterNow(),
   next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
   ...levelSummary(),   // campaign v2: the stars' checklist, «Ще раз за ★★★», «Далі»
+  saved: G.isGuest || G.role === 'guard' ? null : savedNote(),   // plan 2026-11-19: «Прогрес збережено на цьому телефоні» (a guest's progress is the host's)
 });
 // The pause menu's star rows (plan §3.4): [{ n, text, money, mark }] — mark ✓ won before, ✗ lost in this round, '' open
 function pauseStars() {

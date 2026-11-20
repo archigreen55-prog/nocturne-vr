@@ -15,6 +15,10 @@ export function loadSetting(key, fallback) {
 export function saveSetting(key, value) {
   try { localStorage.setItem(PREFIX + key, JSON.stringify(value)); } catch { /* storage blocked */ }
 }
+// Can this browser keep the game's data at all (a private window may refuse)? Plan 2026-11-19, task 3.
+export function storageWorks() {
+  try { const k = PREFIX + 'storageCheck'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return true; } catch { return false; }
+}
 // All saved settings of this build (for the report)
 export function allSettings() {
   const out = {};

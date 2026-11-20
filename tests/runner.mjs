@@ -48,6 +48,12 @@ export async function open(ctx, url) {
   await page.waitForFunction(() => window.__game, null, { timeout: 90000, polling: 200 });
   return { page, errors };
 }
+// A reload the way open() loads: domcontentloaded and up to 90 s for window.__game (a reload's full «load» under
+// the whole run's load took over Playwright's 30 s default: the «saving» test, plan 2026-11-19 task 3)
+export async function reloadGame(page) {
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
+  await page.waitForFunction(() => window.__game, null, { timeout: 90000, polling: 200 });
+}
 export const modeOf = (page) => page.evaluate(() => ({ ...window.__game.MODE }));
 
 const tests = [];

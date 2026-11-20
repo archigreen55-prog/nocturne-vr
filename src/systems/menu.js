@@ -14,7 +14,8 @@ import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
 import { dressLobby } from '../style/portraits.js';
 import { renderPlayPage } from './playPage.js';
-import { pressLook } from '../ui/press.js';   // S4: the thieves' portraits in the lobby
+import { pressLook } from '../ui/press.js';
+import { renderProgressCard } from './progressCode.js';   // S4: the thieves' portraits in the lobby
 
 const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'mic', 'more', 'testers', 'howto'];   // howto: menu design stage 2
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
@@ -71,6 +72,7 @@ function renderMenu() {
   const w = wallet(), L = lurkersMet();
   $('mmwallet').textContent = money(w.cash);
   $('mmlurkers').textContent = S.lurkers.met(L.n, L.total);
+  renderProgressCard();   // plan 2026-11-19: «Мій прогрес»
   const m = micLine();
   $('mmmic').hidden = !m || m.st === 'nomic';
   if (m) {
