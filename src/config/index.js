@@ -28,6 +28,7 @@ import { backWindow } from './backWindow.js';
 import { puddle, gate, placeSound } from './placeSound.js';
 import { hud } from './hud.js';
 import { start } from './start.js';
+import { reach } from './reach.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
@@ -42,4 +43,5 @@ export const CFG = {
   puddle, gate, placeSound,   // the dacha's yard: a puddle's splash, the gate, the place's sounds
   hud,   // the phone HUD's guards panel
   start,   // the round's start: the banner, the sound, the chalk line
+  reach,   // taking / pressing / opening only with no wall between (plan 2026-11-19)
 };

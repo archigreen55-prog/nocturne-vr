@@ -367,6 +367,7 @@ test('VR (IWER Quest 3): grip a can, swing the hand forward and let go — it fl
   const thrown = await page.evaluate(async () => {
     const g = window.__game, it = g.loot.items.find((i) => i.id === 'can1'), c = window.__xrDevice.controllers.right;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const table = it.mesh.position.clone();   // where it stood: the distance flown is from here (plan 2026-11-19: it now stops at the south wall, 2.3 m away, instead of passing through it)
     const local = g.player.rig.worldToLocal(it.mesh.getWorldPosition(new g.THREE.Vector3()).add(new g.THREE.Vector3(0, 0.06, 0)));
     c.position.set(local.x, local.y, local.z); await wait(300);
     c.updateButtonValue('squeeze', 1); await wait(300);
@@ -378,7 +379,7 @@ test('VR (IWER Quest 3): grip a can, swing the hand forward and let go — it fl
     c.position.set(local.x, local.y + 0.3, local.z - 0.2); c.updateButtonValue('squeeze', 0); await frame();   // the hand flies forward and opens
     const handV = g.hands.h.right.vel.length();
     await frame();
-    const v = it.vel.length(), from = it.mesh.position.clone();
+    const v = it.vel.length(), from = table;
     for (let i = 0; i < 40 && it.state !== 'rest'; i++) await wait(150);   // the emulator's frames are slow on a busy machine: until it lands (6 s at most)
     return { held, v: +v.toFixed(2), handV: +handV.toFixed(2), thrown: it.thrown, dist: +Math.hypot(it.mesh.position.x - from.x, it.mesh.position.z - from.z).toFixed(2), state: it.state };
   });

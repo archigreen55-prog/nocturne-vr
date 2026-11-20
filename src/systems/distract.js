@@ -16,6 +16,7 @@ import { flash } from './messages.js';
 import { score } from './traps.js';
 import { S } from '../i18n/index.js';
 import { lit } from '../style/materials.js';
+import { reachClear } from '../game/reach.js';
 
 const _v = new THREE.Vector3(), _h = new THREE.Vector3(), _c = new THREE.Vector3();
 const local = { aim: null, mouseStart: false, mouseEnd: false, cancel: false, lastPhase: null, voices: new Map(), stats: null, arc: null };
@@ -142,6 +143,7 @@ export const distract = {
     local.stats = newStats();
     level.maskZones = level.maskZones || [];
     const devs = G.devices = new Devices(level.id);
+    devs.canReach = (d) => reachClear(G.level, G.player.head.x, G.player.head.z, G.player.floorY || 0, d.x, d.y, d.z, 0.12);   // plan 2026-11-19
     for (const d of devs.list) wire(d);
     scene.add(devs.group);
     // the bin the guard takes the cans to

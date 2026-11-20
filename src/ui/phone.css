@@ -176,6 +176,8 @@ body.outdoor #tutorial { background: rgba(0, 0, 0, .94); }
 .pm-shop.owned .pm-shop-text b { color: #5fd38d; }
 .pm-shop.soon .pm-shop-text { opacity: .55; }
 .pm-shop .pm-buy { flex: none; width: 150px; min-height: 44px; font-size: 13px; }
+.sm-saved { color: #5fd38d; font-size: 12px; margin: 2px 0 4px; }   /* plan 2026-11-19: «Прогрес збережено на цьому телефоні» */
+.sm-saved.warn { color: #ffb347; }
 .sm-income { color: #ffd166; font-weight: 700; font-size: 14px; margin: 2px 0 4px; }
 .sm-story { color: #c9d3e3; font-style: italic; font-size: 13px; margin: 4px 0 0; }
 .sm-crew { color: #ffd166; font-style: italic; font-size: 13px; margin: 0 0 4px; }   /* W2b, W7: the customer and the crew (yellow) */

@@ -13,6 +13,7 @@ import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
 import { G } from './state.js';
 import { flash } from './messages.js';
+import { reachClear } from '../game/reach.js';
 import { Builder } from '../world/level.js';
 import { lit } from '../style/materials.js';   // W17: every lit material through the style's factory
 import { Whisperer } from '../enemies/whisperer.js';
@@ -106,6 +107,7 @@ export function aimedNote() {
     if (!n.out || Math.abs(n.y - (p.floorY || 0)) > 2.2) continue;
     const dx = n.x - p.head.x, dz = n.z - p.head.z, d = Math.hypot(dx, dz);
     if (d > bestD || (d > 0.4 && (dx * fx + dz * fz) / d < 0.7)) continue;
+    if (!reachClear(G.level, p.head.x, p.head.z, p.floorY || 0, n.x, n.y, n.z, 0.1)) continue;   // plan 2026-11-19: not through a wall
     best = n; bestD = d;
   }
   return best;
@@ -115,7 +117,8 @@ export function readNoteAtHand(hand) {
   const g = G.grips && G.grips[hand];
   if (!g || !local.notes.length) return false;
   g.getWorldPosition(_v);
-  const n = local.notes.find((x) => x.out && Math.hypot(_v.x - x.x, _v.y - x.y, _v.z - x.z) < CFG.story.noteUse.hand);
+  const P = G.player;
+  const n = local.notes.find((x) => x.out && Math.hypot(_v.x - x.x, _v.y - x.y, _v.z - x.z) < CFG.story.noteUse.hand && reachClear(G.level, P.head.x, P.head.z, P.floorY || 0, x.x, x.y, x.z, 0.1));
   if (!n) return false;
   readNote(n);
   G.xrIn.pulse(hand, 0.2, 20);

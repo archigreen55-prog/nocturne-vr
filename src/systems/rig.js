@@ -14,6 +14,7 @@ import { lowerAtRelease } from './backWindow.js';
 import { CLASSIC } from '../config/campaign.js';
 import { flash } from './messages.js';
 import { lit } from '../style/materials.js';
+import { reachClear } from '../game/reach.js';
 
 export const rig = {
   id: 'rig',
@@ -41,7 +42,8 @@ export const rig = {
       }
     }
     const xrIn = G.xrIn = new XRInput();
-    G.hands = new Hands({ loot: G.loot, rig: player.rig, grips, pulse: (h, s, ms) => xrIn.pulse(h, s, ms), onMessage: (t, c) => flash(t, 2, c), lowerAt: (it) => !CLASSIC && lowerAtRelease(it) });
+    G.hands = new Hands({ loot: G.loot, rig: player.rig, grips, pulse: (h, s, ms) => xrIn.pulse(h, s, ms), onMessage: (t, c) => flash(t, 2, c), lowerAt: (it) => !CLASSIC && lowerAtRelease(it),
+      reach: (x, y, z, r) => reachClear(G.level, G.player.head.x, G.player.head.z, G.player.floorY || 0, x, y, z, r) });   // plan 2026-11-19: not through a wall
     const pointer = G.pointer = new Pointer(renderer, player.rig, G.board);
     pointer.addTo(scene);
 

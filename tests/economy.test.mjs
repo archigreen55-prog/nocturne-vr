@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newContext, ROOT } from './harness.mjs';
-import { browser, UA, open, test, LAND, keepFor, frames, playPhone, fingerPressEl, pm, toSummary, aimAt, base, preview, standFacing } from './runner.mjs';
+import { browser, UA, open, test, LAND, keepFor, frames, playPhone, fingerPressEl, pm, toSummary, aimAt, base, preview, standFacing, reloadGame } from './runner.mjs';
 
 // A page in a round at the van; __round(kind, sum, stars) ends a round as if played: `kind` left /
 // caught, the loot `sum`, the verdict's stars (the real end of a round runs, only its numbers are set).
@@ -64,7 +64,7 @@ test('the wallet: a round you got away from pays its loot; caught pays nothing; 
     localStorage.setItem('nocturne.stars', JSON.stringify({ first: { easy: 0, medium: 2, hard: 0 } }));
     localStorage.setItem('nocturne.difficulty', '"medium"');
   });
-  await page.reload(); await page.waitForFunction(() => window.__game);
+  await reloadGame(page);
   const old = await page.evaluate(async () => {
     const g = window.__game; g.patrol.update = () => null; g.newRound(); g.playing = true; g.sim(0.1);
     const C = await import('./src/game/contracts.js');
@@ -235,7 +235,7 @@ test('saving: the wallet and the upgrades survive a reload; the progress code (T
   const { ctx, page, errors } = await econ();
   await page.evaluate(() => localStorage.setItem('nocturne.wallet', JSON.stringify({ cash: 3000, earned: 3000, spent: 0, owned: [], paid: {}, log: [] })));
   await page.evaluate(async () => { const E = await import('./src/systems/economy.js'); E.buyUpgrade('gloves'); });
-  await page.reload(); await page.waitForFunction(() => window.__game);
+  await reloadGame(page);
   const kept = await page.evaluate(() => ({ w: JSON.parse(localStorage.getItem('nocturne.wallet')), line: document.getElementById('walletline').textContent, grab: window.__game.CFG.loot.crystal.grabSpeed }));
   assert.equal(kept.w.cash, 2200); assert.deepEqual(kept.w.owned, ['gloves']);
   assert.match(kept.line, /\$2,200 · апгрейдів: 1/);
@@ -255,7 +255,7 @@ test('saving: the wallet and the upgrades survive a reload; the progress code (T
     localStorage.setItem('nocturne.wallet', JSON.stringify({ cash: 900, earned: 900, spent: 0, owned: [], paid: {}, log: [] }));
     localStorage.removeItem('nocturne.preview.wallet');
   });
-  await p2.page.reload(); await p2.page.waitForFunction(() => window.__game);
+  await reloadGame(p2.page);
   const sep = await p2.page.evaluate(async () => {
     const E = await import('./src/systems/economy.js');
     window.__game.newRound();

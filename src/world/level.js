@@ -505,6 +505,9 @@ export function buildLevel() {
       return best;
     },
 
+    // A wall between two points (doors aside: game/reach.js checks them); f: the floor (one here).
+    wallBlocked(ax, az, bx, bz) { return walls.segmentBlocked(ax, az, bx, bz); },
+
     // Sound between two points goes through a wall or a closed door.
     soundOccluded(ax, az, bx, bz) {
       if (walls.segmentBlocked(ax, az, bx, bz)) return true;

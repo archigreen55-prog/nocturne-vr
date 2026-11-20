@@ -405,6 +405,8 @@ export function buildMansion() {
       for (const d of doors) if (d.floor === fa && d.blocksSegment(ax, az, bx, bz)) return CFG_HEARING.occludedK;
       return 1;
     },
+    // A wall of floor f between two points (doors aside: game/reach.js checks them).
+    wallBlocked(ax, az, bx, bz, f = 0) { return walls[f].segmentBlocked(ax, az, bx, bz); },
     // Sound between two points goes through a wall or a closed door (of the floor the points are on).
     soundOccluded(ax, az, bx, bz, ay = 0, by = ay) {
       const f = floorIndex(ay);

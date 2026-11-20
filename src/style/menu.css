@@ -66,6 +66,10 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 #overlay .mm.primary .mm-note { color: #3a2a10; }
 .mm-mic { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--paper); }
 #overlay .mm-mic button { font-size: 14px; padding: 4px 10px; margin-left: 6px; border-color: var(--lamp); color: var(--lamp); }
+/* plan 2026-11-19: «Мій прогрес» under the logo — what is saved here and the way to carry it to another device */
+.mm-prog { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 18px; font-size: 13px; color: #c9d2e3; text-align: center; }
+.mm-prog-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+#overlay .mm-prog button { font-size: 13px; padding: 4px 10px; border-color: var(--lamp); color: var(--lamp); }
 .mm-foot { grid-column: 1 / -1; margin: 0; font-size: 12px; color: #7f8aa3; display: flex; gap: 14px; flex-wrap: wrap; }
 .mm-foot #version { margin: 0; }
 @media (max-width: 640px) and (orientation: portrait) {
@@ -85,7 +89,12 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
   #overlay .mm.primary { font-size: 15px; }
   #overlay .mm .mm-note { display: none; }
   .mm-mic { font-size: 12px; }
+  .mm-prog { font-size: 11px; gap: 3px; margin-top: 4px; }
+  #overlay .mm-prog button { font-size: 11px; padding: 2px 8px; }
 }
+
+/* the smallest phones in landscape (667 x 280): no room for the progress line — the buttons only (the summary says it is saved) */
+@media (max-height: 300px) { #mmprogline { display: none; } .mm-prog { margin-top: 0; } }
 
 /* the cards of Тихарник and the shop's rows on the menu pages */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }

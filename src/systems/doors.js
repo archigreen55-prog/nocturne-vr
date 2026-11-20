@@ -7,6 +7,7 @@ import { G } from './state.js';
 import { flash } from './messages.js';
 import { S } from '../i18n/index.js';
 import { CLASSIC } from '../config/campaign.js';
+import { doorReach } from '../game/reach.js';
 
 const _hand = new THREE.Vector3(), _handle = new THREE.Vector3();
 // Door nearest to (x, z) within maxDist of its doorway centre; if dirYaw is given, only in front.
@@ -19,6 +20,7 @@ export function nearestDoor(x, z, maxDist, dirYaw) {
     const dist = Math.hypot(dx, dz);
     if (dist >= bestD) continue;
     if (dirYaw !== undefined && dist > 0.5 && (-Math.sin(dirYaw) * dx - Math.cos(dirYaw) * dz) / dist < 0.3) continue;
+    if (!doorReach(G.level, d, x, z)) continue;   // plan 2026-11-19: not a door behind another wall
     best = d; bestD = dist;
   }
   return best;

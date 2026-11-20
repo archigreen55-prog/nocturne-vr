@@ -96,13 +96,16 @@ export class Devices {
   // the small light: lit while it plays / rings (the breaker: while the power is on)
   show(d) { d.lamp.visible = d.kind === 'breaker' ? power.on : d.on || d.ringing; }
 
+  // canReach(d): no wall between the player and the device (systems/distract.js sets it: game/reach.js)
+  reach(d) { return !this.canReach || this.canReach(d); }
+
   // VR: the device within reach of the hand (3D distance to its middle)
   nearHand(p) {
     if (!this.enabled) return null;
     let best = null, bestD = CFG.devices.reach;
     for (const d of this.list) {
       const dd = Math.hypot(p.x - d.x, p.y - (d.y + 0.08), p.z - d.z);
-      if (dd < bestD) { best = d; bestD = dd; }
+      if (dd < bestD && this.reach(d)) { best = d; bestD = dd; }   // a hand through a wall presses nothing
     }
     return best;
   }
@@ -115,6 +118,7 @@ export class Devices {
       if (Math.abs(d.y - floorY) > 2.2 || d.y < floorY - 0.3) continue;
       const dx = d.x - head.x, dz = d.z - head.z, dist = Math.hypot(dx, dz);
       if (dist > bestD || (dist > 0.4 && (dx * fx + dz * fz) / dist < 0.75)) continue;
+      if (!this.reach(d)) continue;   // plan 2026-11-19: not through a wall, a closed door or a floor
       best = d; bestD = dist;
     }
     return best;

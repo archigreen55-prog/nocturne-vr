@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
+import { sweptBlocked } from '../game/reach.js';
 
 const G = 9.8;
 
@@ -30,12 +31,13 @@ export function predictArc(level, p, v, pts, floorY = 0) {
   const x = p.clone(), u = v.clone(), dt = 0.025;
   let n = 0, every = 1;
   for (let i = 0; i < 160; i++) {
-    const prevY = x.y;
+    const prevY = x.y, prevX = x.x, prevZ = x.z;
     u.y -= G * dt;
     x.addScaledVector(u, dt);
     const [nx, nz] = level.resolveWalls(x.x, x.z, 0.04, () => {}, x.y);
-    const hitWall = Math.abs(nx - x.x) > 1e-4 || Math.abs(nz - x.z) > 1e-4;
+    let hitWall = Math.abs(nx - x.x) > 1e-4 || Math.abs(nz - x.z) > 1e-4;
     x.x = nx; x.z = nz;
+    if (sweptBlocked(level, prevX, prevZ, x.x, x.z, x.y)) { x.x = prevX; x.z = prevZ; hitWall = true; }   // as the fall does (loot/items.js)
     const support = level.surfaceAt(x.x, x.z, prevY + 0.02);
     if (x.y <= support || x.y < floorY - 4) { x.y = Math.max(support, floorY - 4); break; }
     if (i % every === 0 && n < pts.length) pts[n++].copy(x);
