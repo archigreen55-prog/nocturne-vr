@@ -51,6 +51,9 @@ export class Hands {
     this.two = null; this.desk = null;
   }
 
+  // No wall, closed door or floor between the player and the item (game/reach.js; env.reach: the system's).
+  canReach(it, c) { return !this.env.reach || this.env.reach(c.x, c.y, c.z, it.r); }
+
   // Reach test: hand within the item's size + grabReach of its centre.
   nearest(pos, except) {
     let best = null, bestD = Infinity;
@@ -58,7 +61,7 @@ export class Hands {
       if (!it.takeable || it === except) continue;
       it.centre(_c);
       const d = pos.distanceTo(_c) - Math.max(it.r, it.h / 2) - CFG.loot.grabReach;
-      if (d < 0 && d < bestD) { best = it; bestD = d; }
+      if (d < 0 && d < bestD && this.canReach(it, _c)) { best = it; bestD = d; }   // a hand through a wall takes nothing
     }
     return best;
   }
@@ -238,6 +241,7 @@ export class Hands {
       it.centre(_c);
       const dx = _c.x - head.x, dz = _c.z - head.z, d = Math.hypot(dx, dz);
       if (d > bestD || (d > 0.4 && (dx * fx + dz * fz) / d < 0.75)) continue;
+      if (!this.canReach(it, _c)) continue;   // plan 2026-11-19: not through a wall, a closed door or a floor
       best = it; bestD = d;
     }
     this.deskAim = this.desk ? null : best;

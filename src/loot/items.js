@@ -9,6 +9,7 @@ import { playThud, playGlass } from '../audio/audio.js';
 import { playCan, playBottle } from '../audio/distractSfx.js';
 import { S } from '../i18n/index.js';
 import { lit } from '../style/materials.js';
+import { sweptBlocked } from '../game/reach.js';
 
 const G = 9.8;
 const _up = new THREE.Vector3();
@@ -434,7 +435,7 @@ export class Loot {
 
   fallStep(it, dt) {
     const p = it.mesh.position, v = it.vel;
-    const prevY = p.y;
+    const prevY = p.y, prevX = p.x, prevZ = p.z;
     v.y -= G * dt;
     p.addScaledVector(v, dt);
     if (it.spin > 0) it.mesh.rotateOnWorldAxis(it.spinAxis, it.spin * dt);
@@ -445,6 +446,11 @@ export class Loot {
       if (vn < 0) { hit = Math.max(hit, -vn); v.x -= 1.4 * vn * cx; v.z -= 1.4 * vn * cz; }
     });
     p.x = nx; p.z = nz;
+    // plan 2026-11-19: a step that jumped over a wall's face (a fast throw, a slow phone) — back, and it bounces
+    if (sweptBlocked(this.env.level, prevX, prevZ, p.x, p.z, p.y)) {
+      hit = Math.max(hit, Math.hypot(v.x, v.z));
+      p.x = prevX; p.z = prevZ; v.x *= -0.4; v.z *= -0.4;
+    }
     if (hit > CFG.loot.wallDamageSpeed) this.impact(it, hit, true);
     // landing
     const support = this.env.level.surfaceAt(p.x, p.z, prevY + 0.02);

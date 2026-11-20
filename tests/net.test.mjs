@@ -114,6 +114,13 @@ test('net: two tabs — the guest joins from the link, the guard sees and catche
   assert.notEqual(doorState[0], 0, 'the host opened the door for the guest');
   assert.equal(doorState[0], doorState[1], 'the guest shows the host’s door');
 
+  // 2b. plan 2026-11-19: the guest on the street behind the north wall asks for the dacha's big vase — the host says no
+  const vase = await guest.page.evaluate(() => { const g = window.__game; g.player.teleport(4.3, -14.75, Math.PI); return g.loot.items.findIndex((x) => x.id === 'vase'); });
+  await run(pages, 0.6);
+  await guest.page.evaluate(async (i) => { const { G } = await import('./src/systems/state.js'); G.netIntent('take', { i }); }, vase);
+  await run(pages, 0.8);
+  assert.equal(await host.page.evaluate((i) => window.__game.loot.items[i].netHolder || '', vase), '', 'not through the wall');
+
   // 3. loot: the guest takes an item (the host decides), carries it and puts it in the van
   const item = await guest.page.evaluate(() => {
     const g = window.__game, it = g.loot.items.find((x) => x.takeable && !x.twoHanded && !x.throwable && !x.trap && !x.heavy && !x.prop);

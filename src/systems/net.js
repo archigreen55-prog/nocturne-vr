@@ -36,6 +36,8 @@ import { playThud, playGlass, playHeartbeat, unlockAudio } from '../audio/audio.
 import { mapOpen, travelNote } from '../world/maps.js';
 import { S } from '../i18n/index.js';
 import { hostClimb, climbDenied, hostLower } from './backWindow.js';
+import { reachClear } from '../game/reach.js';
+const _reachC = new THREE.Vector3();
 
 const UP = new THREE.Vector3(0, 1, 0);
 const N = {
@@ -311,6 +313,8 @@ function hostIntent(r, m) {
     const it = loot.items[m.i];
     if (!it || r.desk || !it.takeable || it.held || it.state === 'fall') return;
     if (Math.hypot(it.mesh.position.x - r.head.x, it.mesh.position.z - r.head.z) > 2.5) return;
+    it.centre(_reachC);   // plan 2026-11-19: the host takes it for the guest only with no wall, closed door or floor between
+    if (!reachClear(level, r.head.x, r.head.z, r.floorY || 0, _reachC.x, _reachC.y, _reachC.z, it.r)) return;
     r.desk = it; it.netHolder = r.id; it.thrown = false;
     it.holders.length = 0; it.holders.push('friend'); it.state = 'held';
   } else if (m.a === 'put') {
@@ -327,7 +331,7 @@ function hostIntent(r, m) {
     setGuard(r.id, !!m.guard);
   } else if (m.a === 'dev') {
     const dev = G.devices && G.devices.byId(m.id);
-    if (dev && G.devices.enabled) useDevice(dev);   // B04: not on a level without devices
+    if (dev && G.devices.enabled && reachClear(level, r.head.x, r.head.z, r.floorY || 0, dev.x, dev.y, dev.z, 0.12)) useDevice(dev);   // B04: not on a level without devices; not through a wall (plan 2026-11-19)
   }
 }
 
