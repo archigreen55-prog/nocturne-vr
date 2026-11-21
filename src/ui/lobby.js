@@ -55,7 +55,7 @@ export class Lobby {
     this.el = { name: q('netname'), thief: q('netthief'), code: q('netcode'), out: q('netout'), inn: q('netin'), card: q('netcard'), room: q('netroom'), qr: q('netqr'), link: q('netlink'), list: q('netlist'), guard: q('netguard'), guardIs: q('netguardis'), status: q('netstatus'), solo: q('netsolo'), ver: q('netver'), tips: q('nettips'), retry: q('netretry') };
     this.el.name.value = name; this.el.thief.value = THIEVES.includes(thief) ? thief : 'zoya';
     if (code) this.el.code.value = prettyCode(code);
-    // the owner's decision (20.11): a digit in the code = joining — «Створити кімнату» goes grey, «Увійти в кімнату» lights
+    // the owner's decision (20.11): a digit in the code = joining — the "create room" button goes grey, the "join room" button lights
     // up; an empty field = both as before (typed, pasted, or from an invitation link ?room=)
     this.codeLooks = () => {
       const typed = /\d/.test(this.el.code.value), create = q('netcreate'), join = q('netjoin');
@@ -127,7 +127,7 @@ export class Lobby {
     choice.textContent = host ? '' : st.choice || '';   // the host sees its choice on the cards
     q('netgoal').textContent = st.goal || '';   // the goal of the chosen level, for the host and the guests
     // decision of 7.11: the map, the level and the difficulty are the host's alone — a guest gets no cards and no
-    // difficulty buttons at all, only «Хост обрав: …» and the goal
+    // difficulty buttons at all, only "host chose: …" and the goal
     pick.hidden = !host;
     if (!host) return;
     if (!this.pick) this.pick = new LevelPick(q('netlevels'), (id) => this.on.pickLevel && this.on.pickLevel(id));
