@@ -443,3 +443,17 @@ body.pages-all #overlay .set-cols { grid-auto-flow: row; grid-template-rows: non
 /* mic v2 stage 1 (Б1): the main menu's microphone line — a dot that lights up with your voice while the game really hears it */
 .mm-mic .micdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: var(--whisper, #7fd0ff); transition: opacity .08s linear; }
 .mm-mic[data-st="denied"], .mm-mic[data-st="none"], .mm-mic[data-st="problem"] { color: var(--lamp); }
+
+/* «Засоби бригади»: the guide's cards (the lcard look), the shop's «?» and the link to the guide */
+#crewlist .crew-group { margin: 14px 0 6px; font: 800 15px var(--head); color: var(--lamp); }
+#crewlist .crew-group:first-child { margin-top: 4px; }
+#crewlist .cards { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.ccard span { line-height: 1.35; }
+.ccard em { font-style: normal; font-weight: 800; color: var(--lamp); }
+.ccard .crew-foot { margin-top: 5px; padding-top: 4px; border-top: 1px dashed var(--ink2); font-size: 11px; color: #93a1b8; }
+.ccard.owned .crew-foot { color: #7fd69b; }
+.ccard.focus { outline: 3px solid var(--lamp); outline-offset: 2px; }
+#overlay .crewlink { display: inline-block; margin: 2px 0 8px; padding: 8px 14px; min-height: 40px; font: 800 13px var(--head); border: 2px solid var(--ink2); border-radius: 10px; background: var(--dusk); color: var(--paper); box-shadow: 3px 3px 0 var(--ink2); }
+.shoprow { position: relative; }
+#overlay .shoprow button.shq { position: absolute; top: 6px; right: 6px; width: 32px; min-width: 0; height: 32px; min-height: 0; padding: 0; border-radius: 50%; font: 800 16px var(--head); background: var(--dusk); color: var(--lamp); box-shadow: 2px 2px 0 var(--ink2); }
+#overlay .shoprow .t { padding-right: 34px; }   /* the «?» sits in the corner: the words stop short of it */
