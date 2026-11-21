@@ -29,6 +29,7 @@ import { puddle, gate, placeSound } from './placeSound.js';
 import { hud } from './hud.js';
 import { start } from './start.js';
 import { reach } from './reach.js';
+import { crewTools } from './crewTools.js';
 
 export const CFG = {
   round, dropZone, player, mic, breath, doors, loot, items, patrol, hearing, stealth, alert, lurker, scream, ripple, guard,
@@ -44,4 +45,5 @@ export const CFG = {
   hud,   // the phone HUD's guards panel
   start,   // the round's start: the banner, the sound, the chalk line
   reach,   // taking / pressing / opening only with no wall between (plan 2026-11-19)
+  crewTools,   // the menu's guide to the helpers («Засоби бригади»)
 };
