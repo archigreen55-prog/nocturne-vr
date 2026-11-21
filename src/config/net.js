@@ -16,7 +16,7 @@ export const net = {
   stun: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'],
   // W8c: the Worker that hands out short-lived TURN permissions (tools/turn-worker/, Cloudflare). Asked only
   // from the game's site (the Worker refuses other pages); no answer in turnTimeout s = STUN only, as before
-  turnWorker: 'https://nocturne-turn.nocturne-game.workers.dev/',
+  turnWorker: 'https://nocturne-turn.archigreen55.workers.dev/',
   turnOrigin: 'https://archigreen55-prog.github.io',
   turnTimeout: 3,
   // how often (per second)
