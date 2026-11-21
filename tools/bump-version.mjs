@@ -77,7 +77,16 @@ for (const f of styles) {
 }
 
 // the service worker: its version (a new sw.js on every deploy) and the files it keeps for offline play
-const icons = readdirSync(join(root, 'icons')).filter((f) => f.endsWith('.png')).sort().map((f) => `./icons/${f}`);
+// icons/ and its folders (the guide's pictures: icons/crew/*.webp, *.svg)
+const icons = [];
+(function walkIcons(dir) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) walkIcons(p);
+    else if (/\.(png|webp|svg)$/.test(e.name)) icons.push('./' + relative(root, p).split('\\').join('/'));
+  }
+})(join(root, 'icons'));
+icons.sort();
 const pages = ['privacy.html'].filter((f) => { try { readFileSync(join(root, f)); return true; } catch { return false; } }).map((f) => `./${f}`);
 let fonts = [];   // W17: the headings' font (offline)
 try { fonts = readdirSync(join(root, 'fonts')).filter((f) => f.endsWith('.woff2')).sort().map((f) => `./fonts/${f}`); } catch { /* no fonts/ */ }

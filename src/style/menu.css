@@ -457,3 +457,12 @@ body.pages-all #overlay .set-cols { grid-auto-flow: row; grid-template-rows: non
 .shoprow { position: relative; }
 #overlay .shoprow button.shq { position: absolute; top: 6px; right: 6px; width: 32px; min-width: 0; height: 32px; min-height: 0; padding: 0; border-radius: 50%; font: 800 16px var(--head); background: var(--dusk); color: var(--lamp); box-shadow: 2px 2px 0 var(--ink2); }
 #overlay .shoprow .t { padding-right: 34px; }   /* the «?» sits in the corner: the words stop short of it */
+/* «Засоби бригади»: a picture on every card — left of the words on a wide screen, above them on a narrow one;
+   a lock shows the thing as a dark silhouette with a padlock */
+.ccard { display: flex; gap: 12px; align-items: flex-start; }
+.ccard .cbody { flex: 1; min-width: 0; }
+.ccard .cimg { flex: none; position: relative; width: 88px; height: 88px; border-radius: 10px; background: radial-gradient(circle at 50% 42%, #26324f 0%, var(--dusk) 70%); border: 2px solid var(--ink2); display: flex; justify-content: center; align-items: center; overflow: hidden; }
+.ccard .cimg > img:first-child { width: auto; height: 100%; max-width: 100%; object-fit: contain; filter: brightness(1.18) saturate(1.1); pointer-events: none; -webkit-user-drag: none; }
+.ccard.locked .cimg > img:first-child { filter: brightness(0) invert(.62) opacity(.5); }
+.ccard .cimg .clock { position: absolute; right: 2px; bottom: 2px; width: 34px; height: 34px; filter: none; }
+@media (max-width: 520px) { .ccard { flex-direction: column; } .ccard .cimg { width: 100%; height: 84px; } }

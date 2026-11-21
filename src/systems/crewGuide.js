@@ -26,7 +26,7 @@ function numbers() {
 const say = (v, n) => (typeof v === 'function' ? v(n) : v);
 const howOf = (v, mode, n) => say(v && typeof v === 'object' ? v[mode] || v.pc : v, n);
 
-// The cards as the page shows them: [{ id, group, locked, level, name, does, where, how, tip, foot, owned }]
+// The cards as the page shows them: [{ id, group, img, locked, level, name, does, where, how, tip, foot, owned }]
 export function crewCards(mode = modeOf()) {
   const n = numbers(), T = S.crewTools, out = [];
   for (const c of CFG.crewTools.cards) {
@@ -36,9 +36,10 @@ export function crewCards(mode = modeOf()) {
     const locked = !!c.mech && !reached(c.mech);
     const t = T.cards[c.id], owned = c.upgrade ? has(c.upgrade) : false;
     const foot = c.upgrade ? T.foot.buy(money(u.price), owned) : T.foot[c.group](level);
+    const img = CFG.crewTools.imgDir + c.img;
     out.push(locked
-      ? { id: c.id, group: c.group, locked: true, level, name: T.locked, hint: T.lockedHint(level) }
-      : { id: c.id, group: c.group, locked: false, level, owned, name: t.name, does: say(t.does, n), where: say(t.where, n), how: howOf(t.how, mode, n), tip: say(t.tip, n), foot });
+      ? { id: c.id, group: c.group, img, locked: true, level, name: T.locked, hint: T.lockedHint(level) }
+      : { id: c.id, group: c.group, img, locked: false, level, owned, name: t.name, does: say(t.does, n), where: say(t.where, n), how: howOf(t.how, mode, n), tip: say(t.tip, n), foot });
   }
   return out;
 }
@@ -59,20 +60,35 @@ export function renderCrew(focusId = null) {
     for (const c of mine) {
       const card = el('div', 'lcard ccard' + (c.locked ? ' locked' : '') + (c.owned ? ' owned' : ''));
       card.dataset.crew = c.id;
-      card.append(el('b', '', c.name));
-      if (c.locked) card.append(el('span', '', c.hint));
+      // the picture: the thing itself, or, on a lock, its dark silhouette with a padlock
+      const pic = el('div', 'cimg');
+      const im = el('img'); im.src = c.img; im.alt = ''; im.width = 96; im.height = 96; im.decoding = 'async'; im.draggable = false;
+      pic.append(im);
+      if (c.locked) { const lk = el('img', 'clock'); lk.src = CFG.crewTools.imgDir + CFG.crewTools.lockImg; lk.alt = ''; lk.width = 40; lk.height = 40; pic.append(lk); }
+      const body = el('div', 'cbody');
+      body.append(el('b', '', c.name));
+      if (c.locked) body.append(el('span', '', c.hint));
       else {
         for (const k of ['does', 'where', 'how', 'tip']) {
           const row = el('span', 'crew-' + k);
           row.append(el('em', '', L[k] + ': '), document.createTextNode(c[k]));
-          card.append(row);
+          body.append(row);
         }
-        card.append(el('span', 'crew-foot', c.foot));
+        body.append(el('span', 'crew-foot', c.foot));
       }
+      card.append(pic, body);
       grid.append(card);
     }
     box.append(head, grid);
   }
-  const f = focusId && box.querySelector(`[data-crew="${focusId}"]`);
-  if (f) { f.classList.add('focus'); f.scrollIntoView({ block: 'center' }); }
+  if (focusId) focusCrew(focusId);
+}
+
+// Light the card and scroll it into view (the menu resets the page's scroll after drawing it: systems/menu.js calls this again then)
+export function focusCrew(id) {
+  const f = $('crewlist') && $('crewlist').querySelector(`[data-crew="${id}"]`);
+  if (!f) return;
+  for (const x of $('crewlist').querySelectorAll('.focus')) x.classList.remove('focus');
+  f.classList.add('focus');
+  f.scrollIntoView({ block: 'center' });
 }

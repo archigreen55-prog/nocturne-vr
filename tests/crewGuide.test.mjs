@@ -3,7 +3,9 @@
 // mechanics not reached yet are locks with their level; no traps, no cart, no blanket; the shop's rows have a
 // «?» that opens the page on that card, the shop page and «Ще» link to it. These pages run the campaign.
 import assert from 'node:assert/strict';
-import { newContext } from './harness.mjs';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import { newContext, ROOT } from './harness.mjs';
 import { browser, open, test, base, LAND, UA, preview } from './runner.mjs';
 
 const S1 = { medium: 1 };
@@ -159,4 +161,51 @@ test('crew guide: the shop page links to it, every upgrade row has a «?» after
   assert.equal(await page.$$eval('#mmnav [data-go]', (b) => b.length), 5, 'the main menu keeps its five buttons');
   assert.deepEqual(errors, []);
   await ctx.close();
+});
+
+test('crew guide: every card has a picture (the house\'s things: renders of the game\'s own models; the shop\'s upgrades: drawn SVGs) that loads — on the left of the words on a phone in landscape, above them on a narrow screen; a lock is a dark silhouette with a padlock; the files are light, in the service worker\'s list, and the traps\' pictures are not shown', async () => {
+  // the files: all the guide's pictures together stay under 150 KB, every card's file exists, the service worker lists them
+  const dir = join(ROOT, 'icons', 'crew'), files = await readdir(dir);
+  let total = 0;
+  for (const f of files) total += (await stat(join(dir, f))).size;
+  assert.ok(total <= 150 * 1024, `the pictures weigh ${(total / 1024).toFixed(1)} KB (the limit is 150)`);
+  const sw = await readFile(join(ROOT, 'sw.js'), 'utf8');
+  for (const f of files) assert.ok(sw.includes(`./icons/crew/${f}`), `sw.js lists icons/crew/${f}`);
+  const { ctx, page, errors } = await crew({ ctxOpts: LAND, stars: { rehearsal: S1, first: S1, chest: S1 } });   // level 3 open: the cans are not locks, the devices are
+  const info = await page.evaluate(async () => {
+    const g = window.__game;
+    await Promise.all([...document.querySelectorAll('#crewlist img')].map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))));
+    return {
+      cfg: g.CFG.crewTools.cards.map((c) => [c.id, c.img]),
+      cards: [...document.querySelectorAll('#crewlist [data-crew]')].map((c) => {
+        const im = c.querySelector('.cimg > img:first-child'), lock = c.querySelector('.clock'), body = c.querySelector('.cbody');
+        const a = im.getBoundingClientRect(), b = body.getBoundingClientRect();
+        return { id: c.dataset.crew, locked: c.classList.contains('locked'), src: im.getAttribute('src'), ok: im.naturalWidth > 0, lock: !!lock, filter: getComputedStyle(im).filter, left: a.right <= b.left + 1, w: Math.round(a.width) };
+      }),
+      imgs: [...document.querySelectorAll('#crewlist img')].map((i) => i.getAttribute('src')),
+    };
+  });
+  assert.deepEqual(info.cfg.map(([id]) => id), IDS);
+  for (const c of info.cards) {
+    assert.ok(c.ok, `${c.id}: the picture loads (${c.src})`);
+    assert.ok(c.left, `${c.id}: on a landscape phone the picture is left of the words`);
+    assert.equal(c.lock, c.locked, `${c.id}: a padlock on locked cards only`);
+    if (c.locked) assert.match(c.filter, /brightness\(0\)/, `${c.id}: a lock shows the silhouette, not the picture`);
+    else assert.ok(!/brightness\(0\)/.test(c.filter), `${c.id}: an open card shows the picture`);
+  }
+  assert.deepEqual(info.cards.filter((c) => c.locked).map((c) => c.id), ['radio', 'phone', 'breaker']);
+  assert.ok(info.imgs.every((s) => /icons\/crew\/(thermos|gloves|mask|sneakers|boots|can|bottle|radio|phone|breaker|lock)\.(svg|webp)$/.test(s)), `only the guide's pictures: ${info.imgs}`);
+  assert.ok(!info.imgs.some((s) => /soap|marbles|bucket|rope|alarm/.test(s)), 'the traps\' pictures are not shown');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  // a narrow screen: the picture goes above the words
+  const narrow = await crew({ ctxOpts: { ...LAND, viewport: { width: 420, height: 800 } } });
+  const col = await narrow.page.evaluate(async () => {
+    await Promise.all([...document.querySelectorAll('#crewlist img')].map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))));
+    const c = document.querySelector('#crewlist [data-crew="thermos"]'), a = c.querySelector('.cimg').getBoundingClientRect(), b = c.querySelector('.cbody').getBoundingClientRect();
+    return { above: a.bottom <= b.top + 1, fits: c.getBoundingClientRect().right <= innerWidth + 1 };
+  });
+  assert.deepEqual(col, { above: true, fits: true }, 'narrow: the picture above the words, nothing sticks out');
+  assert.deepEqual(narrow.errors, []);
+  await narrow.ctx.close();
 });

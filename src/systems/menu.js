@@ -15,7 +15,7 @@ import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
 import { dressLobby } from '../style/portraits.js';
 import { renderPlayPage } from './playPage.js';
-import { renderCrew } from './crewGuide.js';
+import { renderCrew, focusCrew } from './crewGuide.js';
 import { pressLook } from '../ui/press.js';
 import { renderProgressCard } from './progressCode.js';   // S4: the thieves' portraits in the lobby
 
@@ -32,13 +32,14 @@ function show(page) {
   for (const s of document.querySelectorAll('#overlay section[data-page]')) s.hidden = s.dataset.page !== page;
   if (page === 'shop') renderShop();
   if (page === 'lurkers') renderLurkers();
-  if (page === 'crew') { renderCrew(crewFocus); crewFocus = null; }
+  if (page === 'crew') renderCrew();
   if (page === 'menu') renderMenu();
   if (page === 'play') renderPlay();
   if (page === 'friends') dressLobby();
   if (page === 'settings' || page === 'mic' || page === 'testers') renderSettings();
   const card = document.querySelector('#overlay .card');
   if (card) card.scrollTop = 0;
+  if (page === 'crew' && crewFocus) { focusCrew(crewFocus); crewFocus = null; }   // after the scroll's reset
 }
 // forward: one history entry per page, so Android's «Назад» comes back to the menu
 export function goPage(page) {
