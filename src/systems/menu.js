@@ -7,6 +7,7 @@
 // only learns when it is gone, then offers the microphone on the first run.
 // The tests see every page at once (body.pages-all, tests/harness.mjs) unless they ask for the menu.
 import { S } from '../i18n/index.js';
+import { CFG } from '../config/index.js';
 import { G, $, params } from './state.js';
 import { shopRows, buyUpgrade } from './economy.js';
 import { wallet } from '../game/economy.js';
@@ -14,12 +15,14 @@ import { money } from '../ui/board.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
 import { dressLobby } from '../style/portraits.js';
 import { renderPlayPage } from './playPage.js';
+import { renderCrew, focusCrew } from './crewGuide.js';
 import { pressLook } from '../ui/press.js';
 import { renderProgressCard } from './progressCode.js';   // S4: the thieves' portraits in the lobby
 
-const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'mic', 'more', 'testers', 'howto'];   // howto: menu design stage 2
+const PAGES = ['menu', 'play', 'friends', 'shop', 'lurkers', 'settings', 'mic', 'more', 'testers', 'howto', 'crew'];   // howto: menu design stage 2; crew: «Засоби бригади»
 const TEST = (typeof window !== 'undefined' && window.__NOCTURNE_TEST) || {};
 let current = 'menu';
+let crewFocus = null;   // the card the page opens on (the shop's «?»)
 
 function show(page) {
   if (!PAGES.includes(page)) page = 'menu';
@@ -29,12 +32,14 @@ function show(page) {
   for (const s of document.querySelectorAll('#overlay section[data-page]')) s.hidden = s.dataset.page !== page;
   if (page === 'shop') renderShop();
   if (page === 'lurkers') renderLurkers();
+  if (page === 'crew') renderCrew();
   if (page === 'menu') renderMenu();
   if (page === 'play') renderPlay();
   if (page === 'friends') dressLobby();
   if (page === 'settings' || page === 'mic' || page === 'testers') renderSettings();
   const card = document.querySelector('#overlay .card');
   if (card) card.scrollTop = 0;
+  if (page === 'crew' && crewFocus) { focusCrew(crewFocus); crewFocus = null; }   // after the scroll's reset
 }
 // forward: one history entry per page, so Android's «Назад» comes back to the menu
 export function goPage(page) {
@@ -42,6 +47,8 @@ export function goPage(page) {
   try { history.pushState({ page }, '', pageUrl(page)); } catch { /* opaque origin */ }
   show(page);
 }
+// «Засоби бригади» on a card (the shop's «?»), or from the top
+export function openCrew(id = null) { crewFocus = id; goPage('crew'); }
 function pageUrl(page) {
   const u = new URL(location.href);
   if (page === 'menu') u.searchParams.delete('page'); else u.searchParams.set('page', page);
@@ -89,6 +96,7 @@ function renderPlay() {
 }
 function renderShop() {
   const box = $('shoplist');
+  const crewIds = new Set(CFG.crewTools.cards.filter((c) => c.upgrade).map((c) => c.id));
   box.replaceChildren();
   $('shopwallet').textContent = S.shop.wallet(money(wallet().cash));
   for (const r of shopRows()) {
@@ -100,7 +108,14 @@ function renderShop() {
     const btn = document.createElement('button');
     btn.textContent = r.button; btn.disabled = !r.enabled;
     btn.addEventListener('click', () => { buyUpgrade(r.id); renderShop(); });
-    row.append(t, btn); box.append(row);
+    row.append(t, btn);
+    if (crewIds.has(r.id)) {   // «?»: what it is — the guide's card (after the buy button: the first button of a row stays «Купити»)
+      const q = document.createElement('button');
+      q.type = 'button'; q.className = 'shq'; q.textContent = '?'; q.setAttribute('aria-label', S.crewTools.shopHelp);
+      q.addEventListener('click', () => openCrew(r.id));
+      row.append(q);
+    }
+    box.append(row);
   }
 }
 function renderLurkers() {
