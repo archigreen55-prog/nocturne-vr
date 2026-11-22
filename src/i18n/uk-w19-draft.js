@@ -34,6 +34,7 @@ export default {
     soon: 'Незабаром',
     fog: 'У тумані',
     locked: {
+      first: (n) => `Спочатку пройди рівень ${n}`,
       after: (n) => `🔒 ★ на рівні ${n}`,
       act: (need, have) => `🔒 ${need}★ у Тихому Куті (є ${have})`,
       soon: 'Незабаром',

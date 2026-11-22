@@ -20,6 +20,8 @@ import { optVal, pauseLog } from './phone.js';
 import { lockPointer } from './desktop.js';
 import { setContract, setDifficulty, goHome, newRound } from './contract.js';
 import { syncWallet, lockText } from './economy.js';
+import { pickLevel } from './campaign.js';
+import { CLASSIC, levels, levelOf, contractOf, whyLocked } from '../game/campaign.js';
 import { wallet, openAll } from '../game/economy.js';
 import { distractReport } from './distract.js';
 import { trapsReport } from './traps.js';
@@ -28,8 +30,18 @@ import { S } from '../i18n/index.js';
 
 export function syncStartScreen() {
   const { contract, difficulty } = G;
-  $('contract').value = contract.id;
+  const view = !CLASSIC && G.campaignView ? levelOf(G.campaignView) : null;   // W19: a closed level only looked at
+  $('contract').value = view ? view.id : contract.id;
   $('difficulty').value = difficulty;
+  const startBtn = $('start');
+  if (view) {   // never played: the button is off and says what to do first
+    const c = contractOf(view);
+    $('contractinfo').textContent = `${c ? c.brief : ''} ${whyLocked(view)}`.trim();
+    if (startBtn) startBtn.disabled = true;
+    syncWallet();
+    return;
+  }
+  if (startBtn && G.start) startBtn.disabled = false;
   const b = bestStars(contract.id);
   storyLines(contract);   // W7: the customer's lines and the crew's, an element of their own
   $('contractinfo').textContent = S.start.contractInfo(contract.brief, goalText(contract, G.loot.items), bonusText(contract),
@@ -87,8 +99,13 @@ export const startScreen = {
     const hp = storyEl('headphones', 'buttons', 'afterend');   // W7: «Грай у навушниках…» (story-bible §9, risk 16)
     if (hp) hp.textContent = S.start.headphones;
     const { touch, mic, scream, renderer, round, comfort, gyro } = G;
-    for (const c of CFG.contracts) $('contract').add(new Option(c.name, c.id));
-    $('contract').addEventListener('change', () => { if (round.phase === 'ready') setContract($('contract').value); else syncStartScreen(); });
+    // W19: the list is the whole ladder 0–14 in its order, whichever map this page runs; the classic test game keeps this map's list
+    if (CLASSIC) for (const c of CFG.contracts) $('contract').add(new Option(c.name, c.id));
+    else for (const l of levels()) $('contract').add(new Option(`${l.n}. ${l.id}`, l.id));
+    $('contract').addEventListener('change', () => {
+      if (round.phase !== 'ready') { syncStartScreen(); return; }
+      if (CLASSIC) setContract($('contract').value); else { pickLevel($('contract').value, { setContract }); syncStartScreen(); }
+    });
     $('difficulty').addEventListener('change', () => { if (round.phase === 'ready') setDifficulty($('difficulty').value); else syncStartScreen(); });
     const start = G.start = setupStartScreen({
       mic, phone: !!touch, dev: G.MODE, playGame,

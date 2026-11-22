@@ -8,7 +8,8 @@
 import { CFG } from '../config/index.js';
 import { wallet, ensureWallet, creditRound, buy, upgrade, lockOf, isOpen, openAll, openAllAllowed, setOpenAll, buyTrap } from '../game/economy.js';
 import { reloadVan, roundLimit } from './traps.js';
-import { reached, levelOf, CLASSIC } from '../game/campaign.js';
+import { reached, levelOf, levelLabel, contractOf, CLASSIC } from '../game/campaign.js';
+import { leaveClosedMap } from './campaign.js';
 import { applyDifficulty } from '../game/difficulty.js';
 import { money } from '../ui/board.js';
 import { playCash } from '../audio/audio.js';
@@ -86,9 +87,10 @@ export function syncWallet() {
   if (line) line.textContent = S.shop.startLine(money(w.cash), w.owned.length);
   const sel = $('contract');
   if (sel) for (const o of sel.options) {
+    const l = !CLASSIC && levelOf(o.value);
+    if (l) { o.textContent = levelLabel(l); continue; }   // W19: every level of the ladder, its number in front
     const c = CFG.contracts.find((x) => x.id === o.value);
-    const l = !CLASSIC && levelOf(o.value);   // W19: the level's number in front (the menu's map: stage E2)
-    if (c) o.textContent = (isOpen(c) ? '' : S.shop.lockShort + ' ') + (l ? `${l.n}. ` : '') + c.name;
+    if (c) o.textContent = (isOpen(c) ? '' : S.shop.lockShort + ' ') + c.name;
   }
 }
 
@@ -102,7 +104,7 @@ export const economy = {
     if (box) box.hidden = !openAllAllowed();
     if (cb && openAllAllowed()) {
       cb.checked = openAll();
-      cb.addEventListener('change', () => { setOpenAll(cb.checked); syncWallet(); syncStartScreen(); G.boardDirty = true; if (G.menu) G.menu.refresh(); });
+      cb.addEventListener('change', () => { setOpenAll(cb.checked); leaveClosedMap(); syncWallet(); syncStartScreen(); G.boardDirty = true; if (G.menu) G.menu.refresh(); });
     }
     syncWallet();
   },
@@ -120,6 +122,9 @@ export const economy = {
     const locked = G.contract.name;
     let target = CFG.contracts.find((c) => c.id === local.lastOpen);
     if (!target || !isOpen(target)) target = CFG.contracts.find((c) => isOpen(c));
+    // nothing on this map can be played (it closed under the player: «Відкрити все» was switched off):
+    // go to the level the player is at; no throw — an error in a frame stops the game
+    if (!target) { if (!leaveClosedMap() && !local.warned) { local.warned = true; flash(S.campaign.soon, 3, '#ffb347'); } return; }
     setContract(target.id);
     flash(S.shop.switched(locked, target.name), 4, '#ffb347');
   },

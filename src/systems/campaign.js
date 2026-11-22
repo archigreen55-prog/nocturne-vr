@@ -7,7 +7,8 @@ import { G } from './state.js';
 import { flash } from './messages.js';
 import { pause2D } from './desktop.js';
 import { goPage } from './menu.js';
-import { CLASSIC, unlocked, levelOf, nextLevel, isOpenLevel, introOf } from '../game/campaign.js';
+import { CLASSIC, unlocked, levelOf, contractOf, nextLevel, isOpenLevel, introOf, currentLevel, mapOfLevel } from '../game/campaign.js';
+import { saveSetting } from '../settings.js';
 import { S } from '../i18n/index.js';
 
 // After a new round, another contract or difficulty (systems/contract.js) and at the start: the cans
@@ -66,6 +67,36 @@ export function campaignPress(id, { newRound, setContract }) {
   }
   return false;
 }
+
+// W19: a level on another map (or a page whose map has closed): the level is remembered, the page
+// reloads on its map (one page = one map: world/maps.js)
+export function goToLevel(l) {
+  if (!l) return false;
+  saveSetting('contract', l.id);
+  const u = new URL(location.href); u.searchParams.set('map', mapOfLevel(l));
+  location.href = u.toString();
+  return true;
+}
+// the start screen's list (#contract): a level that can be played is played (on this map at once, on the
+// other by reloading); a closed one is only looked at — the game never plays it (G.campaignView)
+export function pickLevel(id, { setContract }) {
+  const l = levelOf(id);
+  G.campaignView = null;
+  if (!l) return setContract(id);
+  if (!isOpenLevel(l)) { G.campaignView = l.id; return false; }
+  if (G.isGuest) { flash(S.net.hostDecides, 2, '#93a1b8'); return false; }
+  if (CFG.contracts.some((c) => c.id === l.id)) return setContract(l.id);
+  return goToLevel(l);
+}
+// «Відкрити все» switched off (or a map that closed): a page of a map that is not open any more goes to the level the player is at
+export function leaveClosedMap() {
+  if (CLASSIC || local.leaving) return false;
+  const map = G.level && G.level.id, l = currentLevel();
+  if (!l || mapOfLevel(l) === map) return false;
+  local.leaving = true;
+  return goToLevel(l);
+}
+const local = { leaving: false };
 
 export const campaign = {
   id: 'campaign',

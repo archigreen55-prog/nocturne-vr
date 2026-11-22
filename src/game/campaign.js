@@ -7,6 +7,8 @@
 //   currentLevel()            where the player is: the first open level not passed (else the last open)
 import { CFG } from '../config/index.js';
 import { CLASSIC } from '../config/campaign.js';
+import { loadSetting } from '../settings.js';
+import { S } from '../i18n/index.js';
 import { openAll, lockOf, bestOf } from './economy.js';
 import { contracts as DACHA } from '../config/contracts.js';
 import { mansion as MANSION } from '../config/mansion.js';
@@ -54,4 +56,31 @@ export function reached(mech) {
   if (CLASSIC || openAll()) return true;
   const need = CFG.campaign.mechanics[mech];
   return need === undefined || CFG.campaign.levels.some((l) => l.n >= need && isOpenLevel(l));
+}
+
+// ---------- where the player starts, which map a level is on, how a level is named ----------
+export const mapOfLevel = (l) => ((l && CFG.campaign.acts.find((a) => a.n === l.act)) || {}).map || 'dacha';
+// the level a page opens on: the saved one when it can be played, else where the ladder stands. A saved
+// «map» of an older preview never decides it (the map follows the level).
+export function startLevel() {
+  const l = levelOf(loadSetting('contract', null));
+  return l && isOpenLevel(l) ? l : currentLevel();
+}
+// «🔒 3. Шафа», «8. Новий район», a placeholder: «… · Незабаром»
+export function levelLabel(l) {
+  const c = contractOf(l);
+  return `${isOpenLevel(l) ? '' : S.shop.lockShort + ' '}${l.n}. ${c ? c.name : l.id}${l.soon || (c && c.locked) ? ' · ' + S.campaign.soon : ''}`;
+}
+// why a level cannot be played: '' (it can) | «Спочатку пройди рівень N» | the act's stars | «Незабаром»
+export function whyLocked(l) {
+  const c = contractOf(l);
+  if (!l || !c) return '';
+  if (l.soon || c.locked) return S.campaign.soon;
+  const L = lockOf(c);
+  if (!L) return '';
+  if (L.after) {   // the first level still to pass (the one the ladder stands on), else the one right before
+    const p = levelOf(L.after.id), cur = currentLevel();
+    return S.campaign.locked.first(cur && cur.n < l.n ? cur.n : p ? p.n : '?');
+  }
+  return S.campaign.locked.act(L.need, L.have);
 }

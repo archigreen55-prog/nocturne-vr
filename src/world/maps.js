@@ -3,6 +3,7 @@
 import { CFG } from '../config/index.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { mapOpen as starsOpen, starsBefore } from '../game/economy.js';
+import { CLASSIC, startLevel, mapOfLevel } from '../game/campaign.js';
 import { buildLevel as buildDacha } from './level.js';
 import { buildMansion } from './mansion/level.js';
 import { S } from '../i18n/index.js';
@@ -36,6 +37,10 @@ export const mapOpen = (id) => !!MAPS[id] && starsOpen(id);
 // ?map=<id> picks the map and remembers it; otherwise the remembered one; a closed map = the default.
 export function currentMapId() {
   const q = new URLSearchParams(location.search).get('map');
+  if (!CLASSIC) {   // W19: ?map= (a link, «Карта…» on the board) is explicit; otherwise the map of the level — never a map saved by an older preview
+    if (q && MAPS[q] && mapOpen(q)) { saveSetting('map', q); return q; }
+    return MAPS[mapOfLevel(startLevel())] ? mapOfLevel(startLevel()) : CFG.maps.default;
+  }
   let id = q || loadSetting('map', CFG.maps.default);
   if (!MAPS[id] || !mapOpen(id)) id = CFG.maps.default;
   if (q && id === q) saveSetting('map', id);

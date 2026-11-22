@@ -15,7 +15,7 @@ import { summaryState } from './phone.js';
 import { shopPress } from './economy.js';
 import { newRoundTraps, reloadVan } from './traps.js';
 import { applyLevel, campaignPress } from './campaign.js';
-import { CLASSIC, currentLevel } from '../game/campaign.js';
+import { CLASSIC, currentLevel, startLevel, levelOf, isOpenLevel } from '../game/campaign.js';
 import { S } from '../i18n/index.js';
 
 // fromHost: a guest starts a new round only when the host does (systems/net.js)
@@ -129,9 +129,15 @@ export const contract = {
   init() {
     applyMapConfig();   // W6: the map's contracts and timers
     // W19: a new player starts at the rehearsal (level 0), a returning one where the ladder stands
-    G.contractId = loadSetting('contract', CLASSIC ? 'first' : currentLevel().id); G.difficulty = loadSetting('difficulty', 'medium');
+    G.contractId = CLASSIC ? loadSetting('contract', 'first') : startLevel().id; G.difficulty = loadSetting('difficulty', 'medium');
     if (!DIFFS.includes(G.difficulty)) G.difficulty = 'medium';
     G.contract = contractById(G.contractId);
+    // W19: a closed level, a placeholder or one of the other map is never played (a profile of an older
+    // preview may have saved one): the first level of this map that can be played
+    if (!CLASSIC && !(G.contract.id === G.contractId && isOpenLevel(levelOf(G.contract.id)))) {
+      G.contract = CFG.contracts.find((c) => isOpenLevel(levelOf(c.id))) || CFG.contracts[0];
+      G.contractId = G.contract.id; saveSetting('contract', G.contractId);
+    }
     applyDifficulty(G.difficulty, G.contract);
     G.verdict = null;
   },

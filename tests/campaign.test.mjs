@@ -8,16 +8,18 @@ import { newContext } from './harness.mjs';
 import { browser, open, test, base, preview } from './runner.mjs';
 
 // a page of the campaign (what a player gets), the harness's other settings as usual
-async function camp(url = base, { stars = null, wallet = null } = {}) {
-  const ctx = await newContext(browser, {}, { menu: true });
-  await ctx.addInitScript(([stars, wallet]) => {
+async function camp(url = base, { stars = null, wallet = null, keys = null, ctxOpts = {} } = {}) {
+  const ctx = await newContext(browser, ctxOpts, { menu: true });
+  await ctx.addInitScript(([stars, wallet, keys]) => {
     window.__NOCTURNE_TEST = { pages: 'all', splash: false, campaign: true };
-    if (stars && !sessionStorage.getItem('seeded')) {
+    if ((stars || keys) && !sessionStorage.getItem('seeded')) {   // once: a reload does not seed again
       sessionStorage.setItem('seeded', '1');
-      localStorage.setItem('nocturne.stars', JSON.stringify(stars));
-      if (wallet) localStorage.setItem('nocturne.wallet', JSON.stringify(wallet));
+      const P = location.pathname.includes('/preview/') ? 'nocturne.preview.' : 'nocturne.';   // a preview keeps its own
+      if (stars) localStorage.setItem(P + 'stars', JSON.stringify(stars));
+      if (wallet) localStorage.setItem(P + 'wallet', JSON.stringify(wallet));
+      for (const [k, v] of Object.entries(keys || {})) localStorage.setItem(P + k, JSON.stringify(v));   // map, contract, openAll… as an older preview left them
     }
-  }, [stars, wallet]);
+  }, [stars, wallet, keys]);
   const { page, errors } = await open(ctx, url);
   return { ctx, page, errors };
 }
@@ -41,7 +43,9 @@ test('the ladder: a new player starts at level 0 «Репетиція»; the lis
   assert.equal(fresh.ladder, '0:rehearsal 1:first 2:clock 3:wardrobe 4:quiet 5:silent 6:rush 7:evening 8:m8 9:m9 10:m10 11:m11 12:m12 13:m13 14:m14');
   assert.match(fresh.list[0], /^0\. Репетиція$/);
   assert.match(fresh.list[3], /🔒.*3\. Шафа/);
-  assert.equal(fresh.list.length, 8);
+  assert.equal(fresh.list.length, 15, 'the whole ladder 0–14, the dacha and the mansion');
+  assert.match(fresh.list[8], /🔒 8\. Новий район/);
+  assert.match(fresh.list[9], /🔒 9\. .* · Незабаром/);
   assert.ok(fresh.firstLock, 'level 1 waits for a star on the rehearsal');
   const after = await page.evaluate(async () => {
     const Cm = await import('./src/game/campaign.js'), E = await import('./src/game/economy.js'), C = await import('./src/game/contracts.js');
@@ -221,4 +225,97 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
   assert.equal(r.page, 'play', 'on its «Грати» page');
   assert.deepEqual(errors, []);
   await ctx.close();
+});
+
+// ---------- the start screen's list, closed levels, the map that follows the level ----------
+const nav = async (page, doIt, mapId) => {   // a click that reloads the page on another map
+  await Promise.all([page.waitForURL((u) => new URL(u).searchParams.get('map') === mapId, { timeout: 30000 }), doIt()]);
+  await page.waitForFunction(() => window.__game, null, { timeout: 30000 });
+};
+const OLD = { first: { medium: 3 }, clock: { medium: 3 }, quiet: { medium: 3 } };   // 9★ on the dacha: the mansion is open
+
+test('the list is the whole ladder 0–14 whichever map an older preview saved; picking a level picks its house (a level on the other map reloads the page on it)', async () => {
+  const { ctx, page, errors } = await camp(base, { stars: OLD, keys: { map: 'mansion', contract: 'm13' } });
+  const a = await page.evaluate(() => ({ list: [...document.querySelectorAll('#contract option')].map((o) => o.value).join(' '), level: window.__game.level.id, contract: window.__game.contract.id }));
+  assert.equal(a.list, 'rehearsal first clock wardrobe quiet silent rush evening m8 m9 m10 m11 m12 m13 m14', 'all 15, in the ladder\'s order');
+  assert.equal(a.level, 'dacha', 'the saved «mansion» of an older preview does not decide: the level does');
+  assert.equal(a.contract, 'silent', 'where the ladder stands (★ on 1, 2, 4)');
+  await nav(page, () => page.selectOption('#contract', 'm8'), 'mansion');
+  const b = await page.evaluate(() => ({ level: window.__game.level.id, contract: window.__game.contract.id, n: document.querySelectorAll('#contract option').length }));
+  assert.deepEqual(b, { level: 'mansion', contract: 'm8', n: 15 }, 'the mansion\'s level: the page is the mansion, the list is still all 15');
+  await nav(page, () => page.selectOption('#contract', 'first'), 'dacha');   // and back: the dacha is reachable from the mansion
+  const c = await page.evaluate(() => ({ level: window.__game.level.id, contract: window.__game.contract.id }));
+  assert.deepEqual(c, { level: 'dacha', contract: 'first' });
+  await page.selectOption('#contract', 'silent');                            // the same house: no reload
+  assert.equal(await page.evaluate(() => window.__game.contract.id), 'silent');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('a closed level (🔒) is only looked at: «Грати» is off and says «Спочатку пройди рівень N»; the game keeps the level that can be played; a level that can be played turns it on again; a placeholder says «Незабаром»', async () => {
+  const { ctx, page, errors } = await camp();
+  const r = await page.evaluate(async () => {
+    const g = window.__game, sel = document.getElementById('contract'), out = {}, pick = (id) => { sel.value = id; sel.dispatchEvent(new Event('change')); };
+    pick('quiet');
+    out.quiet = { disabled: document.getElementById('start').disabled, info: document.getElementById('contractinfo').textContent, contract: g.contract.id, value: sel.value };
+    document.getElementById('start').click();
+    out.playing = g.playing;
+    pick('m9');
+    out.soon = { disabled: document.getElementById('start').disabled, info: document.getElementById('contractinfo').textContent };
+    pick('m8');
+    out.m8 = { disabled: document.getElementById('start').disabled, info: document.getElementById('contractinfo').textContent };
+    pick('rehearsal');
+    out.back = { disabled: document.getElementById('start').disabled, contract: g.contract.id };
+    return out;
+  });
+  assert.equal(r.quiet.disabled, true, '«Грати» is off on a closed level');
+  assert.match(r.quiet.info, /Спочатку пройди рівень 0/, r.quiet.info);
+  assert.equal(r.quiet.contract, 'rehearsal', 'the game still has a level that can be played');
+  assert.equal(r.quiet.value, 'quiet', 'the list shows the level looked at');
+  assert.equal(r.playing, false, 'a click on the disabled button starts nothing');
+  assert.equal(r.soon.disabled, true); assert.match(r.soon.info, /Незабаром/);
+  assert.equal(r.m8.disabled, true); assert.match(r.m8.info, /8★|★/, 'the mansion: the stars it needs: ' + r.m8.info);
+  assert.deepEqual(r.back, { disabled: false, contract: 'rehearsal' });
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('a new player (clean profile, no ?map=, no «Відкрити все») starts at level 0 on the dacha — whatever an older preview saved: a «mansion» map, a closed contract', async () => {
+  for (const keys of [null, { map: 'mansion' }, { map: 'mansion', contract: 'm13' }, { contract: 'evening' }, { map: 'mansion', contract: 'first' }]) {
+    const { ctx, page, errors } = await camp(base, { stars: {}, keys });
+    const r = await page.evaluate(() => ({ level: window.__game.level.id, contract: window.__game.contract.id, search: location.search, saved: localStorage.getItem('nocturne.contract') }));
+    assert.deepEqual([r.level, r.contract, r.search], ['dacha', 'rehearsal', ''], JSON.stringify(keys));
+    assert.deepEqual(errors, [], JSON.stringify(keys));
+    await ctx.close();
+  }
+  // a preview too (its own keys): «Відкрити все» was never on, an older preview saved the mansion
+  const pv = await camp(preview, { stars: {}, keys: { map: 'mansion', contract: 'm13' } });
+  assert.deepEqual(await pv.page.evaluate(() => [window.__game.level.id, window.__game.contract.id]), ['dacha', 'rehearsal']);
+  await pv.ctx.close();
+});
+
+test('«Відкрити все» switched off on the mansion\'s page (a clean profile): no frame error and no freeze — the page goes to level 0 on the dacha; the same when the flag is lost without the checkbox and the player walks out of the circle', async () => {
+  // 1. the checkbox
+  const a = await camp(preview, { stars: {}, keys: { openAll: true, map: 'mansion', contract: 'm13' } });
+  const s0 = await a.page.evaluate(() => [window.__game.level.id, window.__game.contract.id]);
+  assert.deepEqual(s0, ['mansion', 'm13'], 'with «Відкрити все» on the page is the mansion, as left by the older preview');
+  await nav(a.page, () => a.page.evaluate(() => document.getElementById('openallcb').click()), 'dacha');
+  assert.deepEqual(await a.page.evaluate(() => [window.__game.level.id, window.__game.contract.id]), ['dacha', 'rehearsal']);
+  assert.deepEqual(a.errors, []);
+  await a.ctx.close();
+  // 2. the flag gone behind the page's back: every contract of the page is closed; leaving the circle used to
+  //    throw «Cannot read properties of undefined (reading 'id')» in every frame (the game stopped)
+  const b = await camp(preview, { stars: {}, keys: { openAll: true, map: 'mansion', contract: 'm13' } });
+  const threw = await b.page.evaluate(() => {
+    const g = window.__game;
+    localStorage.setItem('nocturne.preview.openAll', 'false');
+    g.playing = true;
+    try { g.player.teleport(0, 2, 0); g.sim(0.5); return null; } catch (e) { return String(e.message); }
+  }).catch(() => null);   // the reload may cut the call short
+  assert.equal(threw, null, 'no error in a frame');
+  await b.page.waitForURL((u) => new URL(u).searchParams.get('map') === 'dacha', { timeout: 30000 });
+  await b.page.waitForFunction(() => window.__game, null, { timeout: 30000 });
+  assert.deepEqual(await b.page.evaluate(() => [window.__game.level.id, window.__game.contract.id]), ['dacha', 'rehearsal']);
+  assert.deepEqual(b.errors, []);
+  await b.ctx.close();
 });
