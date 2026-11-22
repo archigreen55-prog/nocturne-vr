@@ -349,7 +349,7 @@ test('iPhone (UA in Chromium): audio session playback -> play-and-record with th
   await page.waitForFunction(() => navigator.audioSession.type === 'playback');
   await micOn(page, cdp);
   assert.equal(await page.evaluate(() => navigator.audioSession.type), 'play-and-record');
-  assert.match(await page.textContent('#micnote'), /без кроку «Звуки гри»/);
+  assert.match(await page.textContent('#micnote'), /налаштовано по-старому/);
   await page.tap('#start'); await page.waitForFunction(() => window.__game.playing);
   const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
   assert.equal(r.phone.audioSession.type, 'play-and-record'); assert.equal(r.phone.audioSession.ios, true);
