@@ -102,7 +102,7 @@ test('campaign v2: three stars on any difficulty (★ goal, ★★ «Тихо»,
   assert.equal(r.afterCan, 0, 'a can is not a doubt');
   assert.deepEqual([r.doubt.bits, r.doubt.why[2]], ['110', '«?» ×1'], 'a step heard: ★★★ «👂» is gone');
   assert.deepEqual([r.practice.stars, r.practice.bits, r.practice.loot, r.practice.bonus, r.practice.cash], [1, '100', 0, 200, 2250], 'the rehearsal: its one star paid, its loot never');
-  assert.match(r.practice.lines[0], /репетиції не платиться/);
+  assert.match(r.practice.lines[0], /На репетиції за здобич не платять/);
   assert.deepEqual([r.caught.stars, r.caught.loot, r.caught.bonus, r.caught.cash, r.caught.stock], [0, 0, 0, 2250, 1], 'caught: nothing, one soap lost');
   assert.deepEqual(r.caught.confiscated, ['Мило']);
   assert.equal(r.rows, 'gloves:$1,000 thermos:$1,200 mask:$1,500 sneakers:$2,500 boots:$4,500', 'the new prices, no «незабаром», no traps before their level');
