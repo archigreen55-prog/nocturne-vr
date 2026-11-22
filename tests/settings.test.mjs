@@ -20,7 +20,7 @@ test('settings in the menu (phone, 667x375): 12 rows of one height in two column
   const sc = await page.evaluate(() => { const c = document.querySelector('#overlay .card'); return { sh: c.scrollHeight, ch: c.clientHeight, doc: document.documentElement.scrollHeight }; });
   assert.ok(sc.sh <= sc.ch + 1, `the card does not scroll (${sc.sh} > ${sc.ch})`);
   const labels = R.map((r) => r.t).join('|');
-  for (const w of ['Звуки вулиці', 'Огляд', 'Подих', 'Гіроскоп', 'Індикатори', 'Вібрація', 'Яскравість', 'Якість', 'Частота', 'Мікрофон', 'Навчання']) assert.ok(labels.includes(w), `a row «${w}»`);
+  for (const w of ['Звуки вулиці', 'Швидкість огляду', 'Затамувати подих', 'Огляд нахилом', 'Підказки на екрані', 'Вібрація', 'Яскравість', 'Якість', 'Плавність', 'Мікрофон', 'Навчання']) assert.ok(labels.includes(w), `a row «${w}»`);
   // the segmented controls fit their rows (no row is taller than 44, no label cut by the control)
   assert.equal(await page.evaluate(() => [...document.querySelectorAll('#setsheet .set-row')].filter((r) => r.getBoundingClientRect().width > 0).every((r) => r.scrollWidth <= r.clientWidth + 1)), true, 'nothing overflows a row');
   assert.deepEqual(errors, []);
@@ -35,7 +35,7 @@ test('settings on a PC: the PC rows (vignette, snap, the headset run) and the sh
   assert.ok(R.length >= 7 && R.length <= 9, `PC rows: ${R.map((r) => r.t)}`);
   assert.deepEqual([...new Set(R.map((r) => r.h))], [44], JSON.stringify(R.map((r) => [r.t, r.h])));
   assert.ok(labels.includes('Звуки вулиці') && labels.includes('Мікрофон'), labels);
-  assert.ok(!labels.includes('Гіроскоп') && !labels.includes('Вібрація'), 'the phone rows are not there');
+  assert.ok(!labels.includes('Огляд нахилом') && !labels.includes('Вібрація'), 'the phone rows are not there');
   assert.deepEqual(errors, []);
   await ctx.close();
 });

@@ -182,7 +182,7 @@ test('net: two tabs — the guest joins from the link, the guard sees and catche
   assert.equal(again, 'ready');
   // a guest cannot start a round or change the contract
   const refused = await guest.page.evaluate(() => { window.__game.newRound(); return window.__game.flashText; });
-  assert.ok(/хост/.test(refused), refused);
+  assert.ok(/ведучий/.test(refused), refused);
 
   assert.deepEqual(host.errors, [], 'host errors');
   assert.deepEqual(guest.errors, [], 'guest errors');
@@ -368,14 +368,14 @@ test('net: honest messages — no host, found but not connected, another version
   const a = await open(ctx, base + '?net=local');
   await a.page.evaluate(() => { const g = window.__game; g.net.sim.strategies = true; g.CFG.net.findTimeout = 0.5; return g.net.open('100001', 'guest', 'Оля', 'rita'); });
   await run([a.page], 1.5);
-  assert.match(await status(a.page), /Не бачу хоста кімнати 100 001/);
+  assert.match(await status(a.page), /Не бачу ведучого кімнати 100 001/);
   // 2. the host is there, the connection fails (different networks)
   const host = await open(ctx, base + '?net=local');
   await host.page.evaluate(() => window.__game.net.open('100002', 'host', 'Аня', 'zoya'));
   const b = await open(ctx, base + '?net=local');
   await b.page.evaluate(() => { const g = window.__game; g.net.sim.failConnect = true; g.CFG.net.findTimeout = 0.5; return g.net.open('100002', 'guest', 'Оля', 'rita'); });
   await run([b.page, host.page], 1.5);
-  assert.match(await status(b.page), /Хоста знайдено, але не вдалося з'єднатись/);
+  assert.match(await status(b.page), /Ведучого знайдено, але з'єднатися не вдалося/);
   // 3. another build
   const c = await open(ctx, base + '?net=local');
   await c.page.evaluate(() => { const g = window.__game; g.net.fakeVersion('0.0.0-old'); return g.net.open('100002', 'guest', 'Оля', 'rita'); });
@@ -398,7 +398,7 @@ test('net: a guest that found nobody sees the join form, not a room (B01)', asyn
   assert.equal(r.s.transport, null, 'the connection is closed');
   assert.equal(r.inn, true, 'no room on the screen');
   assert.equal(r.out, false, 'the join form is back');
-  assert.match(r.status, /Не бачу хоста/);
+  assert.match(r.status, /Не бачу ведучого/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -431,7 +431,7 @@ test('net: the host picks the level and the difficulty in the room, the guest se
   const gv = await guest.page.evaluate(() => ({ goal: document.querySelector('#netgoal').textContent }));
   const hg = await host.page.evaluate(() => document.querySelector('#netgoal').textContent);
   assert.ok(/^Мета: .+/.test(gv.goal) && gv.goal === hg, `the goal line, the same for both: ${gv.goal} / ${hg}`);
-  assert.ok(g.text.startsWith('Хост обрав: ') && g.text.includes(pick.t) && /важк/i.test(g.text), g.text);
+  assert.ok(g.text.startsWith('Ведучий обрав: ') && g.text.includes(pick.t) && /важк/i.test(g.text), g.text);
   assert.deepEqual(host.errors, []); assert.deepEqual(guest.errors, []);
   await ctx.close();
 });
@@ -461,7 +461,7 @@ test('net: the host presses «Почати» — both are in the round on the sa
   await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
   const late = await open(ctx, base + `?room=${code}&net=local`);
   await late.page.click('#netjoin');
-  await late.page.waitForFunction(() => /Раунд уже йде/.test(document.querySelector('#netstatus').textContent), null, { timeout: 10000 });
+  await late.page.waitForFunction(() => /Вилазка вже йде/.test(document.querySelector('#netstatus').textContent), null, { timeout: 10000 });
   for (const p of [host, guest, late]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });
@@ -521,7 +521,7 @@ test('net: the guest presses every board button — nothing changes on the host;
   assert.equal(g.welcomed, true);
   assert.ok(g.buttons.every((id) => id === 'play'), JSON.stringify(g.buttons));
   assert.equal(g.playing, true, '«Карта…» did not throw the guest into the menu');
-  assert.ok(!flashes.some((t) => t === 'Це вирішує хост'), JSON.stringify(flashes));
+  assert.ok(!flashes.some((t) => t === 'Це вирішує ведучий'), JSON.stringify(flashes));
   for (const p of [host, guest]) assert.deepEqual(p.errors, []);
   await ctx.close();
 });

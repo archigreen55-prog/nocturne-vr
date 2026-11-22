@@ -167,7 +167,7 @@ test('Petrovych by name: «Петрович: «…»» and on easy «Петро�
   assert.equal(r.house, 1); assert.equal(r.houseAgain, 1, 'once a round');
   assert.equal(r.line, 'Петрович: Ну що, хато, подрімаємо?');
   assert.ok(/^Петрович: /.test(r.wrist || ''), r.wrist);
-  assert.ok(/^Де .+\?!$/.test(r.missing[0]), r.missing[0]); assert.equal(r.missing[1], 'Два предмети… Та що ж це…');
+  assert.ok(/^Де .+\?!$/.test(r.missing[0]), r.missing[0]); assert.equal(r.missing[1], 'Уже двох речей нема… Та що ж це…');
   assert.equal(r.yawn, true);
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -290,7 +290,7 @@ test('the wardrobe lurker: holding the breath in its telegraph — it loses you 
   assert.equal(r.telegraph, 'telegraph');
   assert.deepEqual(r.card, ['wardrobe'], 'its card (HUD «Новий домовик: Шафник»)');
   assert.deepEqual(r.met, { n: 1, total: 9 });
-  assert.deepEqual(r.lost, { state: 'cooldown', msg: 'Затамував подих — воно тебе згубило', ajar: 0.3, creature: false });
+  assert.deepEqual(r.lost, { state: 'cooldown', msg: 'Затамував подих — воно тебе загубило', ajar: 0.3, creature: false });
   assert.deepEqual(r.open, { shut: false, takeable: true });
   assert.equal(r.held, true); assert.equal(r.delivered, true);
   assert.deepEqual(r.after, { state: 'dormant', ajar: 0 });

@@ -164,7 +164,7 @@ test('throwing, the rules: a bottle breaks (glass, 10 m), the guard sweeps it up
   assert.equal(r.can1, true); assert.equal(r.can2, true); assert.equal(r.found, 2);
   assert.ok(r.said.includes('Хто тут кидається?!') && r.said.includes('Знову банка?! Ну я тобі…'), `said: ${r.said}`);
   assert.equal(r.spotsAfter, true, 'hard: after the second can it checks hiding spots');
-  assert.equal(r.loot.damaged, true); assert.match(r.loot.msg, /пошкоджено при кидку/);
+  assert.equal(r.loot.damaged, true); assert.match(r.loot.msg, /невдало кинув/);
   assert.equal(r.crystal, true, 'the thrown crystal breaks');
   assert.deepEqual(r.lob, { delivered: true, damaged: false }, 'a soft lob into the van counts');
   assert.ok(r.ouch.hit && r.ouch.said.includes('Ай! Хто це кидається?!'), `«Ай!»: ${JSON.stringify(r.ouch)}`);

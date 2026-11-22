@@ -141,9 +141,9 @@ test('campaign v2: the level card (menu «Грати») and the board\'s note sh
     return out;
   }, PLAY);
   assert.deepEqual(r.card, ['★|винеси щонайменше $500|+$200|', '★★|тихо: без тривоги й крику|+$300|', '★★★|👂 жодного «?» від сторожа|+$500|'], JSON.stringify(r.card));
-  assert.equal(r.meta, 'Нове: сторож ходить · 5:00 на раунд');
+  assert.equal(r.meta, 'Нове: сторож ходить · 5:00 на все');
   assert.deepEqual(r.diff, { play: true, settings: 3, box: false }, 'the difficulty: in the settings, not on the card');
-  assert.deepEqual(r.hard, { d: 'hard', meta: 'Нове: сторож ходить · 4:00 на раунд' });
+  assert.deepEqual(r.hard, { d: 'hard', meta: 'Нове: сторож ходить · 4:00 на все' });
   for (const t of ['винеси щонайменше $500', 'тихо: без тривоги й крику', '+$200', '+$300', '+$500', 'Нове: сторож ходить']) assert.ok(r.note.includes(t), `the note: ${t} — ${r.note.join(' | ')}`);
   assert.ok(r.board.some((t) => t === '✓ +$200 нова') && r.board.some((t) => t === '✗ «?» ×2'), r.board.join(' | '));
   assert.deepEqual(r.buttons.filter((b) => !b.startsWith('play')), ['again:Ще раз', 'nextlvl:Далі: рівень 2']);
@@ -180,7 +180,7 @@ test('campaign v2: a big item in hand on a PC opens no door (as in VR; the class
   assert.deepEqual(r.blocked, { moved: false, flash: 'З великою річчю двері не відчиниш: постав її («Покласти») і відчини' });
   if (r.hold !== null) assert.equal(r.hold, 'У руках: Скриня · $1,200');
   assert.equal(r.opened, true, 'with empty hands it opens');
-  assert.equal(r.lost, '★★ втрачено: тривога');
+  assert.equal(r.lost, '★★ згоріла: тривога');
   assert.deepEqual(errors, []);
   await ctx.close();
   // the classic test game: the old rule on a PC
@@ -478,7 +478,7 @@ test('campaign v2 (16.11): the round\'s end has «Ще раз» and «Далі: 
   assert.deepEqual(r.caught, { board: ['Ще раз', 'Далі: рівень 2'], phone: ['Ще раз*', 'Далі: рівень 2'], text: false }, 'caught: «Ще раз» the primary, «Далі» since level 2 is open');
   assert.deepEqual(r.late, r.caught, 'late: the same');
   assert.deepEqual(r.fresh, { board: ['Ще раз'], phone: ['Ще раз*'], text: false }, 'the next level closed: «Ще раз» only');
-  assert.equal(r.flash, 'Ще раз. Годинник піде, щойно зайдеш у хвіртку');
+  assert.equal(r.flash, 'Ще раз. Час піде за лінією СТАРТ');
   assert.equal(r.contract, 'chest', 'the same level again');
   assert.deepEqual(errors, []);
   await ctx.close();
