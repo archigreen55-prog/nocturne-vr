@@ -5,7 +5,6 @@
 // device; ?lang=uk goes back). The file is loaded before the game starts (top-level await), so
 // modules may use S at load time.
 import ukBase from './uk.js';
-import w19draft from './uk-w19-draft.js';   // W19: draft texts until the owner's «так» (then into uk.js)
 import { GAME_NAME } from './name.js';
 import { loadSetting, saveSetting } from '../settings.js';
 
@@ -17,7 +16,7 @@ function over(base, top) {
   return out;
 }
 
-const uk = over(ukBase, w19draft);
+const uk = ukBase;
 let lang = 'uk', strings = uk;
 const asked = new URLSearchParams(location.search).get('lang');
 const want = asked || loadSetting('lang', 'uk');
