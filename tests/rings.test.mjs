@@ -50,8 +50,7 @@ test('wave rings: one wave per sound growing to the real radius in 0.6–1 s (a 
     out.shoutLife = N.ripples[0].life;
     g.setDifficulty('medium');
     // steps a stride apart: a wave each
-    N.clear(); for (let k = 0; k < 4; k++) { N.emit(k * 0.7, 0, 6, 'step', { who: g.player }); N.update(0.37); }
-    out.steps = N.ripples.length + 0;
+    N.clear(); out.steps = 0; for (let k = 0; k < 4; k++) { N.emit(k * 0.7, 0, 6, 'step', { who: g.player }); out.steps += N.ripples.filter((w) => w.t === 0).length; N.update(0.37); }
     // the shader: see-through by the distance on the floor
     N.mesh.material.onBeforeCompile(out.sh = { uniforms: {}, vertexShader: '#include <common>\n#include <begin_vertex>', fragmentShader: '#include <common>\n#include <opaque_fragment>' });
     out.uNear = out.sh.uniforms.uNear.value.toArray(); out.uNearH = out.sh.uniforms.uNearH.value;
@@ -61,11 +60,11 @@ test('wave rings: one wave per sound growing to the real radius in 0.6–1 s (a 
     return out;
   });
   assert.equal(r.mode, 'wave', 'the default');
-  assert.deepEqual([r.one.n, r.one.r, r.one.wall], [1, 6, false], `one wave of the real 6 m, no wall ring ${JSON.stringify(r.one)}`);
+  assert.deepEqual([r.one.n, r.one.r, r.one.wall], [1, 4, false], `one wave of the real 4 m, no wall ring ${JSON.stringify(r.one)}`);
   assert.ok(r.one.life >= 0.6 && r.one.life <= 1.0, `0.6–1 s to the edge: ${r.one.life}`);
   assert.ok(r.grow[0] < 1, `born at the player: ${r.grow[0]}`);
   assert.ok(r.grow.every((s, i) => i === 0 || s > r.grow[i - 1]), 'always growing, never standing still');
-  assert.ok(r.grow.at(-1) > 5.9 && r.grow.at(-1) <= 6, `reaches the edge (the full radius, not less): ${r.grow.at(-1)}`);
+  assert.ok(r.grow.at(-1) > 3.9 && r.grow.at(-1) <= 4, `reaches the edge (the full radius, not less): ${r.grow.at(-1)}`);
   assert.ok(Math.abs(r.goneAfter - r.one.life) < 0.05, `gone at the edge: ${r.goneAfter}`);
   const L = r.light, n = L.length;
   assert.ok(L[5] > L[Math.floor(n / 2)] && L[Math.floor(n / 2)] > L[n - 2] * 3, `bright at the start, dimmer, dissolving at the edge: ${L.filter((_, i) => i % 6 === 0)}`);
@@ -79,7 +78,7 @@ test('wave rings: one wave per sound growing to the real radius in 0.6–1 s (a 
   assert.ok(r.byDiff.medium.every((x, i) => i < 2 || x === 1), 'a shout: one wave');
   assert.ok(r.byDiff.hard[0] > r.byDiff.easy[0], 'a harder guard hears further: a bigger wave');
   assert.ok(r.shoutLife > r.one.life && r.shoutLife <= 1.5, `a shout a little longer: ${r.shoutLife}`);
-  assert.ok(r.steps >= 2, `steps a stride apart: a wave each (${r.steps} still spreading)`);
+  assert.equal(r.steps, 4, 'steps a stride apart: a wave each');
   assert.ok(r.uNear[0] > 0.2 && r.uNear[1] <= 1.3 && r.uNearH === 1 && r.floorFade, `see-through within ~1 m on the floor: ${r.uNear}`);
   assert.deepEqual(errors, []);
   await ctx.close();
