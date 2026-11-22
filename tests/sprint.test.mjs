@@ -114,7 +114,7 @@ test('running noise: a run step every 0.9 m, radius 12 m, 15 points, one orange 
   assert.ok(r.radius.length >= 4 && r.radius.every((x) => x === 12), `run steps: ${r.radius}`);
   assert.ok(r.gaps.every((x) => x > 0.85 && x < 1.0), `run stride: ${r.gaps.map((x) => x.toFixed(2))}`);
   assert.equal(r.points, 15);
-  assert.equal(r.rings.length, 1, 'one ring (plan 2026-11-19 «radar»)');
+  assert.equal(r.rings.length, 1, 'one ring (plan 2026-11-19 «radar»; the wave since 22.11: one too)');
   assert.ok(r.rings[0].r === 12 && r.rings[0].c === 0xff7a1a, JSON.stringify(r.rings));
   assert.deepEqual(r.walkKinds, ['step']);
   assert.ok(r.walkRadius.slice(1).every((x) => Math.abs(x - 6) < 0.01) && r.walkRadius[0] > 5.5, `walking steps 6 m at 2.0 m/s: ${r.walkRadius}`);

@@ -18,11 +18,12 @@ export const mic = {
   normalEvery: 1,        // ...and then once per this many seconds while it lasts
   // What the guard hears of your voice (m; x the difficulty's hearing CFG.hearing.radiusK; through a wall x
   // wallK, else CFG.hearing.occludedK). The ring on the floor is this radius: what you see is what it hears.
-  voice: { radius: 6 },                         // talking: a room (3 m through a wall on medium)
+  voice: { radius: 4 },                         // talking: a room (2 m through a wall on medium; owner 22.11: was 6)
   whisper: { radius: 1.2, every: 1.5, wallK: 0 },   // whispering: right next to it only, never through a wall
-  // shouting: the whole house hears it (walls barely stop it); closer than alarmK of the way to the ring's
-  // edge = the full alarm (medium, hard), farther = `points` suspicion and it comes to look at once
-  shout: { radius: 18, wallK: 0.85, alarmK: 0.5, points: 60 },
+  // shouting: several rooms hear it (walls barely stop it; owner 22.11: 12 m, was 18); closer than alarmK of the way to the ring's
+  // edge = the full alarm (medium, hard: within 6 m in the open, ~5 m through a wall), farther = `points` suspicion
+  // and it comes to look at once
+  shout: { radius: 12, wallK: 0.85, alarmK: 0.5, points: 60 },
   // sane limits for the player's ± corrections (dB): the shout threshold stays this far above the
   // calibrated voice, the whisper boundary this far above the whisper (or silence) and below the voice
   limitMargin: { shoutOverVoice: 4, whisper: 3, voiceOverWhisper: 3 },

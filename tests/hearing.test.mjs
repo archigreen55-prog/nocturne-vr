@@ -43,7 +43,7 @@ test('shout (15.11): from the owner\'s calibration the threshold is -17.3 dB, no
   await ctx.close();
 });
 
-test('hearing (15.11) in the dacha: whisper only right next to the guard and never through a wall; talking 6 m (3 m through a wall) — a glance and «?», then it comes to look from 25 suspicion; a shout close by = the alarm, farther = it comes at once, out of reach = nothing; the rings are the hearing radius', async () => {
+test('hearing (15.11) in the dacha: whisper only right next to the guard and never through a wall; talking 4 m (2 m through a wall) — a glance and «?», then it comes to look from 25 suspicion; a shout close by = the alarm, farther = it comes at once, out of reach = nothing; the rings are the hearing radius', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, base);
   const r = await page.evaluate(() => {
@@ -53,8 +53,8 @@ test('hearing (15.11) in the dacha: whisper only right next to the guard and nev
     // a point at distance d from the guard, behind a wall (wall = true) or in the open
     const at = (d, wall) => {
       for (let a = 0; a < Math.PI * 2; a += Math.PI / 90) {
-        const x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d;
-        if (L.soundOccluded(gx, gz, x, z) === wall) return [x, z];
+        const x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d;   // from where the guard stands now (fresh())
+        if (L.soundOccluded(P.x, P.z, x, z) === wall) return [x, z];
       }
       return null;
     };
@@ -76,13 +76,14 @@ test('hearing (15.11) in the dacha: whisper only right next to the guard and nev
     fresh(); o.whisperOpen = say('whisper', 1.0, false);
     o.wallFound = !!wg;
     if (wg) { fresh([wg.x, wg.z]); g.noise.emit(wg.wx, wg.wz, M.whisper.radius, 'whisper', { wallK: M.whisper.wallK, who: g.player }); g.sim(0.05); o.whisperWall = { state: P.state, sus: Math.round(g.alert.suspicion) }; }
-    fresh(); o.voiceWall1 = say('voice', 2.5, true); g.sim(0.3); o.voiceWall1b = { state: P.state }; o.voiceWall2 = say('voice', 2.5, true);
-    fresh(); o.voiceWallFar = say('voice', 4, true);
-    fresh(); o.voiceOpen = say('voice', 5, false);
+    fresh(wg && [wg.x, wg.z]); o.voiceWall1 = say('voice', 1.8, true);   // talking 4 m: through a wall only 2 m — the guard by a wall
+     g.sim(0.3); o.voiceWall1b = { state: P.state }; o.voiceWall2 = say('voice', 1.8, true);
+    fresh(); o.voiceWallFar = say('voice', 3, true);
+    fresh(); o.voiceOpen = say('voice', 3.5, false);
     fresh(); o.stepOpen = say('step', 3, false); g.sim(1.6); o.stepAfter = { state: P.state };
-    fresh(); o.shoutNear = say('shout', 6, true);
-    fresh(); o.shoutFar = say('shout', 12, true);
-    fresh(); o.shoutOut = say('shout', 17, true);
+    fresh(); o.shoutNear = say('shout', 4, true);
+    fresh(); o.shoutFar = say('shout', 8, true);
+    fresh(); o.shoutOut = say('shout', 11.5, true);
     // the rings: the hearing radius (x the difficulty)
     g.noise.clear(); g.noise.emit(0, 0, M.voice.radius, 'voice', { source: 'patrol' });
     o.voiceRings = g.noise.ripples.map((x) => [+x.r.toFixed(2), x.k]);
@@ -98,19 +99,19 @@ test('hearing (15.11) in the dacha: whisper only right next to the guard and nev
   assert.deepEqual([r.whisperOpen.state, r.whisperOpen.sus, r.whisperOpen.mark], ['glance', 5, '?'], `whisper next to it: a glance ${JSON.stringify(r.whisperOpen)}`);
   assert.equal(r.wallFound, true, 'a spot by a wall');
   assert.deepEqual([r.whisperWall.state, r.whisperWall.sus], ['task', 0], `whisper through a wall: nothing ${JSON.stringify(r.whisperWall)}`);
-  assert.deepEqual([r.voiceWall1.state, r.voiceWall1.sus], ['glance', 18], `talking 2.5 m through a wall: «?» and a glance first ${JSON.stringify(r.voiceWall1)}`);
+  assert.deepEqual([r.voiceWall1.state, r.voiceWall1.sus], ['glance', 18], `talking 1.8 m through a wall: «?» and a glance first ${JSON.stringify(r.voiceWall1)}`);
   assert.equal(r.voiceWall1b.state, 'glance', 'it stays where it is');
   assert.ok(['react', 'investigate'].includes(r.voiceWall2.state) && r.voiceWall2.sus >= 25, `talking on: it comes to look ${JSON.stringify(r.voiceWall2)}`);
-  assert.deepEqual([r.voiceWallFar.state, r.voiceWallFar.sus], ['task', 0], `talking 4 m through a wall: not heard ${JSON.stringify(r.voiceWallFar)}`);
-  assert.equal(r.voiceOpen.state, 'glance', `talking 5 m in the open: heard ${JSON.stringify(r.voiceOpen)}`);
+  assert.deepEqual([r.voiceWallFar.state, r.voiceWallFar.sus], ['task', 0], `talking 3 m through a wall (beyond 2 m): not heard ${JSON.stringify(r.voiceWallFar)}`);
+  assert.equal(r.voiceOpen.state, 'glance', `talking 3.5 m in the open: heard ${JSON.stringify(r.voiceOpen)}`);
   assert.deepEqual([r.stepOpen.state, r.stepAfter.state], ['glance', 'task'], 'one step: a glance, then back to its plan');
-  assert.equal(r.shoutNear.full, true, `a shout 6 m through a wall: the alarm ${JSON.stringify(r.shoutNear)}`);
-  assert.deepEqual([r.shoutFar.full, r.shoutFar.state, r.shoutFar.follow, r.shoutFar.sus], [false, 'investigate', true, 60], `a shout 12 m through walls: it comes at once ${JSON.stringify(r.shoutFar)}`);
-  assert.deepEqual([r.shoutOut.full, r.shoutOut.state, r.shoutOut.sus], [false, 'task', 0], `a shout 17 m through walls (beyond 15.3 m): not heard ${JSON.stringify(r.shoutOut)}`);
+  assert.equal(r.shoutNear.full, true, `a shout 4 m through a wall (alarm within 5.1 m): the alarm ${JSON.stringify(r.shoutNear)}`);
+  assert.deepEqual([r.shoutFar.full, r.shoutFar.state, r.shoutFar.follow, r.shoutFar.sus], [false, 'investigate', true, 60], `a shout 8 m through walls: it comes at once ${JSON.stringify(r.shoutFar)}`);
+  assert.deepEqual([r.shoutOut.full, r.shoutOut.state, r.shoutOut.sus], [false, 'task', 0], `a shout 11.5 m through walls (beyond 10.2 m): not heard ${JSON.stringify(r.shoutOut)}`);
   // plan 2026-11-19 «radar»: one ring, the real hearing radius (no second «through a wall» ring any more)
-  assert.deepEqual(r.voiceRings, [[6, 1]], 'talking: 6 m');
+  assert.deepEqual(r.voiceRings, [[4, 1]], 'talking: 4 m');
   assert.deepEqual(r.whisperRings, [[1.2, 1]], 'whisper: 1.2 m');
-  assert.deepEqual(r.shoutRings, [[18, 1]], 'shout: 18 m');
+  assert.deepEqual(r.shoutRings, [[12, 1]], 'shout: 12 m');
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -190,7 +191,7 @@ test('rings on the floor (owner 16.11): a player\'s noise rings lie on that play
     return out;
   });
   assert.equal(r.map, 'mansion');
-  assert.deepEqual(r.ground, [0.04], 'the ground floor (one ring: plan 2026-11-19 «radar»)');
+  assert.deepEqual(r.ground, [0.04], 'the ground floor (one ring: «radar» 19.11, «wave» 22.11)');
   assert.deepEqual(r.upper, [3.04], 'the upper floor: on its floor, not at y 0');
   assert.equal(r.depthTest, true, 'walls hide the rings');
   assert.deepEqual(errors, []);

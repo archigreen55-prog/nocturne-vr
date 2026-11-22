@@ -1,13 +1,14 @@
 // The noise rings as a «radar» (plan 2026-11-19 «fixes after test 1», task 2): one thin ring per source at its full,
 // honest radius (the guard's real hearing x the difficulty — never smaller), a ping that dims and comes again while
 // the sound goes on, gone a while after it stops; another source has its own ring; see-through near the camera.
+// Since owner 22.11 the default is 'wave' (tests/rings.test.mjs); the radar stays a config switch, tested here.
 import assert from 'node:assert/strict';
 import { browser, open, test, preview } from './runner.mjs';
 import { newContext } from './harness.mjs';
 
-test('radar rings: talking 3 s = one ring of the real 6 m all along (pinged every second), no growth, no second ring; it fades after the talk; a door elsewhere has its own; the radius follows the difficulty\'s hearing (never smaller); see-through near the camera', async () => {
+test('radar rings: talking 3 s = one ring of the real 4 m all along (pinged every second), no growth, no second ring; it fades after the talk; a door elsewhere has its own; the radius follows the difficulty\'s hearing (never smaller); see-through near the camera', async () => {
   const ctx = await newContext(browser);
-  const { page, errors } = await open(ctx, preview);
+  const { page, errors } = await open(ctx, preview + '?rings=radar');
   const r = await page.evaluate(() => {
     const g = window.__game, N = g.noise, C = g.CFG, M = C.mic, out = { counts: [], radii: [], bright: [] };
     g.newRound(); g.playing = true;
@@ -53,8 +54,8 @@ test('radar rings: talking 3 s = one ring of the real 6 m all along (pinged ever
   });
   assert.equal(r.mode, 'radar');
   assert.ok(r.counts.every((n) => n === 1), `one ring all along: ${r.counts}`);
-  assert.ok(r.radii.every((x) => x === 6), `6 m all along: ${r.radii}`);
-  assert.equal(r.scale, 6, 'drawn at the full radius at once');
+  assert.ok(r.radii.every((x) => x === 4), `4 m all along: ${r.radii}`);
+  assert.equal(r.scale, 4, 'drawn at the full radius at once');
   assert.ok(r.bright[0] > r.bright[7] * 2, `a ping, then dim: ${r.bright}`);
   assert.ok(r.bright[7] > 0, 'still seen between the pings');
   assert.equal(r.two.length, 2, `the door has its own ring: ${r.two}`);
