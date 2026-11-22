@@ -7,6 +7,9 @@
 // The line keeps CFG.ripple.line m wide at any radius (a shader on a thin band, not a scaled ring).
 // Plan 2026-11-19 task 2 («radar», CFG.ripple.mode): one ring per source at its full radius, a ping that dims and
 // comes again while the sound goes on, no wall ring, see-through near the camera (config/noise.js).
+// Owner 22.11 («wave», the default mode): a stone in the water — each sound is one thin wave that grows from the
+// source to its full hearing radius in ~0.6–1 s, bright at the start, gone at the edge; a source starts a new one at
+// most once per CFG.ripple.gap[kind] s; see-through within CFG.ripple.nearH m of the camera on the floor.
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 
@@ -39,14 +42,16 @@ export class NoiseSystem {
     // a ring of a constant width: the square's own radius (its instance scale) turns the line width into a
     // share of it, so a 15 m ring is as thin as a 1 m one
     // radar: see-through near the camera (uNear: from 0 at x to full at y, m from the eye); 'grow': never
-    const near = CFG.ripple.mode === 'radar' ? CFG.ripple.near : [-2, -1];
+    // wave: the same, by the distance on the floor (uNearH 1), so the start of a wave under your feet is clear
     mat.onBeforeCompile = (sh) => {
+      const mode = CFG.ripple.mode, near = mode === 'radar' ? CFG.ripple.near : mode === 'wave' ? CFG.ripple.nearH : [-2, -1];
       sh.uniforms.uLine = { value: CFG.ripple.line };
       sh.uniforms.uNear = { value: new THREE.Vector2(near[0], near[1]) };
+      sh.uniforms.uNearH = { value: mode === 'wave' ? 1 : 0 };
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vRing; varying float vRingR; varying vec3 vRingW;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRing = position.xz;\n#ifdef USE_INSTANCING\nvRingR = length(instanceMatrix[0].xyz);\nvRingW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvRingR = 1.0;\nvRingW = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vRing; varying float vRingR; varying vec3 vRingW; uniform float uLine; uniform vec2 uNear;')
-        .replace('#include <opaque_fragment>', 'float rD = length(vRing);\nfloat rHw = max(0.5 * uLine / max(vRingR, 0.001), 0.9 * fwidth(rD));   // at least ~2 px on the screen: a far ring stays a line, not dots\nfloat ringA = 1.0 - smoothstep(0.35 * rHw, rHw, abs(rD - (1.0 - rHw)));\nringA *= smoothstep(uNear.x, uNear.y, distance(vRingW, cameraPosition));   // radar: see-through near the eye\nif (ringA < 0.01) discard;\noutgoingLight *= ringA;\n#include <opaque_fragment>');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vRing; varying float vRingR; varying vec3 vRingW; uniform float uLine; uniform vec2 uNear; uniform float uNearH;')
+        .replace('#include <opaque_fragment>', 'float rD = length(vRing);\nfloat rHw = max(0.5 * uLine / max(vRingR, 0.001), 0.9 * fwidth(rD));   // at least ~2 px on the screen: a far ring stays a line, not dots\nfloat ringA = 1.0 - smoothstep(0.35 * rHw, rHw, abs(rD - (1.0 - rHw)));\nvec3 rEye = vRingW - cameraPosition; if (uNearH > 0.5) rEye.y = 0.0;\nringA *= smoothstep(uNear.x, uNear.y, length(rEye));   // see-through near the eye (wave: on the floor)\nif (ringA < 0.01) discard;\noutgoingLight *= ringA;\n#include <opaque_fragment>');
     };
     this.mesh = new THREE.InstancedMesh(geo, mat, MAX);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -58,7 +63,9 @@ export class NoiseSystem {
     this.c = new THREE.Color();
     for (let i = 0; i < MAX; i++) this.mesh.setColorAt(i, this.c.setHex(0));  // create colours up front (no shader switch later)
     this.log = [];          // recent events, for tests and the report
-    this.ids = new WeakMap(); this.nextId = 0;   // radar: a number for each source (keyOf)
+    this.ids = new WeakMap(); this.nextId = 0;   // radar / wave: a number for each source (keyOf)
+    this.lastWave = new Map();   // wave: source key -> the clock (s) of its last wave (CFG.ripple.gap)
+    this.clock = 0;
   }
 
   on(fn) { this.listeners.push(fn); }
@@ -78,7 +85,8 @@ export class NoiseSystem {
     for (const fn of this.listeners) fn(e);
     if (ripple && (!this.filter || this.filter(e))) {   // filter: W15, the guard's screen shows only what a guard hears
       const R = ringsOf(e), color = COLORS[kind] || 0xffffff;
-      if (CFG.ripple.mode === 'radar') this.ping({ key: this.keyOf(e), x, y: y + 0.01, z, r: R.r, color });
+      if (CFG.ripple.mode === 'wave') this.wave(e, R.r, color, y + 0.01);
+      else if (CFG.ripple.mode === 'radar') this.ping({ key: this.keyOf(e), x, y: y + 0.01, z, r: R.r, color });
       else {
         this.push({ x, y: y + 0.01, z, r: R.r, t: 0, color, k: 1 });
         if (R.wall > 0.05) this.push({ x, y: y + 0.01, z, r: R.wall, t: 0, color, k: CFG.ripple.wallRing, wall: true });   // how far through a wall
@@ -101,9 +109,23 @@ export class NoiseSystem {
     if (old) { Object.assign(old, rp); old.t = 0; return; }
     this.push({ ...rp, t: 0, k: 1 });
   }
-  clear() { this.ripples.length = 0; this.mesh.count = 0; }
+  // wave: how long a wave of radius r (m) takes to reach its edge (s)
+  static waveTime(r, kind) {
+    const P = CFG.ripple, u = Math.min(1, Math.max(0, (r - P.growR[0]) / (P.growR[1] - P.growR[0])));
+    return (P.grow[0] + (P.grow[1] - P.grow[0]) * u) * (kind === 'shout' ? P.shoutK : 1);
+  }
+  // wave: a new wave from this source unless its last one started under CFG.ripple.gap[kind] s ago
+  wave(e, r, color, y) {
+    const key = this.keyOf(e), gap = CFG.ripple.gap[e.kind] || 0, last = this.lastWave.get(key);
+    if (last !== undefined && this.clock - last < gap - 1e-6) return;
+    this.lastWave.set(key, this.clock);
+    this.push({ key, kind: e.kind, x: e.x, y, z: e.z, r, t: 0, life: NoiseSystem.waveTime(r, e.kind), color, k: 1 });
+  }
+  clear() { this.ripples.length = 0; this.mesh.count = 0; this.lastWave.clear(); }
 
   update(dt) {
+    this.clock += dt;
+    if (CFG.ripple.mode === 'wave') { this.updateWave(dt); return; }
     if (CFG.ripple.mode === 'radar') { this.updateRadar(dt); return; }
     const life = CFG.ripple.life;
     let n = 0;
@@ -120,6 +142,34 @@ export class NoiseSystem {
       this.m.makeScale(s, 1, s).setPosition(r.x, r.y, r.z);
       this.mesh.setMatrixAt(n, this.m);
       this.c.setHex(r.color).multiplyScalar((1 - t) * 0.8 * this.gain * (r.k ?? 1));
+      this.mesh.setColorAt(n, this.c);
+      n++;
+    }
+    this.mesh.count = n;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  // wave: the radius eases out from `start` m to r over the wave's life (fast first, slowing at the edge, like water);
+  // the brightness: in over the first 0.06 s, full at the start, dimmer as it spreads, dissolving over the last 30 %
+  updateWave(dt) {
+    for (let i = this.ripples.length - 1; i >= 0; i--) {
+      const r = this.ripples[i];
+      r.t += dt;
+      if (r.t >= (r.life || CFG.ripple.grow[1])) this.ripples.splice(i, 1);
+    }
+    const start = CFG.ripple.start;
+    let n = 0;
+    for (const r of this.ripples) {
+      if (n >= MAX) break;
+      if (r.t < 0) continue;
+      const u = Math.min(1, r.t / (r.life || CFG.ripple.grow[1])), ease = 1 - Math.pow(1 - u, 1.5);
+      const s = Math.min(r.r, start) + (r.r - Math.min(r.r, start)) * ease;
+      const out = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;   // the last 30 %: dissolves into nothing at the edge
+      const b = Math.min(1, r.t / 0.06) * (0.45 + 0.55 * (1 - u)) * out * out;
+      this.m.makeScale(s, 1, s).setPosition(r.x, r.y, r.z);
+      this.mesh.setMatrixAt(n, this.m);
+      this.c.setHex(r.color).multiplyScalar(b * 0.9 * this.gain * (r.k ?? 1));
       this.mesh.setColorAt(n, this.c);
       n++;
     }

@@ -190,7 +190,7 @@ test('rings on the floor (owner 16.11): a player\'s noise rings lie on that play
     return out;
   });
   assert.equal(r.map, 'mansion');
-  assert.deepEqual(r.ground, [0.04], 'the ground floor (one ring: plan 2026-11-19 «radar»)');
+  assert.deepEqual(r.ground, [0.04], 'the ground floor (one ring: «radar» 19.11, «wave» 22.11)');
   assert.deepEqual(r.upper, [3.04], 'the upper floor: on its floor, not at y 0');
   assert.equal(r.depthTest, true, 'walls hide the rings');
   assert.deepEqual(errors, []);
