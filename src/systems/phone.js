@@ -137,7 +137,7 @@ export const phone = {
       info: () => ({
         contractName: G.contract.name, diffName: CFG.difficulties[G.difficulty].name, phase: round.phase, clock: round.clock, vanSum: loot.tally().sum,
         canChange: round.phase === 'ready', brief: G.contract.brief, story: beforeNow(), goalText: goalText(G.contract, loot.items), bonusText: bonusText(G.contract),   // W7: story = the customer's lines and the crew's
-        micText: S.menu.micText(mic), lock: lockText(G.contract),
+        micText: S.micState.line(mic.status, mic.problem), lock: lockText(G.contract),
         stars: pauseStars(),   // campaign v2: the level's three stars, their money, ✓ won / ✗ lost this round
         how: howCards(G.contract).length > 0,   // campaign v2: «Як це?»
       }),

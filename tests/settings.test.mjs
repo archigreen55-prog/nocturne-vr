@@ -94,7 +94,7 @@ test('the microphone row says its state, quality and frame rate moved from «Д�
   const ctx = await newContext(browser, VP);
   const { page, errors } = await open(ctx, base + '?page=settings');
   await page.waitForFunction(() => !document.querySelector('#overlay section[data-page="settings"]').hidden);
-  assert.match(await page.evaluate(() => document.getElementById('microwtext').textContent), /^Мікрофон: /);
+  assert.match(await page.evaluate(() => document.getElementById('microwtext').textContent), /^Мікрофон/);
   assert.deepEqual(await page.evaluate(() => ['quality', 'fpscap'].map((id) => !!document.getElementById(id).closest('#setsheet'))), [true, true]);
   assert.deepEqual(errors, []);
   await ctx.close();

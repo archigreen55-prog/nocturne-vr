@@ -319,7 +319,7 @@ export class Board {
     g.font = `800 34px ${HEAD}`; g.fillStyle = '#ffb347';
     g.fillText(S.board.micTitle, 50, 80);
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
-    const status = M.status === 'ok' ? S.board.mic.calibrated : M.status === 'uncal' ? S.board.mic.notCalibrated : S.micState.line(M.status, M.problem);   // Б1: the honest state
+    const status = S.micState.line(M.status, M.problem);   // Б1: the honest state, the same words everywhere (plan 2026-11-17)
     g.fillText(status, 320, 78);
     if (s.calib) {   // the wizard is running
       g.font = 'bold 40px system-ui, sans-serif'; g.fillStyle = s.calib.phase === 'rec' ? '#ffb347' : '#9aa7bf';
@@ -410,7 +410,7 @@ export class Board {
     g.textAlign = 'center'; g.font = 'bold 24px system-ui, sans-serif';
     if (s.playing && s.clip) { g.fillStyle = '#ffb347'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 448); }
     else if (R.shouts > 0) { g.fillStyle = '#ffb347'; g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 448); }
-    else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.mic.noMic : S.board.res.noShouts, W / 2, 448); }
+    else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.micState.line('nomic') : S.board.res.noShouts, W / 2, 448); }
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 50, y: 480, w: 250, h: 110, font: 24, enabled: !!s.clip && !s.playing });
     if (s.next) {
       this.buttons.push({ id: 'again', label: s.againLabel, x: 315, y: 480, w: 320, h: 110, font: 24, enabled: true });
