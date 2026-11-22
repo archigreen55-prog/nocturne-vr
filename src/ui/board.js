@@ -324,7 +324,7 @@ export class Board {
     g.fillText(S.board.micTitle, 50, 80);
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
     const status = S.micState.line(M.status, M.problem);   // Б1: the honest state, the same words everywhere (plan 2026-11-17)
-    g.fillText(status, 320, 78);
+    g.fillText(status, 320, 78, W - 370);   // the longer words are squeezed, not cut off
     if (s.calib) {   // the wizard is running
       g.font = 'bold 40px system-ui, sans-serif'; g.fillStyle = s.calib.phase === 'rec' ? '#ffb347' : '#9aa7bf';
       g.fillText(S.board.calibStep(s.calib.i + 1, s.calib.total || 4, s.calib.step.title.toUpperCase(), s.calib.left.toFixed(1)), 50, 150);

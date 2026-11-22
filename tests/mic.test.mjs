@@ -308,7 +308,7 @@ test('phone: after a call the microphone comes back on Продовжити (re-
   await page.evaluate(() => { const g = window.__game; g.mic.track.stop(); navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('busy', 'NotReadableError')); g.pauseOpen('user'); });
   await fingerPressEl(page, cdp, pm('Продовжити'));
   await page.waitForFunction(() => window.__game.mic.events.lastRecover === 'failed', null, { timeout: 8000 });
-  await page.waitForFunction(() => /Мікрофон не відновився/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
+  await page.waitForFunction(() => /Мікрофон не повернувся/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
   // headphones plugged in
   await page.evaluate(() => navigator.mediaDevices.dispatchEvent(new Event('devicechange')));
   await page.waitForFunction(() => window.__game.mic.deviceChanged || window.__game.mic.state !== 'on', null, { timeout: 5000 });

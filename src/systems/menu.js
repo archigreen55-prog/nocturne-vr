@@ -176,7 +176,7 @@ const syncSegs = () => { for (const sel of document.querySelectorAll('#overlay s
 function renderSettings() {
   syncSegs();
   const mic = G.mic, wiz = $('micwiz');
-  if ($('microwtext')) $('microwtext').textContent = !mic ? S.menu2.mic.none : S.micState.line(mic.status, mic.problem);
+  if ($('microwtext')) $('microwtext').textContent = !mic ? S.menu2.mic.none : S.micState.row(mic.status);   // short: one line in the settings
   if (!mic || !wiz) return;
   const done = { allow: mic.state === 'on', cal: !!mic.calibrated, check: !!$('verifyres').textContent.trim() };
   let now = null;
