@@ -96,9 +96,9 @@ test('campaign v2: three stars on any difficulty (★ goal, ★★ «Тихо»,
   }, PLAY);
   assert.deepEqual([r.hard3.stars, r.hard3.bits, r.hard3.loot, r.hard3.bonus, r.hard3.cash], [3, '111', 750, 1000, 1750], `hard: all three, paid once: ${JSON.stringify(r.hard3)}`);
   assert.deepEqual([r.alarm.bits, r.alarm.why[1], r.alarm.loot, r.alarm.bonus, r.alarm.cash], ['101', 'тривога', 0, 0, 1750], `an alarm: no ★★; nothing new to pay; $500 under the record: ${JSON.stringify(r.alarm)}`);
-  assert.match(r.alarm.lines[0], /рекорд \$750 не побито/);
+  assert.match(r.alarm.lines[0], /Рекорд \$750 встояв/);
   assert.deepEqual([r.record.loot, r.record.cash], [300, 2050], 'easy, $1,050: the $300 over the record');
-  assert.match(r.record.lines[0], /новий рекорд \$1,050 → \+\$300/);
+  assert.match(r.record.lines[0], /Здобич \$1,050 — рекорд! \+\$300/);
   assert.equal(r.afterCan, 0, 'a can is not a doubt');
   assert.deepEqual([r.doubt.bits, r.doubt.why[2]], ['110', '«?» ×1'], 'a step heard: ★★★ «👂» is gone');
   assert.deepEqual([r.practice.stars, r.practice.bits, r.practice.loot, r.practice.bonus, r.practice.cash], [1, '100', 0, 200, 2250], 'the rehearsal: its one star paid, its loot never');
@@ -140,7 +140,7 @@ test('campaign v2: the level card (menu «Грати») and the board\'s note sh
     out.clock = { next: P.summaryState().nextLabel, nextN: P.summaryState().next };
     return out;
   }, PLAY);
-  assert.deepEqual(r.card, ['★|винеси щонайменше $500|+$200|', '★★|тихо: без тривоги й крику|+$300|', '★★★|👂 жодного «?» від сторожа|+$500|'], JSON.stringify(r.card));
+  assert.deepEqual(r.card, ['★|винеси щонайменше $500|+$200|', '★★|тихо: без тривоги й крику|+$300|', '★★★|👂 жодного «?» над сторожем|+$500|'], JSON.stringify(r.card));
   assert.equal(r.meta, 'Нове: сторож ходить · 5:00 на все');
   assert.deepEqual(r.diff, { play: true, settings: 3, box: false }, 'the difficulty: in the settings, not on the card');
   assert.deepEqual(r.hard, { d: 'hard', meta: 'Нове: сторож ходить · 4:00 на все' });
@@ -209,7 +209,7 @@ test('campaign v2 (a): the phone\'s pause shows the level\'s three stars with th
     g.alert.setFull('test', 0, 0); g.sim(0.2);
     return { before, after: rows() };
   });
-  assert.deepEqual(r.before, ['★|винеси щонайменше $500|+$200|✓', '★★|тихо: без тривоги й крику|+$300|', '★★★|👂 жодного «?» від сторожа|+$500|']);
+  assert.deepEqual(r.before, ['★|винеси щонайменше $500|+$200|✓', '★★|тихо: без тривоги й крику|+$300|', '★★★|👂 жодного «?» над сторожем|+$500|']);
   assert.deepEqual(r.after.map((x) => x.split('|').pop()), ['✓', '✗', ''], 'the alarm: ★★ lost in this round');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -416,7 +416,7 @@ test('campaign v2 (в): with friends the guest lowers the clock — the host dec
   await ctx.close();
 });
 
-test('campaign v2 (г): «Кабінет» (level 8) — the laptop is the goal, the devices come here («Як це: пристрої»), Valera sits at the study\'s desk all round; the breaker sends him to the boiler room and his desk is free; «Підміна» is level 9', async () => {
+test('campaign v2 (г): «Кабінет» (level 8) — the laptop is the goal, the devices come here («Як це: радіо, телефон і щиток»), Valera sits at the study\'s desk all round; the breaker sends him to the boiler room and his desk is free; «Підміна» is level 9', async () => {
   const stars = { rehearsal: S1, first: S1, chest: S1, quiet: S1, wardrobe: S1, clock: S1, m8: S1, m10: S1 };
   const { ctx, page, errors } = await camp(base + '?map=mansion', { stars });
   const r = await page.evaluate(async () => {
@@ -442,7 +442,7 @@ test('campaign v2 (г): «Кабінет» (level 8) — the laptop is the goal,
     out.back = { sitting: V.sitting, d: +Math.hypot(V.x - 9.6, V.z + 9.6).toFixed(1) };
     return out;
   });
-  assert.equal(r.card, 'Як це: пристрої');
+  assert.equal(r.card, 'Як це: радіо, телефон і щиток');
   assert.deepEqual([r.goal, r.locked, r.dev, r.open, r.next], ['винеси: Ноутбук з кабінету', false, true, true, 9]);
   assert.ok(r.post.sitting && Math.hypot(r.post.x - 9.6, r.post.z + 9.6) < 0.4, `Valera at the desk: ${JSON.stringify(r.post)}`);
   assert.ok(r.away.claimed && !r.away.sitting && r.away.d > 4, `the breaker took him away from the desk: ${JSON.stringify(r.away)}`);
