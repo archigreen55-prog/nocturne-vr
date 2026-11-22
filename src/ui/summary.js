@@ -32,7 +32,7 @@ export class Summary {
     if (s.income) left.append(el('div', 'sm-income', s.income));   // the money for the wallet (W3)
     if (s.saved) left.append(el('div', 'sm-saved' + (s.saved.warn ? ' warn' : ''), s.saved.text));   // plan 2026-11-19: saved on this device
     if (s.mischief) left.append(el('div', 'sm-income', s.mischief));   // W2b: mischief points
-    if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b, W7: the customer and the crew (every contract)
+    if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.sign) left.append(el('div', 'sm-sign', s.story.sign)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b, W7: the customer and the crew (every contract)
     const list = el('div', 'sm-list scroll');
     if (!R.list.length) list.append(el('div', 'sm-empty', S.summary.nothing));
     for (const it of R.list) {

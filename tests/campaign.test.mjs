@@ -177,7 +177,7 @@ test('the rehearsal: Petrovych sits down in his armchair and stays; the clock st
   await ctx.close();
 });
 
-test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Тихий Кут», the customer\'s lines, the goal, «Нове: сторож ходить», «Поїхали» (turns you to the house, says the clock starts outside) and «Карта…» (the menu\'s «Грати»); no ◀ ▶, no difficulty on it', async () => {
+test('the board at the van on a PC: the note «— Колекціонер» — «Рівень 1 · Тихий Кут», the customer\'s lines, the goal, «Нове: сторож ходить», «Поїхали» (turns you to the house, says the clock starts outside) and «Карта…» (the menu\'s «Грати»); no ◀ ▶, no difficulty on it', async () => {
   const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1 } });
   const r = await page.evaluate(async () => {
     const g = window.__game, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js');
@@ -202,7 +202,7 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
   assert.ok(r.said.includes('РІВЕНЬ 1 · ТИХИЙ КУТ'), r.said.join(' | '));
   assert.ok(r.said.includes('винеси щонайменше $500'), 'the goal: the first star\'s row');
   assert.ok(r.said.includes('Нове: сторож ходить'), 'what is new');
-  assert.ok(r.said.some((t) => /pp\.$/.test(t)), 'the customer\'s «pp.»');
+  assert.ok(r.said.some((t) => t === '— Колекціонер'), 'the Collector\'s signature, apart from the lines');
   assert.equal(r.flash, 'Вийди з фургона — годинник піде');
   assert.ok(Math.abs(Math.abs(r.yaw1 - r.spawnYaw) - Math.PI) < 0.01, 'turned to the house');
   assert.equal(r.overlay, 'flex', '«Карта…»: the menu');

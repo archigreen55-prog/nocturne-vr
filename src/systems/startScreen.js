@@ -62,6 +62,7 @@ function storyLines(contract) {
   if (!st) return;
   const lines = document.createElement('i'); lines.textContent = st.lines.join(' ');
   el.append(lines);
+  if (st.sign) { const sg = document.createElement('span'); sg.className = 'storysign'; sg.style.cssText = 'display:block;text-align:right;opacity:.75'; sg.textContent = st.sign; el.append(sg); }
   if (st.crew) { const c = document.createElement('span'); c.className = 'crewline'; c.style.color = '#ffd166'; c.textContent = ' ' + st.crew; el.append(c); }
 }
 function showMode() {

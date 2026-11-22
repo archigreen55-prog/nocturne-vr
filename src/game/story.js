@@ -1,5 +1,5 @@
 // The story's logic without DOM (W7): the customer's lines before and after a contract (the order of
-// story-texts-uk.md §9.2), the crew's lines, Тихарник (the lurker cards met) and «Папери» (the notes
+// story-texts-uk.md §9.2), the crew's lines, Домовики (the lurker cards met) and «Папери» (the notes
 // found), both kept on this device next to the stars (so the progress code carries them). The board,
 // the phone's menu and W17's start pages draw from these functions; systems/story.js calls the
 // «met» / «found» ones from the game.
@@ -16,14 +16,15 @@ export function thief() { const t = loadSetting('netThief', 'zoya'); return THIE
 export const crewLine = (o) => (o ? `${S.crew.names[o.who] || o.who}: ${o.line}` : '');
 
 // ---------- the customer ----------
-// Before a contract: { lines: [2-3], crew: 'Зоя: …' } or null (a contract without lines)
+// Before a contract: { lines: [2-3], sign: '— Колекціонер', crew: 'Зоя: …' } or null (a contract without lines);
+// the signature is shown under the note, apart from the lines (plan 2026-11-17 §2.2)
 // campaign v2 (a level of its ladder: c.level): its own lines where the old numbers no longer hold
 const own = (c, key) => (c && c.level !== undefined && S.campaign2.story[key][c.id]) || (c && S.story[key][c.id]);
 export function storyBefore(c) {
   const lines = own(c, 'before');
   if (!lines) return null;
   const C = own(c, 'crew');
-  return { lines, crew: crewLine(C && C.before) };
+  return { lines, sign: S.story.customer.sign, crew: crewLine(C && C.before) };
 }
 // The kind of a round's ending (story-texts-uk.md §9.2):
 //   caught | late | fail (got away, goal not met) | damaged (contract «clock» only: met, the clock damaged)
@@ -39,17 +40,17 @@ export function endingOf(c, r, v, o = {}) {
   if (o.alarmed) return 'alarm';
   return 'clean';
 }
-// After a round: { line, crew } (crew only when the goal was met) or null
+// After a round: { line, sign, crew } (crew only when the goal was met) or null
 export function storyAfter(c, r, v, o = {}) {
   const kind = endingOf(c, r, v, o);
   if (!kind) return null;
   const A = S.story.after, mine = { ...(A[c.id] || {}), ...((c.level !== undefined && S.campaign2.story.after[c.id]) || {}) };   // campaign v2: its own where the next level changed
   const line = mine[kind] || (['shout', 'alarm', 'clean', 'damaged'].includes(kind) ? mine.done : undefined) || A.common[kind];
   const C = own(c, 'crew');
-  return { kind, line: line || '', crew: v && v.goal ? crewLine(C && C.after) : '' };
+  return { kind, line: line || '', sign: line ? S.story.customer.sign : '', crew: v && v.goal ? crewLine(C && C.after) : '' };
 }
 
-// ---------- Тихарник ----------
+// ---------- Домовики ----------
 const metSet = () => new Set(loadSetting('lurkers', []));
 // Every card in the page's order: { id, name, wants, warns, avoid, met } (a card not met: name '???', no lines)
 // campaign v2 (plan §2.5): only the lurkers its ladder has (CFG.campaign.lurkers) — no wall of «???»
