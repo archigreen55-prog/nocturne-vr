@@ -35,6 +35,7 @@ export function newRound(fromHost = false) {
   applyLevel();      // W19: the cans, the devices of this level
   G.caughtT = -1; G.resultT = -1;
   G.micOffRound = false;   // mic v2: a new round, heard from its start (systems/micAuto.js)
+  G.micLoudRound = false; G.micLoudT = 0; G.micLoudWarned = false;   // the street: «дуже шумно» counts per round (systems/micAuto.js)
   board.placeAtStand();
   player.virtualCrouch = false;
   const SPAWN = level.spawn;
@@ -111,7 +112,7 @@ export function pressBoard(id) {
   else if (id === 'cal') calibrateInVR();
   else if (id === 'micon') micOnInVR();
   else if (id === 'nomic') { mic.setNoMic(!mic.noMic); G.start.refresh(); }
-  else if (id === 'wdn') mic.adjustWhisper(-2);
+  else if (id === 'wdn') mic.adjustWhisper(-2);   // (Р-Ш3: the board shows these only on a preview; mic.adjustRange is [0, 0] elsewhere)
   else if (id === 'wup') mic.adjustWhisper(2);
   else if (id === 'sdn') mic.adjustShout(-2);
   else if (id === 'sup') mic.adjustShout(2);

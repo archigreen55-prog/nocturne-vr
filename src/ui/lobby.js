@@ -104,7 +104,7 @@ export class Lobby {
     if (st.inRoom) {
       if (e.room.textContent !== S.net.room(prettyCode(st.code))) { e.room.textContent = S.net.room(prettyCode(st.code)); this.drawQr(st.link); }
       e.link.textContent = st.link;
-      e.list.innerHTML = (st.players || []).map((p) => `<li>${esc(p.name)} · ${esc(S.crew.names[p.thief] || p.thief)}${p.host ? ` · ${esc(S.net.host)}` : ''}${p.you ? ` · ${esc(S.net.you)}` : ''}${p.away ? ` · ${esc(S.net.awayTag)}` : p.lost ? ` · ${esc(S.net.lostTag)}` : ''}${p.mic === false ? ` · ${esc(S.net.noMic)}` : ''}${p.guard ? ` · ${esc(S.hguard.tag)}` : ''}</li>`).join('');
+      e.list.innerHTML = (st.players || []).map((p) => `<li>${esc(p.name)} · ${esc(S.crew.names[p.thief] || p.thief)}${p.host ? ` · ${esc(S.net.host)}` : ''}${p.you ? ` · ${esc(S.net.you)}` : ''}${p.away ? ` · ${esc(S.net.awayTag)}` : p.lost ? ` · ${esc(S.net.lostTag)}` : ''}${p.mic === false ? ` · ${esc(S.net.noMic)}` : ''}${p.loud ? ` · ${esc(S.micNoise.lobbyTag)}` : ''}${p.guard ? ` · ${esc(S.hguard.tag)}` : ''}</li>`).join('');
       // W15: who plays the guard, and the button to take the role or give it back
       const g = (st.players || []).find((p) => p.guard), mine = !!st.guardPid && st.guardPid === st.myPid;
       e.guardIs.textContent = g ? S.hguard.guardIs(g.name) : S.hguard.guardAi;

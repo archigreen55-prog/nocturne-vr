@@ -41,6 +41,36 @@ export const mic = {
   shoutOverAgc: 6,       // shout step skipped and the browser keeps auto gain on (iPhone): voice + this
   coverDrop: 10,         // "microphone covered?": the level this many dB under your calibrated silence...
   coverSecs: 3,          // ...for this many seconds
+  // ---- the street (plan 2026-11-22-mic-noise): the background is not a voice ----
+  // the game listens to the speech band only: wind in the microphone and the hum of cars sit lower, a fridge's
+  // hiss higher; a whisper, a voice and a shout keep their audible part (300–3000 Hz)
+  band: { low: 250, high: 3500 },
+  // the live noise floor (audio/noiseFloor.js): the pct percentile of the last `window` s, rising at most
+  // `rise` dB/s, falling at most `fall` dB/s, judged once minSecs s of the window are in
+  floor: { window: 5, pct: 0.1, rise: 1.5, fall: 8, minSecs: 0.5 },
+  // the boundaries from the live floor and your calibrated distances from your silence: the voice boundary at
+  // least minVoiceOver dB over the floor, the shout threshold at least minShoutOver dB over the voice boundary
+  minVoiceOver: 8,
+  minShoutOver: 6,
+  // anti-cheat (noise next to the microphone hides the voice): the boundaries may get more sensitive freely,
+  // less sensitive only up to `ceiling` dB over your own; from noisyAt dB the small «шумно» mark shows
+  ceiling: 8,
+  deadBand: 2,
+  longShout: 3,          // s: a «shout» that goes on longer is a noise (music by the microphone) — the floor learns it again           // dB of the floor's own wobble around your calibrated silence that moves nothing
+  noisyAt: 3,
+  // «дуже шумно» (the floor would need more than the ceiling) in a round: a warning after loudWarn s, after
+  // loudSecs s the round goes by the rules without a microphone to its end (owner's decision Р-Ш1 = А)
+  loudWarn: 3,
+  loudSecs: 10,
+  // what speech looks like in levels (no words, no timbre): syllables make the level breathe — over the last
+  // pulse.window s at least pulse.db between the loudest and the quietest moment (wind, a road, a fan: 1–3 dB);
+  // or a sharp start — onset.db over the floor within onset.secs s. «ГОЛОС» = over the voice boundary and one
+  // of these in the last speechHold s; a voice that started so stays a voice while it lasts (pauses under
+  // voiceGap s do not end it). A car that slowly comes closer is not a voice.
+  pulse: { window: 0.6, db: 6 },
+  onset: { db: 8, secs: 0.3 },
+  speechHold: 0.5,
+  voiceGap: 0.35,
 };
 
 export const scream = { buffer: 4, before: 2, after: 1 };   // mic ring buffer (memory only) and the saved clip

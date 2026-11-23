@@ -19,11 +19,20 @@ test('fake microphone: permission, level of a -23 dBFS tone, track settings in t
   await ctx.close();
 });
 
-test('mic limits: the Android report (corrections -12 / -10) is brought back to sane thresholds', async () => {
+test('mic limits: the Android report (corrections -12 / -10) is brought back to sane thresholds (preview, ?debug); the main site zeroes the corrections (Р-Ш3)', async () => {
   const ctx = await newContext(browser);
   const { page } = await open(ctx, base);
-  await page.evaluate(() => localStorage.setItem('nocturne.mic', JSON.stringify({ floor: -50.119, normal: -22.408, whisper: -44.69, shout: -15.152, adj: -12, adjW: -10 })));
+  const ANDROID = { floor: -50.119, normal: -22.408, whisper: -44.69, shout: -15.152, adj: -12, adjW: -10, band: 1 };
+  await page.evaluate((c) => localStorage.setItem('nocturne.mic', JSON.stringify(c)), ANDROID);
   await page.reload(); await page.waitForFunction(() => window.__game, null, { polling: 200 });
+  // the main site: no sensitivity knob for the players — the saved corrections are gone, the calibration's own thresholds stay
+  const main = await page.evaluate(() => { const m = window.__game.mic; return { adj: [m.cal.adj, m.cal.adjW], saved: JSON.parse(localStorage.getItem('nocturne.mic')), range: m.adjustRange('adj'), shout: m.shoutDb, whisper: m.whisperDb }; });
+  assert.deepEqual(main.adj, [0, 0], 'the main site zeroes the corrections');
+  assert.deepEqual([main.saved.adj, main.saved.adjW], [0, 0], '...and saves that');
+  assert.deepEqual(main.range, [0, 0], 'no ± range on the main site');
+  assert.ok(Math.abs(main.shout - (-22.408 + 0.35 * 2 * (-15.152 + 22.408))) < 1e-6 && Math.abs(main.whisper - (-44.69 + 0.45 * (-22.408 + 44.69))) < 1e-6, JSON.stringify(main));
+  await page.evaluate((c) => localStorage.setItem('nocturne.mic', JSON.stringify(c)), ANDROID);
+  await page.goto(base + '?debug'); await page.waitForFunction(() => window.__game, null, { polling: 200 });
   const m = await page.evaluate(() => { const m = window.__game.mic; return { shout: m.shoutDb, whisper: m.whisperDb, adj: m.cal.adj, adjW: m.cal.adjW }; });
   assert.ok(m.shout >= -22.408 + 4 - 1e-9, `shout threshold ${m.shout} must stay >= voice + 4`);
   assert.ok(m.whisper >= -44.69 + 3 - 1e-9, `whisper boundary ${m.whisper} must stay >= whisper + 3`);
@@ -39,11 +48,16 @@ test('mic limits: the Android report (corrections -12 / -10) is brought back to 
 test('mic ± buttons (no sliders): stop at the limit with a note, reset, page swipes change nothing', async () => {
   const ctx = await newContext(browser, { ...devices['Pixel 7'], permissions: ['microphone'] });
   const { page, errors } = await open(ctx, base);
-  await page.evaluate(() => localStorage.setItem('nocturne.mic', JSON.stringify({ floor: -50, normal: -22, whisper: -45, shout: -15 })));
+  await page.evaluate(() => localStorage.setItem('nocturne.mic', JSON.stringify({ floor: -50, normal: -22, whisper: -45, shout: -15, band: 1 })));
+  // Р-Ш3: the main site has no ± at all (start screen «Для тестерів»)
   await page.reload(); await page.waitForFunction(() => window.__game, null, { polling: 200 });
+  assert.deepEqual(await page.evaluate(() => ['wdn', 'wup', 'sdn', 'sup'].map((id) => document.getElementById(id).hidden).concat(document.getElementById('adjreset').parentElement.hidden)), [true, true, true, true, true], 'no ± on the main site');
+  // a preview (here ?debug, like «Відкрити все»): the owner's ± for the tests
+  await page.goto(base + '?debug'); await page.waitForFunction(() => window.__game, null, { polling: 200 });
   await page.tap('#micbtn'); await page.waitForFunction(() => window.__game.mic.state === 'on');
   assert.equal(await page.locator('#shoutrow input[type=range]').count(), 0, 'no sliders');
-  const before = await page.evaluate(() => [window.__game.mic.shoutDb, window.__game.mic.whisperDb]);
+  // (your own thresholds: the ± move them; the ones in effect also follow the live floor of the room)
+  const before = await page.evaluate(() => [window.__game.mic.shoutOwn, window.__game.mic.whisperOwn]);
   // a page swipe that starts on the threshold rows (vertical, both ways)
   const cdp = await ctx.newCDPSession(page);
   for (const sel of ['#shoutdb', '#sdn', '#wup']) {
@@ -57,10 +71,10 @@ test('mic ± buttons (no sliders): stop at the limit with a note, reset, page sw
       await page.waitForTimeout(150);
     }
   }
-  assert.deepEqual(await page.evaluate(() => [window.__game.mic.shoutDb, window.__game.mic.whisperDb]), before, 'swipes did not move the thresholds');
+  assert.deepEqual(await page.evaluate(() => [window.__game.mic.shoutOwn, window.__game.mic.whisperOwn]), before, 'swipes did not move the thresholds');
   // shout threshold down to its limit: voice -22 + 4 = -18 (base -17 since 15.11, so at most -1)
   for (let i = 0; i < 6; i++) if (await page.isEnabled('#sdn')) await page.tap('#sdn');
-  assert.equal(await page.evaluate(() => window.__game.mic.shoutDb), -18);
+  assert.equal(await page.evaluate(() => window.__game.mic.shoutOwn), -18);
   assert.equal(await page.isEnabled('#sdn'), false);
   assert.match(await page.textContent('#adjnote'), /на 4 дБ вища за твій звичайний голос/);
   assert.match(await page.textContent('#shoutdb'), /−18 дБ \(зсув −1\)|-18 дБ \(зсув −1\)/);
@@ -228,7 +242,7 @@ test('mic protection, deterministic: a game sound that stops abruptly or fades n
 
 test('real fake-microphone WAV: finger knocks on the phone body are not a shout; the shout in the same recording is', async () => {
   const ctx = await newContext(browser, micPhone);
-  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { floor: -62, normal: -30, whisper: -48, shout: -18 });
+  await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), { floor: -62, normal: -30, whisper: -48, shout: -18, band: 1 });
   const { page, errors } = await open(ctx, base);
   const cdp = await ctx.newCDPSession(page);
   await micOn(page, cdp);
@@ -438,6 +452,8 @@ test('mic v2 on a PC: the game\'s own sound from laptop speakers is not your voi
   const seen = await page.evaluate(async () => {
     const g = window.__game, m = g.mic, out = { normal: 0, shout: 0, bus: -100 };
     m.feed = () => Math.max(-62 + Math.random(), m.gameDb - 10);
+    // Chromium's fake microphone beeps until the feed takes over: let that tail fade (1 s of the microphone's clock)
+    const s0 = m.t; while (m.t - s0 < 1) await new Promise((r) => setTimeout(r, 30));
     g.siren.set(true);
     const t0 = m.t, w0 = performance.now(); let next = 0;
     while (m.t - t0 < 3 && performance.now() - w0 < 40000) {

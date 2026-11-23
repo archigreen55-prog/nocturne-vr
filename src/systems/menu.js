@@ -7,6 +7,7 @@
 // only learns when it is gone, then offers the microphone on the first run.
 // The tests see every page at once (body.pages-all, tests/harness.mjs) unless they ask for the menu.
 import { S } from '../i18n/index.js';
+import { loadSetting, saveSetting } from '../settings.js';
 import { CFG } from '../config/index.js';
 import { G, $, params } from './state.js';
 import { shopRows, buyUpgrade } from './economy.js';
@@ -73,7 +74,7 @@ function micLine() {
   const mic = G.mic;
   if (!mic) return null;
   const st = mic.status;
-  return { st, text: S.micState.line(st, mic.problem), go: !['ok', 'willStart', 'pending'].includes(st) };
+  return { st, text: S.micState.line(st, mic.problem), go: !['ok', 'willStart', 'pending', 'noisy', 'loud'].includes(st) };   // the street: a calibration does not help with noise
 }
 function renderMenu() {
   const w = wallet(), L = lurkersMet();
@@ -193,9 +194,22 @@ function renderSettings() {
 let askPending = false;
 function offerMic() {
   const mic = G.mic;
-  if (!mic || mic.calibrated || mic.noMic || TEST.pages === 'all' || params.has('room') || params.has('page') || G.inVR) return;   // not over an invitation or a page link
+  if (!mic || mic.noMic || TEST.pages === 'all' || params.has('room') || params.has('page') || G.inVR) return;   // not over an invitation or a page link
+  if (mic.stale) return offerRecal();
+  if (mic.calibrated) return;
   try { if (sessionStorage.getItem('nocturne.micLater')) return; } catch { /* private mode */ }
   $('micask').hidden = false;
+}
+// The street (owner's decision Р-Ш2 = А): a calibration measured before the speech band — the same card asks
+// once (ever) to redo it; until then the game hears you from the live floor with the standard distances
+function offerRecal() {
+  if (loadSetting('micRecalAsked', false)) return;
+  saveSetting('micRecalAsked', true);
+  const box = $('micask');
+  box.querySelector('h2').textContent = S.micNoise.recal.title;
+  box.querySelector('p').textContent = S.micNoise.recal.text;
+  $('asknone').hidden = true;
+  box.hidden = false;
 }
 function wireMicAsk() {
   $('askyes').addEventListener('click', () => {

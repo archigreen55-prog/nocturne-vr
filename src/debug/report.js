@@ -76,6 +76,10 @@ function glInfo(renderer) {
 function micInfo(mic) {
   const r = { state: mic.state, error: mic.error || undefined, noMic: mic.noMic, permission: cache.micPermission, calibrated: mic.calibrated, cal: mic.cal };
   r.whisperDb = +mic.whisperDb.toFixed(1); r.shoutDb = +mic.shoutDb.toFixed(1);
+  // the street (plan 2026-11-22-mic-noise §2.6): the live floor and what it did — a report sent from the street says why
+  r.street = { floorDb: +mic.floorDb.toFixed(1), ownFloorDb: +mic.own.floor.toFixed(1), raisedByDb: +mic.noiseRaise.toFixed(1), wantedDb: +mic.noiseWanted.toFixed(1),
+    noise: mic.noise || 'quiet', voiceOverDb: +mic.voiceOver.toFixed(1), shoutOverDb: +mic.shoutOver.toFixed(1), pulse: !!mic.pulse, overFloorDb: +mic.overFloor.toFixed(1),
+    rawDb: +mic.rawDb.toFixed(1), bandDb: +mic.db.toFixed(1), stale: !!mic.stale };
   // phone (T3): the game's sound in the microphone, what the game did with the microphone
   if (mic.gameDbFn) {
     r.game = { bleedDb: mic.bleedDb, measured: mic.bleedMeasured, busDb: +mic.gameDb.toFixed(1), raisedByDb: +mic.masking.toFixed(1), whisperNow: +mic.whisperEff.toFixed(1), shoutNow: +mic.shoutEff.toFixed(1) };

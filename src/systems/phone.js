@@ -33,7 +33,7 @@ import { beforeNow, afterNow } from './story.js';
 import { lurkerCards, lurkersMet, papers, notesCount } from '../game/story.js';
 import { wallet } from '../game/economy.js';
 import { money } from '../ui/board.js';
-import { roundNoMic } from './micAuto.js';
+import { roundNoMic, noMicText, loudFriendsText } from './micAuto.js';
 import { S } from '../i18n/index.js';
 import { savedNote } from './progressCode.js';
 
@@ -92,7 +92,7 @@ function pauseAuto(reason) { if (G.touch && G.playingDesktop && !G.inVR && !G.pa
 export const summaryState = () => ({
   room: !!(G.net && G.net.t), guest: G.isGuest ? (G.net && G.net.hostName) || '?' : null,   // T5: a guest waits for the host   // T4c: with friends «До кімнати»
   result: G.round.result, verdict: G.verdict, contractName: G.contract.name, difficulty: G.difficulty, bonusText: bonusText(G.contract),
-  clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: roundNoMic(), income: G.role === 'guard' ? guardResultText() : incomeText(), mischief: mischiefText(), story: afterNow(),
+  clip: G.scream.best, playing: !!G.scream.playing, recMode: G.scream.modeName, noMic: roundNoMic(), noMicText: noMicText(), loudFriends: loudFriendsText(), income: G.role === 'guard' ? guardResultText() : incomeText(), mischief: mischiefText(), story: afterNow(),
   next: nextOpen(), practice: G.contract.bonus === 'none',   // W19: «Далі: рівень N»
   ...levelSummary(),   // campaign v2: the stars' checklist, «Ще раз за ★★★», «Далі»
   saved: G.isGuest || G.role === 'guard' ? null : savedNote(),   // plan 2026-11-19: «Прогрес збережено на цьому телефоні» (a guest's progress is the host's)
