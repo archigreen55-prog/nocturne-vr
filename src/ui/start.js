@@ -1,6 +1,6 @@
 // Start screen (2D, before Enter VR): microphone permission, calibration and a live level meter.
 // Asking here matters: inside an immersive session the permission dialog may not be reachable.
-import { LEVELS } from '../audio/mic.js';
+import { LEVELS, adjustAllowed } from '../audio/mic.js';
 import { runCalibration, verifyMic } from '../audio/calibrate.js';
 import { deniedHelp, promptHelp, HOLD_TEXT, IOS_SOUND } from '../audio/micHelp.js';
 import { bindPress } from './press.js';
@@ -48,8 +48,9 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
     $('tw').style.left = pw * 100 + '%'; $('ts').style.left = ps * 100 + '%';
     $('shoutrow').style.display = s === 'on' && !mic.noMic ? 'block' : 'none';
     const shift = (v) => (v ? S.start.shift(v > 0 ? '+' : '−', Math.abs(v)) : '');
-    $('whisperdb').textContent = S.start.db(mic.whisperDb.toFixed(0), shift(mic.cal.adjW || 0));
-    $('shoutdb').textContent = S.start.db(mic.shoutDb.toFixed(0), shift(mic.cal.adj || 0));
+    // your own boundaries (what the ± on a preview move); the ones in effect follow the live floor (the testers' line)
+    $('whisperdb').textContent = S.start.db(mic.whisperOwn.toFixed(0), shift(mic.cal.adjW || 0));
+    $('shoutdb').textContent = S.start.db(mic.shoutOwn.toFixed(0), shift(mic.cal.adj || 0));
     const [wlo, whi] = mic.adjustRange('adjW'), [slo, shi] = mic.adjustRange('adj');
     $('wdn').disabled = (mic.cal.adjW || 0) <= wlo; $('wup').disabled = (mic.cal.adjW || 0) >= whi;
     $('sdn').disabled = (mic.cal.adj || 0) <= slo; $('sup').disabled = (mic.cal.adj || 0) >= shi;
@@ -72,6 +73,10 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
     });
   }
   if (mic.clampedOnLoad) note(S.start.limit.clamped);
+  // Р-Ш3 (owner 12–13.11): no sensitivity knob for the players — the ± rows only on a preview (like «Відкрити все»)
+  const tools = adjustAllowed();
+  for (const id of ['wdn', 'wup', 'sdn', 'sup']) { $(id).hidden = !tools; const h = $(id).parentElement.querySelector('.muted'); if (h) h.hidden = !tools; }
+  $('adjreset').parentElement.hidden = !tools;
   $('adjreset').addEventListener('click', () => { mic.resetAdjust(); note(S.start.limit.reset); showState(); if (onChange) onChange(); });
   $('nomic').addEventListener('change', () => { mic.setNoMic($('nomic').checked); showState(); if (onChange) onChange(); });
 
@@ -137,6 +142,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
   startBtn.textContent = S.start.playPc;
   showState();
 
+  let lastStatus = mic.status;
   return {
     play,
     refresh: showState,
@@ -146,6 +152,14 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
       meterT -= dt;
       if (meterT > 0 || $('overlay').style.display === 'none') return;
       meterT = 1 / 15;
+      // the street: «шумно» / «дуже шумно» come and go with the place — the menu's microphone line follows
+      if (mic.status !== lastStatus) { lastStatus = mic.status; if (mic.onChange) mic.onChange(); }
+      // «Для тестерів» on a preview: the live floor, the boundaries, the syllables' pulse, the noise state
+      const tl = $('micnoise');
+      if (tl) {
+        tl.hidden = !tools || mic.state !== 'on';
+        if (!tl.hidden) tl.textContent = S.micNoise.testers(mic.floorDb.toFixed(0), mic.whisperDb.toFixed(0), mic.shoutDb.toFixed(0), mic.pulse, S.micNoise.noiseWord[mic.noise]);
+      }
       const lv = LEVELS[mic.level];
       const on = mic.state === 'on';
       $('fill').style.width = on ? mic.barPos(mic.env) * 100 + '%' : '0';

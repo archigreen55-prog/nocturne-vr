@@ -16,7 +16,8 @@ export const preview = base + 'preview/test/';
 export const micWav = await toneWav(0.1);
 // 3 s silence, 6 finger knocks on the body (80 ms, loud), 1 s silence, a 1.5 s shout, 1.5 s silence (loops)
 export const knockWav = await segmentsWav('knocks', [{ secs: 3, kind: 'noise', amp: 0.0008 },
-  ...Array.from({ length: 6 }, () => [{ secs: 0.08, kind: 'noise', amp: 0.5 }, { secs: 0.32, kind: 'noise', amp: 0.0008 }]).flat(),
+  // (0.95: the speech band keeps a sixth of white noise's power — the knocks must still reach the shout threshold for the test to mean something)
+  ...Array.from({ length: 6 }, () => [{ secs: 0.08, kind: 'noise', amp: 0.95 }, { secs: 0.32, kind: 'noise', amp: 0.0008 }]).flat(),
   { secs: 1, kind: 'noise', amp: 0.0008 }, { secs: 1.5, kind: 'tone', amp: 0.35 }, { secs: 1.5, kind: 'noise', amp: 0.0008 }]);
 export let browser = null;
 
@@ -142,7 +143,8 @@ export const pm = (text) => `#pausemenu .pm-btn:text-is("${text}")`;
 export const toSummary = (page) => page.waitForFunction(() => window.__game.summary && window.__game.summary.isOpen, null, { polling: 50, timeout: 20000 });
 export const pauseState = (page) => page.evaluate(() => ({ paused: window.__game.paused, menu: window.__game.menu.isOpen, simT: window.__game.simT }));
 // ---------- T3: the microphone on a phone ----------
-export const MIC_CAL = { floor: -62, normal: -30, whisper: -48, shout: -21 };
+// band: 1 = measured in the speech band (plan 2026-11-22-mic-noise; an older calibration is asked to be redone)
+export const MIC_CAL = { floor: -62, normal: -30, whisper: -48, shout: -21, band: 1 };
 export const micPhone = { ...LAND, permissions: ['microphone', 'clipboard-read', 'clipboard-write'] };
 export async function micOn(page, cdp) {
   await fingerPressEl(page, cdp, '#micbtn');

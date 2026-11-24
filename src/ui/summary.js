@@ -114,7 +114,8 @@ export class Summary {
     else if (R.shouts > 0) {
       text = s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—');
       color = UI.lamp;
-    } else { text = s.noMic ? S.board.res.noMic : S.board.res.noShouts; color = UI.whisper; }
+    } else { text = s.noMic ? s.noMicText || S.board.res.noMic : S.board.res.noShouts; color = UI.whisper; }
+    if (s.loudFriends) text += ` ${s.loudFriends}`;   // the street: a friend's round went without the microphone (very noisy)
     const key = text + (s.playing ? '|p' : '') + (s.clip ? '|c' : '');
     if (key === this.refs.last) return;
     this.refs.last = key;

@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { S } from '../i18n/index.js';
 import { HEAD } from '../style/palette.js';
 import { CFG } from '../config/index.js';   // W17 S4: the headings' font for the titles and the clock (decision 10: the palette's colours)
+import { micDbLine, adjustAllowed } from '../audio/mic.js';
 
 const W = 1024, H = 640;
 const SIZE_W = 1.1, SIZE_H = SIZE_W * H / W;
@@ -347,16 +348,18 @@ export class Board {
       g.fillText(S.board.whisperDb(M.whisperDb.toFixed(0)), 50, 346);
       g.textAlign = 'right'; g.fillText(S.board.shoutDb(M.shoutDb.toFixed(0)), W - 50, 346);
       g.textAlign = 'left'; g.font = 'bold 28px system-ui, sans-serif'; g.fillStyle = s.levelColor;
-      g.fillText(S.board.levelDb(s.levelLabel, M.env.toFixed(0)), 50, 386);
+      g.fillText(S.board.levelDb(s.levelLabel, micDbLine(M, false)), 50, 386);
     }
     const on = M.state === 'on' && !M.noMic, busy = !!s.calib;
     if (!on && !M.noMic) this.buttons.push({ id: 'micon', label: S.board.micOnButton, x: 50, y: 410, w: 420, h: 80, font: 30 });
     else this.buttons.push({ id: 'cal', label: s.calSteps === 5 ? S.board.calibrate5 : S.board.calibrate4, x: 50, y: 410, w: 420, h: 80, font: 30, enabled: on && !busy });
     this.buttons.push({ id: 'nomic', label: M.noMic ? S.board.noMicYes : S.board.noMicNo, x: 490, y: 410, w: 484, h: 80, font: 30, enabled: !busy });
-    this.buttons.push({ id: 'wdn', label: S.board.whisperDown, x: 50, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'wup', label: S.board.whisperUp, x: 262, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'sdn', label: S.board.shoutDown, x: 474, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
-    this.buttons.push({ id: 'sup', label: S.board.shoutUp, x: 666, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
+    if (adjustAllowed()) {   // Р-Ш3: the ± corrections only on a preview (the owner's tests), never for the players
+      this.buttons.push({ id: 'wdn', label: S.board.whisperDown, x: 50, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
+      this.buttons.push({ id: 'wup', label: S.board.whisperUp, x: 262, y: 510, w: 200, h: 90, font: 30, enabled: on && !busy });
+      this.buttons.push({ id: 'sdn', label: S.board.shoutDown, x: 474, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
+      this.buttons.push({ id: 'sup', label: S.board.shoutUp, x: 666, y: 510, w: 180, h: 90, font: 30, enabled: on && !busy });
+    }
     this.buttons.push({ id: 'back', label: '◀', x: 858, y: 510, w: 116, h: 90, font: 44, enabled: !busy });
   }
 
@@ -415,7 +418,7 @@ export class Board {
     g.textAlign = 'center'; g.font = 'bold 24px system-ui, sans-serif';
     if (s.playing && s.clip) { g.fillStyle = '#ffb347'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 448); }
     else if (R.shouts > 0) { g.fillStyle = '#ffb347'; g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 448); }
-    else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.micState.line('nomic') : S.board.res.noShouts, W / 2, 448); }
+    else { g.fillStyle = '#7fc8ff'; g.fillText((s.noMic ? s.noMicText || S.micState.line('nomic') : S.board.res.noShouts) + (s.loudFriends ? ` ${s.loudFriends}` : ''), W / 2, 448, W - 60); }
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 50, y: 480, w: 250, h: 110, font: 24, enabled: !!s.clip && !s.playing });
     if (s.next) {
       this.buttons.push({ id: 'again', label: s.againLabel, x: 315, y: 480, w: 320, h: 110, font: 24, enabled: true });
@@ -470,7 +473,7 @@ export class Board {
     else if (R.shouts > 0) {
       g.fillStyle = '#ffb347';
       g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 458);
-    } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.res.noMic : S.board.res.noShouts, W / 2, 458); }
+    } else { g.fillStyle = '#7fc8ff'; g.fillText((s.noMic ? s.noMicText || S.board.res.noMic : S.board.res.noShouts) + (s.loudFriends ? ` ${s.loudFriends}` : ''), W / 2, 458, W - 60); }
     g.font = '18px system-ui, sans-serif'; g.fillStyle = '#6f8396';
     g.fillText(R.shouts > 0 && s.screamBy ? `${s.screamBy} · ${S.board.res.memoryOnly}` : S.board.res.memoryOnly, W / 2, 484, W - 80);   // W7: the thief's line under the replay
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });

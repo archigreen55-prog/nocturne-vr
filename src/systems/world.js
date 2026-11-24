@@ -203,6 +203,7 @@ export const world = {
     };
   },
   pre(dt) {
+    G.mic.hold = !!(G.breath && G.breath.holding);   // a held breath: the live noise floor does not learn (plan 2026-11-22-mic-noise)
     G.mic.update(dt);
     G.scream.update();
   },

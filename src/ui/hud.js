@@ -7,7 +7,7 @@
 //   bottom     messages and the guard's lines (centre, between the joystick and the buttons)
 // The breath ring is the breath button itself (touch.js). Minimal mode keeps the eye, the microphone
 // and the clock; the rest shows for 2.5 s when it changes (alarm, goal) or while it matters (loud steps).
-import { LEVELS } from '../audio/mic.js';
+import { LEVELS, micDbLine, noiseMark } from '../audio/mic.js';
 import { fmtTime } from './board.js';
 import { S } from '../i18n/index.js';
 import { UI } from '../style/palette.js';   // W17 S4: the palette's meanings (decision 10: no green)
@@ -201,9 +201,9 @@ export class Hud {
       this.style('fill', e.fill, 'background', holding ? '#3d6f99' : LEVELS[mic.level].color);
     }
     // numbers (dB) only with «Цифри на екрані» (testers); a player sees just «тебе чути»
-    const db = !live ? '' : mic.problem ? mic.problem : !this.digits ? (s.speaking ? S.hud.heard : '') : mic.masking >= 3 ? S.hud.masking(mic.masking.toFixed(0)) : S.hud.micDb(mic.env.toFixed(0), s.speaking);
+    const db = !live ? '' : mic.problem ? mic.problem : !this.digits ? noiseMark(mic, s.speaking) : mic.masking >= 3 ? S.hud.masking(mic.masking.toFixed(0)) : micDbLine(mic, s.speaking);
     this.text('micdb', e.micdb, db);
-    this.style('micdb', e.micdb, 'color', mic.problem ? UI.alarm : UI.dim);
+    this.style('micdb', e.micdb, 'color', mic.problem ? UI.alarm : live && mic.noise === 'loud' ? UI.lamp : UI.dim);
     // message line: the latest message, else the guard
     let msg = s.msg, color = s.msgColor;
     if (!msg && s.guardText) {

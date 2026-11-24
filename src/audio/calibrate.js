@@ -4,6 +4,7 @@
 // and your voice, the voice/shout boundary between your voice and your shout.
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
+import { adjustAllowed } from './mic.js';
 
 export const STEPS = [
   { id: 'floor', title: S.calib.steps.floor.title, say: S.calib.steps.floor.say, secs: 3, pct: 0.5 },
@@ -92,12 +93,14 @@ export async function verifyMic(mic, onStep) {
   }
   return { results, notes: verifyNotes(results) };
 }
-// What to do about a mismatch (the ± buttons next to the boundaries)
+// What to do about a mismatch: the ± buttons next to the boundaries on a preview; for the players (no ±,
+// decision Р-Ш3) redo the calibration — the noise of the place the game follows by itself
 export function verifyNotes(results) {
   const notes = [], r = Object.fromEntries(results.map((x) => [x.id, x]));
-  if (r.quiet && !r.quiet.ok) notes.push(r.quiet.got === 'shout' ? S.calib.verify.whisperShout : S.calib.verify.whisperVoice);
-  if (r.normal && !r.normal.ok) notes.push(r.normal.got === 'quiet' ? S.calib.verify.voiceWhisper : S.calib.verify.voiceShout);
-  if (r.shout && !r.shout.ok) notes.push(S.calib.verify.shoutVoice);
+  const V = adjustAllowed() ? S.calib.verify : { ...S.calib.verify, ...S.calib.verify.redo };
+  if (r.quiet && !r.quiet.ok) notes.push(r.quiet.got === 'shout' ? V.whisperShout : V.whisperVoice);
+  if (r.normal && !r.normal.ok) notes.push(r.normal.got === 'quiet' ? V.voiceWhisper : V.voiceShout);
+  if (r.shout && !r.shout.ok) notes.push(V.shoutVoice);
   if (!notes.length) notes.push(S.calib.verify.allGood(r.shout && !r.shout.skipped));
   return notes;
 }

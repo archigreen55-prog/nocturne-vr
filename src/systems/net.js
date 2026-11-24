@@ -63,8 +63,8 @@ const lostText = () => (N.connectFail ? S.net.status.cantConnect : S.net.status.
 // tips: a list under the line (Б10: what to do); retry: the host's «Спробувати ще раз» with it
 function setStatus(text, bad = false, tips = null, retry = false) { N.status = text; N.statusBad = bad; N.tips = tips; N.retry = retry; refreshLobby(); }
 function lobbyPlayers() {
-  const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic, guard: G.guardPid === N.pid };
-  if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, away: !!r.away, mic: (N.info.get(r.id) || {}).mic, guard: G.guardPid === r.id }))];
+  const me = { pid: N.pid, name: N.name, thief: N.thief, host: isHost(), you: true, mic: G.mic.state === 'on' && !G.mic.noMic, guard: G.guardPid === N.pid, loud: !!G.micLoudRound };
+  if (isHost()) return [me, ...[...N.remotes.values()].map((r) => ({ pid: r.id, name: r.name, thief: r.thief, lost: r.lost, away: !!r.away, mic: (N.info.get(r.id) || {}).mic, guard: G.guardPid === r.id, loud: !!r.mic.loudRound }))];
   return N.lobbyList ? N.lobbyList.map((p) => ({ ...p, you: p.pid === N.pid })) : [me];
 }
 function refreshLobby() {
@@ -165,6 +165,8 @@ async function open(code, role) {
   if (seq !== N.openSeq) { t.close(); return; }   // left (or another room) while connecting
   N.t = t;
   G.net = N;
+  // the result's line: the friends whose round went without the microphone because it was very noisy (host)
+  G.loudFriends = () => (isHost() ? [...N.remotes.values()].filter((r) => r.mic && r.mic.loudRound).map((r) => r.name) : []);
   G.isHost = role === 'host';
   if (role === 'host') { N.hostPid = N.pid; watchRelays(); }
   else for (const id of N.t.peers()) hello(id);
@@ -287,6 +289,10 @@ function hostMessage(m, peer) {
     r.push({ x: +m.x, z: +m.z, y: +m.y, fy: +m.fy, yaw: +m.yaw, pitch: +m.pitch, cr: m.cr, sp: +m.sp, run: m.run });
     r.mic.live = !!m.ml; r.mic.level = m.lv || 'quiet'; r.mic.breath = !!m.br;
     r.mic.whisper = !!m.wh;   // W7: the guest whispers (Шепотун hears it; an older guest without the field: never)
+    // the street (plan 2026-11-22-mic-noise, Р5-А of mic v2): the verdict follows the host's microphone; who had
+    // «дуже шумно» this round shows in the lobby and the result (nz: 1 very noisy now, 2 its round went without the microphone)
+    const loud = +m.nz === 2;
+    if (loud !== !!r.mic.loudRound) { r.mic.loudRound = loud; send(lobbyMessage()); refreshLobby(); }
     if (m.sh > r.mic.shouts) r.mic.shouts = m.sh;
   } else if (m.type === 'act') hostIntent(r, m);
   else if (m.type === 'bye') { r.lastHeard = 0; r.left = true; }   // it left the room itself: gone now, also in the middle of a round
@@ -675,7 +681,7 @@ export const net = {
       send({ type: 'pose', x: +p.head.x.toFixed(3), z: +p.head.z.toFixed(3), y: +p.head.y.toFixed(3), fy: +(p.floorY || 0).toFixed(3), yaw: +p.yaw.toFixed(3), pitch: +(p.lookPitch || 0).toFixed(3),
         cr: p.crouched || p.virtualCrouch ? 1 : 0, sp: +p.speed.toFixed(2), run: p.running ? 1 : 0,
         ml: mic.state === 'on' && !mic.noMic ? 1 : 0, lv: mic.level, br: G.breath.holding ? 1 : 0, sh: N.shouts || 0,
-        wh: mic.whispering ? 1 : 0 }, N.hostPeer);   // W7: whispering now (a level, not a sound): the host's Шепотун
+        wh: mic.whispering ? 1 : 0, nz: G.micLoudRound ? 2 : mic.noise === 'loud' ? 1 : 0 }, N.hostPeer);   // W7: whispering now (a level, not a sound): the host's Шепотун
     }
     // a guest: what the host's world sounds like (guards' steps, the siren, the heartbeat while escaping)
     if (G.isGuest) {

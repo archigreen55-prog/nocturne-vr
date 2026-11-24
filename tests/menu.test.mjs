@@ -77,7 +77,7 @@ test('menu (S3): the first run offers the microphone — «Пізніше» clos
   await page.context().close();
   // calibrated before: no card
   const c3 = await newContext(browser, MICLAND, { menu: true });
-  await c3.addInitScript(() => { try { localStorage.setItem('nocturne.preview.mic', JSON.stringify({ floor: -60, normal: -30, whisper: -45, shout: -15 })); } catch { /* opaque */ } });
+  await c3.addInitScript(() => { try { localStorage.setItem('nocturne.preview.mic', JSON.stringify({ floor: -60, normal: -30, whisper: -45, shout: -15, band: 1 })); } catch { /* opaque */ } });
   const p3 = (await open(c3, preview + '?nosplash=1')).page;
   await p3.waitForTimeout(500);
   assert.equal(!!(await p3.$('#micask:not([hidden])')), false, 'calibrated: nothing to ask');
