@@ -472,3 +472,173 @@ test('Р6 (owner 14.11): without a microphone the campaign goes on — «Тих�
   assert.deepEqual(r.shouted, [false, 0], 'with the microphone, a shout: failed as before');
   await ctx.close();
 });
+
+// ---------- scream replay (plan 2026-11-22-coop-campaign §4) ----------
+// A recorder with a made-up microphone and clock: the page's own ScreamRecorder class, samples pushed by hand
+const recorderIn = () => {
+  const R = window.__game.scream.constructor;
+  const rec = new R({ state: 'on', source: {}, env: -20 });   // mic.env stays the same for every shout: the old comparison could not tell them apart
+  rec.ready = true; rec.mode = 'worklet'; rec.rate = 48000; rec.ring = new Float32Array(48000 * 4);
+  rec.T = 0; rec.now = () => rec.T;
+  // a shout: a 0.3 s tone of this amplitude in a quiet room, then 1.1 s on so that the clip is cut
+  rec.shout = (t, amp) => {
+    const b = new Float32Array(48000 * 3);
+    for (let i = 0; i < b.length; i++) b[i] = (i > 96000 && i < 96000 + 14400 ? amp : 0.01) * Math.sin(i * 0.2);
+    rec.push(b);
+    rec.onShout(t);
+    rec.T += 1.1; rec.update();
+  };
+  window.__rec = rec;
+  return rec;
+};
+
+test('scream replay (22.11 §4): the loudest clip by its samples is kept (not the first), equally loud — the later one; a quiet one does not replace a loud one', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base);
+  await page.waitForFunction(() => window.__game);
+  const r = await page.evaluate((mk) => {
+    const rec = (0, eval)(`(${mk})`)();
+    const out = {};
+    rec.shout(10, 0.2); out.first = rec.best.t;
+    rec.shout(20, 0.8); out.louder = rec.best.t;       // louder later: it wins
+    rec.shout(30, 0.1); out.quieter = rec.best.t;      // quieter later: the loud one stays
+    rec.shout(40, 0.8); out.equal = rec.best.t;        // equal: the later one
+    out.db = +rec.best.db.toFixed(1);
+    out.log = rec.log.map((c) => [c.t, c.kept]);
+    rec.clear(); out.cleared = [rec.best, rec.log.length, rec.queue.length];
+    return out;
+  }, recorderIn.toString());
+  assert.equal(r.first, 10); assert.equal(r.louder, 20); assert.equal(r.quieter, 20); assert.equal(r.equal, 40);
+  assert.ok(r.db > -6 && r.db < -4, `the clip's loudness is its loudest 50 ms in dBFS: ${r.db}`);   // a sine of 0.8: RMS 0.57 = -4.9 dB
+  assert.deepEqual(r.log, [[10, false], [20, false], [30, false], [40, true]], 'the report lists every clip, one is «kept»');
+  assert.deepEqual(r.cleared, [null, 0, 0]);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('scream replay (22.11 §4): the clip a guard came to beats a louder one nobody heard; marked while waiting or after the cut; a guard far off marks nothing', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base);
+  await page.waitForFunction(() => window.__game);
+  const r = await page.evaluate((mk) => {
+    const rec = (0, eval)(`(${mk})`)();
+    const out = {};
+    // a quiet shout, the guard came (marked at once, before the cut), then a loud one nobody heard
+    rec.shout(10, 0.2);
+    rec.markHeard(10, 'Петрович'); out.afterCut = rec.best.heard;    // marked after the cut: the kept clip
+    rec.shout(20, 0.9); out.loudNobody = [rec.best.t, rec.best.heard];
+    // the mark of another time (more than 1.5 s) is not this clip's
+    rec.markHeard(25, 'Валера'); out.far = [rec.best.t, rec.best.heard];
+    // marked while it waits (before its 1 s are over): the same clip
+    const T0 = rec.T;
+    rec.push(new Float32Array(48000 * 3)); rec.onShout(30); rec.markHeard(30.4, 'Жора');   // a silent 3 s: the clip is only that
+    out.waiting = rec.pending.heard;
+    rec.T += 1.1; rec.update();
+    out.two = [rec.best.t, rec.best.heard];                         // both have a guard: the louder (the first) stays
+    // a loud one the guard also came to: the louder of the two
+    rec.push(new Float32Array(48000 * 3).fill(0.3)); rec.onShout(40); rec.markHeard(40, 'Петрович'); rec.T += 1.1; rec.update();
+    out.both = [rec.best.t, rec.best.heard];
+    out.report = rec.report();
+    return out;
+  }, recorderIn.toString());
+  assert.equal(r.afterCut, 'Петрович');
+  assert.deepEqual(r.loudNobody, [10, 'Петрович'], 'the loud shout nobody heard does not replace the one a guard came to');
+  assert.deepEqual(r.far, [10, 'Петрович']);
+  assert.equal(r.waiting, 'Жора');
+  assert.deepEqual(r.two, [10, 'Петрович'], 'two clips with a guard: the louder one stays');
+  assert.equal(r.both[1], 'Петрович'); assert.equal(r.both[0], 40, 'the later one is louder: it wins among those with a guard');
+  assert.equal(r.report.heardBy, 'Петрович'); assert.equal(r.report.clips.length, 4); assert.equal(r.report.shouts, 4);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('scream replay (22.11 §4): MediaRecorder mode — a shout that comes while a clip is decoded waits (2 at most), it is not lost', async () => {
+  const ctx = await newContext(browser);
+  const { page, errors } = await open(ctx, base);
+  await page.waitForFunction(() => window.__game);
+  const r = await page.evaluate(async (mk) => {
+    const rec = (0, eval)(`(${mk})`)();
+    rec.mode = 'recorder';
+    const cuts = [];
+    let release;
+    // decoding takes a while: the first cut waits for us
+    rec.cutFromSegments = (end, len) => { cuts.push(+end.toFixed(1)); const amp = cuts.length === 1 ? 0.2 : cuts.length === 2 ? 0.9 : 0.5; return new Promise((res) => { const f = () => res(Float32Array.from({ length: 48000 * len }, (_, i) => amp * Math.sin(i * 0.2))); if (cuts.length === 1) release = f; else f(); }); };
+    rec.onShout(10); rec.T = 1.1; rec.update();           // cut 1 starts, busy
+    const busy = rec.busy;
+    rec.T = 2; rec.onShout(12); rec.T = 2.5; rec.onShout(12.5); rec.T = 2.9; rec.onShout(12.9); rec.T = 3; rec.onShout(13);   // 12 and 12.5 wait, the rest does not fit (max 2)
+    const queued = rec.queue.length;
+    release(); await new Promise((res) => setTimeout(res, 20));
+    for (let i = 0; i < 6; i++) { rec.T += 1.2; rec.update(); await new Promise((res) => setTimeout(res, 20)); }
+    return { busy, queued, cuts, best: rec.best && rec.best.t, log: rec.log.map((c) => c.t), left: [rec.pending, rec.queue.length] };
+  }, recorderIn.toString());
+  assert.equal(r.busy, true); assert.equal(r.queued, 2);
+  assert.deepEqual(r.log, [10, 12, 12.5], 'the shouts that waited were cut, none lost (a third did not fit)');
+  assert.equal(r.best, 12, 'the loudest of the three');   // 12.5 is quieter (0.5) than 12 (0.9)
+  assert.deepEqual(r.left, [null, 0]);
+  assert.deepEqual(r.cuts, [1, 3, 3.5], 'a waiting shout is cut where it was (its own second), not at the time it is finally cut');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('scream replay (22.11 §4): the guard who came is named under the replay (board, summary); nobody came — no line; the report lists the round\'s clips', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 1000, height: 700 } });
+  const { page, errors } = await open(ctx, base);
+  await page.waitForFunction(() => window.__game);
+  const r = await page.evaluate(async (mk) => {
+    const { heardByLine } = await import('./src/game/story.js');
+    const rec = window.__rec = (0, eval)(`(${mk})`)();
+    const g = window.__game;
+    const out = { none: heardByLine(null), unheard: heardByLine({ heard: null }), generic: heardByLine({ heard: true }) };
+    rec.shout(10, 0.5); rec.markHeard(10, 'Валера');
+    out.line = heardByLine(rec.best);
+    // the replay of the game's own recorder is what the report lists
+    g.scream.clear(); g.scream.ready = true; g.scream.mode = 'worklet'; g.scream.rate = 48000; g.scream.ring = new Float32Array(48000 * 4);
+    g.scream.now = () => 5;
+    g.scream.push(new Float32Array(48000)); g.scream.onShout(3); g.scream.now = () => 6.2; g.scream.update();
+    out.report = JSON.parse(g.reportText()).game.scream;
+    return out;
+  }, recorderIn.toString());
+  assert.deepEqual([r.none, r.unheard, r.generic], ['', '', ''], 'no name, no line');
+  assert.equal(r.line, 'Цей крик почув Валера');
+  assert.equal(r.report.clips.length, 1); assert.equal(r.report.keptT, 3); assert.equal(r.report.heardBy, null);
+  assert.ok(Number.isFinite(r.report.clips[0].db), JSON.stringify(r.report));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('scream replay (22.11 §4, coop): the host tells a guest that a guard came to its shout — the guest keeps that clip; a shout of the host\'s own is marked on the host', async () => {
+  const ctx = await newContext(browser, { viewport: { width: 900, height: 700 } });
+  const host = await open(ctx, base + '?net=local');
+  const code = '314159';
+  await host.page.evaluate((code) => window.__game.net.open(code, 'host', 'Аня', 'zoya'), code);
+  const guest = await open(ctx, base + `?room=${code}&net=local`);
+  await guest.page.click('#netjoin');
+  await guest.page.waitForFunction(() => window.__game.net.state().welcomed, null, { timeout: 15000 });
+  const pages = [host.page, guest.page];
+  const run = async (secs) => { for (let t = 0; t < secs; t += 0.1) { for (const p of pages) await p.evaluate(() => window.__game.sim(0.1)); await host.page.waitForTimeout(30); } };
+  for (const p of pages) await p.evaluate(() => { const g = window.__game; g.playing = true; for (const l of g.lurkers) l.update = () => {}; });
+  await run(0.6);
+  // the guest's recorder (made-up microphone and clock), the host's the same
+  for (const p of pages) await p.evaluate(() => { const s = window.__game.scream; s.ready = true; s.mode = 'worklet'; s.rate = 48000; s.ring = new Float32Array(48000 * 4); s.T = 0; s.now = () => s.T; });
+  await host.page.evaluate(() => { window.__game.round.phase = 'heist'; });
+  await run(0.4);
+  const pid = await guest.page.evaluate(async () => (await import('./src/systems/state.js')).G.netPid());
+  const guestShoutAt = await host.page.evaluate(() => window.__game.round.t);
+  // the guest shouts (its recorder starts a clip at the host's clock); the host's guard is right there and hears it
+  await guest.page.evaluate((t) => { const s = window.__game.scream; s.push(new Float32Array(48000)); s.onShout(t); }, guestShoutAt);
+  await host.page.evaluate(async (pid) => {
+    const g = window.__game, { G } = await import('./src/systems/state.js');
+    const r = G.netRemote(pid);
+    g.noise.emit(g.patrol.x + 1, g.patrol.z, 12, 'shout', { who: r, wallK: 0 });
+  }, pid);
+  await run(0.8);
+  const heard = await guest.page.evaluate(() => { const s = window.__game.scream; s.T += 1.2; s.update(); return s.best && { t: s.best.t, heard: s.best.heard }; });
+  assert.ok(heard && typeof heard.heard === 'string' && heard.heard.length > 0, `the guest's clip is marked: ${JSON.stringify(heard)}`);
+  assert.equal(heard.heard, await host.page.evaluate(() => window.__game.patrol.name || 'Петрович'), 'the guard\'s name');
+  // the host's own shout: its recorder is marked by the host itself; a shout out of every guard's hearing marks nothing
+  await host.page.evaluate(() => { const g = window.__game; g.scream.push(new Float32Array(48000)); g.scream.onShout(g.round.t); g.noise.emit(g.patrol.x + 1, g.patrol.z, 12, 'shout', { who: g.player, wallK: 0 }); g.scream.T += 1.2; g.scream.update(); });
+  const own = await host.page.evaluate(() => { const b = window.__game.scream.best; return b && typeof b.heard; });
+  assert.equal(own, 'string', 'the host\'s own clip: the guard came');
+  for (const p of [host, guest]) assert.deepEqual(p.errors, []);
+  await ctx.close();
+});

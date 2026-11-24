@@ -113,6 +113,7 @@ export class Summary {
     if (s.playing && s.clip) { text = S.board.res.screamAt(fmtTime(s.clip.t, true)); color = UI.alarm; }
     else if (R.shouts > 0) {
       text = s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—');
+      if (s.clip && s.heardBy) text += ` · ${s.heardBy}`;
       color = UI.lamp;
     } else { text = s.noMic ? S.board.res.noMic : S.board.res.noShouts; color = UI.whisper; }
     const key = text + (s.playing ? '|p' : '') + (s.clip ? '|c' : '');

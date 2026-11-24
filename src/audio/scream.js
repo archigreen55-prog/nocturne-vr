@@ -1,7 +1,9 @@
 // Scream replay. The last CFG.scream.buffer s of the microphone live in memory only. When a shout
-// starts, CFG.scream.after s later a clip (before + after s around the peak) is cut out; the loudest
-// clip of the round is kept for the board. Nothing is written to disk or sent anywhere; clear() (a
-// new round) drops it.
+// starts, CFG.scream.after s later a clip (before + after s around the peak) is cut out; one clip of
+// the round is kept for the board: the one a guard came to (markHeard), else the loudest — measured
+// on the raw samples (the loudest 50 ms window), not on the microphone's smoothed level, which the
+// phone's auto-gain flattens; equal loudness: the later one. Nothing is written to disk or sent
+// anywhere; clear() (a new round) drops it.
 //
 // Three ways to get the samples, tried in order, each checked to really deliver sound:
 //   'worklet'  AudioWorklet tap (off the main thread)        -> ring buffer of raw samples
@@ -14,6 +16,26 @@ import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
 
 const SEG_MS = 2000;
+const WIN_S = 0.05;        // loudness: the loudest window of this length (RMS)
+const EQUAL_DB = 0.05;     // closer than this = equally loud: the later clip wins
+const HEARD_WINDOW = 1.5;  // s: a guard's reaction belongs to the clip whose shout was this close in time
+const QUEUE_MAX = 2;       // MediaRecorder mode: shouts that come while a clip is being decoded wait here
+
+// How loud a clip is, in dBFS: the loudest 50 ms window of the raw samples (before any normalising)
+export function clipLoudness(samples, rate, win = WIN_S) {
+  const n = Math.max(1, Math.min(samples.length, Math.round(rate * win)));
+  let sum = 0, best = 0;
+  for (let i = 0; i < samples.length; i++) {
+    sum += samples[i] * samples[i];
+    if (i >= n) sum -= samples[i - n] * samples[i - n];
+    if (i >= n - 1 && sum > best) best = sum;
+  }
+  const rms = Math.sqrt(Math.max(0, best) / n);
+  return rms > 1e-9 ? 20 * Math.log10(rms) : -180;
+}
+// Which of two clips (a is the later one) is kept: the one a guard came to beats one nobody heard;
+// then the louder; equally loud: the later
+export const betterClip = (a, b) => (!!a.heard !== !!b.heard ? !!a.heard : a.db >= b.db - EQUAL_DB);
 const MODE_NAMES = { worklet: 'AudioWorklet', script: 'ScriptProcessor', recorder: 'MediaRecorder', none: S.scream.none };
 
 export class ScreamRecorder {
@@ -24,9 +46,11 @@ export class ScreamRecorder {
     this.ring = null;
     this.w = 0;              // write index
     this.filled = 0;
-    this.pending = null;     // { at (ctx time), t (round time), db }
+    this.pending = null;     // { at (ctx time), t (round time), heard }
+    this.queue = [];         // shouts that came while a MediaRecorder clip was decoded
     this.busy = false;       // decoding a MediaRecorder clip
-    this.best = null;        // { samples, t, db }
+    this.best = null;        // { samples, t (round time of the shout), db (dBFS of its loudest 50 ms), heard (the guard's name, or true) }
+    this.log = [];           // this round's clips: { t, db, heard, kept } (the report)
     this.count = 0;
     this.playing = null;
     this.segs = [];
@@ -158,27 +182,48 @@ export class ScreamRecorder {
     return out;
   }
 
+  now() { return audioContext().currentTime; }   // (tests replace it)
+
   // A shout started at round time t (s).
   onShout(t) {
     if (!this.ready || this.playing) return;
     this.count++;
-    const ctx = audioContext();
-    if (!this.pending) this.pending = { at: ctx.currentTime + CFG.scream.after, t, db: this.mic.env };
+    const p = { at: this.now() + CFG.scream.after, t, heard: null };
+    if (!this.pending) this.pending = p;
+    else if (this.busy && this.queue.length < QUEUE_MAX) this.queue.push(p);   // not lost while the last clip is decoded
+    // else: the same cry (it is cut out within a second): one clip
+  }
+
+  // A guard went to look at / raised the alarm for the shout at round time t (s): the clip of that
+  // shout (waiting, queued or kept) becomes «the one with the guard». who: the guard's name.
+  markHeard(t, who = true) {
+    for (const c of [this.pending, ...this.queue, this.best]) {
+      if (c && !c.heard && Math.abs(c.t - t) <= HEARD_WINDOW) c.heard = who;
+    }
+    const k = this.log.find((c) => Math.abs(c.t - t) <= HEARD_WINDOW);
+    if (k) k.heard = true;
   }
 
   update() {
-    if (!this.pending || this.busy) return;
-    this.pending.db = Math.max(this.pending.db, this.mic.env);
-    const ctx = audioContext();
-    if (ctx.currentTime < this.pending.at) return;
-    const p = this.pending, len = CFG.scream.before + CFG.scream.after;
+    if (this.busy) return;
+    if (!this.pending && this.queue.length) this.pending = this.queue.shift();
+    const p = this.pending;
+    if (!p) return;
+    const now = this.now();
+    if (now < p.at) return;
+    const len = CFG.scream.before + CFG.scream.after;
     const keep = (samples) => {
-      if (samples && samples.length && (!this.best || p.db > this.best.db)) this.best = { samples, t: p.t, db: p.db };
+      if (samples && samples.length) {
+        const clip = { samples, t: p.t, db: clipLoudness(samples, this.rate || audioContext().sampleRate), heard: p.heard };
+        const entry = { t: clip.t, db: +clip.db.toFixed(1), heard: !!clip.heard, kept: false };
+        this.log.push(entry);
+        if (!this.best || betterClip(clip, this.best)) { this.best = clip; for (const e of this.log) e.kept = false; entry.kept = true; }
+      }
       this.pending = null;
     };
     if (this.mode === 'recorder') {
       this.busy = true;
-      this.cutFromSegments(ctx.currentTime, len).then(keep, () => keep(null)).finally(() => { this.busy = false; });
+      this.cutFromSegments(Math.min(now, p.at), len).then(keep, () => keep(null)).finally(() => { this.busy = false; });
       return;
     }
     const n = Math.min(this.filled, Math.floor(this.rate * len));
@@ -187,7 +232,10 @@ export class ScreamRecorder {
     keep(out);
   }
 
-  // Plays the loudest clip; returns its length in s (0 if there is none).
+  // For the report: this round's clips and their loudness
+  report() { return { mode: this.mode, shouts: this.count, clips: this.log.slice(), keptT: this.best ? this.best.t : null, heardBy: this.best && this.best.heard ? this.best.heard : null }; }
+
+  // Plays the kept clip; returns its length in s (0 if there is none).
   play() {
     if (!this.best || this.playing) return 0;
     const ctx = audioContext();
@@ -209,6 +257,6 @@ export class ScreamRecorder {
 
   clear() {
     if (this.playing) { try { this.playing.stop(); } catch { /* already stopped */ } this.playing = null; }
-    this.best = null; this.pending = null; this.count = 0;
+    this.best = null; this.pending = null; this.queue = []; this.log = []; this.count = 0;
   }
 }
