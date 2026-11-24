@@ -30,7 +30,7 @@ function boardSignature(T, lv) {
     calib && [calib.i, calib.phase, calib.left.toFixed(1)], G.calibNotes,
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
     wallet().cash, wallet().owned.length, JSON.stringify(wallet().stock || {}), G.shopPage, lockText(contract), incomeText(), mischiefText(), G.boardPage === 'map' ? mapsForBoard(G.level.id).map((m) => m.lock) : 0,
-    G.storyPage || 0, lurkersMet().n, notesCount().n, thief(),   // W7: Тихарник, «Папери»
+    G.storyPage || 0, lurkersMet().n, notesCount().n, thief(),   // W7: Домовики, «Папери»
     !!G.inVR, (nextOpen() || {}).n, !!G.isGuest, G.net && G.net.hostName, JSON.stringify(bestBits(contract.id)), lootRecord(contract.id),   // T5   // W19: the note on a phone / PC, «Далі: рівень N»
   ]);
 }

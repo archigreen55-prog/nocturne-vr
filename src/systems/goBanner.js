@@ -1,12 +1,13 @@
 // The start of a round, seen and heard: when the clock starts (the phase goes ready -> heist; with friends the host's
-// phase comes to everybody) a big «ПІШЛИ!» comes up on a flat screen (phone, PC) with a second line — «Репетиція: часу нема»
-// on level 0, «Годинник пішов» elsewhere — and a short sound (three knocks and a bell, under the microphone rule). In VR the
+// phase comes to everybody) a big «ПІШЛИ!» comes up on a flat screen (phone, PC) with a second line — «Репетиція: час не йде»
+// on level 0, «Маєш M:SS» (the level's own time) elsewhere — and a short sound (three knocks and a bell, under the microphone rule). In VR the
 // sound and the wrist's message line (game/round.js) say it; no banner is hung in front of the eyes.
 import { G } from './state.js';
 import { CFG } from '../config/index.js';
 import { S } from '../i18n/index.js';
 import { playGo } from '../audio/goSfx.js';
 import { placeK } from '../audio/placeSfx.js';
+import { fmtTime } from '../ui/board.js';
 
 let el = null, text = null, sub = null, prev = null;
 
@@ -33,7 +34,7 @@ export const goBanner = {
     if (G.inVR || typeof document === 'undefined') return;
     ensure();
     text.textContent = S.go.go;
-    sub.textContent = CFG.round.noClock ? S.go.rehearsal : S.go.clock;
+    sub.textContent = CFG.round.noClock ? S.go.rehearsal : S.go.clock(fmtTime(CFG.round.time));   // the level's real time, not always 5:00
     el.style.setProperty('--go-hold', CFG.start.hold + 's'); el.style.setProperty('--go-total', (CFG.start.hold + CFG.start.fade) + 's');
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');   // restart the animation
   },

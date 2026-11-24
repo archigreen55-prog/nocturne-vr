@@ -139,7 +139,7 @@ test('coop (Б9): the host closes the game mid-round — the guest’s card «Х
   await guest.page.waitForFunction(() => window.__game.net.state().card === 'end', null, { timeout: 8000 });
   const c = await cardOf(guest.page);
   assert.equal(c.shown, true);
-  assert.match(c.text, /Хост \(Аня\) завершив гру/);
+  assert.match(c.text, /Ведучий \(Аня\) завершив гру/);
   assert.equal(c.wait, false, 'no «Чекати» when the host closed the game');
   await guest.page.click('#hostgone .hg-menu');
   await guest.page.waitForURL((u) => !u.search.includes('room='), { timeout: 15000, waitUntil: 'commit' });
@@ -161,7 +161,7 @@ test('coop (Б9): a silent host — «Хост не відповідає…» wi
   await run([guest.page], 0.3);
   let c = await cardOf(guest.page);
   assert.equal(c.kind, 'silent', JSON.stringify(c));
-  assert.match(c.text, /Хост \(Аня\) не відповідає вже \d+ с/);
+  assert.match(c.text, /Ведучий \(Аня\) не відповідає вже \d+ с/);
   assert.equal(c.wait, true, '«Чекати» is there');
   await host.page.evaluate(() => { window.__game.net.sim.cut = false; });
   await run(pages, 1);
@@ -240,9 +240,9 @@ test('coop (Б9): a guest in VR (IWER Quest 3) — the host closed the game: a l
   await guest.page.click('#vrbutton');
   await guest.page.waitForFunction(() => window.__game.inVR, null, { timeout: 10000 });
   await host.page.evaluate(async () => { const { G } = await import('./src/systems/state.js'); G.net.t.send({ type: 'bye', pid: G.net.pid, why: 'end' }); });
-  await guest.page.waitForFunction(() => /Хост вийшов\. Вийди з VR/.test(window.__game.flashText || ''), null, { timeout: 8000 });
+  await guest.page.waitForFunction(() => /Ведучий вийшов\. Вийди з VR/.test(window.__game.flashText || ''), null, { timeout: 8000 });
   await wait(guest.page, 2500);   // longer than one flash: it is said again and again
-  assert.match(await guest.page.evaluate(() => window.__game.flashText), /Хост вийшов/);
+  assert.match(await guest.page.evaluate(() => window.__game.flashText), /Ведучий вийшов/);
   await guest.page.evaluate(() => window.__game.renderer.xr.getSession().end());
   await guest.page.waitForFunction(() => !window.__game.inVR, null, { timeout: 10000 });
   await run([guest.page], 0.2);
@@ -385,7 +385,7 @@ test('coop (Б2): the guest’s tab reloaded mid-round — «Повернути�
   await guest.page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
   await guest.page.waitForFunction(() => window.__game && window.__game.net && window.__game.net.state().welcomed, null, { timeout: 60000, polling: 200 });
   await guest.page.waitForFunction(() => !document.querySelector('#netback').hidden, null, { timeout: 10000 });
-  assert.match(await guest.page.evaluate(() => document.querySelector('#netbacktext').textContent), /Раунд ще йде \(хост: Аня\)/);
+  assert.match(await guest.page.evaluate(() => document.querySelector('#netbacktext').textContent), /Вилазка ще йде \(ведучий: Аня\)/);
   await guest.page.click('#netbackbtn');
   await run(pages, 0.6);
   const g = await guest.page.evaluate(() => ({ playing: window.__game.playing, phase: window.__game.round.phase, x: window.__game.player.head.x, z: window.__game.player.head.z, pid: window.__game.net.state().pid }));
@@ -411,7 +411,7 @@ test('coop (Б2): turned away in the middle of a round — a clean page on «Г�
   assert.equal(g.phase, 'ready');
   assert.equal(g.role, null);
   assert.match(g.url, /page=friends/);
-  assert.match(g.status, /Раунд уже йде без тебе/);
+  assert.match(g.status, /Вилазка вже йде без тебе/);
   assert.deepEqual(host.errors, []);
   await ctx.close();
 });
@@ -486,7 +486,7 @@ test('coop (Б2, owner 19.11): a guest tab reloaded between rounds — one tap �
   await guest.page.waitForFunction(() => window.__game && window.__game.net && window.__game.net.state().welcomed, null, { timeout: 60000, polling: 200 });
   await guest.page.waitForFunction(() => !document.querySelector('#netback').hidden, null, { timeout: 10000 });
   const b = await guest.page.evaluate(() => ({ text: document.querySelector('#netbacktext').textContent, button: document.querySelector('#netbackbtn').textContent, phase: window.__game.round.phase }));
-  assert.match(b.text, /Ти знову в кімнаті \(хост: Аня\)/);
+  assert.match(b.text, /Ти знову в кімнаті \(ведучий: Аня\)/);
   assert.equal(b.button, 'Продовжити');
   assert.equal(b.phase, 'ready');
   await guest.page.click('#netbackbtn');
@@ -525,9 +525,9 @@ test('coop (7.11): a guest that typed the code sees the room only — no level c
   assert.equal(s.cards, 0, 'no level cards for a guest');
   assert.equal(s.diffs, 0, 'no difficulty buttons for a guest');
   assert.equal(s.back, false, 'no «←» to the menu');
-  assert.match(s.choice, /Хост обрав: .+ · .+/);
+  assert.match(s.choice, /Ведучий обрав: .+ · .+/);
   assert.equal(s.wait, true, '«Чекаємо, поки хост натисне «Почати»»');
-  assert.ok(s.list.includes('Аня') && s.list.includes('Оля') && s.list.includes('хост'), s.list);
+  assert.ok(s.list.includes('Аня') && s.list.includes('Оля') && s.list.includes('ведучий'), s.list);
   // no way to the old screens: any page (a link, Android's «Назад») stays the room
   await guest.page.evaluate(async () => { const { goPage } = await import('./src/systems/menu.js'); goPage('play'); });
   assert.deepEqual((await seen()).pages, ['friends'], '«Грати» is not for a guest in a room');

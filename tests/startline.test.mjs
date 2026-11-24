@@ -52,7 +52,7 @@ test('start line, the dacha: the lane and the apron do not start the clock, the 
   await ctx.close();
 });
 
-test('start banner: «ПІШЛИ!» comes when the clock starts — «Репетиція: часу нема» on level 0, «Годинник пішов» elsewhere — once per start, and fades out', async () => {
+test('start banner: «ПІШЛИ!» comes when the clock starts — «Репетиція: час не йде» on level 0, «Маєш M:SS» elsewhere — once per start, and fades out', async () => {
   // level 0 only exists in the campaign; the classic game (no campaign flag) has the old contracts all open: two pages
   const play = async (campaign, id) => {
     const ctx = await newContext(browser, LAND);
@@ -80,9 +80,10 @@ test('start banner: «ПІШЛИ!» comes when the clock starts — «Репет
   };
   const l0 = await play(true, 'rehearsal');
   assert.ok(!l0.before || !l0.before.on, 'no banner before the start');
-  assert.deepEqual([l0.during.text, l0.during.sub], ['ПІШЛИ!', 'Репетиція: часу нема'], 'level 0');
+  assert.deepEqual([l0.during.text, l0.during.sub], ['ПІШЛИ!', 'Репетиція: час не йде'], 'level 0');
   const l1 = await play(false, 'first');
-  assert.deepEqual([l1.during.text, l1.during.sub], ['ПІШЛИ!', 'Годинник пішов'], 'a level with a clock');
+  assert.equal(l1.during.text, 'ПІШЛИ!');
+  assert.match(l1.during.sub, /^Маєш \d+:\d\d$/, 'a level with a clock: «Маєш M:SS», the level\'s own time');
 });
 
 test('start sound: three knocks and a bell, no louder than 6 dB under the patrol step on the bus (the microphone rule), quieter again at the speaker rule; nothing when the audio is not running', async () => {

@@ -58,7 +58,7 @@ export const campaign = {
   warnBefore: 60,        // s before the end the lights flicker («the neighbours noticed»)
   // a house opens once this level has a star (decision R13 A: pass the dacha, go on)
   opens: { mansion: 'clock' },
-  // Тихарник shows only the lurkers this ladder has (the others come with their levels)
+  // Домовики shows only the lurkers this ladder has (the others come with their levels)
   lurkers: ['wardrobe'],
   // level 0: Petrovych dozes in his armchair all round (game/difficulty.js mods.armchairAtStart):
   // he sees only close by and hears worse; a noise still gets him up (then back to the chair)

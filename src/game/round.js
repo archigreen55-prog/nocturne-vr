@@ -68,7 +68,7 @@ export class Round {
     if (this.phase === 'ready') {
       if (players.some((p) => pastStart(p.head))) {
         this.phase = 'heist';
-        this.env.onMessage(R.noClock ? S.campaign.noClock : S.round.clockStarts, '#ffd166', 3);   // W19: the rehearsal's clock stands
+        this.env.onMessage(R.noClock ? S.campaign.noClock : S.round.clockStarts, '#ffd166', 3, true);   // W19: the rehearsal's clock stands; only the headset (a flat screen has the banner)
         this.env.onPhase('heist');
       }
     } else if (this.phase === 'heist') {

@@ -75,7 +75,7 @@ test('phone HUD: HTML instead of the wrist canvas; time, eye, microphone, messag
   assert.equal(await G(() => window.__game.wrist.texture.version), 1, 'the wrist canvas is never redrawn (version 1 = the texture creation only)');
   assert.match(await page.textContent('#hud .stance'), /^Стоїш · \d\.\d м$/);
   assert.equal(await page.getAttribute('#hud .hud-eye', 'data-eye'), 'open');
-  assert.match(await page.textContent('#hud .miclabel'), /МІК ВИМКНЕНО/);
+  assert.match(await page.textContent('#hud .miclabel'), /МІКРОФОН ВИМКНЕНО/);
   await page.tap('#touch .crouch');
   await page.waitForFunction(() => document.querySelector('#hud .stance').textContent.startsWith('Присів'));
   await page.waitForFunction(() => document.querySelector('#hud .hud-eye').getAttribute('data-eye') === 'half', null, { timeout: 8000 });
@@ -87,7 +87,7 @@ test('phone HUD: HTML instead of the wrist canvas; time, eye, microphone, messag
   await G(() => window.__game.pauseResume());
   await G(async () => { await window.__game.mic.enable(); window.__game.sim(0.5); });
   await page.waitForFunction(() => window.__game.mic.state === 'on');
-  await page.waitForFunction(() => ['ШЕПІТ', 'НОРМАЛЬНО', 'КРИК!'].includes(document.querySelector('#hud .miclabel').textContent), null, { timeout: 8000 });
+  await page.waitForFunction(() => ['ШЕПІТ', 'ГОЛОС', 'КРИК!'].includes(document.querySelector('#hud .miclabel').textContent), null, { timeout: 8000 });
   assert.ok(parseFloat(await G(() => document.querySelector('#hud .bar .fill').style.width)) > 0, 'level bar filled');
   // everything inside the screen; the HUD takes no touches
   const vp = page.viewportSize();

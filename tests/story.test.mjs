@@ -1,6 +1,6 @@
 // W7: the story in the game (story-bible.md, story-texts-uk.md). The customer's and the crew's lines
 // before / after a contract (board, the phone's menu and summary, the start screen), Petrovych by name,
-// the crew's subtitles from the thief you play, Тихарник and «Папери» (game/story.js, no DOM), the
+// the crew's subtitles from the thief you play, Домовики and «Папери» (game/story.js, no DOM), the
 // notes on the dacha (this device only), the wardrobe lurker (the breath, the box inside), the
 // headphones line, the privacy line about Шепотун. Шепотун itself: tests/whisperer.test.mjs.
 import assert from 'node:assert/strict';
@@ -66,24 +66,24 @@ test('the line after a round (story-texts §9.2): caught, late, fail, «clock» 
       before: St.storyBefore(C('first')),
     };
   });
-  assert.equal(r.caught, 'Сторож отримав історію. Ви — ні. pp.');
-  assert.equal(r.late, 'Годинник не чекає. Я теж. pp.');
-  assert.equal(r.fail, 'Мети немає. Платні теж. pp.');
-  assert.equal(r.clean1, 'Прийнято. Далі — годинник. pp.');
-  assert.equal(r.alarm1, 'Сирена — це теж музика. Погана. pp.');
-  assert.equal(r.shout1, 'Хто кричав — не питаю. Я чув. pp.');
-  assert.equal(r.clockDamaged, 'Годинник зупинився. Платите ви. pp.');
-  assert.equal(r.clockDone, 'Цокає. Добре. pp.');
-  assert.equal(r.silentShout, 'Фрол. Я навіть не питаю. pp.');
-  assert.equal(r.silentClean, 'Жодного крику. Браво. Без оплесків. pp.');
-  assert.deepEqual(r.evening, { kind: 'clean', line: 'Чув із Пагорбів. Шафа теж. Акт перший. pp.', crew: 'Рита: pp — це піанісимо. Він музикант.' });
+  assert.equal(r.caught, 'Сторож отримав історію. Ви — ні.');
+  assert.equal(r.late, 'Годинник не чекає. Я теж.');
+  assert.equal(r.fail, 'Мети немає. Платні теж.');
+  assert.equal(r.clean1, 'Прийнято. Далі — годинник.');
+  assert.equal(r.alarm1, 'Сирена — це теж музика. Погана.');
+  assert.equal(r.shout1, 'Хто кричав — не питаю. Я чув.');
+  assert.equal(r.clockDamaged, 'Годинник зупинився. Платите ви.');
+  assert.equal(r.clockDone, 'Цокає. Добре.');
+  assert.equal(r.silentShout, 'Фрол. Я навіть не питаю.');
+  assert.equal(r.silentClean, 'Жодного крику. Браво. Без оплесків.');
+  assert.deepEqual(r.evening, { kind: 'clean', line: 'Чув із Пагорбів. Шафа теж. Акт перший.', sign: '— Колекціонер', crew: 'Рита: Він збирає не речі. Він збирає тих, хто в шафах.' });
   assert.equal(r.eveningFail.crew, '', 'the crew only when the goal was met');
-  assert.deepEqual(r.before, { lines: ['Дача на Тихому Куті. Сторож один, п\'є чай.', '$700. Будь-що. Не кричіть. pp.'], crew: 'Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.' });
+  assert.deepEqual(r.before, { lines: ['Дача на Тихому Куті. Сторож один, п\'є чай.', '$700. Будь-що. Не кричіть.'], sign: '— Колекціонер', crew: 'Зоя: Що він колекціонує? Байдуже. Гроші справжні.' });
   assert.deepEqual(errors, []);
   await ctx.close();
 });
 
-test('the board and the start screen: the customer\'s lines and Zoya\'s on contract 1 (#storybefore, an element of its own), «Грай у навушниках» (#headphones); «Тихарник…» and «Папери…» open their pages; the result: the line after and the thief\'s signature under the scream', async () => {
+test('the board and the start screen: the customer\'s lines and Zoya\'s on contract 1 (#storybefore, an element of its own), «Грай у навушниках» (#headphones); «Домовики…» and «Папери…» open their pages; the result: the line after and the thief\'s signature under the scream', async () => {
   const ctx = await newContext(browser);
   const { page, errors } = await open(ctx, base);
   await page.click('#start');
@@ -116,8 +116,8 @@ test('the board and the start screen: the customer\'s lines and Zoya\'s on contr
   const R = await drawn(() => { const g = window.__game; g.round.finish('left'); g.round.result.shouts = 1; });
   const r = { start, board: { story: b0.story, buttons: b0.ids }, lurkers: { page: L.page, cards: L.lurkers.cards.map((c) => c.name), met: L.lurkers.met, buttons: L.ids }, page2: L2.lurkers.page,
     papers: { page: P.page, rows: P.papers.rows.length, count: P.papers.count }, result: { after: R.storyAfter, by: R.screamBy } };
-  assert.equal(r.start.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть. pp. Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
-  assert.equal(r.start.crewColor, ' Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
+  assert.equal(r.start.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть.— Колекціонер Зоя: Що він колекціонує? Байдуже. Гроші справжні.');
+  assert.equal(r.start.crewColor, ' Зоя: Що він колекціонує? Байдуже. Гроші справжні.');
   assert.equal(r.start.hp, 'Грай у навушниках. Твої сусіди — не Петрович.');
   assert.equal(r.start.order, 'contractinfo', 'right above the contract info');
   assert.ok(!r.start.info.startsWith('Дача'), 'the contract info is as before');
@@ -129,7 +129,7 @@ test('the board and the start screen: the customer\'s lines and Zoya\'s on contr
   assert.ok(r.lurkers.buttons.includes('lnext') && r.lurkers.buttons.includes('back'));
   assert.equal(r.page2, 1);
   assert.deepEqual(r.papers, { page: 'papers', rows: 0, count: { n: 0, total: 5 } });
-  assert.equal(r.result.after.line, 'Мети немає. Платні теж. pp.', 'nothing in the van: the goal not met');
+  assert.equal(r.result.after.line, 'Мети немає. Платні теж.', 'nothing in the van: the goal not met');
   assert.equal(r.result.by, 'Зоя: «Це не я. Це Фрол.»');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -167,7 +167,7 @@ test('Petrovych by name: «Петрович: «…»» and on easy «Петро�
   assert.equal(r.house, 1); assert.equal(r.houseAgain, 1, 'once a round');
   assert.equal(r.line, 'Петрович: Ну що, хато, подрімаємо?');
   assert.ok(/^Петрович: /.test(r.wrist || ''), r.wrist);
-  assert.ok(/^Де .+\?!$/.test(r.missing[0]), r.missing[0]); assert.equal(r.missing[1], 'Два предмети… Та що ж це…');
+  assert.ok(/^Де .+\?!$/.test(r.missing[0]), r.missing[0]); assert.equal(r.missing[1], 'Уже двох речей нема… Та що ж це…');
   assert.equal(r.yawn, true);
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -257,7 +257,7 @@ test('notes (this device only): E facing the fridge reads «Блюдце не ч
   await ctx.close();
 });
 
-test('the wardrobe lurker: holding the breath in its telegraph — it loses you («Затамував подих — воно тебе згубило»), sleeps 45 s with the doors ajar; the box inside: not taken while it is shut, taken while it sleeps and delivered as loot; its card opens on the telegraph you see («Тихарник: нова картка — Шафник»), «зустрів 1 з 9»; Тихарник survives a reload and goes into the progress code', async () => {
+test('the wardrobe lurker: holding the breath in its telegraph — it loses you («Затамував подих — воно тебе згубило»), sleeps 45 s with the doors ajar; the box inside: not taken while it is shut, taken while it sleeps and delivered as loot; its card opens on the telegraph you see («Домовики: нова картка — Шафник»), «зустрів 1 з 9»; Домовики survives a reload and goes into the progress code', async () => {
   const { ctx, page, errors } = await round(base, { lurker: true });
   const r = await page.evaluate(async () => {
     const g = window.__game, l = g.lurker, out = {}, St = await import('./src/game/story.js'), { G } = await import('./src/systems/state.js');
@@ -288,9 +288,9 @@ test('the wardrobe lurker: holding the breath in its telegraph — it loses you 
   dbg(r);
   assert.deepEqual(r.shut, { shut: true, takeable: false });
   assert.equal(r.telegraph, 'telegraph');
-  assert.deepEqual(r.card, ['wardrobe'], 'its card (HUD «Тихарник: нова картка — Шафник»)');
+  assert.deepEqual(r.card, ['wardrobe'], 'its card (HUD «Новий домовик: Шафник»)');
   assert.deepEqual(r.met, { n: 1, total: 9 });
-  assert.deepEqual(r.lost, { state: 'cooldown', msg: 'Затамував подих — воно тебе згубило', ajar: 0.3, creature: false });
+  assert.deepEqual(r.lost, { state: 'cooldown', msg: 'Затамував подих — воно тебе загубило', ajar: 0.3, creature: false });
   assert.deepEqual(r.open, { shut: false, takeable: true });
   assert.equal(r.held, true); assert.equal(r.delivered, true);
   assert.deepEqual(r.after, { state: 'dormant', ajar: 0 });
@@ -300,7 +300,7 @@ test('the wardrobe lurker: holding the breath in its telegraph — it loses you 
   await ctx.close();
 });
 
-test('phone: the pause menu — «Контракт» with the customer\'s lines and Zoya\'s, «Тихарник» (9 rows, «???» until met), «Папери» (the notes found) by finger; the summary after a round has the line after; privacy.html has the line about Шепотун', async () => {
+test('phone: the pause menu — «Контракт» with the customer\'s lines and Zoya\'s, «Домовики» (9 rows, «???» until met), «Папери» (the notes found) by finger; the summary after a round has the line after; privacy.html has the line about Шепотун', async () => {
   const { ctx, page, errors, cdp } = await playPhone();
   const press = async (sel) => {
     await page.waitForSelector(sel, { state: 'visible', timeout: 5000 });
@@ -309,7 +309,7 @@ test('phone: the pause menu — «Контракт» with the customer\'s lines 
     await tp(cdp, 'touchStart', [pt], t); await page.waitForTimeout(120); await tp(cdp, 'touchEnd', [], touchEndAt(t + 0.12)); await page.waitForTimeout(200);
   };
   await page.evaluate(() => { localStorage.setItem('nocturne.notes', '["kettle"]'); const g = window.__game; for (const p of g.guards) p.update = () => null; });
-  // T6: the contract's lines, Тихарник and «Папери» are in the new menu (the pause menu is small now)
+  // T6: the contract's lines, Домовики and «Папери» are in the new menu (the pause menu is small now)
   const menuPage = (page_) => page.evaluate(async (pg) => { (await import('./src/systems/menu.js')).goPage(pg); }, page_);
   await page.evaluate(async () => { const { syncStartScreen } = await import('./src/systems/startScreen.js'); syncStartScreen(); });
   const contract = await page.evaluate(() => ({ story: document.querySelector('#storybefore i').textContent, crew: document.querySelector('#storybefore .crewline').textContent }));
@@ -322,12 +322,12 @@ test('phone: the pause menu — «Контракт» with the customer\'s lines 
   const summary = await page.evaluate(() => document.querySelector('.sm-story') && document.querySelector('.sm-story').textContent);
   const privacy = await (await import('node:fs/promises')).readFile(join(ROOT, 'privacy.html'), 'utf8');
   const S = (await import(join(ROOT, 'src/i18n/uk.js'))).default;
-  assert.equal(contract.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть. pp.');
-  assert.equal(contract.crew, ' Зоя: Хто такий «pp.»? Байдуже. Гроші справжні.');
+  assert.equal(contract.story, 'Дача на Тихому Куті. Сторож один, п\'є чай. $700. Будь-що. Не кричіть.');
+  assert.equal(contract.crew, ' Зоя: Що він колекціонує? Байдуже. Гроші справжні.');
   assert.equal(lurkers.rows, 9); assert.ok(lurkers.names.every((n) => n === '???'), lurkers.names.join());
-  assert.equal(lurkers.info, 'зустрів 0 з 9');
+  assert.equal(lurkers.info, 'знайомих домовиків: 0 з 9');
   assert.deepEqual(papers.rows, ['«Петровичу: чайник не лишати. Б.»']); assert.equal(papers.info, 'знайдено 1 з 5');
-  assert.equal(summary, 'Мети немає. Платні теж. pp.');
+  assert.equal(summary, 'Мети немає. Платні теж.');
   assert.ok(privacy.includes(S.privacy.whisper), 'privacy.html: the whisperer line');
   assert.deepEqual(errors, []);
   await ctx.close();

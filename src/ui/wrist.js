@@ -110,7 +110,7 @@ export class WristPanel {
       g.font = problem ? 'bold 22px system-ui, sans-serif' : '22px system-ui, sans-serif';
       g.fillStyle = problem ? '#ff5468' : '#6f8396';
       g.textAlign = problem ? 'center' : 'left';
-      g.fillText(problem || S.hud.micDb(mic.env.toFixed(0), s.speaking), problem ? W / 2 : x0, y + h + 26);
+      g.fillText(problem || (s.speaking ? S.hud.heard : ''), problem ? W / 2 : x0, y + h + 26);
     } else {
       g.fillStyle = '#8a93a3'; g.font = 'bold 44px system-ui, sans-serif';
       g.fillText(S.hud.micOff, 300, 88);

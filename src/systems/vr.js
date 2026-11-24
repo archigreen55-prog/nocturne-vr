@@ -5,6 +5,7 @@ import { unlockAudio } from '../audio/audio.js';
 import { G, $, params } from './state.js';
 import { flash } from './messages.js';
 import { S } from '../i18n/index.js';
+import { loadSetting } from '../settings.js';
 
 const fpsWindow = { frames: 0, since: 0 };
 
@@ -20,7 +21,9 @@ export function autoFrameRate(now) {
   if (!s || !s.updateTargetFrameRate || !rates || !Array.from(rates).includes(72) || !(s.frameRate > 73)) return;
   if (fps < 86) {
     G.autoHzDone = true;
-    s.updateTargetFrameRate(72).then(() => flash(S.messages.hz72(fps.toFixed(0)), 4)).catch(() => {});
+    // the numbers are for testers (?debug, ?hudnums=on or the setting «Цифри на екрані»): a player is not told about hertz (plan 2026-11-17 §3.7)
+    const testers = params.has('debug') || params.get('hudnums') === 'on' || loadSetting('hudNums', 'off') === 'on';
+    s.updateTargetFrameRate(72).then(() => { if (testers) flash(S.messages.hz72(fps.toFixed(0)), 4); }).catch(() => {});
   }
 }
 

@@ -37,7 +37,7 @@ const H = `window.__w = (() => {
   return { g, say, park, until };
 })();`;
 
-test('Шепотун (PC): a whisper 2 m from the fireplace — «ш-ш-ш» and dust, 3 s later the echo (a synthesised whisper from noise, a \'voice\' noise at the grate), Petrovych comes: «Протяг.»; its card in Тихарник; silence, a normal voice, the bedroom behind the wall, a held breath, contract 1: nothing', async () => {
+test('Шепотун (PC): a whisper 2 m from the fireplace — «ш-ш-ш» and dust, 3 s later the echo (a synthesised whisper from noise, a \'voice\' noise at the grate), Petrovych comes: «Протяг.»; its card in Домовики; silence, a normal voice, the bedroom behind the wall, a held breath, contract 1: nothing', async () => {
   const ctx = await newContext(browser); await openAll(ctx);
   const { page, errors } = await open(ctx, preview);
   await fakeMic(page);
@@ -88,7 +88,7 @@ test('Шепотун (PC): a whisper 2 m from the fireplace — «ш-ш-ш» and
   assert.equal(r.echo.last.source, 'noise', 'synthesised from noise');
   assert.ok(r.echo.last.points >= 20, `the curve of the whisper's loudness (${r.echo.last.points} numbers)`);
   assert.deepEqual(r.echo.noise.map((n) => [n.x, n.z, n.r, n.k]), [[1.5, -12.9, 6, 'voice']]);
-  assert.ok(['Шепотун повторив твій шепіт!', 'Тихарник: нова картка — Шепотун'].includes(r.echo.msg), r.echo.msg);
+  assert.ok(['Шепотун повторив твій шепіт!', 'Новий домовик: Шепотун'].includes(r.echo.msg), r.echo.msg);
   assert.equal(r.echo.card, true);
   assert.equal(r.guardCame, true, 'Petrovych at the grate: «Протяг.»');
   assert.equal(r.wall, 0, 'another room: nothing');

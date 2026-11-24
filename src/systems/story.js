@@ -4,7 +4,7 @@
 //   - the crew's subtitles from the thief you play (one line, under the guard's; at most one per 20 s);
 //   - Petrovych's start line, his lines at the whisperer's grate;
 //   - the notes (on this device only: taken = read, gone, in «Папери»);
-//   - Тихарник (the cards open on the first meeting);
+//   - Домовики (the cards open on the first meeting);
 //   - Шепотун (enemies/whisperer.js): the grate, the whispers it hears, the echo, «fed»;
 //   - the wardrobe lurker's box (only while it sleeps), its «lost you» when you hold the breath;
 //   - the report block game.story.

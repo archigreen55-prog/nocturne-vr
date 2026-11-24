@@ -97,7 +97,7 @@ export const SYSTEMS = [
   style,         // W17: the style — sky and fog, lamps' circles, shadows, water; frame: its uniforms (before brightness)
   progressCode,  // start screen: progress as a code, «Навчання ще раз»
   mapView,       // W6: the player's floor decides which rooms are drawn; the point lights follow the nearest lamps
-  story,         // W7: the customer's and the crew's lines, notes, Тихарник, Шепотун, the wardrobe's box
+  story,         // W7: the customer's and the crew's lines, notes, Домовики, Шепотун, the wardrobe's box
   menu,          // W17 S3: the main menu and its pages, ?page= links, the first-run microphone card
   guards,        // W6: the second guard (its step of the frame, its lamp's mask) and the radio chatter between the two
   brightness,    // display brightness and «Надворі» (phone, PC): the picture only

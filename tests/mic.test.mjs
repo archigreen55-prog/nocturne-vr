@@ -9,7 +9,7 @@ test('fake microphone: permission, level of a -23 dBFS tone, track settings in t
   const { page, errors } = await open(ctx, base);
   await page.click('#micbtn');
   await page.waitForFunction(() => window.__game.mic.state === 'on');
-  assert.equal(await page.textContent('#calbtn'), 'Калібрувати (5 кроків)', 'PC: «Звуки гри» too (mic v2: the game\'s sound from laptop speakers)');
+  assert.equal(await page.textContent('#calbtn'), 'Налаштувати (30 с)', 'PC: «Звуки гри» too (mic v2: the game\'s sound from laptop speakers)');
   await page.waitForTimeout(1500);
   const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
   assert.equal(r.mic.state, 'on');
@@ -79,7 +79,7 @@ test('phone mic wizard (5 steps, by finger): silence, the game\'s own sounds thr
   assert.match(await page.textContent('#michold'), /як гратимеш/);
   assert.match(await page.textContent('#michelp'), /два запити|Дозволити під час відвідування/, 'before asking: what the dialogs will be');
   await micOn(page, cdp);
-  assert.equal(await page.textContent('#calbtn'), 'Калібрувати (5 кроків)');
+  assert.equal(await page.textContent('#calbtn'), 'Налаштувати (30 с)');
   await installFeed(page, -20);
   await fingerPressEl(page, cdp, '#calbtn');
   await page.waitForFunction(() => /2\/5 ЗВУКИ ГРИ/.test(document.getElementById('calstep').textContent), null, { timeout: 15000 });
@@ -89,14 +89,14 @@ test('phone mic wizard (5 steps, by finger): silence, the game\'s own sounds thr
   const cal = await page.evaluate(() => window.__game.mic.cal);
   assert.ok(Math.abs(cal.floor - -62) < 3 && Math.abs(cal.normal - -30) < 3 && Math.abs(cal.whisper - -48) < 3, JSON.stringify(cal));
   assert.ok(Number.isFinite(cal.bleed) && Math.abs(cal.bleed - -20) < 4, `bleed measured ${cal.bleed}`);
-  assert.match(await page.textContent('#calstep'), /Звуки гри чути в мікрофоні/);
+  assert.match(await page.textContent('#calstep'), /Мікрофон чує звуки гри/);
   assert.equal(await page.textContent('#micnote'), '', 'nothing to redo');
   // the check after the wizard
   assert.equal(await page.isEnabled('#verifybtn'), true);
   await fingerPressEl(page, cdp, '#verifybtn');
   await page.waitForFunction(() => /Крик:/.test(document.getElementById('verifyres').textContent), null, { timeout: 30000 });
   const vr = await page.textContent('#verifyres');
-  assert.match(vr, /Шепіт: ШЕПІТ ✓ · Голос: НОРМАЛЬНО ✓ · Крик: КРИК! ✓/, vr);
+  assert.match(vr, /Шепіт: ШЕПІТ ✓ · Голос: ГОЛОС ✓ · Крик: КРИК! ✓/, vr);
   // headphones: the game is not heard in the microphone -> no protection needed
   await installFeed(page, null);
   await fingerPressEl(page, cdp, '#calbtn');
@@ -105,7 +105,7 @@ test('phone mic wizard (5 steps, by finger): silence, the game\'s own sounds thr
   assert.match(await page.textContent('#calstep'), /навушники/);
   // the board at the van (tap) runs the same 5-step wizard on a phone
   await page.evaluate(() => { const g = window.__game; g.pressBoard('micpage'); g.sim(0.1); });
-  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (5 кроків)')), 'phone board: 5 steps');
+  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Налаштувати (30 с)')), 'phone board: «Налаштувати (30 с)»');
   await page.evaluate(() => { const g = window.__game; g.pressBoard('back'); g.sim(0.1); });
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -164,7 +164,7 @@ test('phone: the game\'s own sounds from the speaker are not your voice (bus ana
   const shouts0 = await page.evaluate(() => window.__game.round.shouts);
   const prot = await loud(4000);
   assert.ok(prot.bus > -40, `the game was loud on the bus (${prot.bus.toFixed(1)} dB)`);
-  assert.equal(prot.normal + prot.shout, 0, `protected: the game sound is never "НОРМАЛЬНО" / "КРИК!" (${JSON.stringify(prot)})`);
+  assert.equal(prot.normal + prot.shout, 0, `protected: the game sound is never "ГОЛОС" / "КРИК!" (${JSON.stringify(prot)})`);
   assert.ok(prot.raised >= 3, 'the boundaries were raised while the game sounded');
   assert.equal(await page.evaluate(() => window.__game.round.shouts), shouts0, 'no shout counted');
   await page.waitForFunction(() => /звуки гри: межі/.test(document.querySelector('#hud .micdb').textContent) || true);
@@ -194,7 +194,7 @@ test('phone: the game\'s own sounds from the speaker are not your voice (bus ana
   await ctx.close();
 });
 
-test('mic protection, deterministic: a game sound that stops abruptly or fades never leaves a false "НОРМАЛЬНО" (30, 72 and 10 analyses / s)', async () => {
+test('mic protection, deterministic: a game sound that stops abruptly or fades never leaves a false "ГОЛОС" (30, 72 and 10 analyses / s)', async () => {
   const ctx = await newContext(browser);
   const { page } = await open(ctx, base);
   const r = await page.evaluate(async (cal) => {
@@ -308,7 +308,7 @@ test('phone: after a call the microphone comes back on Продовжити (re-
   await page.evaluate(() => { const g = window.__game; g.mic.track.stop(); navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('busy', 'NotReadableError')); g.pauseOpen('user'); });
   await fingerPressEl(page, cdp, pm('Продовжити'));
   await page.waitForFunction(() => window.__game.mic.events.lastRecover === 'failed', null, { timeout: 8000 });
-  await page.waitForFunction(() => /Мікрофон не відновився/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
+  await page.waitForFunction(() => /Мікрофон не повернувся/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
   // headphones plugged in
   await page.evaluate(() => navigator.mediaDevices.dispatchEvent(new Event('devicechange')));
   await page.waitForFunction(() => window.__game.mic.deviceChanged || window.__game.mic.state !== 'on', null, { timeout: 5000 });
@@ -326,8 +326,8 @@ test('phone: after a call the microphone comes back on Продовжити (re-
   await p2.page.tap('#start'); await p2.page.waitForFunction(() => window.__game.playing);
   await p2.page.evaluate(() => navigator.mediaDevices.dispatchEvent(new Event('devicechange')));
   await p2.page.waitForFunction(() => window.__game.mic.deviceChanged);
-  await p2.page.waitForFunction(() => /Змінився мікрофон або навушники/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
-  assert.match(await p2.page.textContent('#micnote'), /Змінився мікрофон або навушники/);
+  await p2.page.waitForFunction(() => /Ти змінив мікрофон чи навушники/.test(document.querySelector('#hud .hud-msg').textContent), null, { timeout: 5000 });
+  assert.match(await p2.page.textContent('#micnote'), /Ти змінив мікрофон чи навушники/);
   await p2.page.evaluate(() => window.__game.mic.setCalibration({ ...window.__game.mic.cal }));
   assert.equal(await p2.page.evaluate(() => window.__game.mic.deviceChanged), false);
   assert.deepEqual(p2.errors, []);
@@ -349,7 +349,7 @@ test('iPhone (UA in Chromium): audio session playback -> play-and-record with th
   await page.waitForFunction(() => navigator.audioSession.type === 'playback');
   await micOn(page, cdp);
   assert.equal(await page.evaluate(() => navigator.audioSession.type), 'play-and-record');
-  assert.match(await page.textContent('#micnote'), /без кроку «Звуки гри»/);
+  assert.match(await page.textContent('#micnote'), /налаштовано по-старому/);
   await page.tap('#start'); await page.waitForFunction(() => window.__game.playing);
   const r = JSON.parse(await page.evaluate(() => window.__game.reportText()));
   assert.equal(r.phone.audioSession.type, 'play-and-record'); assert.equal(r.phone.audioSession.ios, true);
@@ -416,7 +416,7 @@ test('Б1 (mic v2): not allowed yet (iPhone, «цього разу»): a menu ta
   const p2 = await open(c2, base + '?nosplash=1');
   assert.equal(await p2.page.isVisible('#mmmic'), false, '«Граєш без мікрофона»: the box itself says it');
   await p2.page.click('#mmnav [data-go="play"]');
-  assert.equal(await p2.page.textContent('#playmic'), 'Граєш без мікрофона.');
+  assert.equal(await p2.page.textContent('#playmic'), 'Граєш без мікрофона');
   await p2.page.click('#start'); await p2.page.waitForFunction(() => window.__game.playing);
   await p2.page.evaluate(() => window.__game.player.teleport(0, 2, 0));
   await p2.page.waitForFunction(() => window.__game.round.phase === 'heist');

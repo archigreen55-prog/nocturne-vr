@@ -189,7 +189,7 @@ test('the other traps (dacha): marbles — falls 3 s, then kneels and picks them
   assert.equal(r.silent, true, 'quiet for 30 s'); assert.equal(r.ringing, true); assert.equal(r.claimed, true);
   assert.equal(r.clockOff, true); assert.deepEqual(r.clock.said, ['Сьома?! Яка сьома…']);
   assert.deepEqual(r.combo.f, ['+30', '+100 · комбо ×2', '+300 · комбо ×3 · Шедевр!', '+50']);
-  assert.equal(r.combo.score, 480); assert.equal(r.combo.best, 3); assert.equal(r.combo.text, 'Шкода: 480 · комбо ×3');
+  assert.equal(r.combo.score, 480); assert.equal(r.combo.best, 3); assert.equal(r.combo.text, 'Капості: 480 · комбо ×3');
   assert.deepEqual(r.stock, [0, 0, 0, 0], 'all spent');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -288,20 +288,20 @@ test('contract 7 «Довгий вечір Петровича»: after «Рив�
   });
   assert.deepEqual(r.order, ['rush', 'evening'], 'contract 7 after «Ривок»');
   assert.equal(r.name, 'Довгий вечір Петровича');
-  assert.equal(r.goal, '500 очок шкоди');
+  assert.equal(r.goal, '500 очок капостей');
   assert.deepEqual(r.van, ['soap', 'marbles', 'marbles', 'marbles', 'rope', 'rope'], '6 a round, the free soap first');
-  assert.ok(r.info.startsWith('Петрович має забути про спокій. Зробіть ніч найгучнішою в його житті. Не для вас. Для шафи. Без синців. pp. Зоя: Без синців. Фроле, це про тебе.'), r.info);
+  assert.ok(r.info.startsWith('Петрович має забути про спокій. Зробіть ніч найгучнішою в його житті. Не для вас. Для шафи. Без синців.— Колекціонер Зоя: Без синців. Фроле, це про тебе.'), r.info);
   assert.equal(r.before.crew, 'Зоя: Без синців. Фроле, це про тебе.');
   assert.deepEqual(r.rows, ['Мило · у запасі ×1', 'Кульки · у запасі ×3', 'Відро · у запасі ×0', 'Будильник · у запасі ×0', 'Мотузка · у запасі ×3']);
   assert.deepEqual(r.bought, { cash: 850, soap: 2, van: 6 }, 'the limit holds: still 6');
   assert.equal(r.inRound, 'phase'); assert.equal(r.trialAgain, false, 'the free soap only once');
-  assert.equal(r.hud, 'Шкода: 500 / 500');
+  assert.equal(r.hud, 'Капості: 500 / 500');
   assert.equal(r.one.goal, true); assert.equal(r.one.stars, 1);
-  assert.deepEqual(r.one.after, { kind: 'clean', line: 'Чув із Пагорбів. Шафа теж. Акт перший. pp.', crew: 'Рита: pp — це піанісимо. Він музикант.' });
-  assert.equal(r.one.extra, 'Шкода: 500');
+  assert.deepEqual(r.one.after, { kind: 'clean', line: 'Чув із Пагорбів. Шафа теж. Акт перший.', sign: '— Колекціонер', crew: 'Рита: Він збирає не речі. Він збирає тих, хто в шафах.' });
+  assert.equal(r.one.extra, 'Капості: 500');
   assert.deepEqual(r.two, { stars: 2, bonus: true, score: 600 });
-  assert.equal(r.fail.stars, 0); assert.ok(r.fail.why.includes('шкода 30 з 500'), r.fail.why.join()); assert.deepEqual(r.fail.after, { kind: 'fail', line: 'Мети немає. Платні теж. pp.', crew: '' }, 'W7: the line after for every round; the crew only when the goal was met');
-  assert.deepEqual(r.quiet, { van: 0, msg: 'У цьому контракті без пасток', limit: 0 });
+  assert.equal(r.fail.stars, 0); assert.ok(r.fail.why.includes('капості 30 з 500'), r.fail.why.join()); assert.deepEqual(r.fail.after, { kind: 'fail', line: 'Мети немає. Платні теж.', sign: '— Колекціонер', crew: '' }, 'W7: the line after for every round; the crew only when the goal was met');
+  assert.deepEqual(r.quiet, { van: 0, msg: 'На цьому рівні — без пасток', limit: 0 });
   assert.ok(r.lock, 'closed until «Ривок» has a star');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -392,7 +392,7 @@ test('phone: the menu shop sells the traps by finger (into the van at once); the
   assert.deepEqual(onDoor, { held: false, door: true, armed: true, y: 2.08 });
   assert.equal(soap.armed, true);
   assert.equal(soap.msg, 'Ой! Своє ж…'); assert.deepEqual(soap.heard, ['drop:8']); assert.ok(soap.moved >= 0.5, `slid ${soap.moved}`); assert.equal(soap.still, true, 'it stays for the guard');
-  assert.ok(soap.hud.includes('Шкода: 100'), soap.hud);
+  assert.ok(soap.hud.includes('Капості: 100'), soap.hud);
   assert.deepEqual(errors, []);
   await ctx.close();
   // PC: E with the bucket by a door

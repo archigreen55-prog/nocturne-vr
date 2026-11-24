@@ -41,8 +41,8 @@ async function jsFiles(dir) {
 const keysOf = (o, pre = '') => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' && !Array.isArray(v) ? keysOf(v, pre + k + '.') : [pre + k]));
 const pick = (o, key) => key.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
 // the texts index.html may keep: they show before the game's modules load (the boot-failure panel and
-// "Завантаження…"); see src/i18n/index.js
-const BOOT_TEXTS = ['Завантаження…'];
+// "Заводимо фургон…"); see src/i18n/index.js
+const BOOT_TEXTS = ['Заводимо фургон…'];
 
 test('texts: no player text in code outside src/i18n/ (comments aside); every index.html text key exists in uk.js; the game name is one constant everywhere', async () => {
   const bad = [];
@@ -103,7 +103,7 @@ test('another language is one file: src/i18n/xx.js picked with ?lang=xx and reme
     let { page, errors } = await open(ctx, site.base + '?lang=xx');
     assert.equal(await page.textContent('#start'), 'Play');
     assert.equal(await page.textContent('[data-t="start.h.mic"]'), '1. Microphone');
-    assert.equal(await page.textContent('[data-t="start.label.contract"]'), 'Контракт:', 'missing key: Ukrainian');
+    assert.equal(await page.textContent('[data-t="start.label.contract"]'), 'Замовлення:', 'missing key: Ukrainian');
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'xx');
     await page.tap('#start');
     await page.waitForFunction(() => window.__game.playing);

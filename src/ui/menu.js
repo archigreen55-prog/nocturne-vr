@@ -17,7 +17,7 @@ const REASONS = {
 export class PauseMenu {
   // h: { info(), label(key), cycle(key), resume(), home(), newRound(), toStart(), toMic(), report(), contractStep(±1), difficultyNext(),
   //      tutorial(), toProgress(), privacy(), bright(±1), brightLabel(), outdoor(), outdoorLabel(),
-  //      shopRows(), buy(id), walletText(), lurkers(), papers() }   (W7: Тихарник, «Папери» — game/story.js)
+  //      shopRows(), buy(id), walletText(), lurkers(), papers() }   (W7: Домовики, «Папери» — game/story.js)
   constructor(root, h) {
     this.root = root; this.h = h;
     this.page = 'main'; this.reason = 'user';
@@ -85,7 +85,7 @@ export class PauseMenu {
       purse.className = 'pm-info pm-wallet';
       purse.textContent = h.walletText();
       head.append(purse);
-      // T6 (decision P-T6.1 A): a small pause — the rest (levels, the shop, Тихарник, the microphone) is in the main menu
+      // T6 (decision P-T6.1 A): a small pause — the rest (levels, the shop, Домовики, the microphone) is in the main menu
       grid.append(
         this.btn(S.menu.resume, () => h.resume(), 'primary wide'),
         this.btn(S.menu.home, () => h.home()),
