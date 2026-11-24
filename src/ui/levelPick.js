@@ -14,7 +14,7 @@ export class LevelPick {
   // readOnly (a guest in the room): the same cards, none pressable; the host's choice lit in amber
   show(groups, readOnly = false) {
     this.root.classList.toggle('ro', !!readOnly);
-    const sig = JSON.stringify(groups.map((g) => [g.map, g.note, g.levels.map((l) => [l.id, l.name, l.locked, l.stars])]));
+    const sig = JSON.stringify(groups.map((g) => [g.map, g.note, g.levels.map((l) => [l.id, l.name, l.locked, l.stars, l.after])]));
     if (sig !== this.sig) { this.sig = sig; this.build(groups); }
     for (const g of groups) for (const l of g.levels) {
       const b = this.root.querySelector(`[data-level="${CSS.escape(l.id)}"]`);
@@ -43,7 +43,7 @@ export class LevelPick {
         if (l.why) b.title = l.why;
         const n = document.createElement('span'); n.className = 'lv-n'; n.textContent = (l.n === null ? '' : String(l.n)) + (l.locked ? (l.n === null ? '🔒' : ' 🔒') : l.n === null ? '•' : '');
         const name = document.createElement('span'); name.className = 'lv-name'; name.textContent = l.soon ? S.levels.soon : l.name;
-        const st = document.createElement('span'); st.className = 'lv-stars'; st.textContent = l.locked ? '' : '★'.repeat(l.stars) + '☆'.repeat(3 - l.stars);
+        const st = document.createElement('span'); st.className = 'lv-stars'; st.textContent = l.locked ? (l.stars > 0 ? `${'★'.repeat(l.stars)} ${S.coop2.withFriends}${l.after !== undefined && l.after !== null ? ` · ${S.coop2.afterLevel(l.after)}` : ''}` : '') : '★'.repeat(l.stars) + '☆'.repeat(3 - l.stars);   // plan 22.11 §2.2: stars won with friends on a level still closed here
         b.append(n, name, st);
         bindPress(b, () => { if (!b.disabled) this.onPick(l.id); });
         row.append(b);

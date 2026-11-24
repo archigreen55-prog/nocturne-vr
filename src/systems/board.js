@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { CFG } from '../config/index.js';
 import { LEVELS } from '../audio/mic.js';
-import { goalText, bonusText, progress, bestStars, bestBits, isLevel, starRows, starChecklist, againLabel } from '../game/contracts.js';
+import { goalLabel, bonusText, progress, bestStars, bestBits, isLevel, starRows, starChecklist, againLabel } from '../game/contracts.js';
 import { G } from './state.js';
 import { summaryState } from './phone.js';
 import { wallet, lootRecord } from '../game/economy.js';
@@ -78,7 +78,7 @@ export const board = {
         phase: round.phase, clock: round.clock, alertLevel: alert.level, tally: T, result: round.result,
         clip: scream.best, playing: !!scream.playing, recMode: scream.modeName,
         page: G.isGuest ? 'contract' : G.boardPage, guest: G.isGuest ? (G.net && G.net.hostName) || '?' : null, contract,   // T5: a guest sees the host's board contractIndex: CFG.contracts.indexOf(contract), contractCount: CFG.contracts.length,
-        goalText: goalText(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
+        goalText: goalLabel(contract, loot.items), bonusText: bonusText(contract), best: bestStars(contract.id),
         diffName: CFG.difficulties[difficulty].name, difficulty, progress: progress(contract, T, loot), verdict: G.verdict,
         noMic: roundNoMic(), mic, calib: G.calib, calibNotes: G.calibNotes, levelColor: lv.color, levelLabel: lv.label, calSteps: 5,   // mic v2: noMic = the round without a microphone (also refused / switched off); «Звуки гри» on every device
         wallet: S.shop.wallet(money(wallet().cash)), lock: lockText(contract), income: incomeText(),

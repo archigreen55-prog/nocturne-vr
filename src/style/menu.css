@@ -366,6 +366,8 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
 #overlay .seg button.on:disabled { background: var(--lamp); color: var(--ink2); }
 .nt-goal { margin: 0; font: 700 14px system-ui, sans-serif; color: var(--paper); }
 .nt-goal:empty { display: none; }
+.nt-lock { margin: 0; font: 600 13px system-ui, sans-serif; color: var(--amber, #ffb347); }
+.nt-lock[hidden] { display: none; }
 /* the way in: the thief and the name on the left, the two big buttons on the right (one screen on a phone) */
 #netbox:not(.in-room) { display: grid; grid-template-columns: minmax(0, auto) minmax(240px, 1fr); gap: 0 16px; align-items: start; }
 #netbox:not(.in-room) > * { grid-column: 1 / -1; }

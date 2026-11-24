@@ -7,6 +7,7 @@
 import { G } from '../systems/state.js';
 import { power } from '../world/devices.js';
 import { playStep, playScratch, playStinger, playThud } from '../audio/audio.js';
+import { goalPlayers } from '../game/contracts.js';
 
 const GUARD_STATES = ['task', 'react', 'investigate', 'look', 'hunt', 'chase'];
 const ITEM_STATES = ['rest', 'held', 'fall', 'fly', 'broken'];
@@ -32,7 +33,7 @@ export function hostState(full, hostPid, players) {
     r: [round.phase, r2(round.t), r2(round.escapeLeft), round.warned ? 1 : 0, round.alarmed ? 1 : 0],
     a: [alert.level, r2(alert.suspicion), alert.full ? 1 : 0, alert.flicker ? 1 : 0, alert.checking ? 1 : 0],
     pw: power.on ? 1 : 0,
-    c: [G.contract.id, G.difficulty],
+    c: [G.contract.id, G.difficulty, goalPlayers()],   // + the thieves of the round (co-op goal)
     p: players.map((p) => [p.pid, r3(p.head.x), r3(p.head.z), r3(p.head.y), r3(p.floorY || 0), r3(p.yaw), p.crouched ? 1 : 0, p.running ? 1 : 0, p.lost ? 1 : 0]),
     g: G.guards.map((g) => [r3(g.x), r3(g.y || 0), r3(g.z), r3(g.heading), r3(g.headYaw), GUARD_STATES.indexOf(g.state), r2(g.meter), g.visible ? 1 : 0, Math.max(0, POSES.indexOf(g.pose || null)), r2(g.speed || 0), g.activity || '']),
     l: (G.lurkers || []).map((l) => [LURK_STATES.indexOf(l.state), l.creature.visible ? 1 : 0, r3(l.creature.position.x), r3(l.creature.position.y), r3(l.creature.position.z), r3(l.creature.rotation.y), r2(l.lid ? l.lid.rotation.x / 1.7 : -l.door1.rotation.y / 1.9), r2(l.arms.scale.z), l.victim && l.victim.pid ? l.victim.pid : hostPid]),

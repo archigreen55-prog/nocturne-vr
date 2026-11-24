@@ -20,6 +20,7 @@ import { throwing } from './throw.js';
 import { devices } from './devices.js';
 import { traps } from './traps.js';
 import { net } from './net.js';
+import { coop } from './coop.js';
 import { style } from './style.js';
 import { story } from './story.js';
 import { campaign } from './campaign.js';
@@ -37,6 +38,7 @@ export const CFG = {
   maps, mansion,
   throw: throwing, devices, traps,
   net, humanGuard,
+  coop,   // the co-op campaign: the goal by the number of thieves
   style,
   story,   // W7
   campaign,   // W19

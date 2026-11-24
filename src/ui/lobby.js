@@ -43,6 +43,7 @@ export class Lobby {
           <p id="netgoal" class="nt-goal"></p>
           <div id="netpick"><div id="netlevels"></div><div class="seg" id="netdiffs"></div></div>
           <p id="netchoice" class="nt-choice"></p>
+          <p id="netlock" class="nt-lock" hidden></p>
           <div class="nt-acts"><button id="nethouse" type="button" class="nt-small"></button></div>
         </div>
       </div>
@@ -125,6 +126,7 @@ export class Lobby {
     start.disabled = !st.canStart;
     if (st.house) { house.textContent = S.net.otherHouse(st.house.name); house.disabled = !st.house.open; }
     choice.textContent = host ? '' : st.choice || '';   // the host sees its choice on the cards
+    const lockEl = q('netlock'); lockEl.textContent = st.lock || ''; lockEl.hidden = !st.lock;   // a guest: the host's level is still closed for it (plan 22.11 §2)
     q('netgoal').textContent = st.goal || '';   // the goal of the chosen level, for the host and the guests
     // decision of 7.11: the map, the level and the difficulty are the host's alone — a guest gets no cards and no
     // difficulty buttons at all, only "host chose: …" and the goal

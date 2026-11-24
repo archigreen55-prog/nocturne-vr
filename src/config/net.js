@@ -2,7 +2,7 @@
 // how often the host and the guests talk, the time-outs. Only public addresses here: no keys, no tokens
 // (the public repository; tests/net.test.mjs checks). TURN: a small Worker gives a 4-hour permission (W8c).
 export const net = {
-  protocol: 'p1',              // a new number = a new space of rooms: old and new builds never meet
+  protocol: 'p2',              // a new number = a new space of rooms: old and new builds never meet
   appId: 'nocturne-vr/p1',
   codeDigits: 6,               // the room code: 6 digits, shown as «483 921»
   maxThieves: 4,

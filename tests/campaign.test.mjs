@@ -51,12 +51,15 @@ test('the ladder (campaign v2): a new player starts at level 0 «Репетиц�
     out.firstOpen = Cm.isOpenLevel(Cm.levelOf('first')); out.current = Cm.currentLevel().n;
     // an old player: stars on 1, 2 and 4 (the old chain), none on 0 and 3
     localStorage.setItem('nocturne.stars', JSON.stringify({ first: { medium: 2 }, clock: { medium: 1 }, quiet: { medium: 1 } }));
+    localStorage.removeItem('nocturne.opened2');   // 22.11 §2.2: the old save at the first start of the new version — what the old rule left open is written down (opened2) and stays open
     out.old = Cm.levels().filter((l) => l.act === 1).map((l) => `${l.n}${Cm.isOpenLevel(l) ? 'o' : 'x'}${Cm.passed(l) ? 'p' : ''}`).join(' ');
     out.oldCurrent = Cm.currentLevel().n;
     // the mansion: a star on level 5 («Годинник»), not a count of stars
     localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, first: { hard: 3 }, chest: { hard: 3 }, quiet: { hard: 3 }, wardrobe: { medium: 1 } }));
+    localStorage.removeItem('nocturne.opened2');
     out.mansion4 = E.mapOpen('mansion');
     localStorage.setItem('nocturne.stars', JSON.stringify({ rehearsal: { medium: 1 }, clock: { medium: 1 } }));
+    localStorage.removeItem('nocturne.opened2');
     out.mansion5 = E.mapOpen('mansion');
     return out;
   });
