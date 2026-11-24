@@ -8,7 +8,7 @@
 //                        the other house: remembered, then the page reloads with ?map= (one page = one map)
 import { CFG } from '../config/index.js';
 import { G } from './state.js';
-import { CLASSIC, levels, contractOf } from '../game/campaign.js';
+import { CLASSIC, levels, contractOf, levelOf } from '../game/campaign.js';
 import { lockOf, mapOpen, starsBefore } from '../game/economy.js';
 import { bestStars } from '../game/contracts.js';
 import { saveSetting } from '../settings.js';
@@ -32,6 +32,14 @@ export const canPlay = (id) => {
   return !!c && !whyClosed(c);
 };
 
+// the level number to star first, for a level closed here (null: open, a placeholder or the classic game)
+function lockedAfter(c) {
+  const L = !CLASSIC && c && !c.locked ? lockOf(c) : null;
+  if (!L) return null;
+  const n = L.after ? (levelOf(L.after.id) || {}).n : L.level;
+  return n === undefined ? null : n;
+}
+
 export function levelGroups() {
   const here = G.level && G.level.id, cur = G.contract && G.contract.id;
   if (CLASSIC) {   // the tests' classic game: this map's contracts, no ladder
@@ -51,7 +59,7 @@ export function levelGroups() {
       groups.push(g);
     }
     const c = contractOf(l), why = l.soon ? S.levels.soon : whyClosed(c);
-    g.levels.push({ id: l.id, n: l.n, name: c ? c.name : '', stars: c ? starsOf(c.id) : 0, why, locked: !!why, soon: !!l.soon || !!(c && c.locked), current: l.id === cur, here: map === here });
+    g.levels.push({ id: l.id, n: l.n, name: c ? c.name : '', stars: c ? starsOf(c.id) : 0, why, locked: !!why, soon: !!l.soon || !!(c && c.locked), current: l.id === cur, here: map === here, after: lockedAfter(c) });
   }
   return groups;
 }

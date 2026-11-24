@@ -8,6 +8,35 @@ import { money, fmtTime } from '../ui/board.js';
 import { mischief } from './mischief.js';
 import { S } from '../i18n/index.js';
 
+// ---------- co-op: the money goal by the number of thieves (plan 2026-11-22-coop-campaign §1) ----------
+// n thieves in the round (counted when the clock starts, the guard of W15 is not one) = every money goal x k,
+// k = 1 + goalStep x (n - 1) (CFG.coop). Only dollars: the goal's `sum` and a ★★★ `sum`; items, counts, floor items,
+// times stay. One value for the whole game (the host decides it; a guest takes the host's), 1 offline.
+let thieves = 1;
+export const goalPlayers = () => thieves;
+// sets n (1 .. the room's size); true when it changed
+export function setGoalPlayers(n) {
+  const v = Math.max(1, Math.min(CFG.net.maxThieves || 4, Math.floor(+n) || 1));
+  const changed = v !== thieves;
+  thieves = v;
+  return changed;
+}
+export const goalK = (n = thieves) => 1 + CFG.coop.goalStep * (Math.max(1, Math.floor(n)) - 1);
+export const scaleSum = (sum, n = thieves) => (n <= 1 || sum < CFG.coop.round ? sum : Math.round(sum * goalK(n) / CFG.coop.round) * CFG.coop.round);   // a placeholder's $1 stays $1
+const scaled = new WeakMap();   // contract -> { n, c }: the scaled copy for the n it was made for
+const copies = new WeakSet();   // the scaled copies themselves: never scaled again
+// The contract as it is for n thieves: goal.sum and star3.sum multiplied (the contract itself when nothing changes)
+export function scaledGoal(c, n = thieves) {
+  if (!c || n <= 1 || copies.has(c) || (!(c.goal && c.goal.sum) && !(c.star3 && c.star3.sum !== undefined))) return c;
+  const had = scaled.get(c);
+  if (had && had.n === n) return had.c;
+  const v = { ...c };
+  if (c.goal && c.goal.sum) v.goal = { ...c.goal, sum: scaleSum(c.goal.sum, n) };
+  if (c.star3 && c.star3.sum !== undefined) v.star3 = { ...c.star3, sum: scaleSum(c.star3.sum, n) };
+  scaled.set(c, { n, c: v }); copies.add(v);
+  return v;
+}
+
 export const contracts = () => CFG.contracts;
 export const contractById = (id) => CFG.contracts.find((c) => c.id === id) || CFG.contracts[0];
 
@@ -22,6 +51,7 @@ function swapState(loot, W) {
   return { it, placed, delivered: !!(it && it.delivered) };
 }
 export function goalText(c, items) {
+  c = scaledGoal(c);
   const G = c.goal, parts = [];
   if (c.locked) return S.goal.locked(c.locked);
   if (G.item) parts.push(S.goal.item(nameOf(items, G.item)));
@@ -34,10 +64,13 @@ export function goalText(c, items) {
   if (G.noShout) parts.push(S.goal.noShout);
   return parts.join(', ');
 }
+// the goal with its price in thieves, for a screen that has room: «$1,050 (2 злодії)» (nothing added for one thief or a goal without money)
+export const goalLabel = (c, items) => (scaledGoal(c) !== c ? `${goalText(c, items)} (${S.coop2.thieves(thieves)})` : goalText(c, items));
 export const bonusText = (c) => (c.bonus === 'none' ? S.goal.bonusNone : c.bonus === 'intact' ? S.goal.bonusIntact : c.bonus === 'mischief' ? S.goal.bonusMischief(CFG.traps.evening.bonus, CFG.traps.evening.comboStars) : S.goal.bonusClean);
 
 // Progress toward the goal during the round, for the wrist and the board.
 export function progress(c, tally, loot) {
+  c = scaledGoal(c);
   if (c.locked) return { done: false, text: S.goal.locked(c.locked) };
   if (c.goal.floorItems) { const n = floorDelivered(loot, c.goal.floorItems); return { done: n >= c.goal.floorItems.n, text: S.goal.floorProgress(n, c.goal.floorItems.n) }; }
   if (c.goal.swap) { const w = swapState(loot, c.goal.swap); return { done: w.placed && w.delivered, text: S.goal.swapProgress(w.placed, w.delivered) }; }
@@ -78,6 +111,7 @@ export function star3Text(T) {
 }
 // The level's star rows for the card, the board's note and the summary: [{ n, text, price }] (the rehearsal: one)
 export function starRows(c, items) {
+  c = scaledGoal(c);
   const P = CFG.shop.v2.stars, X = S.campaign2.star;
   const rows = [{ n: 1, text: X.goal(goalText(c, items)), price: P[0] }];
   if (practiceOf(c)) return rows;
@@ -112,6 +146,7 @@ export function recordBits(id, bits) {
 
 // r: round.result; ctx: { alarmed, noMic, difficulty, loot }
 export function evaluate(c, r, ctx) {
+  c = scaledGoal(c);
   const got = r.kind === 'left' || r.kind === 'escaped';
   const G = c.goal;
   let goal = got;

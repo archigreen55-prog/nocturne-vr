@@ -6,6 +6,7 @@
 // crosshair) and the phone's pause menu; buying only before the clock starts. «Відкрити все» on
 // previews and with ?debug (start screen). The logic is game/economy.js; the numbers CFG.shop.
 import { CFG } from '../config/index.js';
+import { goalPlayers } from '../game/contracts.js';
 import { wallet, ensureWallet, creditRound, buy, upgrade, upgradeIds, trapPrice, lockOf, isOpen, openAll, openAllAllowed, setOpenAll, buyTrap } from '../game/economy.js';
 import { reloadVan, roundLimit, confiscateTraps } from './traps.js';
 import { reached, levelOf, CLASSIC } from '../game/campaign.js';
@@ -129,13 +130,21 @@ export const economy = {
     if (G.round.phase !== 'result' || !R || !G.verdict || R === local.lastResult || G.role === 'guard') return;   // W15: the guard earns no money
     local.lastResult = R;
     const got = R.kind === 'left' || R.kind === 'escaped', V = G.verdict;
-    G.income = { ...creditRound({ contractId: G.contract.id, difficulty: G.difficulty, loot: got ? R.sum : 0, stars: V.stars, bits: V.bits, practice: V.practice }), got };
+    G.income = { ...creditRound({ contractId: G.contract.id, difficulty: G.difficulty, loot: got ? R.sum : 0, stars: V.stars, bits: V.bits, practice: V.practice, players: goalPlayers() }), got };
     if (!got && V.bits) G.income.confiscated = confiscateTraps();   // v2 (decision R7 Б): caught — the traps out of the van are lost
     syncWallet();
     G.boardDirty = true;
   },
 };
 
+// the level (number) that must get a star before this contract opens in solo, null when it is open
+export function soloAfterLevel(c) {
+  if (CLASSIC) return null;
+  const L = lockOf(c);
+  if (!L) return null;
+  const n = L.after ? (levelOf(L.after.id) || {}).n : L.level;
+  return n === undefined ? null : n;
+}
 // the income line of the result board and the phone summary
 export function incomeText(inc = G.income) {
   if (!inc) return '';
@@ -148,12 +157,15 @@ export function incomeText(inc = G.income) {
 export function incomeLines(inc = G.income) {
   if (!inc || !inc.fresh) return [];
   const L = S.campaign2.loot, out = [];
+  if (inc.got && !inc.practice && inc.players > 1) out.push(S.coop2.lootShare(money(inc.team), money(inc.sum)));   // co-op: the brigade's loot and the «solo dollars» that count (plan 22.11 §1.4)
   if (!inc.got) out.push(L.lost);
   else if (inc.practice) out.push(L.practice);
   else if (inc.loot > 0) out.push(L.record(money(inc.sum), money(inc.loot)));
   else out.push(L.noRecord(money(inc.sum), money(inc.best)));
   if (inc.confiscated && inc.confiscated.length) out.push(L.confiscated(inc.confiscated.join(', ')));
   out.push(L.wallet(money(wallet().cash)));
+  const soon = soloAfterLevel(G.contract);   // a level this player has not opened itself (a friend's room): its stars and money count
+  if (soon !== null && inc.got) out.push(S.coop2.soloAfter(soon));
   return out;
 }
 export { upgrade };

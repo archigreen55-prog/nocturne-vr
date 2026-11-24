@@ -55,9 +55,9 @@ export function openHow(c = G.contract) {
 export const howCard = {
   id: 'howCard',
   init() { wire(); },
-  // once per mechanic: at the van, in the game (not the menu, not VR, not a guest), before the clock
+  // once per mechanic: at the van, in the game (not the menu, not VR; a guest in a friend's room too: plan 22.11 §2.2), before the clock
   present() {
-    if (CLASSIC || G.inVR || G.isGuest || !G.playingDesktop || G.paused || isOpen() || !G.round || G.round.phase !== 'ready' || G.role === 'guard') return;
+    if (CLASSIC || G.inVR || !G.playingDesktop || G.paused || isOpen() || !G.round || G.round.phase !== 'ready' || G.role === 'guard') return;
     if (G.summary && G.summary.isOpen) return;
     const s = seen(), fresh = howCards(G.contract).filter((x) => !s.has(x.id));
     if (!fresh.length) return;

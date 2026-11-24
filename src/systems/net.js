@@ -19,7 +19,8 @@ import { Lobby } from '../ui/lobby.js';
 import { HostGone } from '../ui/hostGone.js';
 import { loadSetting, saveSetting } from '../settings.js';
 import { applyDifficulty } from '../game/difficulty.js';
-import { contractById, goalText } from '../game/contracts.js';
+import { contractById, goalText, goalPlayers, setGoalPlayers } from '../game/contracts.js';
+import { soloAfterLevel } from './economy.js';
 import { newRound, caught, setContract, setDifficulty } from './contract.js';
 import { pause2D } from './desktop.js';
 import { travelShow } from './travel.js';
@@ -72,7 +73,7 @@ function refreshLobby() {
   lobby.show({ guardPid: G.guardPid, myPid: N.pid, inRoom: !!N.t, code: N.code, link: N.code ? roomLink(N.code, G.level.id) : '', players: lobbyPlayers(), status: N.status, statusBad: N.statusBad, tips: N.tips, retry: N.retry, card: N.t ? '' : N.card, lost: N.hostLost, version: VERSION,
     back: backLine(),   // Б2: «Повернутись у раунд» / after a reload between rounds the tap for the sound
     canStart: isHost() && [...N.remotes.values()].every((r) => !r.lost), house: isHost() ? { name: houseName(otherMap()), open: mapOpen(otherMap()) && G.round.phase !== 'heist' && G.round.phase !== 'escape' } : null,
-    role: N.role, choice: N.t ? choiceText() : '', levels: N.t ? levelsForRoom() : null, diffs: N.t ? diffsForRoom() : null, goal: N.t ? goalLine() : '' });
+    role: N.role, choice: N.t ? choiceText() : '', levels: N.t ? levelsForRoom() : null, diffs: N.t ? diffsForRoom() : null, goal: N.t ? goalLine() : '', lock: N.t ? guestLockLine() : '' });
 }
 // T4a: the mission in the room — what the host picked (its contract on this house, the difficulty)
 const setupNow = () => ({ map: G.level.id, c: G.contract.id, diff: G.difficulty, lock: levelGroups().flatMap((g) => g.levels.filter((l) => l.locked).map((l) => l.id)) });
@@ -96,8 +97,22 @@ function levelsForRoom() {
 }
 const goalLine = () => {
   const id = isHost() ? G.contract.id : (N.setup && N.setup.c), c = CFG.contracts.find((x) => x.id === id);
-  return c ? S.levels.goal(goalText(c, G.loot.items)) : '';
+  if (!c) return '';
+  const n = goalPlayers();   // co-op (plan 22.11 §1): «Мета: $1 050 (2 злодії)»; the number of the room as it is now, fixed when the clock starts
+  return n > 1 ? S.coop2.goalFor(n, goalText(c, G.loot.items)) : S.levels.goal(goalText(c, G.loot.items));
 };
+// a guest: the level the host picked is still closed for it — its stars and money count, in solo it opens later (plan 22.11 §2.2)
+function guestLockLine() {
+  if (isHost() || !N.setup || CLASSIC) return '';
+  const c = CFG.contracts.find((x) => x.id === N.setup.c), n = c && soloAfterLevel(c);
+  return n === null || n === undefined ? '' : S.coop2.guestLocked(n);
+}
+// co-op (plan 22.11 §1.2): the thieves of the round. The host counts them while the round waits at the van (a friend
+// that is there, not lost, not the guard) and the number is fixed by the clock's start; a guest takes the host's.
+function countThieves() {
+  if (!N.t || !isHost() || G.round.phase !== 'ready') return;
+  if (setGoalPlayers(hostPlayers().filter((p) => !p.lost).length)) { G.boardDirty = true; netSetupChanged(); }
+}
 const diffsForRoom = () => ['easy', 'medium', 'hard'].map((d) => ({ id: d, name: CFG.difficulties[d].name, current: d === G.difficulty }));
 // the host's pick in the room: a finished round goes back to the van first (setContract works only before the clock)
 // (a level of the other house: remembered, and the host reopens the same room there — T4b's «Інший будинок»)
@@ -177,6 +192,7 @@ function leave(quiet) {
   for (const r of N.remotes.values()) dropRemote(r);
   N.t = null; N.role = null; N.welcomed = false; N.hostPeer = null; N.lobbyList = null; N.away = false; N.backT = 0; N.rejoining = false; N.needTap = false;
   G.net = null; G.isGuest = false; G.isHost = true;
+  setGoalPlayers(1);   // alone again: the goal as in solo
   G.players = [G.player];
   applyGuard(null, N.pid); G.benchT = 0;
   if (!quiet) setStatus('');
@@ -390,7 +406,8 @@ function becomeGuest() {
 
 function guestState(s) {
   // the contract and the difficulty are the host's
-  const [cid, diff] = s.c || [];
+  const [cid, diff, thieves] = s.c || [];
+  if (thieves !== undefined && setGoalPlayers(thieves)) { G.boardDirty = true; refreshLobby(); }   // co-op: the host's number of thieves (the goal follows it)
   if (cid && (cid !== G.contract.id || diff !== G.difficulty)) {
     G.contract = contractById(cid); G.contractId = G.contract.id; G.difficulty = diff;
     applyDifficulty(G.difficulty, G.contract);
@@ -591,6 +608,7 @@ export const net = {
     // W8c: how each friend is connected (directly or through TURN), for the report; every 5 s
     if (N.t.links && t - (N.linksT || 0) > 5000) { N.linksT = t; const tr = N.t; tr.links().then((l) => { if (N.t === tr) N.links = l; }, () => {}); }
     if (isHost()) {
+      countThieves();
       // Б2 (decision Р2-a): in the middle of a round a friend on pause or silent keeps its place to the round's end;
       // after it (and before the round) the old rule: peerGoneAfter s of silence, counted from the round's end
       const mid = midRound();
