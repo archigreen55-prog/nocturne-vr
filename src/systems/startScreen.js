@@ -74,7 +74,7 @@ export const reportText = () => {
   const { touch, renderer, mic, frameStats, perf, round, quality, gyro, battery } = G;
   return buildReport({
     version: VERSION, mode: G.MODE, renderer, mic, audio: existingAudioContext(), frames: frameStats, perf,
-    game: { phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1),
+    game: { scream: G.scream && G.scream.report(), phase: round.phase, contract: G.contract.id, difficulty: G.difficulty, inVR: G.inVR, playing: G.playingDesktop, simSeconds: +G.simT.toFixed(1),
       run: G.runStats && { ...G.runStats, vrRun: G.vrRun },   // running: starts, short (< 0.4 s: accidental?), auto-runs, out of breath, doors
       wallet: { ...wallet(), paid: undefined, openAll: openAll() },   // W3: cash, earned, spent, owned, the last entries
       distract: distractReport(), mischief: trapsReport(), story: storyReport() },   // W7: notes, cards, the whisperer, the crew's lines   // W2b: traps placed / sprung / avoided, points, combos, stock   // W2a: throws, hits, devices used, the windows they gave

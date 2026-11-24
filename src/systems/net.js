@@ -428,6 +428,7 @@ function guestEvent(m) {
       break;
     }
     case 'flash': flash(m.t, m.s || 2.5, m.c); break;
+    case 'shoutHeard': if (G.scream) G.scream.markHeard(+m.t || 0, typeof m.g === 'string' && m.g ? m.g.slice(0, 30) : true); break;   // 22.11 §4: a guard came to this device's shout — its replay is «the one with the guard» (the clip itself never leaves the device)
     case 'climbNo': climbDenied(m.why); break;
     case 'lowerNo': flash(S.campaign2.window.hostNo, 2.5, '#ffb347'); break;
     case 'say': { const g = G.guards[m.g]; if (g) g.env.say(m.text, true); break; }
@@ -458,6 +459,8 @@ export function netEvent(k, data) {
   send({ type: 'ev', k, ...data });
   if (k === 'newround') forgetSent();   // the guests reset their copy: the next state is whole
 }
+// the host tells a guest that a guard came to its shout (round time t, the guard's name): its replay keeps that clip
+export function netShoutHeard(pid, t, guard) { if (N.t && isHost()) send({ type: 'ev', k: 'shoutHeard', t: +(+t).toFixed(2), g: guard }, N.peerOf.get(pid)); }
 // a guest asks the host to do something (door, take, put, device)
 export function netIntent(a, data = {}) { if (N.t && N.role === 'guest' && N.hostPeer) send({ type: 'act', a, ...data }, N.hostPeer); }
 // the friends' items still in hand when the round ends (game/round.js: stowed when you get away)
@@ -506,7 +509,7 @@ export const net = {
   init() {
     G.net = null; G.isGuest = false; G.isHost = true;
     G.netSetup = netSetupChanged;   // T4a
-    G.netEvent = netEvent; G.netIntent = netIntent; G.netHeld = netHeld; G.netCaught = netCaught;
+    G.netEvent = netEvent; G.netShoutHeard = netShoutHeard; G.netIntent = netIntent; G.netHeld = netHeld; G.netCaught = netCaught;
     G.netRemotes = () => [...N.remotes.values()]; G.netRemote = (pid) => N.remotes.get(pid) || null; G.netPid = () => N.pid; G.netName = () => N.name;   // W15
     N.name = loadSetting('netName', ''); N.thief = loadSetting('netThief', 'zoya');
     const box = $('netbox');

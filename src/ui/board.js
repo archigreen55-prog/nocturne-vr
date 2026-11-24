@@ -466,7 +466,7 @@ export class Board {
       g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 458);
     } else { g.fillStyle = '#7fc8ff'; g.fillText(s.noMic ? S.board.res.noMic : S.board.res.noShouts, W / 2, 458); }
     g.font = '18px system-ui, sans-serif'; g.fillStyle = '#6f8396';
-    g.fillText(R.shouts > 0 && s.screamBy ? `${s.screamBy} · ${S.board.res.memoryOnly}` : S.board.res.memoryOnly, W / 2, 484, W - 80);   // W7: the thief's line under the replay
+    g.fillText([R.shouts > 0 && s.clip ? s.heardBy : '', R.shouts > 0 ? s.screamBy : '', S.board.res.memoryOnly].filter(Boolean).join(' · '), W / 2, 484, W - 80);   // W7: the thief's line under the replay
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.res.listenAgain, x: 50, y: 495, w: 560, h: 105, enabled: !!s.clip && !s.playing });
     if (s.next) this.buttons.push({ id: 'nextlvl', label: S.campaign.next(s.next.n), x: 640, y: 495, w: 334, h: 105, font: 32 });   // W19: the next level
     else this.buttons.push({ id: 'again', label: S.board.res.newRound, x: 640, y: 495, w: 334, h: 105, enabled: true });

@@ -103,4 +103,6 @@ export function crewSays(situation, who = thief()) {
   return L[situation] ? { who, name: S.crew.names[who], line: L[situation] } : null;
 }
 // The signature under the scream replay: «Фрол: «Я не кричав.»»
+// «Цей крик почув Петрович»: the line under the replay when a guard came to the kept clip ('' otherwise)
+export const heardByLine = (clip) => (clip && typeof clip.heard === 'string' ? S.coop2.heardBy(clip.heard) : '');
 export const screamBy = (who = thief()) => S.board.res.screamBy(S.crew.names[who], S.crew.scream[who]);

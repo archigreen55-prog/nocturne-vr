@@ -17,7 +17,7 @@ import { beforeNow, afterNow } from './story.js';
 import { campaignNote, nextOpen, nextLabel } from './campaign.js';
 import { howCards } from './howCard.js';
 import { roundNoMic } from './micAuto.js';
-import { screamBy, lurkerCards, lurkersMet, papers, notesCount, thief } from '../game/story.js';
+import { screamBy, heardByLine, lurkerCards, lurkersMet, papers, notesCount, thief } from '../game/story.js';
 
 // Everything the board shows, as one string: the same string = nothing to redraw.
 function boardSignature(T, lv) {
@@ -25,7 +25,7 @@ function boardSignature(T, lv) {
   const R = round.result, V = G.verdict, onMic = round.phase === 'ready' && G.boardPage === 'mic', calib = G.calib;
   return JSON.stringify([
     round.phase, Math.ceil(round.clock), alert.level, T.sum, T.inVan, T.list.length, T.damaged, R && R.kind, R && R.sum,
-    !!scream.best, scream.best && scream.best.t, !!scream.playing, scream.modeName, G.boardPage, contract.id, G.difficulty, bestStars(contract.id),
+    !!scream.best, scream.best && scream.best.t, scream.best && scream.best.heard, !!scream.playing, scream.modeName, G.boardPage, contract.id, G.difficulty, bestStars(contract.id),
     V && V.stars, V && V.newBest, mic.noMic, mic.state, mic.calibrated, !!G.micOffRound, mic.permission, board.hover, progress(contract, T, loot).text,
     calib && [calib.i, calib.phase, calib.left.toFixed(1)], G.calibNotes,
     onMic ? [Math.round(mic.env), Math.round(mic.whisperDb), Math.round(mic.shoutDb), lv.label] : 0,
@@ -84,7 +84,7 @@ export const board = {
         wallet: S.shop.wallet(money(wallet().cash)), lock: lockText(contract), income: incomeText(),
         shop: G.boardPage === 'shop' ? { rows: shopPageRows(), page: G.shopPage, pages: shopPages() } : null,
         maps: mapsForBoard(G.level.id),   // W6
-        story: beforeNow(contract), storyAfter: afterNow(), mischief: mischiefText(), screamBy: screamBy(),   // W2b, W7
+        story: beforeNow(contract), storyAfter: afterNow(), mischief: mischiefText(), screamBy: screamBy(), heardBy: heardByLine(scream.best),   // W2b, W7; 22.11: «Цей крик почув …»
         lurkers: G.boardPage === 'lurkers' ? { cards: lurkerCards(), met: lurkersMet(), page: G.storyPage || 0, noMic: G.mic.noMic || G.mic.state !== 'on' } : null,   // W7
         papers: G.boardPage === 'papers' ? { rows: papers(), count: notesCount() } : null,
         note: campaignNote(contract), vr: !!G.inVR, next: nextOpen(),   // W19: the level's note, the next level

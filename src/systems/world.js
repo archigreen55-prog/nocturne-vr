@@ -35,10 +35,22 @@ import { nearest } from '../game/players.js';
 function shoutHeard(guard, k, e, ey) {
   const { alert } = G;
   if (!guard) { if (e.source === 'player' && !alert.manualOnly && !alert.full) flash(S.messages.shoutUnheard, 3, '#ff9f43'); return; }
+  screamHeard(guard, e);
   if (alert.manualOnly || alert.full) { guard.reactTo(e, ey); return; }   // W15: the friend playing the guard decides; an alarm already: it hunts there
   if (k >= CFG.mic.shout.alarmK && CFG.run.shoutFull) { alert.setFull(S.cause.shout, e.x, e.z); flash(S.messages.shoutFull, 3, '#ff4d4d'); return; }
   alert.add(CFG.mic.shout.points, e.x, e.z);
   if (!alert.full) { guard.heardShout(e.x, e.z, G.level.floorIndex ? G.level.floorIndex(ey) : undefined); flash(S.messages.shoutEasy, 3, '#ff4d4d'); }
+}
+
+// A guard came to a shout (it looks, or it is the alarm): the replay of that shout is «the one with the guard»
+// (plan 22.11 §4, decision Р5 A). This device's own shout: marked here; a friend's: its device is told (the clip
+// stays in its memory and is nowhere sent).
+function screamHeard(guard, e) {
+  const who = e.who;
+  if (!who || e.kind !== 'shout') return;
+  const name = guard.name || S.guard.name;
+  if (who === G.player) G.scream.markHeard(G.round.t, name);
+  else if (who.id && G.netShoutHeard) G.netShoutHeard(who.id, G.round.t, name);
 }
 
 export const world = {
