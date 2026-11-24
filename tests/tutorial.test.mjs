@@ -46,7 +46,7 @@ test('tutorial on a phone: shown on the first run; look, walk, the board, the cl
   await waitTut(page, (s) => s.step === 'board' && /Табло/.test(s.text));
   // 3. the board: any button (here the next contract)
   await page.evaluate(() => window.__game.pressBoard('micpage'));
-  await waitTut(page, (s) => s.step === 'go' && /Годинник піде/.test(s.text));
+  await waitTut(page, (s) => s.step === 'go' && /Час піде/.test(s.text));
   assert.equal(await page.evaluate(() => window.__game.round.phase), 'ready', 'the clock still waits at the van');
   // 4. leave the van: the clock starts, the steps are done
   await page.evaluate(() => { const g = window.__game; g.player.teleport(0.5, -1.5, Math.PI); });

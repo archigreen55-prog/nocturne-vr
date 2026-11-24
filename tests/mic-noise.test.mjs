@@ -190,7 +190,7 @@ test('very noisy in a round (Р-Ш1 = А): a warning after 3 s, after 10 s «Т�
   assert.deepEqual([r.gust.off, r.gust.loud, r.gust.warned], [false, false, false], `a gust under 3 s is nothing ${JSON.stringify(r)}`);
   assert.match(r.warn.flash, /Тут дуже шумно: гра не відрізняє твій голос від шуму\. Знайди тихіше місце\./, JSON.stringify(r.warn));
   assert.equal(r.warn.off, false, 'only a warning at 4 s');
-  assert.match(r.off.flash, /Цей раунд іде без мікрофона/, JSON.stringify(r.off));
+  assert.match(r.off.flash, /Ця вилазка йде без мікрофона/, JSON.stringify(r.off));
   assert.deepEqual([r.off.off, r.off.loud, r.off.status], [true, true, 'loud']);
   assert.deepEqual([r.after.off, r.after.loud], [true, true], 'the round stays without the microphone after the noise is gone');
   assert.equal(r.after.status, 'ok');
@@ -199,7 +199,7 @@ test('very noisy in a round (Р-Ш1 = А): a warning after 3 s, after 10 s «Т�
   await ctx.close();
 });
 
-test('very noisy: the result says «Раунд без мікрофона: було дуже шумно.»; the menu line says it before the round; the HUD shows the level over the floor and «шумно»', async () => {
+test('very noisy: the result says «Вилазка без мікрофона: було дуже шумно.»; the menu line says it before the round; the HUD shows the level over the floor and «шумно»', async () => {
   const ctx = await newContext(browser, { permissions: ['microphone'] });
   await ctx.addInitScript((cal) => localStorage.setItem('nocturne.mic', JSON.stringify(cal)), CAL);
   const { page, errors } = await open(ctx, base);
@@ -230,7 +230,7 @@ test('very noisy: the result says «Раунд без мікрофона: бул
   });
   assert.equal(res.loud, true, JSON.stringify(res));
   const s = await page.evaluate(async () => (await import('./src/systems/micAuto.js')).noMicText());
-  assert.equal(s, 'Раунд без мікрофона: було дуже шумно.');
+  assert.equal(s, 'Вилазка без мікрофона: було дуже шумно.');
   assert.deepEqual(errors, []);
   await ctx.close();
 });
@@ -265,7 +265,7 @@ test('Р-Ш2 = А: a calibration from before the speech band — the card asks o
 });
 
 // ---------- the real filter: synthetic sounds through the fake microphone ----------
-test('street WAV (real speech-band filter): wind and a far road, raw about -28 dB, silent — no «НОРМАЛЬНО», no «тебе чути», not very noisy (the owner\'s Samsung 22.11)', async () => {
+test('street WAV (real speech-band filter): wind and a far road, raw about -28 dB, silent — no «ГОЛОС», no «тебе чути», not very noisy (the owner\'s Samsung 22.11)', async () => {
   const ctx = await newContext(browser, micPhone);
   const cal = { floor: -50.119, normal: -22.408, whisper: -44.69, shout: -15.152, band: 1, bleed: -80 };   // the owner's Android calibration
   await ctx.addInitScript((c) => localStorage.setItem('nocturne.mic', JSON.stringify(c)), cal);
@@ -282,7 +282,7 @@ test('street WAV (real speech-band filter): wind and a far road, raw about -28 d
   await ctx.close();
 }, { wav: windWav });
 
-test('street WAV: talking over the wind is «НОРМАЛЬНО», a shout is «КРИК!», the silence between is not', async () => {
+test('street WAV: talking over the wind is «ГОЛОС», a shout is «КРИК!», the silence between is not', async () => {
   const ctx = await newContext(browser, micPhone);
   const cal = { floor: -50.119, normal: -22.408, whisper: -44.69, shout: -15.152, band: 1, bleed: -80 };
   await ctx.addInitScript((c) => localStorage.setItem('nocturne.mic', JSON.stringify(c)), cal);

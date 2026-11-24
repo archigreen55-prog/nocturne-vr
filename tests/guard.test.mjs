@@ -50,7 +50,7 @@ test('guard: the role from the lobby, the guard\'s view (light / dark), its ears
   // the lobby: «Стати сторожем» on the guest; the host lists it as the guard; only one guard
   const b0 = await G(guest.page, () => ({ t: document.querySelector('#netguard').textContent, is: document.querySelector('#netguardis').textContent }));
   assert.equal(b0.t, 'Стати сторожем');
-  assert.equal(b0.is, 'Сторож: AI');
+  assert.equal(b0.is, 'Сторож: комп\'ютер');
   await pressGuardButton(guest.page);
   await run(pages, 0.8);
   const roles = await Promise.all(pages.map((p) => G(p, async () => { const { G: S } = await import('./src/systems/state.js'); return { role: S.role, gp: S.guardPid, human: S.humanGuard, manual: !!window.__game.patrol.manual, list: document.querySelector('#netlist').textContent, btn: document.querySelector('#netguard').textContent, dis: document.querySelector('#netguard').disabled }; })));

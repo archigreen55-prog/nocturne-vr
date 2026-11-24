@@ -113,7 +113,7 @@ test('privacy page: linked from the start screen and the menu; microphone on the
   assert.deepEqual(await p2.evaluate(() => window.__opened), ['privacy.html']);
   // and «Прогрес: код» from the menu opens the start screen's block
   await p2.evaluate(() => { window.__game.menu.go('settings'); });
-  await fingerPressEl(p2, cdp, '#pausemenu .pm-btn:text-is("Прогрес: код")');
+  await fingerPressEl(p2, cdp, '#pausemenu .pm-btn:text-is("Перенести прогрес")');
   await p2.waitForFunction(() => !document.getElementById('progress').hidden && document.getElementById('overlay').style.display !== 'none');
   await c2.close();
 });

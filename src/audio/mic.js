@@ -47,6 +47,12 @@ export function micDbLine(mic, speaking) {
   return mark + S.hud.micDb((v >= 0 ? '+' : '−') + Math.abs(v), speaking);
 }
 
+// The same for a player without «Цифри на екрані» (no dB): just the «шумно» mark and «тебе чути»
+export function noiseMark(mic, speaking) {
+  const n = mic.noise, mark = n === 'loud' ? S.micNoise.loudMark : n === 'noisy' ? S.micNoise.mark : '';
+  return [mark, speaking ? S.hud.heard : ''].filter(Boolean).join(' · ');
+}
+
 export class Mic {
   constructor() {
     this.state = 'off';        // off | pending | on | denied | none

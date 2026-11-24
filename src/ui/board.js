@@ -139,7 +139,7 @@ export class Board {
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 410, y: 500, w: 564, h: 100, enabled: !!s.clip && !s.playing });
   }
 
-  // W19 (plan-W19-campaign.md §2.4): on a phone / PC the contract page is the customer's note «pp.» —
+  // W19 (plan-W19-campaign.md §2.4): on a phone / PC the contract page is the customer's note from the Collector —
   // the level, the lines, the crew's line, the goal, what is new, the records; «Поїхали» and «Карта…».
   // The level is picked in the menu (VR keeps the old page until the board's map, stage E2).
   drawNote(s) {
@@ -200,7 +200,11 @@ export class Board {
     g.textAlign = 'left'; g.font = `800 44px ${HEAD}`; g.fillStyle = C.locked ? '#6f8396' : '#ffb347';   // W6: a locked placeholder is grey
     g.fillText(C.name, 50, 128);
     g.font = '27px system-ui, sans-serif'; g.fillStyle = C.locked ? '#9aa7bf' : '#efe6d4';
-    if (s.story && !C.locked) { g.font = 'italic 23px system-ui, sans-serif'; wrap(g, `${s.story.lines.join(' ')} ${C.brief}`, 50, 166, W - 100, 28); }   // W2b, W7: the customer's lines
+    if (s.story && !C.locked) {
+      g.font = 'italic 23px system-ui, sans-serif';
+      const yEnd = wrap(g, `${s.story.lines.join(' ')} ${C.brief}`, 50, 166, W - 100, 28);
+      if (s.story.sign) { g.font = 'italic 20px system-ui, sans-serif'; g.fillStyle = '#9aa7bf'; g.textAlign = 'right'; g.fillText(s.story.sign, W - 50, Math.min(yEnd + 24, 246)); g.textAlign = 'left'; }   // the Collector's signature, apart from the lines
+    }   // W2b, W7: the customer's lines
     else wrap(g, C.brief, 50, 172, W - 100, 34);
     g.font = '25px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
     if (s.stars3) this.drawStars(s.stars3, 262);   // campaign v2 (VR keeps this page)
@@ -217,7 +221,7 @@ export class Board {
     if (s.lock) { g.fillStyle = '#ffb347'; g.font = 'bold 24px system-ui, sans-serif'; g.fillText(s.lock, 50, 440, 490); }
     else if (s.story && s.story.crew) { g.fillStyle = '#ffb347'; g.font = 'italic 22px system-ui, sans-serif'; g.fillText(s.story.crew, 50, 440, 490); }   // W2b, W7: the crew's yellow line
     else { g.fillStyle = '#6f8396'; g.font = '22px system-ui, sans-serif'; g.fillText(S.board.pickHere, 50, 440, 490); }
-    // W7 (decision R2 A): Тихарник and «Папери», small, above the bottom row
+    // W7 (decision R2 A): Домовики and «Папери», small, above the bottom row
     this.buttons.push({ id: 'lurkers', label: S.board.lurkersPage, x: 560, y: 418, w: 200, h: 44, font: 22 });
     this.buttons.push({ id: 'papers', label: S.board.papersPage, x: 774, y: 418, w: 200, h: 44, font: 22 });
     if (s.how && s.how.length) this.buttons.push({ id: 'how', label: S.campaign2.how.button, x: 774, y: 362, w: 200, h: 44, font: 22 });   // campaign v2 (VR reads the card here)
@@ -236,7 +240,7 @@ export class Board {
     }
   }
 
-  // W7: Тихарник — three cards a page (game/story.js lurkerCards): a card met has its three lines, the others «???»
+  // W7: Домовики — three cards a page (game/story.js lurkerCards): a card met has its three lines, the others «???»
   drawLurkers(s) {
     const g = this.g, L = s.lurkers, per = 3, pages = Math.ceil(L.cards.length / per), page = Math.min(L.page, pages - 1);
     g.textAlign = 'left'; g.font = `800 34px ${HEAD}`; g.fillStyle = '#ffb347';
@@ -320,8 +324,8 @@ export class Board {
     g.font = `800 34px ${HEAD}`; g.fillStyle = '#ffb347';
     g.fillText(S.board.micTitle, 50, 80);
     g.font = '26px system-ui, sans-serif'; g.fillStyle = '#d6cfbf';
-    const status = M.status === 'ok' ? S.board.mic.calibrated : M.status === 'uncal' ? S.board.mic.notCalibrated : S.micState.line(M.status, M.problem);   // Б1: the honest state
-    g.fillText(status, 320, 78);
+    const status = S.micState.line(M.status, M.problem);   // Б1: the honest state, the same words everywhere (plan 2026-11-17)
+    g.fillText(status, 320, 78, W - 370);   // the longer words are squeezed, not cut off
     if (s.calib) {   // the wizard is running
       g.font = 'bold 40px system-ui, sans-serif'; g.fillStyle = s.calib.phase === 'rec' ? '#ffb347' : '#9aa7bf';
       g.fillText(S.board.calibStep(s.calib.i + 1, s.calib.total || 4, s.calib.step.title.toUpperCase(), s.calib.left.toFixed(1)), 50, 150);
@@ -408,12 +412,13 @@ export class Board {
     }
     if (s.storyAfter && s.storyAfter.line) {
       g.textAlign = 'center'; g.font = 'italic 21px system-ui, sans-serif'; g.fillStyle = '#e6d8b0';
-      g.fillText(s.storyAfter.line + (s.storyAfter.crew ? '  ' + s.storyAfter.crew : ''), W / 2, 412, W - 100);
+      g.fillText(s.storyAfter.line + (s.storyAfter.crew ? '  ' + s.storyAfter.crew : ''), W / 2, 404, W - 100);
+      if (s.storyAfter.sign) { g.textAlign = 'right'; g.font = 'italic 18px system-ui, sans-serif'; g.fillStyle = '#9aa7bf'; g.fillText(s.storyAfter.sign, W - 50, 426); }   // the Collector's signature, apart from the line
     }
     g.textAlign = 'center'; g.font = 'bold 24px system-ui, sans-serif';
     if (s.playing && s.clip) { g.fillStyle = '#ffb347'; g.fillText(S.board.res.screamAt(fmtTime(s.clip.t, true)), W / 2, 448); }
     else if (R.shouts > 0) { g.fillStyle = '#ffb347'; g.fillText(s.clip ? S.board.res.shouts(R.shouts, fmtTime(s.clip.t, true)) : S.board.res.shoutsNoClip(R.shouts, s.recMode || '—'), W / 2, 448); }
-    else { g.fillStyle = '#7fc8ff'; g.fillText((s.noMic ? s.noMicText || S.board.mic.noMic : S.board.res.noShouts) + (s.loudFriends ? ` ${s.loudFriends}` : ''), W / 2, 448, W - 60); }
+    else { g.fillStyle = '#7fc8ff'; g.fillText((s.noMic ? s.noMicText || S.micState.line('nomic') : S.board.res.noShouts) + (s.loudFriends ? ` ${s.loudFriends}` : ''), W / 2, 448, W - 60); }
     this.buttons.push({ id: 'play', label: s.playing ? S.board.playing : S.board.listen, x: 50, y: 480, w: 250, h: 110, font: 24, enabled: !!s.clip && !s.playing });
     if (s.next) {
       this.buttons.push({ id: 'again', label: s.againLabel, x: 315, y: 480, w: 320, h: 110, font: 24, enabled: true });
@@ -457,8 +462,9 @@ export class Board {
       const A = s.storyAfter, a = A.line + (A.crew ? '  ' : '');
       g.font = 'italic 21px system-ui, sans-serif';
       const wa = g.measureText(a).width, wc = A.crew ? g.measureText(A.crew).width : 0, k = Math.min(1, (W - 100) / (wa + wc)), x0 = W / 2 - (wa + wc) * k / 2;
-      g.textAlign = 'left'; g.fillStyle = '#e6d8b0'; g.fillText(a, x0, 426, wa * k);
-      if (A.crew) { g.fillStyle = '#ffb347'; g.fillText(A.crew, x0 + wa * k, 426, wc * k); }
+      g.textAlign = 'left'; g.fillStyle = '#e6d8b0'; g.fillText(a, x0, 414, wa * k);
+      if (A.crew) { g.fillStyle = '#ffb347'; g.fillText(A.crew, x0 + wa * k, 414, wc * k); }
+      if (A.sign) { g.textAlign = 'right'; g.font = 'italic 18px system-ui, sans-serif'; g.fillStyle = '#9aa7bf'; g.fillText(A.sign, W - 50, 436); }   // the Collector's signature, apart from the line
       g.textAlign = 'center';
     }
     // the scream

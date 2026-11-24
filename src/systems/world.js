@@ -143,7 +143,8 @@ export const world = {
       get hands() { return G.hands; },
       get guards() { return G.guards; },
       friendsHeld: () => (G.netHeld ? G.netHeld() : []),
-      onMessage: (t, c, s) => { flash(t, s || 3, c); if (G.netEvent) G.netEvent('flash', { t, c, s: s || 3 }); },
+      // vrOnly: the start's words — a flat screen has the banner (systems/goBanner.js), only the headset needs the flash (plan 2026-11-17 §4.1)
+      onMessage: (t, c, s, vrOnly) => { if (!vrOnly || G.inVR) flash(t, s || 3, c); if (G.netEvent) G.netEvent('flash', { t, c, s: s || 3, vr: !!vrOnly }); },
       onPhase: (phase) => {
         G.boardDirty = true;
         if (phase === 'result') {

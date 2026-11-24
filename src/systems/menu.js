@@ -1,8 +1,8 @@
 // W17 «Стиль» S3 (plan-W17-style.md §3.2–3.5): the way into the game. The start screen's card is now a
-// main menu («Грати» · «Грати з друзями» · «Магазин» · «Тихарник» · «Налаштування») and pages, each a
+// main menu («Грати» · «Грати з друзями» · «Магазин» · «Домовики» · «Налаштування») and pages, each a
 // <section data-page> in index.html; the old elements kept their ids, so the start screen's own code
 // (systems/startScreen.js, ui/start.js, ui/lobby.js) is unchanged. Pages open from the buttons and from
-// ?page=… (deep links); «←» and Android's «Назад» go back (history). Тихарник shows W7's cards
+// ?page=… (deep links); «←» and Android's «Назад» go back (history). Домовики shows W7's cards
 // (game/story.js). The splash itself is index.html's (it shows before the modules load); this system
 // only learns when it is gone, then offers the microphone on the first run.
 // The tests see every page at once (body.pages-all, tests/harness.mjs) unless they ask for the menu.
@@ -177,7 +177,7 @@ const syncSegs = () => { for (const sel of document.querySelectorAll('#overlay s
 function renderSettings() {
   syncSegs();
   const mic = G.mic, wiz = $('micwiz');
-  if ($('microwtext')) $('microwtext').textContent = !mic ? S.settings.micRow.none : mic.noMic ? S.settings.micRow.off : mic.calibrated ? S.settings.micRow.ok : S.settings.micRow.none;
+  if ($('microwtext')) $('microwtext').textContent = !mic ? S.menu2.mic.none : S.micState.row(mic.status);   // short: one line in the settings
   if (!mic || !wiz) return;
   const done = { allow: mic.state === 'on', cal: !!mic.calibrated, check: !!$('verifyres').textContent.trim() };
   let now = null;

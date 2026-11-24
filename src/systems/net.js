@@ -433,7 +433,7 @@ function guestEvent(m) {
       else if (m.kind === 'glass') playGlass(pos, occ);
       break;
     }
-    case 'flash': flash(m.t, m.s || 2.5, m.c); break;
+    case 'flash': if (!m.vr || G.inVR) flash(m.t, m.s || 2.5, m.c); break;
     case 'climbNo': climbDenied(m.why); break;
     case 'lowerNo': flash(S.campaign2.window.hostNo, 2.5, '#ffb347'); break;
     case 'say': { const g = G.guards[m.g]; if (g) g.env.say(m.text, true); break; }

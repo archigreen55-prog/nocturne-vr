@@ -3,7 +3,7 @@
 // clock and alarm, step loudness, crouch, what you hold / room, optional FPS block (X), message
 // line and the build version.
 import * as THREE from 'three';
-import { LEVELS, micDbLine } from '../audio/mic.js';
+import { LEVELS, micDbLine, noiseMark } from '../audio/mic.js';
 import { fmtTime, money } from './board.js';
 import { S } from '../i18n/index.js';
 
@@ -110,7 +110,7 @@ export class WristPanel {
       g.font = problem ? 'bold 22px system-ui, sans-serif' : '22px system-ui, sans-serif';
       g.fillStyle = problem ? '#ff5468' : mic.noise === 'loud' ? '#ffb347' : '#6f8396';
       g.textAlign = problem ? 'center' : 'left';
-      g.fillText(problem || micDbLine(mic, s.speaking), problem ? W / 2 : x0, y + h + 26);
+      g.fillText(problem || noiseMark(mic, s.speaking), problem ? W / 2 : x0, y + h + 26);
     } else {
       g.fillStyle = '#8a93a3'; g.font = 'bold 44px system-ui, sans-serif';
       g.fillText(S.hud.micOff, 300, 88);

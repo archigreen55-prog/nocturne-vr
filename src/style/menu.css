@@ -96,7 +96,7 @@ section[data-page="menu"] .mm-logo { text-align: center; padding-bottom: 40px; }
 /* the smallest phones in landscape (667 x 280): no room for the progress line — the buttons only (the summary says it is saved) */
 @media (max-height: 300px) { #mmprogline { display: none; } .mm-prog { margin-top: 0; } }
 
-/* the cards of Тихарник and the shop's rows on the menu pages */
+/* the cards of Домовики and the shop's rows on the menu pages */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .lcard { padding: 10px 12px; border-radius: 10px; background: var(--night); border: 2px solid var(--ink2); box-shadow: 3px 3px 0 var(--ink2); font-size: 13px; }
 .lcard b { display: block; font: 800 14px var(--head); color: var(--paper); margin-bottom: 4px; }
@@ -388,7 +388,7 @@ table.ht-table td:last-child { border-radius: 0 8px 8px 0; }
 body.guest-room section[data-page="friends"] [data-back] { visibility: hidden; }
 body.guest-room #netsetup #netpick { display: none; }
 
-/* ---------- menu design stage 2: «Магазин» and «Тихарник» as card grids ---------- */
+/* ---------- menu design stage 2: «Магазин» and «Домовики» as card grids ---------- */
 #shopwallet, #lurkercount, #papercount { display: inline-block; margin: 0 0 8px !important; padding: 5px 12px; border-radius: 999px; background: var(--night); border: 2px solid var(--ink2); font: 800 13px var(--head) !important; color: var(--lamp) !important; }
 section[data-page="shop"] > .muted { margin: 0 0 10px; font-size: 12px; }
 #shoplist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }

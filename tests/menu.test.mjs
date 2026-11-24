@@ -1,5 +1,5 @@
 // W17 «Стиль» S3 (plan-W17-style.md §3.2–3.5, §4.4 item 6): the splash, the main menu and its pages, the
-// ?page= links, Android's «Назад», the first-run microphone card, the small phone, Тихарник from W7.
+// ?page= links, Android's «Назад», the first-run microphone card, the small phone, Домовики from W7.
 // These tests ask for the menu a player gets ({ menu: true }); every other test sees all pages at once.
 import assert from 'node:assert/strict';
 import { newContext } from './harness.mjs';
@@ -23,7 +23,7 @@ test('menu (S3): the splash (the loading screen; a tap skips it), then the main 
   if (await page.$('#micask:not([hidden])')) await page.click('#asklater');
   assert.deepEqual(await shown(page), ['menu']);
   assert.equal((await page.textContent('h1')).trim(), GAME_NAME, 'the logo is the game\'s name');
-  assert.deepEqual(await page.$$eval('#mmnav [data-go]', (b) => b.map((x) => x.dataset.go)), PAGES, 'Грати · Грати з друзями · Магазин · Тихарник · Налаштування');
+  assert.deepEqual(await page.$$eval('#mmnav [data-go]', (b) => b.map((x) => x.dataset.go)), PAGES, 'Грати · Грати з друзями · Магазин · Домовики · Налаштування');
   assert.ok(await page.evaluate(() => document.fonts.check('800 20px Unbounded', 'HUSH JOB ЇЄҐ')), 'the headings\' font is there, with і ї є ґ');
   for (const p of PAGES) {
     await page.click(`#mmnav [data-go="${p}"]`);
@@ -55,7 +55,7 @@ test('menu (S3): the splash (the loading screen; a tap skips it), then the main 
 
 // the microphone not refused (a context with only clipboard permissions reads it as refused: «Мікрофон заборонено»)
 const MICLAND = { ...LAND, permissions: [...LAND.permissions, 'microphone'] };
-test('menu (S3): the first run offers the microphone — «Пізніше» closes it for this visit, «Грати без мікрофона» ticks the box; a calibrated microphone is not asked about; Тихарник shows W7\'s cards and opens one met', async () => {
+test('menu (S3): the first run offers the microphone — «Пізніше» closes it for this visit, «Грати без мікрофона» ticks the box; a calibrated microphone is not asked about; Домовики shows W7\'s cards and opens one met', async () => {
   const ctx = await newContext(browser, MICLAND, { menu: true });
   let { page, errors } = await open(ctx, preview + '?nosplash=1');
   await page.waitForSelector('#micask:not([hidden])');
@@ -84,7 +84,7 @@ test('menu (S3): the first run offers the microphone — «Пізніше» clos
   // Б1 (mic v2): not «Мікрофон ✓» from an old calibration while the microphone is off — it opens on «Грати»
   assert.equal(await p3.textContent('#mmmicline'), 'Мікрофон увімкнеться, коли натиснеш «Грати»');
   assert.equal(await p3.evaluate(() => window.__game.mic.state), 'off', 'not opened while the page loads');
-  // Тихарник (campaign v2, plan §2.5: no wall of «???»): only the lurkers this ladder has — Шафник; «???» until met
+  // Домовики (campaign v2, plan §2.5: no wall of «???»): only the lurkers this ladder has — Шафник; «???» until met
   await p3.click('#mmnav [data-go="lurkers"]');
   const cards = () => p3.$$eval('#lurkerlist .lcard', (c) => c.map((x) => `${x.dataset.lurker}:${x.classList.contains('locked') ? 'locked' : 'open'}`));
   assert.deepEqual(await cards(), ['wardrobe:locked']);

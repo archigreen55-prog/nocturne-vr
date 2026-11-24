@@ -1,7 +1,7 @@
 // Start screen (2D, before Enter VR): microphone permission, calibration and a live level meter.
 // Asking here matters: inside an immersive session the permission dialog may not be reachable.
 import { LEVELS, adjustAllowed } from '../audio/mic.js';
-import { runCalibration, verifyMic, stepsFor } from '../audio/calibrate.js';
+import { runCalibration, verifyMic } from '../audio/calibrate.js';
 import { deniedHelp, promptHelp, HOLD_TEXT, IOS_SOUND } from '../audio/micHelp.js';
 import { bindPress } from './press.js';
 import { S } from '../i18n/index.js';
@@ -14,7 +14,6 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
   const micBtn = $('micbtn'), calBtn = $('calbtn'), state = $('micstate'), step = $('calstep');
   const startBtn = $('start');
   let calibrating = false, meterT = 0;
-  const nSteps = stepsFor(true).length, stepsWord = S.start.steps(nSteps);
   const ios = dev && (dev.device === 'iPhone' || dev.device === 'iPad');
   if (phone) $('michold').textContent = HOLD_TEXT;
   if (ios) { $('iosnote').textContent = IOS_SOUND; $('iosnote').hidden = false; }
@@ -25,7 +24,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
     calBtn.disabled = s !== 'on' || calibrating || mic.noMic;
     $('nomic').checked = mic.noMic;
     micBtn.textContent = s === 'on' ? S.start.micOn : S.start.allowMic;
-    calBtn.textContent = mic.calibrated ? S.start.recalibrate(stepsWord) : S.start.calibrate(stepsWord);
+    calBtn.textContent = mic.calibrated ? S.start.recalibrate() : S.start.calibrate();
     if (phone) $('verifybtn').disabled = s !== 'on' || calibrating || mic.noMic || !mic.calibrated;
     // permission help: refused -> where to allow it; not asked yet -> what the dialogs will be
     const help = mic.noMic ? '' : s === 'denied' || mic.permission === 'denied' ? deniedHelp(dev) : s !== 'on' && phone ? promptHelp(dev) : '';
@@ -39,8 +38,7 @@ export function setupStartScreen({ mic, onPlay, onMicOn, onChange, phone = false
     if (s === 'on' && mic.problem) notes.push(mic.problem);
     $('micnote').textContent = notes.join(' ');
     if (mic.noMic) state.textContent = S.start.state.noMic;
-    else if (s === 'on') state.textContent = mic.calibrated ? S.start.state.calibrated(mic.cal.floor.toFixed(0), Number.isFinite(mic.cal.whisper) ? mic.cal.whisper.toFixed(0) : null, mic.cal.normal.toFixed(0)) : S.start.state.notCalibrated;
-    else if (s === 'denied') state.textContent = S.start.state.denied;
+    else if (s === 'on' || s === 'denied') state.textContent = S.micState.line(mic.status, mic.problem);   // one set of words (plan 2026-11-17)
     else if (s === 'none') state.textContent = S.start.state.none(mic.error);
     else if (s === 'pending') state.textContent = S.start.state.pending;
     else state.textContent = mic.calibrated ? S.micState.willStart : S.start.state.ask;   // Б1: a set-up microphone opens on «Грати»

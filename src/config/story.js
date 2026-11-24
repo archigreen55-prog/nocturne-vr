@@ -7,7 +7,7 @@ export const story = {
   crew: { every: 20, guardNearEvery: 60, guardNear: 4, show: 4, spokeEvery: 30, lurkerSeen: 6 },
   // the guard's line on the start of a round («Ну що, хато…») after this many s of the clock
   houseAfter: 4,
-  // Тихарник: the cards in the order of the page; open in the release: wardrobe, whisperer
+  // Домовики: the cards in the order of the page; open in the release: wardrobe, whisperer
   lurkers: ['wardrobe', 'whisperer', 'snorer', 'grabber', 'speaker', 'yawner', 'chime', 'mannequin', 'mute'],
   // the wardrobe lurker (Шафник): a box inside the wardrobe, taken only while it sleeps (doors ajar)
   wardrobe: { ajar: 0.3, seen: 6, seenCos: 0.6 },

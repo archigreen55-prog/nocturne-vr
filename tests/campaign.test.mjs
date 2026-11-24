@@ -162,7 +162,7 @@ test('the rehearsal: Petrovych sits down in his armchair and stays; the clock st
   assert.equal(r.sitting, true, 'in the armchair');
   assert.equal(r.goal, 'винеси 2 будь-які речі');
   assert.equal(r.phase, 'heist');
-  assert.equal(r.flash, 'Годинник стоїть: це репетиція');
+  assert.equal(r.flash, 'Репетиція: час не йде');
   assert.equal(r.t, 0, 'the clock does not run');
   assert.equal(r.clock, r.time);
   assert.equal(r.stillSitting, true, 'he stays in the chair');
@@ -177,7 +177,7 @@ test('the rehearsal: Petrovych sits down in his armchair and stays; the clock st
   await ctx.close();
 });
 
-test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Тихий Кут», the customer\'s lines, the goal, «Нове: сторож ходить», «Поїхали» (turns you to the house, says the clock starts outside) and «Карта…» (the menu\'s «Грати»); no ◀ ▶, no difficulty on it', async () => {
+test('the board at the van on a PC: the note «— Колекціонер» — «Рівень 1 · Тихий Кут», the customer\'s lines, the goal, «Нове: сторож ходить», «Поїхали» (turns you to the house, says the clock starts outside) and «Карта…» (the menu\'s «Грати»); no ◀ ▶, no difficulty on it', async () => {
   const { ctx, page, errors } = await camp(base, { stars: { rehearsal: S1 } });
   const r = await page.evaluate(async () => {
     const g = window.__game, { G } = await import('./src/systems/state.js'), { board } = await import('./src/systems/board.js');
@@ -202,8 +202,8 @@ test('the board at the van on a PC: the note «pp.» — «Рівень 1 · Т�
   assert.ok(r.said.includes('РІВЕНЬ 1 · ТИХИЙ КУТ'), r.said.join(' | '));
   assert.ok(r.said.includes('винеси щонайменше $500'), 'the goal: the first star\'s row');
   assert.ok(r.said.includes('Нове: сторож ходить'), 'what is new');
-  assert.ok(r.said.some((t) => /pp\.$/.test(t)), 'the customer\'s «pp.»');
-  assert.equal(r.flash, 'Вийди з фургона — годинник піде');
+  assert.ok(r.said.some((t) => t === '— Колекціонер'), 'the Collector\'s signature, apart from the lines');
+  assert.equal(r.flash, 'Час піде за лінією СТАРТ');
   assert.ok(Math.abs(Math.abs(r.yaw1 - r.spawnYaw) - Math.PI) < 0.01, 'turned to the house');
   assert.equal(r.overlay, 'flex', '«Карта…»: the menu');
   assert.equal(r.page, 'play', 'on its «Грати» page');
@@ -224,7 +224,7 @@ test('«Грати» (T1): a new player — level 0 on the dacha, «Грати»
   assert.ok(c.filter((x) => x.off).every((x) => x.n.includes('🔒')));
   const st = await page.evaluate(() => ({ map: window.__game.level.id, c: window.__game.contract.id, start: document.getElementById('start').disabled, note: document.querySelector('.lv-house[data-house="mansion"] .lv-note').textContent }));
   assert.deepEqual([st.map, st.c, st.start], ['dacha', 'rehearsal', false]);
-  assert.match(st.note, /^Маєток: спершу ★ на рівні 5$/);
+  assert.match(st.note, /^Маєток: спершу пройди рівень 5$/);
   // a closed card, the old select, the board's ▶: nothing changes; «Грати» stays on the open level
   await page.click('#levelpick [data-level="clock"]', { force: true });
   await page.selectOption('#contract', 'clock');
@@ -233,7 +233,7 @@ test('«Грати» (T1): a new player — level 0 on the dacha, «Грати»
   // the engine forced onto a closed level (an old remembered value would be the same): «Грати» is off
   await page.evaluate(() => window.__game.setContract('clock'));
   assert.equal(await page.evaluate(() => document.getElementById('start').disabled), true, 'a closed level does not start');
-  assert.match(await page.textContent('#lvinfowhy'), /Спершу ★/);
+  assert.match(await page.textContent('#lvinfowhy'), /Спершу пройди/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

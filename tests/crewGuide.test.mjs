@@ -42,7 +42,7 @@ test('crew guide: ?page=crew shows the five buy cards and the two locked groups 
       text: document.getElementById('crewlist').textContent, traps: g.CFG.traps.order };
   });
   assert.deepEqual(r.shown, ['crew']);
-  assert.deepEqual(r.groups, ['Купити в магазині', 'Кидати', 'Пристрої в домі']);
+  assert.deepEqual(r.groups, ['Купити в магазині', 'Кидати', 'Радіо, телефон і щиток']);
   for (const c of cards.slice(0, 5)) {
     assert.ok(!c.locked, `${c.id} is open from the start`);
     assert.deepEqual(c.rows.map((x) => x.split('|')[0]), ['crew-does', 'crew-where', 'crew-how', 'crew-tip', 'crew-foot'], `${c.id}: four lines and the footer`);

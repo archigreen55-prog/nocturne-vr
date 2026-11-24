@@ -18,7 +18,7 @@ test('VR regression (IWER Quest 3): enter VR, walk with the stick, snap turn, pi
   assert.deepEqual(vrMic, { steps: 5, game: 'function', bleed: -30, cover: false, agc: false, raised: 0 }, 'VR (mic v2): the protection from the game\'s own sound (the headset\'s speakers sit by its microphone), «Звуки гри» in the calibration');
   assert.deepEqual(await page.evaluate(() => [window.__game.quality, window.__game.gyro, window.__game.renderer.getPixelRatio() === Math.min(devicePixelRatio, 1.5)]), [null, null, true], 'VR: no phone quality / gyroscope, the pixel ratio as before');
   await page.evaluate(() => { const g = window.__game; g.mic.noMic = true; g.pressBoard('micpage'); g.sim(0.1); });
-  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Калібрувати (5 кроків)')), 'VR board: 5 steps');
+  assert.ok(await page.evaluate(() => window.__game.board.buttons.some((b) => b.id === 'cal' && b.label === 'Налаштувати (30 с)')), 'VR board: «Налаштувати (30 с)»');
   await page.evaluate(() => { const g = window.__game; g.mic.noMic = false; g.pressBoard('back'); g.sim(0.1); });
   await page.click('#vrbutton');
   await page.waitForFunction(() => window.__game.inVR, null, { timeout: 10000 });

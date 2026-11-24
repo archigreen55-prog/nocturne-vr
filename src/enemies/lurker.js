@@ -120,7 +120,7 @@ export class Lurker {
   }
 
   wake() {
-    if (this.env.onWake) this.env.onWake(this.victim);   // W7: Тихарник, the crew's line
+    if (this.env.onWake) this.env.onWake(this.victim);   // W7: Домовики, the crew's line
     this.state = 'telegraph';
     this.t = 0;
     this.creature.visible = true;

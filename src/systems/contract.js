@@ -99,7 +99,7 @@ export function pressBoard(id) {
   else if (id === 'diff') setDifficulty(DIFFS[(DIFFS.indexOf(G.difficulty) + 1) % DIFFS.length]);
   else if (id === 'micpage') { G.boardPage = 'mic'; G.calibNotes = ''; }
   else if (id === 'mappage') G.boardPage = 'map';
-  else if (id === 'lurkers') { G.boardPage = 'lurkers'; G.storyPage = 0; }   // W7: Тихарник
+  else if (id === 'lurkers') { G.boardPage = 'lurkers'; G.storyPage = 0; }   // W7: Домовики
   else if (id === 'papers') G.boardPage = 'papers';   // W7: «Папери»
   else if (id === 'how') G.boardPage = 'how';   // campaign v2: the level's card «Як це?»
   else if (id === 'howok') { for (const c of howCards(G.contract)) markSeen(c.id); G.boardPage = 'contract'; }

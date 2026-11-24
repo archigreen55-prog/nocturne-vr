@@ -32,7 +32,7 @@ export class Summary {
     if (s.income) left.append(el('div', 'sm-income', s.income));   // the money for the wallet (W3)
     if (s.saved) left.append(el('div', 'sm-saved' + (s.saved.warn ? ' warn' : ''), s.saved.text));   // plan 2026-11-19: saved on this device
     if (s.mischief) left.append(el('div', 'sm-income', s.mischief));   // W2b: mischief points
-    if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b, W7: the customer and the crew (every contract)
+    if (s.story) { left.append(el('div', 'sm-story', s.story.line)); if (s.story.sign) left.append(el('div', 'sm-sign', s.story.sign)); if (s.story.crew) left.append(el('div', 'sm-crew', s.story.crew)); }   // W2b, W7: the customer and the crew (every contract)
     const list = el('div', 'sm-list scroll');
     if (!R.list.length) list.append(el('div', 'sm-empty', S.summary.nothing));
     for (const it of R.list) {
@@ -63,7 +63,7 @@ export class Summary {
     const row = el('div', 'sm-buttons');
     const play = mk(S.board.listen, () => this.h.play());
     const again = s.guest ? el('span', 'muted', S.net.waitHost(s.guest)) : s.next ? mk(S.campaign.next(s.next.n), () => this.h.next(), 'primary') : mk(S.board.res.newRound, () => this.h.again(), 'primary');   // W19: the next level
-    row.append(again, play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), s.room ? 'primary' : 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
+    row.append(again, play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), s.room ? 'primary' : 'quiet'));   // the report button lives in «Для тестерів» now (plan 2026-11-17, owner's A on 12)
     right.append(row);
     card.append(left, right);
     this.root.replaceChildren(card);
@@ -96,7 +96,7 @@ export class Summary {
     }
     const play = mk(S.board.listen, () => this.h.play(), 'quiet');
     const small = el('div', 'sm-quietrow');
-    small.append(play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), 'quiet'), mk(S.summary.report, () => this.h.report(), 'quiet'));
+    small.append(play, mk(s.room ? S.net.backToRoom : S.summary.menu, () => this.h.menu(), 'quiet'));
     right.append(row, small);
     card.append(left, right);
     this.root.replaceChildren(card);
